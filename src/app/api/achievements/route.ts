@@ -269,7 +269,7 @@ export async function GET(request: Request) {
       const currentValue = userStats[criteriaType] || 0;
       const targetValue = achievement.criteria.target as number;
       
-      const userAch = userAchievements.find(a => a.achievementId === achievement.id);
+      const userAch = userAchievements.find((a: { achievementId: string }) => a.achievementId === achievement.id);
       // 检查数据库中是否已解锁，或者满足解锁条件
       const isUnlocked = userAch ? true : (currentValue >= targetValue);
       
