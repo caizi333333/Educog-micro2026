@@ -17,6 +17,13 @@
 /.next/
 /out/
 
+# prisma local db (不要提交到仓库/生产环境)
+/prisma/*.db
+/prisma/**/*.db
+
+# 本地截图/临时资源
+*.png
+
 # production
 /build
 
