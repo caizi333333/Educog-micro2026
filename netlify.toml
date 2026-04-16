@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Basic authentication for entire site
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Multiple user:password pairs separated by space
+    Basic-Auth = "alex:secretpass"

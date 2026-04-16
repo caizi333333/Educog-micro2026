@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清除登录令牌</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .success {
+            color: #28a745;
+            margin-top: 20px;
+        }
+        .info {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>清除登录令牌</h1>
+        <p class="info">如果您遇到登录问题，请点击下面的按钮清除存储的登录令牌，然后重新登录。</p>
+        
+        <button onclick="clearTokens()">清除所有令牌</button>
+        <button onclick="goToLogin()">前往登录页面</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function clearTokens() {
+            try {
+                // 清除localStorage中的所有可能的token
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log('已清除:', key);
+                });
+                
+                // 清除sessionStorage
+                const sessionKeysToRemove = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                        sessionKeysToRemove.push(key);
+                    }
+                }
+                
+                sessionKeysToRemove.forEach(key => {
+                    sessionStorage.removeItem(key);
+                    console.log('已清除会话存储:', key);
+                });
+                
+                // 清除所有cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                document.getElementById('result').innerHTML = 
+                    '<div class="success">✅ 所有令牌已清除！<br>清除的localStorage项: ' + keysToRemove.length + 
+                    '<br>清除的sessionStorage项: ' + sessionKeysToRemove.length + 
+                    '<br>已清除所有cookies</div>';
+                    
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    '<div style="color: red;">❌ 清除失败: ' + error.message + '</div>';
+            }
+        }
+        
+        function goToLogin() {
+            window.location.href = 'http://localhost:3000/login';
+        }
+        
+        // 页面加载时显示当前存储的信息
+        window.onload = function() {
+            let info = '<h3>当前存储信息:</h3>';
+            info += '<p><strong>localStorage:</strong></p><ul>';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    info += '<li>' + key + '</li>';
+                }
+            }
+            info += '</ul>';
+            
+            info += '<p><strong>sessionStorage:</strong></p><ul>';
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    info += '<li>' + key + '</li>';
+                }
+            }
+            info += '</ul>';
+            
+            document.getElementById('result').innerHTML = info;
+        };
+    </script>
+</body>
+</html>

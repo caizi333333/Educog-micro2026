@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-outline {
+            background: transparent;
+            color: #007bff;
+            border: 2px solid #007bff;
+        }
+        .btn-outline:hover {
+            background: #007bff;
+            color: white;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>按钮点击测试</h1>
+        <p>测试按钮点击事件是否正常工作：</p>
+        
+        <button class="btn" onclick="testLogin()">测试登录按钮</button>
+        <button class="btn btn-outline" onclick="testRegister()">测试注册按钮</button>
+        
+        <h3>直接跳转测试：</h3>
+        <a href="http://localhost:3000/login" class="btn">直接跳转到登录页</a>
+        <a href="http://localhost:3000/register" class="btn btn-outline">直接跳转到注册页</a>
+        
+        <div class="log" id="log">点击日志将显示在这里...</div>
+    </div>
+    
+    <script>
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+        }
+        
+        function testLogin() {
+            log('登录按钮被点击');
+            try {
+                window.location.href = 'http://localhost:3000/login';
+                log('尝试跳转到登录页面');
+            } catch (error) {
+                log('跳转失败: ' + error.message);
+            }
+        }
+        
+        function testRegister() {
+            log('注册按钮被点击');
+            try {
+                window.location.href = 'http://localhost:3000/register';
+                log('尝试跳转到注册页面');
+            } catch (error) {
+                log('跳转失败: ' + error.message);
+            }
+        }
+        
+        // 页面加载完成
+        window.onload = function() {
+            log('测试页面加载完成');
+        };
+    </script>
+</body>
+</html>

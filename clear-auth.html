@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清理认证信息</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>清理认证信息</h1>
+        <p>如果遇到登录跳转问题，可以尝试清理所有认证相关的数据：</p>
+        
+        <button class="btn" onclick="clearAuth()">清理所有认证数据</button>
+        <button class="btn btn-success" onclick="testWelcome()">测试Welcome页面</button>
+        
+        <div class="log" id="log">操作日志将显示在这里...</div>
+    </div>
+    
+    <script>
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearAuth() {
+            log('开始清理认证数据...');
+            
+            // 清理 localStorage
+            const localStorageKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    localStorageKeys.push(key);
+                }
+            }
+            
+            localStorageKeys.forEach(key => {
+                localStorage.removeItem(key);
+                log(`清理 localStorage: ${key}`);
+            });
+            
+            // 清理 sessionStorage
+            const sessionStorageKeys = [];
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    sessionStorageKeys.push(key);
+                }
+            }
+            
+            sessionStorageKeys.forEach(key => {
+                sessionStorage.removeItem(key);
+                log(`清理 sessionStorage: ${key}`);
+            });
+            
+            // 清理 cookies (通过设置过期时间)
+            const cookiesToClear = ['accessToken', 'refreshToken', 'authToken', 'userToken'];
+            cookiesToClear.forEach(cookieName => {
+                document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;`;
+                log(`清理 cookie: ${cookieName}`);
+            });
+            
+            log('认证数据清理完成！');
+            log('建议刷新页面后再测试登录功能。');
+        }
+        
+        function testWelcome() {
+            log('跳转到 Welcome 页面进行测试...');
+            window.location.href = 'http://localhost:3000/welcome';
+        }
+        
+        // 页面加载时显示当前存储的数据
+        window.onload = function() {
+            log('页面加载完成，检查当前认证数据...');
+            
+            // 检查 localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    log(`发现 localStorage: ${key} = ${localStorage.getItem(key)}`);
+                }
+            }
+            
+            // 检查 sessionStorage
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && (key.includes('token') || key.includes('auth') || key.includes('user'))) {
+                    log(`发现 sessionStorage: ${key} = ${sessionStorage.getItem(key)}`);
+                }
+            }
+            
+            // 检查 cookies
+            const cookies = document.cookie.split(';');
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                if (name && (name.includes('token') || name.includes('auth') || name.includes('user'))) {
+                    log(`发现 cookie: ${name} = ${value}`);
+                }
+            });
+            
+            if (localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === '') {
+                log('未发现任何认证相关数据');
+            }
+        };
+    </script>
+</body>
+</html>

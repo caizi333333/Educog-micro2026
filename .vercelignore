@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+build
+dist
+.next
+out
+
+# Development
+.git
+.trae
+.log
+*.log
+dev.log
+
+# Documentation (large files)
+docs/
+*.md
+!README.md
+!package.json
+
+# IDE and editor files
+.vscode/
+.idx/
+.claude/
+
+# Config files that aren't needed for deployment
+*.yaml
+*.yml
+!apphosting.yaml
+netlify.toml
+windsurf_deployment.yaml
+
+# Scripts
+scripts/
+
+# Prisma migrations (use schema only)
+prisma/migrations/
+prisma/seed.ts
+
+# Large assets
+*.backup
+*.old
+*.temp
+
+# Environment files
+.env*
+!.env.example

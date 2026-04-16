@@ -1,0 +1,72 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+.genkit/*
+.env*
+
+# firebase
+firebase-debug.log
+firestore-debug.log
+# Local Netlify folder
+.netlify
+
+# Irrelevant documentation files
+CLAUDE.md
+CODE_QUALITY_REPORT.md
+EXPERIMENT_LOGIC_IMPROVEMENTS.md
+EXPERIMENT_SYSTEM_IMPLEMENTATION.md
+FIRST_LOGIN_ACHIEVEMENT.md
+GOOGLE_AI_SETUP.md
+LAYOUT_IMPROVEMENTS.md
+OPTIMIZATION_FLOWCHART.md
+OPTIMIZATION_IMPLEMENTATION.md
+OPTIMIZATION_PROGRESS.md
+OPTIMIZATION_ROADMAP.md
+PERFORMANCE_OPTIMIZATION_ANALYSIS.md
+PRESENTATION_SCRIPT.md
+PROGRESS_TRACKING_IMPROVEMENTS.md
+PROJECT_FIX_REPORT.md
+PROJECT_STATUS.md
+TROUBLESHOOTING.md
+fix-vercel-deployment.md
+project_description.md
+quiz-analysis-report.md
+实验仿真平台检测执行记录.md
+测试执行记录.md
+逐页测试计划.md

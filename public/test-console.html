@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console Test</title>
+</head>
+<body>
+    <h1>Console Test Page</h1>
+    <p>Open browser console and run:</p>
+    <ul>
+        <li><code>window.open('http://localhost:3000/login', '_blank')</code></li>
+        <li>Then in the new tab console: <code>testLogin()</code></li>
+        <li>Or: <code>testRegister()</code></li>
+    </ul>
+    
+    <script>
+        // 自动打开登录页面并测试
+        setTimeout(() => {
+            const loginWindow = window.open('http://localhost:3000/login', 'loginTest');
+            
+            // 等待页面加载后测试
+            setTimeout(() => {
+                try {
+                    if (loginWindow && loginWindow.testLogin) {
+                        console.log('🔍 找到testLogin函数，开始测试...');
+                        loginWindow.testLogin();
+                    } else {
+                        console.log('❌ 未找到testLogin函数');
+                    }
+                } catch (error) {
+                    console.error('❌ 测试出错:', error);
+                }
+            }, 3000);
+        }, 1000);
+    </script>
+</body>
+</html>

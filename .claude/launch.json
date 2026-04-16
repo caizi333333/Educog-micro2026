@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "educog-micro",
+      "runtimeExecutable": "/opt/homebrew/Cellar/node/25.3.0/bin/node",
+      "runtimeArgs": ["/Users/alex/EduCog-Micro/node_modules/.bin/next", "dev", "-H", "0.0.0.0"],
+      "port": 3000,
+      "autoPort": false,
+      "cwd": "/Users/alex/EduCog-Micro"
+    }
+  ]
+}

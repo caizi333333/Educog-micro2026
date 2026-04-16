@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #3b82f6;
+            color: white;
+        }
+        .test-button:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .test-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+        .test-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .secondary {
+            background: #6b7280;
+        }
+        .secondary:hover {
+            background: #4b5563;
+        }
+        .log {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .form-test {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+        }
+        .form-test input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fef2f2; color: #dc2626; }
+        .info { background: #dbeafe; color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <h1>登录注册按钮功能测试</h1>
+    
+    <div class="test-section">
+        <h2>1. 基础按钮点击测试</h2>
+        <button class="test-button" onclick="logEvent('基础按钮被点击', 'basic')">
+            🔘 基础按钮
+        </button>
+        <button class="test-button secondary" onclick="logEvent('次要按钮被点击', 'basic')">
+            ⚪ 次要按钮
+        </button>
+        <button class="test-button" disabled>
+            🚫 禁用按钮
+        </button>
+        <div id="basic-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 表单提交测试</h2>
+        <form class="form-test" onsubmit="handleFormSubmit(event, 'login')">
+            <input type="text" placeholder="用户名" id="username" value="testuser">
+            <input type="password" placeholder="密码" id="password" value="123456">
+            <button type="submit" class="test-button">
+                🔑 登录测试
+            </button>
+        </form>
+        <div id="form-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 注册表单测试</h2>
+        <form class="form-test" onsubmit="handleFormSubmit(event, 'register')">
+            <input type="email" placeholder="邮箱" id="reg-email" value="test@example.com">
+            <input type="text" placeholder="用户名" id="reg-username" value="newuser">
+            <input type="password" placeholder="密码" id="reg-password" value="123456">
+            <input type="password" placeholder="确认密码" id="reg-confirm" value="123456">
+            <button type="submit" class="test-button">
+                📝 注册测试
+            </button>
+        </form>
+        <div id="register-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 按钮状态测试</h2>
+        <button class="test-button" id="state-btn" 
+                onmouseenter="logEvent('鼠标悬停', 'state')"
+                onmouseleave="logEvent('鼠标离开', 'state')"
+                onfocus="logEvent('获得焦点', 'state')"
+                onblur="logEvent('失去焦点', 'state')"
+                onmousedown="logEvent('鼠标按下', 'state')"
+                onmouseup="logEvent('鼠标释放', 'state')"
+                onclick="logEvent('点击事件', 'state')">
+            🎯 状态测试按钮
+        </button>
+        <div id="state-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 异步操作测试</h2>
+        <button class="test-button" onclick="testAsyncOperation()" id="async-btn">
+            ⏳ 异步操作测试
+        </button>
+        <div id="async-log" class="log"></div>
+    </div>
+
+    <script>
+        function logEvent(message, section) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById(section + '-log');
+            const logEntry = `[${timestamp}] ${message}`;
+            logElement.innerHTML += logEntry + '<br>';
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(logEntry);
+        }
+
+        function handleFormSubmit(event, type) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            logEvent(`${type}表单提交: ${JSON.stringify(data)}`, type === 'login' ? 'form' : 'register');
+            
+            // 模拟API调用
+            const button = event.target.querySelector('button');
+            button.disabled = true;
+            button.innerHTML = '⏳ 处理中...';
+            
+            setTimeout(() => {
+                button.disabled = false;
+                button.innerHTML = type === 'login' ? '🔑 登录测试' : '📝 注册测试';
+                logEvent(`${type}操作完成`, type === 'login' ? 'form' : 'register');
+            }, 2000);
+        }
+
+        function testAsyncOperation() {
+            const button = document.getElementById('async-btn');
+            button.disabled = true;
+            button.innerHTML = '⏳ 处理中...';
+            
+            logEvent('开始异步操作', 'async');
+            
+            // 模拟异步操作
+            setTimeout(() => {
+                logEvent('异步操作完成', 'async');
+                button.disabled = false;
+                button.innerHTML = '⏳ 异步操作测试';
+            }, 3000);
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            logEvent('页面加载完成，按钮功能测试就绪', 'basic');
+            
+            // 测试键盘事件
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.target.tagName === 'BUTTON') {
+                    logEvent('键盘Enter触发按钮', 'state');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

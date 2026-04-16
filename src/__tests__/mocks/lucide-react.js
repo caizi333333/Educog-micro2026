@@ -1,0 +1,96 @@
+// Mock for lucide-react icons
+const React = require('react');
+
+// Create a generic mock component for all icons
+const createMockIcon = (name) => {
+  const MockIcon = (props) => {
+    return React.createElement('svg', {
+      'data-testid': `${name}-icon`,
+      className: props.className,
+      ...props
+    }, name);
+  };
+  MockIcon.displayName = name;
+  return MockIcon;
+};
+
+// Export commonly used icons
+module.exports = {
+  CheckCircle2: createMockIcon('CheckCircle2'),
+  Cloud: createMockIcon('Cloud'),
+  CloudOff: createMockIcon('CloudOff'),
+  Loader2: createMockIcon('Loader2'),
+  Play: createMockIcon('Play'),
+  Pause: createMockIcon('Pause'),
+  RotateCcw: createMockIcon('RotateCcw'),
+  Settings: createMockIcon('Settings'),
+  User: createMockIcon('User'),
+  LogOut: createMockIcon('LogOut'),
+  Menu: createMockIcon('Menu'),
+  X: createMockIcon('X'),
+  ChevronDown: createMockIcon('ChevronDown'),
+  ChevronUp: createMockIcon('ChevronUp'),
+  ChevronLeft: createMockIcon('ChevronLeft'),
+  ChevronRight: createMockIcon('ChevronRight'),
+  Plus: createMockIcon('Plus'),
+  Minus: createMockIcon('Minus'),
+  Search: createMockIcon('Search'),
+  Filter: createMockIcon('Filter'),
+  Download: createMockIcon('Download'),
+  Upload: createMockIcon('Upload'),
+  Edit: createMockIcon('Edit'),
+  Trash: createMockIcon('Trash'),
+  Save: createMockIcon('Save'),
+  Copy: createMockIcon('Copy'),
+  Check: createMockIcon('Check'),
+  AlertCircle: createMockIcon('AlertCircle'),
+  Info: createMockIcon('Info'),
+  HelpCircle: createMockIcon('HelpCircle'),
+  Eye: createMockIcon('Eye'),
+  EyeOff: createMockIcon('EyeOff'),
+  Lock: createMockIcon('Lock'),
+  Unlock: createMockIcon('Unlock'),
+  Mail: createMockIcon('Mail'),
+  Phone: createMockIcon('Phone'),
+  Calendar: createMockIcon('Calendar'),
+  Clock: createMockIcon('Clock'),
+  MapPin: createMockIcon('MapPin'),
+  Globe: createMockIcon('Globe'),
+  Home: createMockIcon('Home'),
+  Star: createMockIcon('Star'),
+  Heart: createMockIcon('Heart'),
+  Bookmark: createMockIcon('Bookmark'),
+  Share: createMockIcon('Share'),
+  MessageCircle: createMockIcon('MessageCircle'),
+  Bell: createMockIcon('Bell'),
+  BellOff: createMockIcon('BellOff'),
+  Volume2: createMockIcon('Volume2'),
+  VolumeX: createMockIcon('VolumeX'),
+  Wifi: createMockIcon('Wifi'),
+  WifiOff: createMockIcon('WifiOff'),
+  Battery: createMockIcon('Battery'),
+  Zap: createMockIcon('Zap'),
+  Sun: createMockIcon('Sun'),
+  Moon: createMockIcon('Moon'),
+  Monitor: createMockIcon('Monitor'),
+  Smartphone: createMockIcon('Smartphone'),
+  Tablet: createMockIcon('Tablet'),
+  Laptop: createMockIcon('Laptop'),
+  Camera: createMockIcon('Camera'),
+  Image: createMockIcon('Image'),
+  File: createMockIcon('File'),
+  Folder: createMockIcon('Folder'),
+  Archive: createMockIcon('Archive'),
+  Database: createMockIcon('Database'),
+  Server: createMockIcon('Server'),
+  Code: createMockIcon('Code'),
+  Terminal: createMockIcon('Terminal'),
+  GitBranch: createMockIcon('GitBranch'),
+  Github: createMockIcon('Github'),
+  Twitter: createMockIcon('Twitter'),
+  Facebook: createMockIcon('Facebook'),
+  Instagram: createMockIcon('Instagram'),
+  Linkedin: createMockIcon('Linkedin'),
+  Youtube: createMockIcon('Youtube'),
+  // Add more icons as needed
+};

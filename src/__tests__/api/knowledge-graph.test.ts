@@ -1,0 +1,786 @@
+import { NextRequest } from 'next/server';
+import { GET, POST } from '@/app/api/knowledge-graph/route';
+import { GET as NodesGET, POST as NodesPOST, PUT as NodesPUT, DELETE as NodesDelete } from '@/app/api/knowledge-graph/nodes/route';
+import { GET as PathsGET, POST as PathsPOST, PUT as PathsPUT } from '@/app/api/knowledge-graph/paths/route';
+import { GET as ProgressGET, POST as ProgressPOST } from '@/app/api/knowledge-graph/progress/route';
+import { verifyToken } from '@/lib/auth';
+import { 
+  createMockPrismaClient,
+  createMockJWTPayload,
+  createMockUserProgress,
+  setupAuthMock,
+  setupPrismaMock,
+  clearAllMocks,
+  createMockNextRequest
+} from '../utils/test-mocks';
+
+// Mock dependencies
+jest.mock('@/lib/auth');
+
+const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
+const mockPrisma = createMockPrismaClient();
+
+describe('Knowledge Graph API Routes', () => {
+  beforeEach(() => {
+    clearAllMocks(mockPrisma);
+
+    // 为本文件的路由调用提供“默认安全返回”，避免未设置 mock 时抛异常导致 500
+    mockPrisma.userProgress.findUnique.mockResolvedValue(null);
+    mockPrisma.userProgress.upsert.mockResolvedValue({} as any);
+
+    mockPrisma.learningProgress.findFirst.mockResolvedValue(null);
+    mockPrisma.learningProgress.findMany.mockResolvedValue([]);
+    mockPrisma.learningProgress.count.mockResolvedValue(0);
+    mockPrisma.learningProgress.aggregate.mockResolvedValue({ _avg: { progress: 0 } } as any);
+    mockPrisma.learningProgress.upsert.mockResolvedValue({
+      progress: 0,
+      timeSpent: 0,
+      status: 'NOT_STARTED',
+      lastAccessAt: new Date(),
+    } as any);
+    mockPrisma.learningProgress.update.mockResolvedValue({} as any);
+    mockPrisma.learningProgress.deleteMany.mockResolvedValue({ count: 0 } as any);
+    mockPrisma.learningProgress.groupBy.mockResolvedValue([]);
+
+    mockPrisma.learningPath.findUnique.mockResolvedValue(null);
+    mockPrisma.learningPath.findMany.mockResolvedValue([]);
+    mockPrisma.learningPath.create.mockResolvedValue({ id: 'path_new' } as any);
+    mockPrisma.learningPath.update.mockResolvedValue({} as any);
+
+    mockPrisma.quizAttempt.findMany.mockResolvedValue([]);
+    mockPrisma.quizAttempt.aggregate.mockResolvedValue({ _avg: { score: 90 } } as any);
+
+    mockPrisma.userAchievement.findMany.mockResolvedValue([]);
+  });
+
+  describe('Main Knowledge Graph Route (/api/knowledge-graph)', () => {
+    describe('GET', () => {
+      it('应该返回知识图谱节点', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=nodes') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data).toBeDefined();
+        expect(Array.isArray(data.data)).toBe(true);
+      });
+
+      it('应该返回学习路径', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=paths') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data).toBeDefined();
+        expect(Array.isArray(data.data)).toBe(true);
+      });
+
+      it('应该返回用户进度', async () => {
+        const mockUserProgressData = createMockUserProgress({
+          modulesCompleted: 2,
+          totalTimeSpent: 120,
+          averageScore: 85
+        });
+        setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', mockUserProgressData);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=progress&userId=user123') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.completedNodes).toHaveLength(2);
+        expect(data.data.completionRate).toBeGreaterThan(0);
+      });
+
+      it('应该返回推荐节点', async () => {
+        const mockUserProgressData = createMockUserProgress({
+          modulesCompleted: 1,
+          averageScore: 85
+        });
+        setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', mockUserProgressData);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=recommendations&userId=user123') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(Array.isArray(data.data)).toBe(true);
+        expect(data.data.length).toBeLessThanOrEqual(5);
+      });
+
+      it('应该处理无效的请求类型', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=invalid') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Invalid request type');
+      });
+
+      it('应该处理数据库错误', async () => {
+        setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', new Error('Database error'));
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=progress&userId=user123') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Failed to fetch user progress');
+      });
+    });
+
+    describe('POST', () => {
+      it('应该处理未授权请求', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'complete_node', nodeId: 'test-node' }) as any
+        });
+
+        const response = await POST(request as unknown as NextRequest);
+        const data = await response.json();
+
+        expect(response.status).toBe(401);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Unauthorized');
+      });
+
+      it('应该处理无效token', async () => {
+        // verifyToken 返回 null 才会命中 Invalid token 分支
+        mockVerifyToken.mockResolvedValue(null as any);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph', {
+          method: 'POST',
+          headers: { authorization: 'Bearer invalid-token' },
+          body: JSON.stringify({ action: 'complete_node', nodeId: 'test-node' })
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(401);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Invalid token');
+      });
+
+      it('应该标记节点为已完成', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'userProgress', 'upsert', {});
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: { action: 'complete_node', nodeId: 'test-node' }
+        }) as unknown as NextRequest;
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Node marked as completed');
+        expect(mockPrisma.userProgress.upsert).toHaveBeenCalled();
+      });
+
+      it('应该开始学习路径', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: { action: 'start_path', pathId: 'beginner-path' }
+        }) as unknown as NextRequest;
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Learning path started');
+      });
+
+      it('应该处理无效的action', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: { action: 'invalid_action' }
+        }) as unknown as NextRequest;
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Invalid action');
+      });
+    });
+  });
+
+  describe('Nodes Route (/api/knowledge-graph/nodes)', () => {
+    describe('GET', () => {
+      it('应该返回单个节点详情', async () => {
+        setupPrismaMock(mockPrisma, 'learningProgress', 'findFirst', { progress: 75 } as any);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'count', 3);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'aggregate', { _avg: { progress: 60 } } as any);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph/nodes?id=1&userId=user123') as unknown as NextRequest;
+        const response = await NodesGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.id).toBe('1');
+        expect(data.data.mastery).toBe(75);
+      });
+
+      it('应该返回所有节点', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph/nodes') as unknown as NextRequest;
+        const response = await NodesGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(Array.isArray(data.data)).toBe(true);
+      });
+    });
+
+    describe('POST', () => {
+      it('应该创建新节点', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const nodeData = {
+          id: 'new-node',
+          title: '新节点',
+          type: 'concept' as const,
+          difficulty: 'beginner' as const,
+          description: '节点描述',
+          prerequisites: [],
+          connections: [],
+          learningTime: 60,
+          tags: ['标签'],
+          resources: { videos: 1, exercises: 2, projects: 0, documents: 1 },
+          position: { x: 100, y: 100 }
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(nodeData)
+        });
+
+        const response = await NodesPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Node created successfully');
+        expect(data.data.id).toBe('new-node');
+      });
+
+      it('应该验证必需字段', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify({ title: '缺少ID的节点' })
+        });
+
+        const response = await NodesPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Missing required fields');
+      });
+    });
+
+    describe('PUT', () => {
+      it('应该更新节点', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const nodeData = {
+          id: 'existing-node',
+          title: '更新的节点',
+          type: 'concept' as const,
+          difficulty: 'intermediate' as const,
+          description: '更新的描述',
+          prerequisites: [],
+          connections: [],
+          learningTime: 90,
+          tags: ['更新标签'],
+          resources: { videos: 2, exercises: 3, projects: 1, documents: 2 },
+          position: { x: 200, y: 200 }
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes', {
+          method: 'PUT',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(nodeData)
+        });
+
+        const response = await NodesPUT(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Node updated successfully');
+      });
+
+      it('应该验证节点ID', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes', {
+          method: 'PUT',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify({ title: '没有ID的更新' })
+        });
+
+        const response = await NodesPUT(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Node ID is required');
+      });
+    });
+
+    describe('DELETE', () => {
+      it('应该删除节点', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes?id=node-to-delete', {
+          method: 'DELETE',
+          headers: { authorization: 'Bearer valid-token' }
+        });
+
+        const response = await NodesDelete(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Node deleted successfully');
+      });
+
+      it('应该验证节点ID', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/nodes', {
+          method: 'DELETE',
+          headers: { authorization: 'Bearer valid-token' }
+        });
+
+        const response = await NodesDelete(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Node ID is required');
+      });
+    });
+  });
+
+  describe('Paths Route (/api/knowledge-graph/paths)', () => {
+    describe('GET', () => {
+      it('应该返回单个学习路径详情', async () => {
+        setupPrismaMock(mockPrisma, 'learningPath', 'findUnique', {
+          id: 'beginner-path',
+          userId: 'user123',
+          name: '初学者路径',
+          description: 'desc',
+          modules: JSON.stringify(['1', '1.1', '1.2']),
+          totalModules: 3,
+          currentModule: 0,
+          status: 'ACTIVE',
+          startedAt: new Date(),
+          completedAt: null,
+          progress: [
+            { status: 'COMPLETED', timeSpent: 30, moduleId: '1', completedAt: new Date() },
+            { status: 'IN_PROGRESS', timeSpent: 10, moduleId: '1.1', completedAt: null },
+          ],
+          user: { id: 'user123', username: 'testuser' },
+        } as any);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'groupBy', [{ userId: 'u1' }]);
+        setupPrismaMock(mockPrisma, 'quizAttempt', 'aggregate', { _avg: { score: 80 } } as any);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph/paths?id=beginner-path') as unknown as NextRequest;
+        const response = await PathsGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.id).toBe('beginner-path');
+        expect(data.data.title).toBeDefined();
+        expect(Array.isArray(data.data.nodes)).toBe(true);
+      });
+
+      it('应该返回所有学习路径', async () => {
+        setupPrismaMock(mockPrisma, 'learningPath', 'findMany', [{
+          id: 'beginner-path',
+          userId: 'user123',
+          name: '初学者路径',
+          description: 'desc',
+          modules: JSON.stringify(['1', '1.1', '1.2']),
+          totalModules: 3,
+          currentModule: 0,
+          status: 'ACTIVE',
+          createdAt: new Date(),
+          progress: [{ status: 'COMPLETED', timeSpent: 30 }],
+          user: { id: 'user123', username: 'testuser' },
+          _count: { progress: 1 },
+        }] as any);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph/paths') as unknown as NextRequest;
+        const response = await PathsGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(Array.isArray(data.data)).toBe(true);
+        expect(data.data.length).toBeGreaterThan(0);
+      });
+
+      it('应该根据难度筛选路径', async () => {
+        setupPrismaMock(mockPrisma, 'learningPath', 'findMany', [{
+          id: 'beginner-path',
+          userId: 'user123',
+          name: '初学者路径',
+          description: 'desc',
+          modules: JSON.stringify(['1', '1.1', '1.2']), // <=3 => beginner
+          totalModules: 3,
+          currentModule: 0,
+          status: 'ACTIVE',
+          createdAt: new Date(),
+          progress: [{ status: 'COMPLETED', timeSpent: 30 }],
+          user: { id: 'user123', username: 'testuser' },
+          _count: { progress: 1 },
+        }] as any);
+
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph/paths?difficulty=beginner') as unknown as NextRequest;
+        const response = await PathsGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(Array.isArray(data.data)).toBe(true);
+        data.data.forEach((path: any) => {
+          expect(path.difficulty).toBe('beginner');
+        });
+      });
+    });
+
+    describe('POST', () => {
+      it('应该创建新学习路径', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningPath', 'create', { id: 'new-path' } as any);
+
+        const pathData = {
+          id: 'new-path',
+          title: '新学习路径',
+          description: '路径描述',
+          nodes: ['node1', 'node2'],
+          estimatedTime: 120,
+          difficulty: 'intermediate' as const,
+          tags: ['标签'],
+          isPublic: true
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/paths', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(pathData)
+        });
+
+        const response = await PathsPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Learning path created successfully');
+        expect(data.data.createdBy).toBe('user123');
+      });
+
+      it('应该验证必需字段', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/paths', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify({ title: '缺少必需字段的路径' })
+        });
+
+        const response = await PathsPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Missing required fields');
+      });
+    });
+
+    describe('PUT', () => {
+      it('应该更新学习路径', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningPath', 'findUnique', { id: 'existing-path', userId: 'user123', name: 'old', description: 'old', modules: '[]', totalModules: 0 } as any);
+        setupPrismaMock(mockPrisma, 'learningPath', 'update', { id: 'existing-path' } as any);
+
+        const pathData = {
+          id: 'existing-path',
+          title: '更新的路径',
+          description: '更新的描述',
+          nodes: ['node1', 'node2', 'node3'],
+          estimatedTime: 180,
+          difficulty: 'advanced' as const,
+          tags: ['更新标签'],
+          isPublic: false
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/paths', {
+          method: 'PUT',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(pathData)
+        });
+
+        const response = await PathsPUT(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Learning path updated successfully');
+      });
+    });
+  });
+
+  describe('Progress Route (/api/knowledge-graph/progress)', () => {
+    describe('GET', () => {
+      it('应该返回特定节点的进度', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'findFirst', {
+          moduleId: 'test-node',
+          chapterId: '1',
+          progress: 50,
+          timeSpent: 10,
+          status: 'IN_PROGRESS',
+          lastAccessAt: new Date(),
+        } as any);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'findMany', []);
+        setupPrismaMock(mockPrisma, 'quizAttempt', 'findMany', []);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress?nodeId=test-node', {
+          headers: { authorization: 'Bearer valid-token' }
+        });
+
+        const response = await ProgressGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.nodeId).toBe('test-node');
+        expect(data.data.progress).toBeDefined();
+        expect(data.data.mastery).toBeDefined();
+      });
+
+      it('应该返回特定路径的进度', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningPath', 'findUnique', {
+          id: 'beginner-path',
+          userId: 'user123',
+          name: '初学者路径',
+          modules: JSON.stringify(['1', '1.1', '1.2']),
+          progress: [
+            { userId: 'user123', moduleId: '1', progress: 100, status: 'COMPLETED', timeSpent: 20, completedAt: new Date() },
+            { userId: 'user123', moduleId: '1.1', progress: 50, status: 'IN_PROGRESS', timeSpent: 10, completedAt: null },
+          ],
+        } as any);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress?pathId=beginner-path', {
+          headers: { authorization: 'Bearer valid-token' }
+        });
+
+        const response = await ProgressGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.pathId).toBe('beginner-path');
+        expect(data.data.overallProgress).toBeDefined();
+        expect(Array.isArray(data.data.nodeProgress)).toBe(true);
+      });
+
+      it('应该返回用户整体进度概览', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'findMany', [{
+          userId: 'user123',
+          moduleId: '1',
+          progress: 100,
+          timeSpent: 20,
+          status: 'COMPLETED',
+          lastAccessAt: new Date(),
+        }] as any);
+        setupPrismaMock(mockPrisma, 'learningPath', 'findMany', [] as any);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress', {
+          headers: { authorization: 'Bearer valid-token' }
+        });
+
+        const response = await ProgressGET(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.totalNodesAccessed).toBeDefined();
+        expect(data.data.totalNodesCompleted).toBeDefined();
+        expect(Array.isArray(data.data.activePaths)).toBe(true);
+        expect(Array.isArray(data.data.achievements)).toBe(true);
+      });
+    });
+
+    describe('POST', () => {
+      it('应该更新用户进度', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'upsert', {
+          progress: 75,
+          timeSpent: 45,
+          status: 'IN_PROGRESS',
+          lastAccessAt: new Date(),
+        } as any);
+
+        const progressData = {
+          nodeId: 'test-node',
+          progress: 75,
+          timeSpent: 45,
+          mastery: 68
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(progressData)
+        });
+
+        const response = await ProgressPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toBe('Progress updated successfully');
+        expect(data.data.userId).toBe('user123');
+        expect(data.data.completed).toBe(false);
+      });
+
+      it('应该标记节点为已完成', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'upsert', {
+          progress: 100,
+          timeSpent: 30,
+          status: 'COMPLETED',
+          lastAccessAt: new Date(),
+        } as any);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'count', 1);
+
+        const progressData = {
+          nodeId: 'test-node',
+          progress: 100,
+          timeSpent: 30,
+          mastery: 95
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(progressData)
+        });
+
+        const response = await ProgressPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.completed).toBe(true);
+        expect(data.data.newAchievements).toContain('node-completed');
+        expect(data.data.newAchievements).toContain('quick-learner');
+      });
+
+      it('应该验证进度值范围', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const progressData = {
+          nodeId: 'test-node',
+          progress: 150, // 无效值
+          timeSpent: 45,
+          mastery: 68
+        };
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify(progressData)
+        });
+
+        const response = await ProgressPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Progress must be between 0 and 100');
+      });
+
+      it('应该验证必需字段', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'user123', email: 'test@example.com', role: 'student' }); setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/knowledge-graph/progress', {
+          method: 'POST',
+          headers: { authorization: 'Bearer valid-token' },
+          body: JSON.stringify({ timeSpent: 45 }) // 缺少nodeId和progress
+        });
+
+        const response = await ProgressPOST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toBe('Missing required fields');
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('应该处理JSON解析错误', async () => {
+      mockVerifyToken.mockResolvedValue(createMockJWTPayload({ userId: 'user123' }));
+
+      const request = new NextRequest('http://localhost:3000/api/knowledge-graph', {
+        method: 'POST',
+        headers: { authorization: 'Bearer valid-token' },
+        body: 'invalid json'
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Internal server error');
+    });
+
+    it('应该处理数据库连接错误', async () => {
+      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', new Error('Connection failed'));
+
+      const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=progress&userId=user123') as unknown as NextRequest;
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+    });
+  });
+});

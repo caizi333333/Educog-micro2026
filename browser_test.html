@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>按钮点击测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { margin: 5px; padding: 10px 15px; }
+    </style>
+</head>
+<body>
+    <h1>按钮点击功能测试</h1>
+    <div id="results"></div>
+    
+    <h2>测试控制</h2>
+    <button onclick="testCurrentPage()">测试当前页面按钮</button>
+    <button onclick="openLoginPage()">打开登录页面</button>
+    <button onclick="clearResults()">清除结果</button>
+    
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function openLoginPage() {
+            window.open('http://localhost:3000/login', '_blank');
+            log('已打开登录页面，请在新窗口中测试', 'info');
+        }
+        
+        async function testCurrentPage() {
+            log('开始测试当前页面...', 'info');
+            
+            try {
+                // 检查是否在登录页面
+                if (!window.location.href.includes('localhost:3000')) {
+                    log('请先打开登录页面进行测试', 'error');
+                    return;
+                }
+                
+                // 查找登录按钮
+                const loginButton = document.querySelector('button[data-button-type="login"]');
+                if (loginButton) {
+                    log('✅ 找到登录按钮', 'success');
+                    
+                    // 检查按钮状态
+                    const isDisabled = loginButton.disabled;
+                    const style = window.getComputedStyle(loginButton);
+                    
+                    log(`登录按钮状态: disabled=${isDisabled}, pointer-events=${style.pointerEvents}`, 'info');
+                    
+                    // 添加点击监听器来测试
+                    loginButton.addEventListener('click', function(e) {
+                        log('🖱️ 登录按钮点击事件被触发!', 'success');
+                    }, { once: true });
+                    
+                    // 模拟点击
+                    loginButton.click();
+                    
+                } else {
+                    log('❌ 未找到登录按钮', 'error');
+                }
+                
+                // 查找注册按钮
+                const registerTab = document.querySelector('button[value="register"]');
+                if (registerTab) {
+                    log('✅ 找到注册标签', 'success');
+                    registerTab.click();
+                    
+                    setTimeout(() => {
+                        const registerButton = document.querySelector('button[data-button-type="register"]');
+                        if (registerButton) {
+                            log('✅ 找到注册按钮', 'success');
+                            
+                            // 添加点击监听器
+                            registerButton.addEventListener('click', function(e) {
+                                log('🖱️ 注册按钮点击事件被触发!', 'success');
+                            }, { once: true });
+                            
+                            // 模拟点击
+                            registerButton.click();
+                        } else {
+                            log('❌ 未找到注册按钮', 'error');
+                        }
+                    }, 500);
+                } else {
+                    log('❌ 未找到注册标签', 'error');
+                }
+                
+            } catch (error) {
+                log(`测试过程中出错: ${error.message}`, 'error');
+            }
+        }
+        
+        // 如果当前就在登录页面，自动运行测试
+        if (window.location.href.includes('localhost:3000')) {
+            setTimeout(() => {
+                log('检测到登录页面，开始自动测试...', 'info');
+                testCurrentPage();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

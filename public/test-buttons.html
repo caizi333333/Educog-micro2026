@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>登录和注册按钮功能测试</h1>
+    
+    <div class="test-section">
+        <h2>API测试</h2>
+        <button onclick="testLoginAPI()">测试登录API</button>
+        <button onclick="testRegisterAPI()">测试注册API</button>
+        <div id="api-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>表单提交测试</h2>
+        <form id="test-form" onsubmit="testFormSubmit(event)">
+            <input type="text" placeholder="用户名" id="username" value="admin">
+            <input type="password" placeholder="密码" id="password" value="123456">
+            <button type="submit">提交表单</button>
+        </form>
+        <div id="form-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>事件绑定测试</h2>
+        <button id="event-test-btn">点击测试事件绑定</button>
+        <div id="event-log" class="log"></div>
+    </div>
+
+    <script>
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        async function testLoginAPI() {
+            log('api-log', '开始测试登录API...');
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        emailOrUsername: 'admin',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                log('api-log', `登录API响应: ${response.status} - ${JSON.stringify(data)}`);
+            } catch (error) {
+                log('api-log', `登录API错误: ${error.message}`);
+            }
+        }
+
+        async function testRegisterAPI() {
+            log('api-log', '开始测试注册API...');
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test' + Date.now() + '@example.com',
+                        username: 'testuser' + Date.now(),
+                        password: '123456',
+                        name: '测试用户',
+                        role: 'STUDENT'
+                    })
+                });
+                
+                const data = await response.json();
+                log('api-log', `注册API响应: ${response.status} - ${JSON.stringify(data)}`);
+            } catch (error) {
+                log('api-log', `注册API错误: ${error.message}`);
+            }
+        }
+
+        function testFormSubmit(event) {
+            event.preventDefault();
+            log('form-log', '表单提交事件触发');
+            log('form-log', `用户名: ${document.getElementById('username').value}`);
+            log('form-log', `密码: ${document.getElementById('password').value}`);
+        }
+
+        // 事件绑定测试
+        document.getElementById('event-test-btn').addEventListener('click', function() {
+            log('event-log', '按钮点击事件正常工作!');
+        });
+
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            log('event-log', '页面加载完成，事件绑定正常');
+        });
+    </script>
+</body>
+</html>

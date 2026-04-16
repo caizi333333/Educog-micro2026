@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Final Button Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 5px; }
+        .result { margin-top: 10px; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>登录注册按钮功能测试</h1>
+    
+    <div class="test-section">
+        <h2>测试步骤：</h2>
+        <ol>
+            <li>点击下面的按钮打开登录页面</li>
+            <li>在登录页面填写测试账号：admin / 123456</li>
+            <li>点击登录按钮</li>
+            <li>观察是否有响应（按钮效果、网络请求等）</li>
+        </ol>
+        
+        <button onclick="openLoginPage()">打开登录页面</button>
+        
+        <div class="result" id="result">
+            等待测试...
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>预期结果：</h2>
+        <ul>
+            <li>✅ 按钮点击时应有视觉反馈（缩放效果）</li>
+            <li>✅ 控制台应显示调试日志</li>
+            <li>✅ 网络面板应显示API请求</li>
+            <li>✅ 登录成功或显示错误信息</li>
+        </ul>
+    </div>
+    
+    <script>
+        function openLoginPage() {
+            const result = document.getElementById('result');
+            result.innerHTML = '正在打开登录页面...';
+            
+            // 打开登录页面
+            const loginWindow = window.open('http://localhost:3000/login', 'loginTest', 'width=800,height=600');
+            
+            if (loginWindow) {
+                result.innerHTML = `
+                    <strong>登录页面已打开！</strong><br>
+                    请在新窗口中：<br>
+                    1. 填写账号：admin<br>
+                    2. 填写密码：123456<br>
+                    3. 点击登录按钮<br>
+                    4. 观察按钮响应和网络请求
+                `;
+            } else {
+                result.innerHTML = '<strong style="color: red;">无法打开登录页面，请检查弹窗拦截设置</strong>';
+            }
+        }
+        
+        // 页面加载完成后自动开始测试
+        window.onload = function() {
+            setTimeout(() => {
+                document.getElementById('result').innerHTML = '点击上方按钮开始测试';
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

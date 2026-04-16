@@ -1,0 +1,39 @@
+{
+  "name": "educog-micro",
+  "description": "8051微控制器仿真教育平台 - 芯智育才",
+  "repository": "https://github.com/your-username/educog-micro",
+  "logo": "https://raw.githubusercontent.com/your-username/educog-micro/main/public/logo.png",
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL数据库连接字符串",
+      "required": true,
+      "value": "",
+      "example": "postgresql://user:password@host:5432/database?sslmode=require"
+    },
+    "JWT_SECRET": {
+      "description": "JWT认证密钥（32位十六进制）",
+      "required": true,
+      "generator": "secret"
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "NextAuth密钥",
+      "required": true,
+      "generator": "secret"
+    },
+    "NEXTAUTH_URL": {
+      "description": "应用URL",
+      "required": false,
+      "value": "https://{VERCEL_URL}"
+    }
+  },
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["sin1", "hnd1"],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}

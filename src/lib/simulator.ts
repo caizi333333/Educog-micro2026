@@ -1,0 +1,2274 @@
+export interface SimulatorState {
+  registers: {
+    A: number;
+    B: number;
+    SP: number;
+    DPL: number;
+    DPH: number;
+    [key: string]: number; // For R0-R7
+  };
+  ram: Uint8Array;
+  pc: number; // Program Counter
+  psw: {
+    CY: boolean; // Carry
+    AC: boolean; // Auxiliary Carry
+    F0: boolean; // User Flag 0
+    RS1: boolean;
+    RS0: boolean;
+    OV: boolean; // Overflow
+    P: boolean;  // Parity
+  };
+  portValues: {
+    P0: number;
+    P1: number;
+    P2: number;
+    P3: number;
+  };
+  /** 当前指令在源代码中的行号(从0开始)。找不到则为 -1 */
+  currentLine: number;
+  /**
+   * 汇编指令文本数组，用于 UI 显示和进度计算。
+   * 长度与内部 instructions 数组保持一致。
+   */
+  memory: string[];
+  // 串口通信状态
+  uart: {
+    SCON: number;    // 串口控制寄存器
+    SBUF: number;    // 串口缓冲器
+    TI: boolean;     // 发送中断标志
+    RI: boolean;     // 接收中断标志
+    transmitBuffer: string;  // 发送缓冲区
+    receiveBuffer: string;   // 接收缓冲区
+    baudRate: number;        // 波特率
+    dataTransmitting: boolean; // 正在传输数据
+  };
+  // 定时器状态
+  timers: {
+    TCON: number;    // 定时器控制寄存器
+    TMOD: number;    // 定时器模式寄存器
+    TH0: number;     // 定时器0高8位
+    TL0: number;     // 定时器0低8位
+    TH1: number;     // 定时器1高8位
+    TL1: number;     // 定时器1低8位
+    TR0: boolean;    // 定时器0运行控制
+    TR1: boolean;    // 定时器1运行控制
+    TF0: boolean;    // 定时器0溢出标志
+    TF1: boolean;    // 定时器1溢出标志
+    overflowCount0: number;  // 定时器0溢出计数
+    overflowCount1: number;  // 定时器1溢出计数
+  };
+  // 中断状态
+  interrupts: {
+    IE: number;      // 中断允许寄存器
+    IP: number;      // 中断优先级寄存器
+    EA: boolean;     // 总中断允许
+    ET0: boolean;    // 定时器0中断允许
+    ET1: boolean;    // 定时器1中断允许
+    EX0: boolean;    // 外部中断0允许
+    EX1: boolean;    // 外部中断1允许
+    ES: boolean;     // 串口中断允许
+    pendingInterrupts: string[]; // 待处理中断队列
+  };
+  // ADC状态 (ADC0809)
+  adc: {
+    channelSelect: number;   // 当前选择的通道(0-7)
+    conversionActive: boolean; // 转换进行中
+    conversionComplete: boolean; // 转换完成
+    lastResult: number;      // 最后转换结果
+    inputVoltages: number[]; // 8个通道的输入电压(0-5V)
+    referenceVoltage: number; // 参考电压
+    conversionTime: number;  // 转换时间(微秒)
+  };
+  // 蜂鸣器状态
+  buzzer: {
+    active: boolean;         // 蜂鸣器是否激活
+    frequency: number;       // 频率(Hz)
+    dutyCycle: number;      // 占空比(%)
+    outputPin: string;      // 输出引脚(如P2.1)
+    soundPattern: 'continuous' | 'beep' | 'alarm' | 'melody'; // 声音模式
+  };
+  // 矩阵键盘状态 (4x4)
+  keypad: {
+    matrix: boolean[][];     // 4x4按键状态矩阵
+    rowPins: string[];      // 行扫描引脚
+    colPins: string[];      // 列读取引脚
+    lastKeyPressed: string; // 最后按下的键
+    scanActive: boolean;    // 是否正在扫描
+    debounceTime: number;   // 去抖延时
+  };
+  // LCD显示器状态 (1602/2004)
+  lcd: {
+    displayEnabled: boolean; // 显示使能
+    cursorPosition: { row: number; col: number }; // 光标位置
+    displayData: string[][]; // 显示内容(2行x16列 或 4行x20列)
+    backlight: boolean;     // 背光状态
+    controlPins: {
+      RS: string;  // 寄存器选择引脚
+      EN: string;  // 使能引脚
+      RW: string;  // 读写选择引脚
+    };
+    dataPins: string[];     // 数据引脚(4位或8位模式)
+    mode: '4bit' | '8bit';  // 数据位模式
+    initialized: boolean;   // 是否已初始化
+  };
+  // 步进电机状态
+  stepperMotor: {
+    currentStep: number;    // 当前步序(0-7)
+    direction: 'clockwise' | 'counterclockwise'; // 转动方向
+    speed: number;          // 转速(步/秒)
+    controlPins: string[];  // 控制引脚(A, B, C, D相)
+    stepPattern: number[];  // 步序表
+    totalSteps: number;     // 总步数计数
+    isRunning: boolean;     // 是否正在运行
+  };
+  // PWM输出状态
+  pwm: {
+    channels: {
+      pin: string;
+      frequency: number;    // 频率(Hz)
+      dutyCycle: number;   // 占空比(0-100%)
+      enabled: boolean;    // 是否使能
+      currentLevel: boolean; // 当前输出电平
+    }[];
+  };
+  terminated: boolean;
+}
+
+export interface Instruction {
+  label?: string;
+  mnemonic: string;
+  operands: string[];
+  line: number;
+  address: number; // Add address property
+}
+
+export interface ExecutionTraceEntry {
+  step: number;
+  pc: number;
+  instruction: string;
+  line: number;
+  regChanges: { name: string; from: number; to: number }[];
+  memChanges: { addr: number; from: number; to: number }[];
+  portChanges: { port: string; from: number; to: number }[];
+  flagChanges: { flag: string; from: boolean; to: boolean }[];
+}
+
+export class Simulator {
+  private code: string;
+  private instructions: Instruction[] = [];
+  private instructionMap: Map<number, Instruction> = new Map();
+  private labels: Map<string, number> = new Map();
+  private symbols: Map<string, string> = new Map(); // EQU/BIT/DATA symbol table
+  private codeMemory: Uint8Array = new Uint8Array(65536); // Code memory for DB/DW/MOVC
+  private pcHistory: number[] = []; // PC历史记录用于循环检测
+  private stepCount: number = 0;
+  // Standard 8051 SFR address map (no duplicates, correct addresses per datasheet)
+  private sfrMap: Map<number, string> = new Map([
+    [0x80, 'P0'], [0x81, 'SP'], [0x82, 'DPL'], [0x83, 'DPH'],
+    [0x87, 'PCON'],
+    [0x88, 'TCON'], [0x89, 'TMOD'], [0x8A, 'TL0'], [0x8B, 'TL1'],
+    [0x8C, 'TH0'], [0x8D, 'TH1'],
+    [0x90, 'P1'],
+    [0x98, 'SCON'], [0x99, 'SBUF'],
+    [0xA0, 'P2'], [0xA8, 'IE'],
+    [0xB0, 'P3'], [0xB8, 'IP'],
+    [0xC8, 'T2CON'], [0xCA, 'RCAP2L'], [0xCB, 'RCAP2H'], [0xCC, 'TL2'], [0xCD, 'TH2'],
+    [0xD0, 'PSW'],
+    [0xE0, 'ACC'], [0xF0, 'B'],
+  ]);
+  
+  public state: SimulatorState;
+
+  constructor(code: string = '') {
+    this.code = code || '';
+    this.state = this.getInitialState();
+    this.parseCode();
+  }
+
+  public reset(): void {
+    this.state = this.getInitialState();
+    this.pcHistory = [];
+    this.stepCount = 0;
+  }
+
+  public updateCode(code: string): void {
+    this.code = code || '';
+    this.instructions = [];
+    this.instructionMap.clear();
+    this.labels.clear();
+    this.symbols.clear();
+    this.codeMemory.fill(0);
+    this.pcHistory = []; // 重置PC历史记录
+    this.state = this.getInitialState();
+    this.parseCode();
+  }
+
+  private getInitialState(): SimulatorState {
+    return {
+      registers: {
+        A: 0, B: 0, SP: 0x07, DPL: 0, DPH: 0,
+        R0: 0, R1: 0, R2: 0, R3: 0, R4: 0, R5: 0, R6: 0, R7: 0,
+      },
+      ram: new Uint8Array(128),
+      pc: 0,
+      psw: { CY: false, AC: false, F0: false, RS1: false, RS0: false, OV: false, P: false },
+      portValues: { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF },
+      currentLine: -1,
+      memory: [],
+      // 串口通信初始状态
+      uart: {
+        SCON: 0x00,
+        SBUF: 0x00,
+        TI: false,
+        RI: false,
+        transmitBuffer: '',
+        receiveBuffer: '',
+        baudRate: 9600,
+        dataTransmitting: false,
+      },
+      // 定时器初始状态
+      timers: {
+        TCON: 0x00,
+        TMOD: 0x00,
+        TH0: 0x00,
+        TL0: 0x00,
+        TH1: 0x00,
+        TL1: 0x00,
+        TR0: false,
+        TR1: false,
+        TF0: false,
+        TF1: false,
+        overflowCount0: 0,
+        overflowCount1: 0,
+      },
+      // 中断初始状态
+      interrupts: {
+        IE: 0x00,
+        IP: 0x00,
+        EA: false,
+        ET0: false,
+        ET1: false,
+        EX0: false,
+        EX1: false,
+        ES: false,
+        pendingInterrupts: [],
+      },
+      // ADC初始状态
+      adc: {
+        channelSelect: 0,
+        conversionActive: false,
+        conversionComplete: true,
+        lastResult: 0,
+        inputVoltages: [0, 0, 0, 0, 0, 0, 0, 0],
+        referenceVoltage: 5,
+        conversionTime: 0,
+      },
+      // 蜂鸣器初始状态
+      buzzer: {
+        active: false,
+        frequency: 0,
+        dutyCycle: 50,
+        outputPin: 'P2.1',
+        soundPattern: 'continuous',
+      },
+      // 矩阵键盘初始状态
+      keypad: {
+        matrix: Array.from({ length: 4 }, () => Array(4).fill(false)),
+        rowPins: ['P3.0', 'P3.1', 'P3.2', 'P3.3'],
+        colPins: ['P2.0', 'P2.1', 'P2.2', 'P2.3'],
+        lastKeyPressed: '',
+        scanActive: false,
+        debounceTime: 0,
+      },
+      // LCD初始状态
+      lcd: {
+        displayEnabled: false,
+        cursorPosition: { row: 0, col: 0 },
+        displayData: Array.from({ length: 2 }, () => Array(16).fill('')),
+        backlight: true,
+        controlPins: {
+          RS: 'P0.0',
+          EN: 'P0.1',
+          RW: 'P0.2',
+        },
+        dataPins: ['P1.0', 'P1.1', 'P1.2', 'P1.3'],
+        mode: '4bit',
+        initialized: false,
+      },
+      // 步进电机初始状态
+      stepperMotor: {
+        currentStep: 0,
+        direction: 'clockwise',
+        speed: 0,
+        controlPins: ['P2.0', 'P2.1', 'P2.2', 'P2.3'],
+        stepPattern: [0b1000, 0b1100, 0b0100, 0b0110, 0b0010, 0b0011, 0b0001, 0b1001],
+        totalSteps: 0,
+        isRunning: false,
+      },
+      // PWM初始状态
+      pwm: {
+        channels: [
+          { pin: 'P1.4', frequency: 0, dutyCycle: 0, enabled: false, currentLevel: false },
+          { pin: 'P1.5', frequency: 0, dutyCycle: 0, enabled: false, currentLevel: false },
+          { pin: 'P1.6', frequency: 0, dutyCycle: 0, enabled: false, currentLevel: false },
+          { pin: 'P1.7', frequency: 0, dutyCycle: 0, enabled: false, currentLevel: false },
+        ],
+      },
+      terminated: false,
+    };
+  }
+
+  /** Resolve EQU/BIT/DATA symbols in an operand string */
+  private resolveSymbol(operand: string): string {
+    if (!operand) return operand;
+    // Don't resolve if it's a register, immediate, or known SFR
+    const upper = operand.toUpperCase();
+    if (this.symbols.has(upper)) {
+      return this.symbols.get(upper)!;
+    }
+    // For immediate values, resolve the value part: #SYMBOL → #value
+    if (operand.startsWith('#') && this.symbols.has(operand.substring(1).toUpperCase())) {
+      return '#' + this.symbols.get(operand.substring(1).toUpperCase())!;
+    }
+    return operand;
+  }
+
+  /** Parse a character literal like 'A' to its ASCII value */
+  private parseCharLiteral(s: string): number | null {
+    const m = s.match(/^'(.)'$/);
+    if (m) return m[1].charCodeAt(0);
+    return null;
+  }
+
+  private parseCode(): void {
+    if (!this.code) return;
+    const lines = this.code.split('\n');
+    let currentAddress = 0; // Track current memory address
+    this.codeMemory.fill(0);
+
+    // Pass 0: Collect EQU/BIT/DATA symbol definitions
+    lines.forEach((line) => {
+      const cleaned = line.replace(/;.*$/, '').trim();
+      if (!cleaned) return;
+      // Match: NAME EQU value | NAME BIT addr | NAME DATA addr
+      const symMatch = cleaned.match(/^([A-Z_]\w*)\s+(?:EQU|BIT|DATA)\s+(.+)$/i);
+      if (symMatch) {
+        this.symbols.set(symMatch[1].toUpperCase(), symMatch[2].trim());
+      }
+    });
+
+    lines.forEach((line, index) => {
+      const cleanedLine = line.replace(/;.*$/, '').trim(); // Remove comments and trim
+      if (!cleanedLine) return;
+
+      // Skip EQU/BIT/DATA definitions (already handled in pass 0)
+      if (/^[A-Z_]\w*\s+(?:EQU|BIT|DATA)\s+/i.test(cleanedLine)) return;
+
+      // Handle lines that contain only a label (e.g., "MAIN:")
+      if (/^\w+:$/.test(cleanedLine)) {
+        const soloLabel = cleanedLine.slice(0, -1); // Remove trailing ':'
+        this.labels.set(soloLabel, currentAddress);
+        return; // No instruction on this line
+      }
+
+      const match = cleanedLine.match(/^(\w+:)?\s*(\w+)\s*(.*)$/);
+      if (!match) return;
+
+      const [, label, mnemonic, operandsStr] = match;
+      if (!mnemonic) return;
+
+      const operands = operandsStr ? operandsStr.split(',').map(op => op.trim()).filter(Boolean) : [];
+
+      const dirUpper = mnemonic.toUpperCase();
+      if (dirUpper === 'ORG') {
+        if (operands[0]) {
+          currentAddress = this.parseNumber(operands[0]);
+        }
+        return; // ORG is a directive, not an instruction
+      }
+
+      // DB directive — store bytes in code memory
+      if (dirUpper === 'DB') {
+        if (label) {
+          this.labels.set(label.slice(0, -1), currentAddress);
+        }
+        // Parse DB operands: hex, decimal, binary numbers, character literals, strings
+        const rawData = operandsStr || '';
+        const items = this.parseDBOperands(rawData);
+        for (const b of items) {
+          this.codeMemory[currentAddress++] = b & 0xFF;
+        }
+        return;
+      }
+
+      // DW directive — store 16-bit words in code memory (big-endian)
+      if (dirUpper === 'DW') {
+        if (label) {
+          this.labels.set(label.slice(0, -1), currentAddress);
+        }
+        for (const op of operands) {
+          const val = this.parseNumber(op);
+          this.codeMemory[currentAddress++] = (val >> 8) & 0xFF; // High byte first
+          this.codeMemory[currentAddress++] = val & 0xFF;        // Low byte
+        }
+        return;
+      }
+
+      // DS directive — reserve space
+      if (dirUpper === 'DS') {
+        if (label) {
+          this.labels.set(label.slice(0, -1), currentAddress);
+        }
+        const size = operands[0] ? this.parseNumber(operands[0]) : 1;
+        currentAddress += size;
+        return;
+      }
+
+      // END directive marks end of source – but we still need to track it as an instruction
+      if (dirUpper === 'END') {
+        if (label) {
+          this.labels.set(label.slice(0, -1), currentAddress);
+        }
+        
+        const instruction = {
+          mnemonic: 'END',
+          operands: [] as string[],
+          line: index,
+          address: currentAddress,
+        };
+        this.instructions.push(instruction);
+        this.instructionMap.set(currentAddress, instruction);
+
+        // Add instruction text to memory array for UI display
+        this.state.memory.push('END');
+        
+        currentAddress += 1; // END instruction takes 1 byte
+        return;
+      }
+
+      if (label) {
+        this.labels.set(label.slice(0, -1), currentAddress);
+      }
+      
+      // Determine instruction length more accurately
+      let instructionLength = 1; // Default to 1 byte (for single-byte instructions)
+
+      if (['NOP', 'RET', 'RETI', 'ACALL', 'LCALL', 'AJMP', 'LJMP', 'SJMP', 'JMP', 'JZ', 'JNZ', 'JC', 'JNC', 'JB', 'JNB', 'JBC', 'DJNZ', 'CJNE', 'DA', 'SWAP', 'XCH', 'XCHD', 'ADD', 'ADDC', 'SUBB', 'ANL', 'ORL', 'XRL', 'CLR', 'CPL', 'RL', 'RLC', 'RR', 'RRC', 'INC', 'DEC', 'MUL', 'DIV', 'MOV', 'PUSH', 'POP', 'SETB', 'MOVX'].includes(dirUpper)) {
+        switch (dirUpper) {
+          case 'ACALL':
+            instructionLength = 2;
+            break;
+          case 'LCALL':
+          case 'LJMP':
+            instructionLength = 3;
+            break;
+          case 'AJMP':
+          case 'SJMP':
+          case 'JZ':
+          case 'JNZ':
+          case 'JC':
+          case 'JNC':
+            instructionLength = 2; // 2-byte relative jump
+            break;
+          case 'JB':
+          case 'JNB':
+          case 'JBC':
+            instructionLength = 3; // 3-byte: opcode + bit addr + rel offset
+            break;
+          case 'CJNE':
+            instructionLength = 3; // CJNE is 3 bytes (operand, immediate, rel addr)
+            break;
+          case 'MOV':
+            // MOV instruction length varies based on operands
+            if (operands.length === 2 && operands[0] && operands[1]) {
+              const dest = operands[0].toUpperCase();
+              const src = operands[1].toUpperCase();
+
+              if (src.startsWith('#')) { // MOV dest, #data
+                if (dest === 'DPTR') {
+                  instructionLength = 3; // MOV DPTR, #data16
+                } else if (dest === 'A' || dest.match(/^R[0-7]$/) || dest.match(/^@R[01]$/)) {
+                  instructionLength = 2; // MOV A/Rn/@Ri, #data8
+                } else {
+                  instructionLength = 3; // MOV direct, #data8 (including P0-P3)
+                }
+              } else if (this.isDirectAddress(dest)) {
+                // Destination is direct address (incl. ports, SFRs)
+                if (src === 'A' || src.match(/^R[0-7]$/) || src.match(/^@R[01]$/)) {
+                  instructionLength = 2; // MOV direct, A/Rn/@Ri
+                } else if (this.isDirectAddress(src)) {
+                  instructionLength = 3; // MOV direct, direct
+                } else {
+                  instructionLength = 2; // default for MOV direct, X
+                }
+              } else if (dest === 'A') {
+                // MOV A, Rn = 1 byte; MOV A, direct/port = 2 bytes; MOV A, @Ri = 1 byte
+                if (src.match(/^R[0-7]$/) || src.match(/^@R[01]$/)) {
+                  instructionLength = 1;
+                } else {
+                  // MOV A, direct (including P0-P3, TMOD, TH0, etc.)
+                  instructionLength = 2;
+                }
+              } else if (dest.match(/^R[0-7]$/)) {
+                // MOV Rn, A = 1 byte; MOV Rn, direct = 2 bytes
+                if (src === 'A') {
+                  instructionLength = 1;
+                } else {
+                  instructionLength = 2; // MOV Rn, direct
+                }
+              } else {
+                // Other MOV variants (e.g., MOV direct, direct = 3 bytes)
+                instructionLength = 3;
+              }
+            }
+            break;
+          case 'SETB':
+          case 'CLR':
+          case 'CPL':
+            if (!operands[0]) break;
+            {
+              const bitOp = operands[0].toUpperCase();
+              // SETB C / CLR C / CPL C = 1 byte; CLR A / CPL A = 1 byte
+              if (bitOp === 'C' || bitOp === 'CY') {
+                instructionLength = 1;
+              } else if ((dirUpper === 'CLR' || dirUpper === 'CPL') && (bitOp === 'A' || bitOp === 'ACC')) {
+                instructionLength = 1;
+              } else {
+                instructionLength = 2; // All other bit targets are 2-byte
+              }
+            }
+            break;
+          case 'DJNZ':
+            // DJNZ reg, rel (2 bytes) or DJNZ direct, rel (3 bytes)
+            instructionLength = operands[0] && operands[0].match(/^R[0-7]$/i) ? 2 : 3;
+            break;
+          case 'PUSH':
+          case 'POP':
+            instructionLength = 2;
+            break;
+          case 'ADD':
+          case 'ADDC':
+          case 'SUBB':
+            // ADD A, Rn = 1; ADD A, @Ri = 1; ADD A, #data = 2; ADD A, direct = 2
+            if (operands[1]) {
+              const s = operands[1].toUpperCase();
+              instructionLength = (s.match(/^R[0-7]$/i) || s.match(/^@R[01]$/i)) ? 1 : 2;
+            }
+            break;
+          case 'ANL':
+          case 'ORL':
+          case 'XRL':
+            if (operands[0] && operands[1]) {
+              const d = operands[0].toUpperCase();
+              const s = operands[1].toUpperCase();
+              if (d === 'A') {
+                instructionLength = (s.match(/^R[0-7]$/i) || s.match(/^@R[01]$/i)) ? 1 : 2;
+              } else {
+                instructionLength = s.startsWith('#') ? 3 : 2;
+              }
+            }
+            break;
+          case 'INC':
+          case 'DEC':
+            if (operands[0]) {
+              const o = operands[0].toUpperCase();
+              instructionLength = (o === 'A' || o === 'DPTR' || o.match(/^R[0-7]$/) || o.match(/^@R[01]$/)) ? 1 : 2;
+            }
+            break;
+          case 'XCH':
+          case 'XCHD':
+            // XCH A, Rn = 1; XCH A, @Ri = 1; XCH A, direct = 2
+            if (operands[1]) {
+              const s = operands[1].toUpperCase();
+              instructionLength = (s.match(/^R[0-7]$/i) || s.match(/^@R[01]$/i)) ? 1 : 2;
+            }
+            break;
+          case 'MOVC':
+          case 'MOVX':
+            instructionLength = 1;
+            break;
+          default:
+            instructionLength = 1;
+        }
+      }
+
+      // Handle '$' operand (current address) — replace with auto-generated label
+      for (let oi = 0; oi < operands.length; oi++) {
+        if (operands[oi] === '$') {
+          const autoLabel = `__SELF_${currentAddress}__`;
+          this.labels.set(autoLabel, currentAddress);
+          operands[oi] = autoLabel;
+        }
+      }
+
+      const instruction = {
+        mnemonic: mnemonic.toUpperCase(),
+        operands,
+        line: index,
+        address: currentAddress,
+      };
+      this.instructions.push(instruction);
+      this.instructionMap.set(currentAddress, instruction);
+      
+      // Add instruction text to memory array for UI display
+      const instructionText = operands.length > 0 
+        ? `${mnemonic.toUpperCase()} ${operands.join(', ')}`
+        : mnemonic.toUpperCase();
+      this.state.memory.push(instructionText);
+      
+      currentAddress += instructionLength;
+    });
+    // Set PC to the first instruction's address, or 0 if no instructions
+    if (this.instructions.length > 0) {
+      this.state.pc = this.instructions[0]?.address ?? 0;
+    } else {
+      this.state.pc = 0;
+    }
+  }
+
+  public step(): SimulatorState {
+    if (this.state.terminated) {
+      return this.getState();
+    }
+
+    // 单步模式不做自动循环检测 — 让用户自行控制
+    // 循环检测仅在 simulate() 的全速执行中进行
+
+    // Find the instruction at the current PC (optimized lookup)
+    const instr = this.instructionMap.get(this.state.pc);
+
+    if (!instr) {
+        // 检查是否PC超出了有效范围
+        const maxAddress = Math.max(...Array.from(this.instructionMap.keys()));
+        if (this.state.pc > maxAddress) {
+          this.state.terminated = true;
+          console.log(`程序执行完成，PC: ${this.state.pc.toString(16).toUpperCase()}H`);
+          return this.getState();
+        }
+        
+        // 尝试查找最近的有效指令
+        let nearestPC = this.state.pc;
+        for (let offset = 1; offset <= 10; offset++) {
+          if (this.instructionMap.has(this.state.pc + offset)) {
+            nearestPC = this.state.pc + offset;
+            break;
+          }
+          if (this.instructionMap.has(this.state.pc - offset)) {
+            nearestPC = this.state.pc - offset;
+            break;
+          }
+        }
+        
+        if (nearestPC !== this.state.pc && this.instructionMap.has(nearestPC)) {
+          console.warn(`PC地址${this.state.pc.toString(16).toUpperCase()}H无指令，跳转到${nearestPC.toString(16).toUpperCase()}H`);
+          this.state.pc = nearestPC;
+          const nearestInstr = this.instructionMap.get(nearestPC);
+          if (nearestInstr) {
+            this.execute(nearestInstr);
+            return this.getState();
+          }
+        }
+        
+        this.state.terminated = true;
+        console.error(`No instruction found at PC: ${this.state.pc.toString(16).toUpperCase()}H`);
+        return this.getState();
+    }
+
+    this.execute(instr);
+    return this.getState();
+  }
+
+  /** Step with full diff trace for execution visualization */
+  public stepWithTrace(): { state: SimulatorState; trace: ExecutionTraceEntry } {
+    // Snapshot before execution
+    const prevPC = this.state.pc;
+    const prevRegs: Record<string, number> = {};
+    for (const key of ['A', 'B', 'SP', 'DPL', 'DPH', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7']) {
+      prevRegs[key] = this.state.registers[key] || 0;
+    }
+    const prevRam = this.state.ram.slice(0, 128); // Only internal RAM
+    const prevPorts = { ...this.state.portValues };
+    const prevPSW = { ...this.state.psw };
+
+    // Get instruction text before executing
+    const instr = this.instructionMap.get(this.state.pc);
+    const instrText = instr
+      ? `${instr.mnemonic} ${instr.operands.join(', ')}`.trim()
+      : '???';
+    const instrLine = instr?.line ?? -1;
+
+    // Execute
+    const state = this.step();
+    this.stepCount++;
+
+    // Diff registers
+    const regChanges: ExecutionTraceEntry['regChanges'] = [];
+    for (const key of ['A', 'B', 'SP', 'DPL', 'DPH', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7']) {
+      const now = this.state.registers[key] || 0;
+      if (now !== prevRegs[key]) {
+        regChanges.push({ name: key, from: prevRegs[key], to: now });
+      }
+    }
+    // PC change
+    if (this.state.pc !== prevPC) {
+      regChanges.push({ name: 'PC', from: prevPC, to: this.state.pc });
+    }
+
+    // Diff RAM
+    const memChanges: ExecutionTraceEntry['memChanges'] = [];
+    for (let i = 0; i < 128; i++) {
+      if (this.state.ram[i] !== prevRam[i]) {
+        memChanges.push({ addr: i, from: prevRam[i], to: this.state.ram[i] });
+      }
+    }
+
+    // Diff ports
+    const portChanges: ExecutionTraceEntry['portChanges'] = [];
+    for (const p of ['P0', 'P1', 'P2', 'P3'] as const) {
+      if (this.state.portValues[p] !== prevPorts[p]) {
+        portChanges.push({ port: p, from: prevPorts[p], to: this.state.portValues[p] });
+      }
+    }
+
+    // Diff PSW flags
+    const flagChanges: ExecutionTraceEntry['flagChanges'] = [];
+    for (const f of ['CY', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'P'] as const) {
+      if (this.state.psw[f] !== prevPSW[f]) {
+        flagChanges.push({ flag: f, from: prevPSW[f], to: this.state.psw[f] });
+      }
+    }
+
+    const trace: ExecutionTraceEntry = {
+      step: this.stepCount,
+      pc: prevPC,
+      instruction: instrText,
+      line: instrLine,
+      regChanges,
+      memChanges,
+      portChanges,
+      flagChanges,
+    };
+
+    return { state, trace };
+  }
+
+  /**
+   * 运行程序，解析代码并执行
+   * @param code 汇编代码
+   * @returns Promise<SimulatorState> 执行后的状态
+   */
+  public async run(code: string): Promise<SimulatorState> {
+    try {
+      // 更新代码并重新解析
+      this.updateCode(code);
+      
+      // 如果没有指令，返回初始状态
+      if (this.instructions.length === 0) {
+        return this.getState();
+      }
+      
+      // 执行程序
+      this.simulate();
+      
+      // 返回完整的状态
+      return this.getState();
+    } catch (error) {
+      this.state.terminated = true;
+      throw error;
+    }
+  }
+
+  private execute(instr: Instruction): void {
+    // Placeholder for execution logic
+    // Removed console.log for performance - was logging every instruction
+    
+    switch (instr.mnemonic) {
+      case 'MOV':
+        this.executeMOV(instr.operands);
+        break;
+      case 'ACALL':
+        this.executeACALL(instr.operands);
+        break;
+      case 'RET':
+        this.executeRET();
+        break;
+      case 'DJNZ':
+        this.executeDJNZ(instr.operands);
+        break;
+      case 'CJNE':
+        this.executeCJNE(instr.operands);
+        break;
+      case 'RL':
+        this.executeRL(instr.operands);
+        break;
+      case 'RR':
+        this.executeRR(instr.operands);
+        break;
+      case 'SETB':
+        this.executeSETB(instr.operands);
+        break;
+      case 'CLR':
+        this.executeCLR(instr.operands);
+        break;
+      case 'CPL':
+        this.executeCPL(instr.operands);
+        break;
+      case 'ADD':
+        this.executeADD(instr.operands);
+        break;
+      case 'ADDC':
+        this.executeADDC(instr.operands);
+        break;
+      case 'SUBB':
+        this.executeSUBB(instr.operands);
+        break;
+      case 'DA':
+        this.executeDA(instr.operands);
+        break;
+      case 'SWAP':
+        this.executeSWAP(instr.operands);
+        break;
+      case 'XCH':
+        this.executeXCH(instr.operands);
+        break;
+      case 'XCHD':
+        this.executeXCHD(instr.operands);
+        break;
+      case 'RLC':
+        this.executeRLC(instr.operands);
+        break;
+      case 'RRC':
+        this.executeRRC(instr.operands);
+        break;
+      case 'ANL':
+        this.executeANL(instr.operands);
+        break;
+      case 'ORL':
+        this.executeORL(instr.operands);
+        break;
+      case 'XRL':
+        this.executeXRL(instr.operands);
+        break;
+      case 'PUSH':
+        this.executePUSH(instr.operands);
+        break;
+      case 'POP':
+        this.executePOP(instr.operands);
+        break;
+      case 'MOVC':
+        this.executeMOVC(instr.operands);
+        break;
+      case 'SJMP':
+        this.executeSJMP(instr.operands);
+        break;
+      case 'LJMP':
+        this.executeLJMP(instr.operands);
+        break;
+      case 'LCALL':
+        this.executeLCALL(instr.operands);
+        break;
+      case 'AJMP':
+        this.executeAJMP(instr.operands);
+        break;
+      case 'JMP':
+        this.executeJMP(instr.operands);
+        break;
+      case 'JZ':
+        this.executeJZ(instr.operands);
+        break;
+      case 'JNZ':
+        this.executeJNZ(instr.operands);
+        break;
+      case 'JC':
+        this.executeJC(instr.operands);
+        break;
+      case 'JNC':
+        this.executeJNC(instr.operands);
+        break;
+      case 'JB':
+        this.executeJB(instr.operands);
+        break;
+      case 'JNB':
+        this.executeJNB(instr.operands);
+        break;
+      case 'INC':
+        this.executeINC(instr.operands);
+        break;
+      case 'DEC':
+        this.executeDEC(instr.operands);
+        break;
+      case 'MUL':
+        this.executeMUL(instr.operands);
+        break;
+      case 'DIV':
+        this.executeDIV(instr.operands);
+        break;
+      case 'RETI':
+        this.executeRETI();
+        break;
+      case 'JBC':
+        this.executeJBC(instr.operands);
+        break;
+      case 'MOVX':
+        this.executeMOVX(instr.operands);
+        break;
+      case 'END':
+        this.executeEND();
+        return;
+      case 'NOP':
+        this.state.pc++;
+        break;
+      default:
+        // For unknown instructions, just advance the PC
+        this.state.pc++;
+        break;
+    }
+  }
+
+  /**
+   * Parse a numeric string in 8051 assembly format.
+   * Rules (matching real assemblers):
+   *  - Suffix H/h → hexadecimal  (e.g. 0FFH, 3CH)
+   *  - Suffix B/b → binary       (e.g. 11111110B)
+   *  - No suffix  → decimal      (e.g. 20, 100, 255)
+   *  - Leading 0 before hex letter is normal (e.g. 0FEH)
+   */
+  /** Get the value of a bit-addressable location (e.g., P3.7, TI, CY) */
+  private getBitValue(bitAddr: string): boolean {
+    const upper = bitAddr.toUpperCase();
+    // Port pins P0.0-P3.7
+    const portMatch = upper.match(/^P([0-3])\.([0-7])$/);
+    if (portMatch) {
+      const port = `P${portMatch[1]}` as keyof typeof this.state.portValues;
+      const bit = parseInt(portMatch[2], 10);
+      return (this.state.portValues[port] & (1 << bit)) !== 0;
+    }
+    // Named bits
+    switch (upper) {
+      case 'CY': case 'C': return this.state.psw.CY;
+      case 'AC': return this.state.psw.AC;
+      case 'F0': return this.state.psw.F0;
+      case 'OV': return this.state.psw.OV;
+      case 'TI': return this.state.uart.TI;
+      case 'RI': return this.state.uart.RI;
+      case 'TR0': return this.state.timers.TR0;
+      case 'TR1': return this.state.timers.TR1;
+      case 'TF0': return this.state.timers.TF0;
+      case 'TF1': return this.state.timers.TF1;
+      case 'EA': return this.state.interrupts.EA;
+      case 'ET0': return this.state.interrupts.ET0;
+      case 'ET1': return this.state.interrupts.ET1;
+      case 'EX0': return this.state.interrupts.EX0;
+      case 'EX1': return this.state.interrupts.EX1;
+      case 'ES': return this.state.interrupts.ES;
+      case 'IT0': return (this.state.timers.TCON & 0x01) !== 0;
+      case 'IE0': return (this.state.timers.TCON & 0x02) !== 0;
+      case 'IT1': return (this.state.timers.TCON & 0x04) !== 0;
+      case 'IE1': return (this.state.timers.TCON & 0x08) !== 0;
+      default: {
+        // Numeric bit address: bits 0x00-0x7F → RAM 20H-2FH
+        const bitNum = this.parseNumber(upper);
+        if (!isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
+          const byteAddr = 0x20 + (bitNum >> 3);
+          const bitPos = bitNum & 0x07;
+          return (this.state.ram[byteAddr] & (1 << bitPos)) !== 0;
+        }
+        return false;
+      }
+    }
+  }
+
+  /** Set the value of a bit-addressable location */
+  private setBitValue(bitAddr: string, value: boolean): void {
+    const upper = bitAddr.toUpperCase();
+    const portMatch = upper.match(/^P([0-3])\.([0-7])$/);
+    if (portMatch) {
+      const port = `P${portMatch[1]}` as keyof typeof this.state.portValues;
+      const bit = parseInt(portMatch[2], 10);
+      if (value) {
+        this.state.portValues[port] |= (1 << bit);
+      } else {
+        this.state.portValues[port] &= ~(1 << bit);
+      }
+      return;
+    }
+    // Named bits
+    switch (upper) {
+      case 'CY': case 'C': this.state.psw.CY = value; break;
+      case 'AC': this.state.psw.AC = value; break;
+      case 'F0': this.state.psw.F0 = value; break;
+      case 'OV': this.state.psw.OV = value; break;
+      case 'TI': this.state.uart.TI = value; value ? (this.state.uart.SCON |= 0x02) : (this.state.uart.SCON &= ~0x02); break;
+      case 'RI': this.state.uart.RI = value; value ? (this.state.uart.SCON |= 0x01) : (this.state.uart.SCON &= ~0x01); break;
+      case 'TR0': this.state.timers.TR0 = value; value ? (this.state.timers.TCON |= 0x10) : (this.state.timers.TCON &= ~0x10); break;
+      case 'TR1': this.state.timers.TR1 = value; value ? (this.state.timers.TCON |= 0x40) : (this.state.timers.TCON &= ~0x40); break;
+      case 'TF0': this.state.timers.TF0 = value; value ? (this.state.timers.TCON |= 0x20) : (this.state.timers.TCON &= ~0x20); break;
+      case 'TF1': this.state.timers.TF1 = value; value ? (this.state.timers.TCON |= 0x80) : (this.state.timers.TCON &= ~0x80); break;
+      case 'IT0': value ? (this.state.timers.TCON |= 0x01) : (this.state.timers.TCON &= ~0x01); break;
+      case 'IE0': value ? (this.state.timers.TCON |= 0x02) : (this.state.timers.TCON &= ~0x02); break;
+      case 'IT1': value ? (this.state.timers.TCON |= 0x04) : (this.state.timers.TCON &= ~0x04); break;
+      case 'IE1': value ? (this.state.timers.TCON |= 0x08) : (this.state.timers.TCON &= ~0x08); break;
+      case 'EA': this.state.interrupts.EA = value; value ? (this.state.interrupts.IE |= 0x80) : (this.state.interrupts.IE &= ~0x80); break;
+      case 'ET0': this.state.interrupts.ET0 = value; value ? (this.state.interrupts.IE |= 0x02) : (this.state.interrupts.IE &= ~0x02); break;
+      case 'ET1': this.state.interrupts.ET1 = value; value ? (this.state.interrupts.IE |= 0x08) : (this.state.interrupts.IE &= ~0x08); break;
+      case 'EX0': this.state.interrupts.EX0 = value; value ? (this.state.interrupts.IE |= 0x01) : (this.state.interrupts.IE &= ~0x01); break;
+      case 'EX1': this.state.interrupts.EX1 = value; value ? (this.state.interrupts.IE |= 0x04) : (this.state.interrupts.IE &= ~0x04); break;
+      case 'ES': this.state.interrupts.ES = value; value ? (this.state.interrupts.IE |= 0x10) : (this.state.interrupts.IE &= ~0x10); break;
+      default: {
+        // Numeric bit address: 8051 bit addressing scheme
+        // Bits 0x00-0x7F → RAM 20H-2FH (bit 0 = RAM[20H].0, bit 7 = RAM[20H].7, bit 8 = RAM[21H].0, etc.)
+        const bitNum = this.parseNumber(upper);
+        if (!isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
+          const byteAddr = 0x20 + (bitNum >> 3);
+          const bitPos = bitNum & 0x07;
+          if (value) {
+            this.state.ram[byteAddr] |= (1 << bitPos);
+          } else {
+            this.state.ram[byteAddr] &= ~(1 << bitPos);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  /** Update the parity flag (P) based on accumulator — set if odd number of 1-bits */
+  private updateParity(): void {
+    let a = this.state.registers.A;
+    let bits = 0;
+    while (a) { bits += a & 1; a >>= 1; }
+    this.state.psw.P = (bits & 1) === 1;
+  }
+
+  /** Parse DB operands: numbers, character literals, and quoted strings */
+  private parseDBOperands(raw: string): number[] {
+    const result: number[] = [];
+    // Split respecting quoted strings
+    let current = '';
+    let inString = false;
+    let stringChar = '';
+
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (!inString && (ch === '"' || ch === "'")) {
+        // Check if it's a character literal like 'A' (single char in single quotes)
+        if (ch === "'" && i + 2 < raw.length && raw[i + 2] === "'") {
+          result.push(raw.charCodeAt(i + 1));
+          i += 2; // skip past closing quote
+          continue;
+        }
+        inString = true;
+        stringChar = ch;
+        // Flush any pending number
+        if (current.trim()) {
+          result.push(this.parseNumber(current.trim()));
+          current = '';
+        }
+        continue;
+      }
+      if (inString) {
+        if (ch === stringChar) {
+          inString = false;
+          continue;
+        }
+        result.push(ch.charCodeAt(0));
+        continue;
+      }
+      if (ch === ',') {
+        if (current.trim()) {
+          result.push(this.parseNumber(current.trim()));
+        }
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    if (current.trim() && !inString) {
+      result.push(this.parseNumber(current.trim()));
+    }
+    return result;
+  }
+
+  /** Check if an operand is a direct address (SFR name, port, or hex address like 90H) */
+  private isDirectAddress(op: string): boolean {
+    const SFR_NAMES = [
+      'P0', 'P1', 'P2', 'P3',
+      'TMOD', 'TCON', 'TH0', 'TL0', 'TH1', 'TL1', 'TH2', 'TL2', 'T2CON',
+      'SCON', 'SBUF', 'PCON',
+      'IE', 'IP',
+      'PSW', 'SP', 'DPL', 'DPH', 'B',
+    ];
+    const u = op.toUpperCase();
+    if (SFR_NAMES.includes(u)) return true;
+    if (/^[0-9A-F]{1,3}H$/i.test(u)) return true; // hex address like 90H, 0B0H
+    if (/^\d{1,3}$/.test(u) && parseInt(u, 10) <= 255) return true; // decimal direct addr
+    return false;
+  }
+
+  private parseNumber(s: string): number {
+    const t = s.trim();
+    if (/H$/i.test(t)) {
+      return parseInt(t.replace(/H$/i, ''), 16);
+    }
+    if (/B$/i.test(t)) {
+      return parseInt(t.replace(/B$/i, ''), 2);
+    }
+    // Pure decimal
+    const v = parseInt(t, 10);
+    return isNaN(v) ? 0 : v;
+  }
+
+  private getValue(operand: string | undefined): number {
+    if (!operand) return 0;
+
+    // Resolve EQU/BIT/DATA symbols
+    operand = this.resolveSymbol(operand);
+
+    // Immediate addressing
+    if (operand.startsWith('#')) {
+        const inner = operand.substring(1);
+        // Character literal: #'A'
+        const charVal = this.parseCharLiteral(inner);
+        if (charVal !== null) return charVal;
+        return this.parseNumber(inner);
+    }
+    
+    // Indirect addressing (@R0, @R1)
+    if (operand.match(/^@R[01]$/i)) {
+        const regName = operand.substring(1).toUpperCase();
+        const address = this.state.registers[regName] || 0;
+        return this.state.ram[address] || 0;
+    }
+    
+    // Register addressing
+    if (operand.toUpperCase() in this.state.registers) {
+        return this.state.registers[operand.toUpperCase()] || 0;
+    }
+    
+    // Special SFR names
+    const operandUpper = operand.toUpperCase();
+    switch (operandUpper) {
+        case 'P0': return this.state.portValues.P0;
+        case 'P1': return this.state.portValues.P1;
+        case 'P2': return this.state.portValues.P2;
+        case 'P3': return this.state.portValues.P3;
+        case 'TMOD': return this.state.timers.TMOD;
+        case 'TCON': return this.state.timers.TCON;
+        case 'TH0': return this.state.timers.TH0;
+        case 'TL0': return this.state.timers.TL0;
+        case 'TH1': return this.state.timers.TH1;
+        case 'TL1': return this.state.timers.TL1;
+        case 'SCON': return this.state.uart.SCON;
+        case 'SBUF': return this.state.uart.SBUF;
+        case 'IE': return this.state.interrupts.IE;
+        case 'IP': return this.state.interrupts.IP;
+        case 'ACC': return this.state.registers.A;
+        case 'PSW': {
+            let psw = 0;
+            if (this.state.psw.CY) psw |= 0x80;
+            if (this.state.psw.AC) psw |= 0x40;
+            if (this.state.psw.F0) psw |= 0x20;
+            if (this.state.psw.RS1) psw |= 0x10;
+            if (this.state.psw.RS0) psw |= 0x08;
+            if (this.state.psw.OV) psw |= 0x04;
+            if (this.state.psw.P) psw |= 0x01;
+            return psw;
+        }
+    }
+    
+    // Direct addressing or SFR by address
+    const address = this.parseNumber(operand);
+    if (!isNaN(address)) {
+        const sfrName = this.sfrMap.get(address);
+        if (sfrName) {
+            if (sfrName.startsWith('P')) {
+                return this.state.portValues[sfrName as keyof typeof this.state.portValues];
+            } else {
+                return this.state.registers[sfrName as keyof typeof this.state.registers] || 0;
+            }
+        } else if (address < 128) { // Internal RAM
+            return this.state.ram[address] || 0;
+        }
+    }
+
+    return 0;
+  }
+
+  private setValue(operand: string | undefined, value: number): void {
+    if (!operand) return;
+    value = value & 0xFF; // Ensure it's a byte
+
+    // Resolve EQU/BIT/DATA symbols
+    operand = this.resolveSymbol(operand);
+
+    // Indirect addressing (@R0, @R1)
+    if (operand.match(/^@R[01]$/i)) {
+        const regName = operand.substring(1).toUpperCase();
+        const address = this.state.registers[regName] || 0;
+        this.state.ram[address] = value;
+        return;
+    }
+    
+    // Register addressing
+    if (operand.toUpperCase() in this.state.registers) {
+        this.state.registers[operand.toUpperCase()] = value;
+        return;
+    }
+    
+    // Special SFR names
+    const operandUpper = operand.toUpperCase();
+    switch (operandUpper) {
+        case 'P0': this.state.portValues.P0 = value; return;
+        case 'P1': this.state.portValues.P1 = value; return;
+        case 'P2': this.state.portValues.P2 = value; return;
+        case 'P3': this.state.portValues.P3 = value; return;
+        case 'TMOD':
+            this.state.timers.TMOD = value;
+            return;
+        case 'TCON':
+            this.state.timers.TCON = value;
+            // Update individual timer control bits
+            this.state.timers.TR0 = (value & 0x10) !== 0;
+            this.state.timers.TR1 = (value & 0x40) !== 0;
+            this.state.timers.TF0 = (value & 0x20) !== 0;
+            this.state.timers.TF1 = (value & 0x80) !== 0;
+            return;
+        case 'TH0': 
+            this.state.timers.TH0 = value;
+            return;
+        case 'TL0': 
+            this.state.timers.TL0 = value;
+            return;
+        case 'TH1': 
+            this.state.timers.TH1 = value;
+            return;
+        case 'TL1': 
+            this.state.timers.TL1 = value;
+            return;
+        case 'SCON': 
+            this.state.uart.SCON = value;
+            // Update individual UART control bits
+            this.state.uart.TI = (value & 0x02) !== 0;
+            this.state.uart.RI = (value & 0x01) !== 0;
+            return;
+        case 'SBUF': 
+            this.state.uart.SBUF = value;
+            return;
+        case 'IE': 
+            this.state.interrupts.IE = value;
+            // Update individual interrupt enable bits
+            this.state.interrupts.EA = (value & 0x80) !== 0;
+            this.state.interrupts.ES = (value & 0x10) !== 0;
+            this.state.interrupts.ET1 = (value & 0x08) !== 0;
+            this.state.interrupts.EX1 = (value & 0x04) !== 0;
+            this.state.interrupts.ET0 = (value & 0x02) !== 0;
+            this.state.interrupts.EX0 = (value & 0x01) !== 0;
+            return;
+        case 'IP': 
+            this.state.interrupts.IP = value;
+            return;
+        case 'ACC': 
+            this.state.registers.A = value;
+            return;
+        case 'PSW': {
+            this.state.psw.CY = (value & 0x80) !== 0;
+            this.state.psw.AC = (value & 0x40) !== 0;
+            this.state.psw.F0 = (value & 0x20) !== 0;
+            this.state.psw.RS1 = (value & 0x10) !== 0;
+            this.state.psw.RS0 = (value & 0x08) !== 0;
+            this.state.psw.OV = (value & 0x04) !== 0;
+            this.state.psw.P = (value & 0x01) !== 0;
+            return;
+        }
+    }
+    
+    // Port addressing (direct operand like P1)
+    if (operandUpper.startsWith('P') && operand[1]) {
+        const portNum = parseInt(operand[1], 10);
+        if (portNum >= 0 && portNum <= 3) {
+            this.state.portValues[`P${portNum}` as keyof typeof this.state.portValues] = value;
+            return;
+        }
+    }
+    
+    // Direct addressing or SFR by address
+    const address = this.parseNumber(operand);
+    if (!isNaN(address)) {
+        const sfrName = this.sfrMap.get(address);
+        if (sfrName) {
+            if (sfrName.startsWith('P')) {
+                this.state.portValues[sfrName as keyof typeof this.state.portValues] = value;
+            } else {
+                this.state.registers[sfrName as keyof typeof this.state.registers] = value;
+            }
+        } else if (address < 128) { // Internal RAM
+            this.state.ram[address] = value;
+        }
+    }
+  }
+
+  private executeMOV(operands: string[]): void {
+    if (operands.length !== 2) {
+        this.state.pc++;
+        return;
+    }
+    // Resolve symbols for both operands
+    const dest = this.resolveSymbol(operands[0] || '');
+    const src = this.resolveSymbol(operands[1] || '');
+    if (!dest || !src) {
+        this.state.pc++;
+        return;
+    }
+    const destUpper = dest.toUpperCase();
+    const srcUpper = src.toUpperCase();
+
+    // Handle bit-level MOV: MOV C, bit | MOV bit, C
+    if (destUpper === 'C' && src.includes('.')) {
+      // MOV C, P3.7 — read bit into CY
+      const bitVal = this.getBitValue(src);
+      this.state.psw.CY = bitVal;
+      this.state.pc += 2;
+      return;
+    }
+    if (dest.includes('.') && srcUpper === 'C') {
+      // MOV P3.7, C — write CY to bit
+      this.setBitValue(dest, this.state.psw.CY);
+      this.state.pc += 2;
+      return;
+    }
+
+    // Special case: MOV DPTR, #data16 — 16-bit immediate to DPTR
+    if (destUpper === 'DPTR' && src.startsWith('#')) {
+      let inner = src.substring(1);
+      // Resolve symbol (e.g., #TAB → label address)
+      const labelAddr = this.labels.get(inner);
+      let val16: number;
+      if (labelAddr !== undefined) {
+        val16 = labelAddr;
+      } else {
+        inner = this.resolveSymbol(inner);
+        const charVal = this.parseCharLiteral(inner);
+        val16 = charVal !== null ? charVal : this.parseNumber(inner);
+      }
+      this.state.registers.DPH = (val16 >> 8) & 0xFF;
+      this.state.registers.DPL = val16 & 0xFF;
+      this.state.pc += 3;
+      return;
+    }
+
+    const value = this.getValue(src);
+    this.setValue(dest, value);
+    if (destUpper === 'A') this.updateParity();
+
+    // Calculate instruction length using resolved operands
+    let instructionLength = 1;
+    const isDestReg = destUpper === 'A' || dest.match(/^R[0-7]$/i) || dest.match(/^@R[01]$/i);
+
+    if (destUpper === 'DPTR') {
+      instructionLength = 3; // MOV DPTR, #data16 (handled above, but fallback)
+    } else if (src.startsWith('#')) {
+      instructionLength = isDestReg ? 2 : 3;
+    } else if (destUpper === 'A') {
+      // MOV A, Rn/@Ri = 1; MOV A, direct = 2
+      instructionLength = (src.match(/^R[0-7]$/i) || src.match(/^@R[01]$/i)) ? 1 : 2;
+    } else if (dest.match(/^R[0-7]$/i)) {
+      instructionLength = srcUpper === 'A' ? 1 : 2;
+    } else if (this.isDirectAddress(dest)) {
+      instructionLength = this.isDirectAddress(src) ? 3 : 2;
+    }
+    this.state.pc += instructionLength;
+  }
+
+  private executeACALL(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc++;
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.pushToStack16(this.state.pc + 2); // Push return address (PC + 2 for ACALL)
+      this.state.pc = targetPC;
+    } else {
+      // If label not found, advance PC by instruction length (2 bytes for ACALL)
+      this.state.pc += 2;
+    }
+  }
+
+  private executeRET(): void {
+    const returnAddress = this.popFromStack16();
+    this.state.pc = returnAddress;
+  }
+
+  private executeDJNZ(operands: string[]): void {
+    if (operands.length !== 2) {
+      this.state.pc++;
+      return;
+    }
+    const operand = operands[0];
+    const targetLabel = operands[1];
+    if (!operand || !targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    let value = this.getValue(operand);
+    value = (value - 1) & 0xFF;
+    this.setValue(operand, value);
+
+    const instructionLength = (operand.toUpperCase() in this.state.registers) ? 2 : 3; // DJNZ reg, rel is 2 bytes; DJNZ direct, rel is 3 bytes
+
+    if (value !== 0) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += instructionLength; // Advance if label not found
+      }
+    } else {
+      this.state.pc += instructionLength;
+    }
+  }
+
+  private executeCJNE(operands: string[]): void {
+    if (operands.length !== 3) {
+      this.state.pc += 3; // CJNE is a 3-byte instruction
+      return;
+    }
+    const op1 = operands[0];
+    const op2 = operands[1];
+    const targetLabel = operands[2];
+    if (!op1 || !op2 || !targetLabel) {
+      this.state.pc += 3;
+      return;
+    }
+
+    const val1 = this.getValue(op1);
+    const val2 = this.getValue(op2);
+
+    // Real 8051: CY = 1 if unsigned val1 < val2, else CY = 0
+    this.state.psw.CY = val1 < val2;
+
+    if (val1 !== val2) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += 3;
+      }
+    } else {
+      this.state.pc += 3;
+    }
+  }
+
+  private executeRL(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // RL is a 1-byte instruction
+      return;
+    }
+    let value = this.state.registers.A;
+    value = ((value << 1) | (value >> 7)) & 0xFF;
+    this.state.registers.A = value;
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeRR(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // RR is a 1-byte instruction
+      return;
+    }
+    let value = this.state.registers.A;
+    value = ((value >> 1) | (value << 7)) & 0xFF;
+    this.state.registers.A = value;
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeSETB(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1; // SETB is a 1-byte instruction
+      return;
+    }
+    let operand = operands[0];
+    if (!operand) {
+      this.state.pc += 1;
+      return;
+    }
+    operand = this.resolveSymbol(operand);
+
+    const operandUpper = operand.toUpperCase();
+    
+    // Handle special control bits
+    switch (operandUpper) {
+      case 'C':
+      case 'CY':
+        this.state.psw.CY = true;
+        this.state.pc += 1; // SETB C is 1-byte (opcode D3)
+        return;
+    }
+
+    // All other SETB targets are 2-byte instructions (opcode D2 + bit address)
+    this.setBitValue(operandUpper, true);
+    this.state.pc += 2;
+  }
+
+  private executeCLR(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1; // CLR is a 1-byte instruction
+      return;
+    }
+    let operand = operands[0];
+    if (!operand) {
+      this.state.pc += 1;
+      return;
+    }
+    operand = this.resolveSymbol(operand);
+
+    const operandUpper = operand.toUpperCase();
+    
+    // CLR A — clear accumulator (1-byte, opcode E4)
+    if (operandUpper === 'A' || operandUpper === 'ACC') {
+      this.state.registers.A = 0;
+      this.updateParity();
+      this.state.pc += 1;
+      return;
+    }
+
+    // CLR C — clear carry (1-byte, opcode C3)
+    if (operandUpper === 'C' || operandUpper === 'CY') {
+      this.state.psw.CY = false;
+      this.state.pc += 1;
+      return;
+    }
+
+    // All other CLR targets are 2-byte instructions (opcode C2 + bit address)
+    this.setBitValue(operandUpper, false);
+    this.state.pc += 2;
+  }
+
+  private executeCPL(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1; // CPL is a 1-byte instruction
+      return;
+    }
+    let operand = operands[0];
+    if (!operand) {
+      this.state.pc += 1;
+      return;
+    }
+    operand = this.resolveSymbol(operand);
+    const operandUpper = operand.toUpperCase();
+
+    // CPL A — complement accumulator (1-byte, opcode F4)
+    if (operandUpper === 'A') {
+      this.state.registers.A = (~this.state.registers.A) & 0xFF;
+      this.updateParity();
+      this.state.pc += 1;
+      return;
+    }
+
+    // CPL C — complement carry (1-byte, opcode B3)
+    if (operandUpper === 'C' || operandUpper === 'CY') {
+      this.state.psw.CY = !this.state.psw.CY;
+      this.state.pc += 1;
+      return;
+    }
+
+    // All other CPL targets are 2-byte instructions (opcode B2 + bit address)
+    const current = this.getBitValue(operandUpper);
+    this.setBitValue(operandUpper, !current);
+    this.state.pc += 2;
+  }
+
+  private executePUSH(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // PUSH is a 2-byte instruction
+      return;
+    }
+    const operand = operands[0];
+    const value = this.getValue(operand);
+    this.pushToStack(value);
+    this.state.pc += 2; // PUSH is a 2-byte instruction
+  }
+
+  private executePOP(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // POP is a 2-byte instruction
+      return;
+    }
+    const operand = operands[0];
+    const value = this.popFromStack();
+    this.setValue(operand, value);
+    this.state.pc += 2; // POP is a 2-byte instruction
+  }
+
+  private pushToStack(value: number): void {
+    // For 8-bit values, just push the value
+    this.state.registers.SP = (this.state.registers.SP + 1) & 0xFF;
+    this.state.ram[this.state.registers.SP] = value & 0xFF;
+  }
+
+  private pushToStack16(value: number): void {
+    // For 16-bit values (like return addresses), push low byte first, then high byte
+    // Push low byte
+    this.state.registers.SP = (this.state.registers.SP + 1) & 0xFF;
+    this.state.ram[this.state.registers.SP] = value & 0xFF;
+    // Push high byte
+    this.state.registers.SP = (this.state.registers.SP + 1) & 0xFF;
+    this.state.ram[this.state.registers.SP] = (value >> 8) & 0xFF;
+  }
+
+  private popFromStack(): number {
+    const value = this.state.ram[this.state.registers.SP] || 0;
+    this.state.registers.SP = (this.state.registers.SP - 1) & 0xFF; // Decrement SP, wrap around 256
+    return value;
+  }
+
+  private popFromStack16(): number {
+    // Pop high byte first
+    const highByte = this.state.ram[this.state.registers.SP] || 0;
+    this.state.registers.SP = (this.state.registers.SP - 1) & 0xFF;
+    // Pop low byte
+    const lowByte = this.state.ram[this.state.registers.SP] || 0;
+    this.state.registers.SP = (this.state.registers.SP - 1) & 0xFF;
+    return (highByte << 8) | lowByte;
+  }
+
+  private executeMOVC(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1;
+      return;
+    }
+    const src = (operands[1] || '').toUpperCase().replace(/\s+/g, '');
+    if (src === '@A+DPTR') {
+      // MOVC A, @A+DPTR — read from code memory at DPTR + A
+      const dptr = ((this.state.registers.DPH << 8) | this.state.registers.DPL) & 0xFFFF;
+      const address = (this.state.registers.A + dptr) & 0xFFFF;
+      this.state.registers.A = this.codeMemory[address];
+    } else if (src === '@A+PC') {
+      // MOVC A, @A+PC — read from code memory at PC + A + 1
+      const address = (this.state.pc + 1 + this.state.registers.A) & 0xFFFF;
+      this.state.registers.A = this.codeMemory[address];
+    }
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeSJMP(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // SJMP is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.state.pc = targetPC;
+    } else {
+      this.state.pc += 2; // SJMP is a 2-byte instruction
+    }
+  }
+
+  private executeLJMP(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 3; // LJMP is a 3-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 3;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.state.pc = targetPC;
+    } else {
+      this.state.pc += 3; // LJMP is a 3-byte instruction
+    }
+  }
+
+  private executeINC(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1;
+      return;
+    }
+    const operand = (operands[0] || '').toUpperCase();
+
+    // INC DPTR — 16-bit increment (1-byte, opcode A3)
+    if (operand === 'DPTR') {
+      let dptr = ((this.state.registers.DPH << 8) | this.state.registers.DPL) & 0xFFFF;
+      dptr = (dptr + 1) & 0xFFFF;
+      this.state.registers.DPH = (dptr >> 8) & 0xFF;
+      this.state.registers.DPL = dptr & 0xFF;
+      this.state.pc += 1;
+      return;
+    }
+
+    let value = this.getValue(operands[0]);
+    value = (value + 1) & 0xFF;
+    this.setValue(operands[0], value);
+    if (operand === 'A') this.updateParity();
+    // INC A = 1 byte; INC Rn = 1 byte; INC @Ri = 1 byte; INC direct = 2 bytes
+    this.state.pc += (operand === 'A' || operand.match(/^R[0-7]$/) || operand.match(/^@R[01]$/)) ? 1 : 2;
+  }
+
+  private executeDEC(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1;
+      return;
+    }
+    const operand = (operands[0] || '').toUpperCase();
+    let value = this.getValue(operands[0]);
+    value = (value - 1) & 0xFF;
+    this.setValue(operands[0], value);
+    if (operand === 'A') this.updateParity();
+    // DEC A = 1 byte; DEC Rn = 1 byte; DEC @Ri = 1 byte; DEC direct = 2 bytes
+    this.state.pc += (operand === 'A' || operand.match(/^R[0-7]$/) || operand.match(/^@R[01]$/)) ? 1 : 2;
+  }
+
+  private executeJMP(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 1; // JMP is a 1-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 1;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.state.pc = targetPC;
+    } else {
+      this.state.pc += 1; // Advance if label not found
+    }
+  }
+
+  private executeJZ(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // JZ is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    if (this.state.registers.A === 0) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += 2; // Advance if label not found
+      }
+    } else {
+      this.state.pc += 2;
+    }
+  }
+
+  private executeJNZ(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // JNZ is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    if (this.state.registers.A !== 0) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += 2; // Advance if label not found
+      }
+    } else {
+      this.state.pc += 2;
+    }
+  }
+
+  private executeJC(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // JC is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    if (this.state.psw.CY) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += 2; // Advance if label not found
+      }
+    } else {
+      this.state.pc += 2;
+    }
+  }
+
+  private executeJNC(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // JNC is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    if (!this.state.psw.CY) {
+      const targetPC = this.labels.get(targetLabel);
+      if (targetPC !== undefined) {
+        this.state.pc = targetPC;
+      } else {
+        this.state.pc += 2; // Advance if label not found
+      }
+    } else {
+      this.state.pc += 2;
+    }
+  }
+
+  private executeJB(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 3; return; }
+    const bitOperand = this.resolveSymbol(operands[0] || '').toUpperCase();
+    const targetLabel = operands[1] || '';
+    if (!bitOperand || !targetLabel) { this.state.pc += 3; return; }
+
+    if (this.getBitValue(bitOperand)) {
+      const targetPC = this.labels.get(targetLabel);
+      this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
+    } else {
+      this.state.pc += 3;
+    }
+  }
+
+  private executeJNB(operands_raw: string[]): void {
+    const operands = [...operands_raw];
+    if (operands[0]) operands[0] = this.resolveSymbol(operands[0]);
+    if (operands.length !== 2) { this.state.pc += 3; return; }
+    const bitOperand = (operands[0] || '').toUpperCase();
+    const targetLabel = operands[1] || '';
+    if (!bitOperand || !targetLabel) { this.state.pc += 3; return; }
+
+    if (!this.getBitValue(bitOperand)) {
+      const targetPC = this.labels.get(targetLabel);
+      this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
+    } else {
+      this.state.pc += 3;
+    }
+  }
+
+  /** Calculate instruction length for ANL/ORL/XRL */
+  private logicOpLength(dest: string, src: string): number {
+    const d = dest.toUpperCase();
+    const s = src.toUpperCase();
+    if (d === 'A') {
+      // ANL A, Rn = 1; ANL A, @Ri = 1; ANL A, #data = 2; ANL A, direct = 2
+      return (s.match(/^R[0-7]$/i) || s.match(/^@R[01]$/i)) ? 1 : 2;
+    }
+    // ANL direct, A = 2; ANL direct, #data = 3
+    return s.startsWith('#') ? 3 : 2;
+  }
+
+  private executeANL(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 2; return; }
+    const dest = operands[0] || '';
+    const src = operands[1] || '';
+    const value1 = this.getValue(dest);
+    const value2 = this.getValue(src);
+    this.setValue(dest, value1 & value2);
+    if (dest.toUpperCase() === 'A') this.updateParity();
+    this.state.pc += this.logicOpLength(dest, src);
+  }
+
+  private executeORL(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 2; return; }
+    const dest = operands[0] || '';
+    const src = operands[1] || '';
+    const value1 = this.getValue(dest);
+    const value2 = this.getValue(src);
+    this.setValue(dest, value1 | value2);
+    if (dest.toUpperCase() === 'A') this.updateParity();
+    this.state.pc += this.logicOpLength(dest, src);
+  }
+
+  private executeXRL(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 2; return; }
+    const dest = operands[0] || '';
+    const src = operands[1] || '';
+    const value1 = this.getValue(dest);
+    const value2 = this.getValue(src);
+    this.setValue(dest, value1 ^ value2);
+    if (dest.toUpperCase() === 'A') this.updateParity();
+    this.state.pc += this.logicOpLength(dest, src);
+  }
+
+  private executeRLC(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // RLC is a 1-byte instruction
+      return;
+    }
+    let value = this.state.registers.A;
+    let cy = this.state.psw.CY ? 1 : 0;
+    this.state.psw.CY = (value & 0x80) !== 0; // Old bit 7 goes to CY
+    value = ((value << 1) | cy) & 0xFF;
+    this.state.registers.A = value;
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeRRC(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // RRC is a 1-byte instruction
+      return;
+    }
+    let value = this.state.registers.A;
+    let cy = this.state.psw.CY ? 1 : 0;
+    this.state.psw.CY = (value & 0x01) !== 0; // Old bit 0 goes to CY
+    value = (cy << 7) | (value >> 1);
+    this.state.registers.A = value;
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeADD(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1;
+      return;
+    }
+    const src = operands[1] || '';
+    const srcValue = this.getValue(src);
+    const result = this.state.registers.A + srcValue;
+    this.state.psw.CY = result > 0xFF;
+    this.state.psw.AC = ((this.state.registers.A & 0x0F) + (srcValue & 0x0F)) > 0x0F;
+    this.state.psw.OV = ((this.state.registers.A ^ result) & (srcValue ^ result) & 0x80) !== 0;
+    this.state.registers.A = result & 0xFF;
+    this.updateParity();
+    // ADD A, Rn = 1 byte; ADD A, @Ri = 1 byte; ADD A, #data = 2 bytes; ADD A, direct = 2 bytes
+    const srcU = src.toUpperCase();
+    this.state.pc += (srcU.match(/^R[0-7]$/i) || srcU.match(/^@R[01]$/i)) ? 1 : 2;
+  }
+
+  private executeADDC(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1;
+      return;
+    }
+    const src = operands[1] || '';
+    const srcValue = this.getValue(src);
+    const cy = this.state.psw.CY ? 1 : 0;
+    const result = this.state.registers.A + srcValue + cy;
+    this.state.psw.CY = result > 0xFF;
+    this.state.psw.AC = ((this.state.registers.A & 0x0F) + (srcValue & 0x0F) + cy) > 0x0F;
+    this.state.psw.OV = ((this.state.registers.A ^ result) & (srcValue ^ result) & 0x80) !== 0;
+    this.state.registers.A = result & 0xFF;
+    this.updateParity();
+    const srcU = src.toUpperCase();
+    this.state.pc += (srcU.match(/^R[0-7]$/i) || srcU.match(/^@R[01]$/i)) ? 1 : 2;
+  }
+
+  private executeSUBB(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1;
+      return;
+    }
+    const src = operands[1] || '';
+    const srcValue = this.getValue(src);
+    const cy = this.state.psw.CY ? 1 : 0;
+    const result = this.state.registers.A - srcValue - cy;
+    this.state.psw.CY = result < 0;
+    this.state.psw.AC = ((this.state.registers.A & 0x0F) - (srcValue & 0x0F) - cy) < 0;
+    this.state.psw.OV = ((this.state.registers.A ^ result) & (~srcValue ^ result) & 0x80) !== 0;
+    this.state.registers.A = result & 0xFF;
+    this.updateParity();
+    const srcU = src.toUpperCase();
+    this.state.pc += (srcU.match(/^R[0-7]$/i) || srcU.match(/^@R[01]$/i)) ? 1 : 2;
+  }
+
+  private executeDA(operands: string[]): void {
+    // DA A — decimal adjust accumulator after BCD addition
+    // Accepts both "DA" and "DA A" formats
+    let a = this.state.registers.A;
+    let cy = this.state.psw.CY;
+    if ((a & 0x0F) > 9 || this.state.psw.AC) {
+      a += 6;
+      if (a > 0xFF) cy = true;
+    }
+    if (((a >> 4) & 0x0F) > 9 || cy) {
+      a += 0x60;
+      if (a > 0xFF) cy = true;
+    }
+    this.state.psw.CY = cy;
+    this.state.registers.A = a & 0xFF;
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeSWAP(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // SWAP is a 1-byte instruction
+      return;
+    }
+    let a = this.state.registers.A;
+    this.state.registers.A = ((a & 0x0F) << 4) | ((a & 0xF0) >> 4);
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeXCH(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // XCH is a 1-byte instruction (simplified)
+      return;
+    }
+    const dest = operands[1];
+    const valueA = this.state.registers.A;
+    const valueDest = this.getValue(dest);
+    this.state.registers.A = valueDest;
+    this.setValue(dest, valueA);
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeXCHD(operands: string[]): void {
+    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+      this.state.pc += 1; // XCHD is a 1-byte instruction (simplified)
+      return;
+    }
+    const dest = operands[1];
+    const valueA = this.state.registers.A;
+    const valueDest = this.getValue(dest);
+
+    this.state.registers.A = (valueA & 0xF0) | (valueDest & 0x0F);
+    this.setValue(dest, (valueDest & 0xF0) | (valueA & 0x0F));
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeLCALL(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 3; // LCALL is a 3-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 3;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.pushToStack16(this.state.pc + 3); // Push return address (PC + 3 for LCALL)
+      this.state.pc = targetPC;
+    } else {
+      this.state.pc += 3; // Advance if label not found
+    }
+  }
+
+  private executeAJMP(operands: string[]): void {
+    if (operands.length !== 1) {
+      this.state.pc += 2; // AJMP is a 2-byte instruction
+      return;
+    }
+    const targetLabel = operands[0];
+    if (!targetLabel) {
+      this.state.pc += 2;
+      return;
+    }
+    const targetPC = this.labels.get(targetLabel);
+    if (targetPC !== undefined) {
+      this.state.pc = targetPC;
+    } else {
+      this.state.pc += 2; // Advance if label not found
+    }
+  }
+
+  private executeEND(): void {
+    this.state.terminated = true;
+  }
+
+  /** RETI — return from interrupt (same as RET for simulator, 1 byte) */
+  private executeRETI(): void {
+    this.executeRET(); // Pop PC from stack, same behavior as RET
+    // In real hardware, RETI also re-enables the interrupt system
+  }
+
+  /** JBC bit, rel — jump if bit set AND clear bit (3 bytes) */
+  private executeJBC(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 3; return; }
+    const bitOp = this.resolveSymbol(operands[0] || '').toUpperCase();
+    const targetLabel = operands[1] || '';
+    const bitValue = this.getBitValue(bitOp);
+    if (bitValue) {
+      this.setBitValue(bitOp, false); // Clear the bit
+      const targetPC = this.labels.get(targetLabel);
+      this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
+    } else {
+      this.state.pc += 3;
+    }
+  }
+
+  /** MOVX — external memory access (1 byte) */
+  private executeMOVX(operands: string[]): void {
+    if (operands.length !== 2) { this.state.pc += 1; return; }
+    const dest = (operands[0] || '').toUpperCase();
+    const src = (operands[1] || '').toUpperCase();
+    // MOVX A, @DPTR — read external memory
+    if (dest === 'A' && src === '@DPTR') {
+      // Simulate: return 0xFF (external memory not connected)
+      this.state.registers.A = 0xFF;
+      this.updateParity();
+    }
+    // MOVX @DPTR, A — write to external memory
+    // MOVX A, @R0 / MOVX A, @R1 — 8-bit external address
+    // (No external memory in simulator, operations are no-ops for data)
+    else if (dest === 'A' && (src === '@R0' || src === '@R1')) {
+      this.state.registers.A = 0xFF;
+      this.updateParity();
+    }
+    // MOVX @DPTR, A or MOVX @R0, A / MOVX @R1, A — write (no-op)
+    this.state.pc += 1;
+  }
+
+  private executeMUL(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'AB') {
+      this.state.pc += 1; // MUL is a 1-byte instruction
+      return;
+    }
+    const result = this.state.registers.A * this.state.registers.B;
+    this.state.registers.A = result & 0xFF; // Low byte
+    this.state.registers.B = (result >> 8) & 0xFF; // High byte
+    this.state.psw.CY = false; // CY is always cleared
+    this.state.psw.OV = result > 0xFF; // OV is set if result > 255
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  private executeDIV(operands: string[]): void {
+    if (operands.length !== 1 || !operands[0] || operands[0].toUpperCase() !== 'AB') {
+      this.state.pc += 1; // DIV is a 1-byte instruction
+      return;
+    }
+    if (this.state.registers.B === 0) {
+      // Division by zero
+      this.state.psw.OV = true; // Set overflow flag
+      this.state.psw.CY = false; // CY is cleared
+      // A and B remain unchanged in case of division by zero
+    } else {
+      const quotient = Math.floor(this.state.registers.A / this.state.registers.B);
+      const remainder = this.state.registers.A % this.state.registers.B;
+      this.state.registers.A = quotient & 0xFF;
+      this.state.registers.B = remainder & 0xFF;
+      this.state.psw.OV = false; // Clear overflow flag
+      this.state.psw.CY = false; // CY is always cleared
+    }
+    this.updateParity();
+    this.state.pc += 1;
+  }
+
+  public getState(): SimulatorState {
+    // 返回当前状态的深拷贝，避免外部直接修改内部状态
+    const snapshot = JSON.parse(JSON.stringify(this.state)) as SimulatorState;
+    // 动态补齐 memory，以免因深拷贝缺失导致 undefined
+    snapshot.memory = this.instructions.map(i => `${i.mnemonic} ${i.operands.join(' ')}`.trim());
+    // 计算当前 PC 对应的源代码行号
+    const currentInstr = this.instructions.find(i => i.address === this.state.pc);
+    snapshot.currentLine = currentInstr ? currentInstr.line : -1;
+    return snapshot;
+  }
+
+
+
+  /**
+   * 全速执行程序，直到到达程序尾、出现 Terminate 标志或达到最大步数。
+   * @param maxSteps   防御性限制，避免陷入死循环
+   * @returns          执行完毕后整理的监控数据，供 UI 直接渲染
+   */
+  public simulate(maxSteps: number = 50000) {
+    let steps = 0;
+    const pcHistory: number[] = [];
+    const loopDetectionWindow = 100; // 检测循环的窗口大小
+    
+    while (!this.state.terminated && steps < maxSteps) {
+      // 检查当前PC是否有对应的指令
+      if (!this.instructionMap.has(this.state.pc)) {
+        // 如果PC超出了有效指令范围，程序应该终止
+        const maxAddress = Math.max(...Array.from(this.instructionMap.keys()));
+        if (this.state.pc > maxAddress || this.instructionMap.size === 0) {
+          console.log(`程序执行完成，PC: ${this.state.pc.toString(16).toUpperCase()}H，总执行步数: ${steps}`);
+          this.state.terminated = true;
+          break;
+        }
+      }
+      
+      // 记录PC历史用于循环检测
+      pcHistory.push(this.state.pc);
+      if (pcHistory.length > loopDetectionWindow) {
+        pcHistory.shift();
+      }
+      
+      // 循环检测：在足够多步后，检测是否形成了完整的重复周期
+      // 这允许 DJNZ 等短循环正常执行，只检测宏观上的无限重复
+      if (steps > 500 && pcHistory.length >= loopDetectionWindow) {
+        // 检测方法：比较最近 N 步和之前 N 步是否完全相同（周期重复）
+        const halfLen = Math.floor(pcHistory.length / 2);
+        const recent = pcHistory.slice(-halfLen);
+        const previous = pcHistory.slice(-halfLen * 2, -halfLen);
+        if (recent.length === previous.length && recent.every((pc, i) => pc === previous[i])) {
+          console.log(`检测到完整重复周期（${halfLen}步），程序稳态运行，终止仿真。总步数: ${steps}`);
+          this.state.terminated = true;
+          break;
+        }
+      }
+      
+      this.step();
+      steps++;
+      
+      // 如果step()执行后程序被标记为终止，也应该退出循环
+      if (this.state.terminated) {
+        console.log(`程序遇到END指令或其他终止条件，总执行步数: ${steps}`);
+        break;
+      }
+    }
+    
+    // 如果达到最大步数限制
+    if (steps >= maxSteps) {
+      console.warn(`程序执行达到最大步数限制 (${maxSteps})，可能存在死循环`);
+      this.state.terminated = true;
+    }
+
+    // 将 P1 口的值转换成 LED 点亮模式（低电平点亮）
+    const ledPattern = this.getLedPatternFromPort(this.state.portValues.P1);
+
+    return {
+      registers: { ...this.state.registers },
+      portValues: {
+        P0: '0x' + this.state.portValues.P0.toString(16).toUpperCase().padStart(2, '0'),
+        P1: '0x' + this.state.portValues.P1.toString(16).toUpperCase().padStart(2, '0'),
+        P2: '0x' + this.state.portValues.P2.toString(16).toUpperCase().padStart(2, '0'),
+        P3: '0x' + this.state.portValues.P3.toString(16).toUpperCase().padStart(2, '0'),
+      },
+      leds: ledPattern,
+      psw: { ...this.state.psw },
+    };
+  }
+
+  // 根据 P1 端口值生成 LED 点亮布尔数组（低电平点亮）
+  private getLedPatternFromPort(portValue: number): boolean[] {
+    const pattern: boolean[] = [];
+    for (let i = 0; i < 8; i++) {
+      // 低电平(0) 表示灯亮
+      pattern.push(((portValue >> i) & 1) === 0);
+    }
+    return pattern;
+  }
+}

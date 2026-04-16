@@ -1,0 +1,29 @@
+{
+  "CBuild.cCompilerPath": "/usr/bin/clang",
+  "CBuild.cppCompilerPath": "/usr/bin/clang++",
+  "CBuild.debuggerPath": "/usr/bin/lldb",
+  "CBuild.cStandard": "",
+  "CBuild.cppStandard": "",
+  "CBuild.warnings": [
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic"
+  ],
+  "CBuild.enableWarnings": true,
+  "CBuild.warningsAsError": false,
+  "CBuild.compilerArgs": [],
+  "CBuild.linkerArgs": [],
+  "CBuild.includePaths": [],
+  "CBuild.includeSearch": [
+    "*",
+    "**/*"
+  ],
+  "CBuild.excludeSearch": [
+    "**/build",
+    "**/build/**",
+    "**/.*",
+    "**/.*/**",
+    "**/.vscode",
+    "**/.vscode/**"
+  ]
+}
