@@ -138,5 +138,6 @@ export function checkRequiredEnvVars(): boolean {
   }
 }
 
-// 导出验证后的环境变量
-export const env = validateEnv();
+// 导出验证后的环境变量（懒加载）
+// 注意：不要在模块加载时就 validateEnv()，否则会在 Vercel build 阶段因为未配置环境变量而直接失败
+export const env = () => validateEnv();

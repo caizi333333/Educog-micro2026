@@ -132,5 +132,6 @@ export function checkRequiredEnvVars(): boolean {
   }
 }
 
-// 导出验证后的环境变量
-export const env = validateEnv();
+// 导出验证后的环境变量（懒加载）
+// 避免在构建阶段因为缺失环境变量导致整个 build 失败
+export const env = () => validateEnv();
