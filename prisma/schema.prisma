@@ -6,7 +6,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Vercel Postgres 会自动注入 POSTGRES_PRISMA_URL
+  // 本地或其他平台也可以将 POSTGRES_PRISMA_URL 设置为你的连接串
+  url      = env("POSTGRES_PRISMA_URL")
 }
 
 model User {

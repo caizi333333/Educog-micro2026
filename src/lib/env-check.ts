@@ -42,6 +42,8 @@ export function validateEnv(): Env {
     // 为了向后兼容，如果没有设置NEXTAUTH_SECRET，使用JWT_SECRET
     const envToValidate = {
       ...process.env,
+      // 兼容 Vercel Postgres：优先使用 DATABASE_URL，否则回退到 POSTGRES_PRISMA_URL
+      DATABASE_URL: process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL,
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET,
     };
 
