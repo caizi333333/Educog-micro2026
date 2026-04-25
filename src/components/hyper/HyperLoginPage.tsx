@@ -124,6 +124,7 @@ export function HyperLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light');
@@ -132,7 +133,17 @@ export function HyperLoginPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!emailOrUsername || !password) {
+    const form = event.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const submittedAccount = String(formData.get('emailOrUsername') ?? emailOrUsername).trim();
+    const submittedPassword = String(formData.get('password') ?? password);
+
+    setFormError('');
+    setEmailOrUsername(submittedAccount);
+    setPassword(submittedPassword);
+
+    if (!submittedAccount || !submittedPassword) {
+      setFormError('请填写账号和密码。');
       toast({ title: '登录信息不完整', description: '请填写账号和密码。', variant: 'destructive' });
       return;
     }
@@ -142,10 +153,10 @@ export function HyperLoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailOrUsername, password }),
+        body: JSON.stringify({ emailOrUsername: submittedAccount, password: submittedPassword }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '登录失败');
+      if (!response.ok) throw new Error(data.error || '账号或密码不正确');
 
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -165,9 +176,11 @@ export function HyperLoginPage() {
         window.location.href = '/';
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : '请稍后重试。';
+      setFormError(message);
       toast({
         title: '登录失败',
-        description: error instanceof Error ? error.message : '请稍后重试。',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -227,8 +240,11 @@ export function HyperLoginPage() {
               <div className="relative">
                 <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
+                  id="school"
+                  name="school"
                   value={school}
                   onChange={(event) => setSchool(event.target.value)}
+                  autoComplete="organization"
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
                 />
               </div>
@@ -239,9 +255,15 @@ export function HyperLoginPage() {
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
+                  id="emailOrUsername"
+                  name="emailOrUsername"
                   value={emailOrUsername}
-                  onChange={(event) => setEmailOrUsername(event.target.value)}
+                  onChange={(event) => {
+                    setEmailOrUsername(event.target.value);
+                    setFormError('');
+                  }}
                   autoComplete="username"
+                  aria-invalid={!!formError}
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
                   placeholder={role === 'student' ? '例如 2023050118' : '输入账号'}
                 />
@@ -253,10 +275,16 @@ export function HyperLoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
+                  id="password"
+                  name="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setFormError('');
+                  }}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  aria-invalid={!!formError}
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-10 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
                   placeholder="请输入密码"
                 />
@@ -280,6 +308,12 @@ export function HyperLoginPage() {
               </span>
               记住此设备
             </button>
+
+            {formError && (
+              <p className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100" role="alert">
+                {formError}
+              </p>
+            )}
 
             <button
               type="submit"

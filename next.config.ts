@@ -34,6 +34,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, max-age=0',
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
@@ -47,11 +56,6 @@ const nextConfig: NextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
-          },
-          // 开发环境适度缓存，避免无限刷新
-          {
-            key: 'Cache-Control',
-            value: process.env.NODE_ENV === 'development' ? 'no-cache' : 'public, max-age=31536000',
           },
         ],
       },
