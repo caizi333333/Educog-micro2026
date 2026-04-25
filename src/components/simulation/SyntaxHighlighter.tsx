@@ -7,20 +7,20 @@ import React, { useMemo } from 'react';
  * Renders colored overlay matching textarea content
  */
 
-// Token types and their colors (Catppuccin Mocha inspired)
+// Token colors tuned for the graphite lab workbench theme.
 const TOKEN_COLORS = {
-  instruction: '#89b4fa', // blue - MOV, ADD, etc.
-  directive: '#cba6f7',   // mauve - ORG, DB, END
-  register: '#fab387',    // peach - A, B, R0-R7, DPTR
-  number: '#a6e3a1',      // green - #0FFH, 0030H
-  label: '#f9e2af',       // yellow - MAIN:, DELAY:
-  comment: '#6c7086',     // overlay2 - ; comments
-  string: '#a6e3a1',      // green
-  operator: '#89dceb',    // sky - ,  @  #
-  port: '#f38ba8',        // red - P0, P1, P2, P3
-  sfr: '#eba0ac',         // maroon - TMOD, TCON, IE, IP
-  bit: '#94e2d5',         // teal - bit addresses
-  default: '#cdd6f4',     // text
+  instruction: '#38d7e6',
+  directive: '#f4c35d',
+  register: '#7dd3a8',
+  number: '#b5e27b',
+  label: '#f2d38b',
+  comment: '#6f8588',
+  string: '#b5e27b',
+  operator: '#9be7ef',
+  port: '#ef8f8f',
+  sfr: '#ffb26b',
+  bit: '#7ce7d6',
+  default: '#d8f3f2',
 };
 
 const INSTRUCTIONS = new Set([

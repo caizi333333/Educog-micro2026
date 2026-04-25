@@ -110,17 +110,24 @@ jest.mock('@/components/ui/alert', () => ({
 jest.mock('lucide-react', () => {
   const Icon = (props: any) => <span {...props}>icon</span>;
   return {
+    Activity: Icon,
+    ArrowRight: Icon,
     CheckCircle: Icon,
     XCircle: Icon,
     BarChart4: Icon,
     Target: Icon,
     BookCopy: Icon,
+    ClipboardCheck: Icon,
+    FileText: Icon,
     GitBranch: Icon,
     ChevronsRight: Icon,
     ChevronsLeft: Icon,
     RotateCcw: Icon,
     Loader2: Icon,
     Lightbulb: Icon,
+    ListChecks: Icon,
+    TerminalSquare: Icon,
+    Timer: Icon,
   };
 });
 

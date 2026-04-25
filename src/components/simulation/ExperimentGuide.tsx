@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTeachingContent, type TeachingContent } from '@/lib/teaching-content';
+import { getExperimentVisualAssets, toSvgDataUri } from '@/lib/experiment-visual-assets';
 import type { ExperimentConfig } from '@/lib/experiment-config';
 import AnimationRenderer from './animations/AnimationRegistry';
 import PreClassQuiz from './PreClassQuiz';
@@ -63,6 +64,7 @@ export default function ExperimentGuide({ experiment }: Props) {
 
   const tc = getTeachingContent(experiment.id);
   const hasContent = tc.theory.length > 0 || tc.stepByStep.length > 0;
+  const visualAssets = getExperimentVisualAssets(experiment.id);
   const [quizPassed, setQuizPassed] = useState(false);
 
   return (
@@ -174,6 +176,28 @@ export default function ExperimentGuide({ experiment }: Props) {
                     {sec.content}
                   </pre>
                 </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ── 实验配图 ── */}
+        {visualAssets.length > 0 && (
+          <Section title="实验配图" icon={CircuitBoard} accent="cyan">
+            <div className="space-y-3">
+              {visualAssets.map((asset) => (
+                <figure key={asset.id} className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
+                  <img
+                    src={toSvgDataUri(asset.svg)}
+                    alt={asset.title}
+                    loading="lazy"
+                    className="block w-full bg-[#080d12]"
+                  />
+                  <figcaption className="border-t border-cyan-300/10 bg-white/[0.035] px-2.5 py-2">
+                    <div className="text-[10px] font-semibold text-[#89dceb]">{asset.title}</div>
+                    <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
+                  </figcaption>
+                </figure>
               ))}
             </div>
           </Section>

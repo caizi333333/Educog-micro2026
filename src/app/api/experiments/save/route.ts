@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
 
 export async function POST(request: Request) {
   try {
@@ -75,7 +76,45 @@ export async function POST(request: Request) {
       });
     }
 
-    // 简化处理逻辑 - 移除复杂的活动记录和成就检查
+    try {
+      const action = status === 'COMPLETED' ? 'COMPLETE_EXPERIMENT' : 'SAVE_EXPERIMENT';
+      const classId = await getActiveClassIdForUser(payload.userId);
+
+      await prisma.userActivity.create({
+        data: {
+          userId: payload.userId,
+          action,
+          details: JSON.stringify({ experimentId, status }),
+        },
+      });
+
+      const learningEvent = normalizeLearningEventInput({
+        eventType: action,
+        targetType: 'EXPERIMENT',
+        targetId: experimentId,
+        experimentId,
+        duration: timeSpent,
+        metadata: {
+          source: 'experiments-save-api',
+          action,
+          resultSummary: results ? { hasResults: true } : { hasResults: false },
+        },
+      }, experimentId);
+
+      if (learningEvent) {
+        await prisma.learningEvent.create({
+          data: {
+            userId: payload.userId,
+            classId,
+            ...learningEvent,
+          },
+        });
+      }
+    } catch (eventError) {
+      console.error('记录实验行为失败:', eventError);
+    }
+
+    // 简化处理逻辑 - 保留积分/成就接口字段，避免破坏前端合约
     const basePoints = 0;
     const achievementPoints = 0;
     const newAchievements: any[] = [];
@@ -144,7 +183,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      experiments: experiments.map(exp => ({
+      experiments: experiments.map((exp: any) => ({
         ...exp,
         results: exp.results ? JSON.parse(exp.results) : null
       }))
@@ -158,4 +197,3 @@ export async function GET(request: Request) {
     }, { status: 500 });
   }
 }
-

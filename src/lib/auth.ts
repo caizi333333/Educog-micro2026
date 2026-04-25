@@ -2,6 +2,7 @@ import type { User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { getJwtSecret, getJwtRefreshSecret } from '@/lib/env';
+import { normalizeLearningEventInput } from '@/lib/classroom';
 import { prisma } from './prisma';
 
 // JWT配置
@@ -80,6 +81,7 @@ export async function register(data: {
   major?: string;
   department?: string;
   title?: string;
+  classInviteCode?: string;
 }) {
   // 检查邮箱是否已存在
   const existingEmail = await prisma.user.findUnique({
@@ -100,79 +102,140 @@ export async function register(data: {
   // 加密密码
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  // 创建用户
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      username: data.username,
-      password: hashedPassword,
-      name: data.name ?? null,
-      role: data.role || 'STUDENT',
-      studentId: data.studentId ?? null,
-      teacherId: data.teacherId ?? null,
-      class: data.class ?? null,
-      grade: data.grade ?? null,
-      major: data.major ?? null,
-      department: data.department ?? null,
-      title: data.title ?? null
-    }
-  });
+  const classInviteCode = data.classInviteCode?.trim();
 
-  // 记录活动
-  await prisma.userActivity.create({
-    data: {
-      userId: user.id,
-      action: 'REGISTER',
-      details: JSON.stringify({ username: user.username, role: user.role })
-    }
-  });
-
-  // 自动解锁首次登录成就（注册即算首次登录）
-  const firstLoginAchievement = await prisma.userAchievement.create({
-    data: {
-      userId: user.id,
-      achievementId: 'first_login',
-      name: '初次登录',
-      description: '完成首次登录',
-      icon: '🎯',
-      category: '系统'
-    }
-  });
-
-  // 记录解锁成就的活动
-  await prisma.userActivity.create({
-    data: {
-      userId: user.id,
-      action: 'UNLOCK_ACHIEVEMENT',
-      details: JSON.stringify({
-        achievementId: 'first_login',
-        name: '初次登录'
+  const result = await prisma.$transaction(async (tx: any) => {
+    const classGroup = classInviteCode
+      ? await tx.classGroup.findUnique({
+        where: { inviteCode: classInviteCode },
+        select: { id: true, name: true, inviteCode: true, status: true },
       })
-    }
-  });
+      : null;
 
-  // 创建令牌
-  const tokens = createTokens(user);
-
-  // 保存刷新令牌
-  await prisma.session.create({
-    data: {
-      userId: user.id,
-      token: tokens.refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30天
+    if (classInviteCode && (!classGroup || classGroup.status !== 'ACTIVE')) {
+      throw new Error('班级邀请码无效或已停用');
     }
+
+    // 公开注册只创建学生账号；教师/管理员由管理员创建。
+    const user = await tx.user.create({
+      data: {
+        email: data.email,
+        username: data.username,
+        password: hashedPassword,
+        name: data.name ?? null,
+        role: 'STUDENT',
+        studentId: data.studentId ?? null,
+        teacherId: null,
+        class: classGroup?.name ?? null,
+        grade: data.grade ?? null,
+        major: data.major ?? null,
+        department: null,
+        title: null
+      }
+    });
+
+    const classEnrollment = classGroup
+      ? await tx.classEnrollment.create({
+        data: {
+          userId: user.id,
+          classId: classGroup.id,
+          role: 'STUDENT',
+          status: 'ACTIVE',
+        },
+        select: {
+          id: true,
+          classId: true,
+          role: true,
+          status: true,
+          joinedAt: true,
+          classGroup: {
+            select: {
+              id: true,
+              name: true,
+              courseName: true,
+              semester: true,
+            },
+          },
+        },
+      })
+      : null;
+
+    await tx.userActivity.create({
+      data: {
+        userId: user.id,
+        action: 'REGISTER',
+        details: JSON.stringify({ username: user.username, role: user.role, classId: classGroup?.id ?? null })
+      }
+    });
+
+    const firstLoginAchievement = await tx.userAchievement.create({
+      data: {
+        userId: user.id,
+        achievementId: 'first_login',
+        name: '初次登录',
+        description: '完成首次登录',
+        icon: '🎯',
+        category: '系统'
+      }
+    });
+
+    await tx.userActivity.create({
+      data: {
+        userId: user.id,
+        action: 'UNLOCK_ACHIEVEMENT',
+        details: JSON.stringify({
+          achievementId: 'first_login',
+          name: '初次登录'
+        })
+      }
+    });
+
+    const registerEvent = normalizeLearningEventInput({
+      eventType: 'REGISTER',
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: {
+        source: 'public-register',
+        classId: classGroup?.id ?? null,
+      },
+    }, user.id);
+
+    if (registerEvent) {
+      await tx.learningEvent.create({
+        data: {
+          userId: user.id,
+          classId: classGroup?.id ?? null,
+          ...registerEvent,
+        },
+      });
+    }
+
+    const tokens = createTokens(user);
+
+    await tx.session.create({
+      data: {
+        userId: user.id,
+        token: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      }
+    });
+
+    return { user, tokens, firstLoginAchievement, classEnrollment };
   });
 
   return {
     user: {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      name: user.name,
-      role: user.role
+      id: result.user.id,
+      email: result.user.email,
+      username: result.user.username,
+      name: result.user.name,
+      role: result.user.role,
+      studentId: result.user.studentId,
+      teacherId: result.user.teacherId
     },
-    ...tokens,
-    firstLoginAchievement
+    ...result.tokens,
+    firstLoginAchievement: result.firstLoginAchievement,
+    classEnrollment: result.classEnrollment
   };
 }
 

@@ -318,6 +318,167 @@ export class Simulator {
     };
   }
 
+  private isWorkingRegisterName(operand: string): boolean {
+    return /^R[0-7]$/i.test(operand);
+  }
+
+  private getRegisterBankBase(): number {
+    return ((this.state.psw.RS1 ? 2 : 0) | (this.state.psw.RS0 ? 1 : 0)) * 8;
+  }
+
+  private syncWorkingRegisterMirror(): void {
+    const base = this.getRegisterBankBase();
+    for (let i = 0; i < 8; i++) {
+      this.state.registers[`R${i}`] = this.state.ram[base + i] || 0;
+    }
+  }
+
+  private getWorkingRegisterValue(operand: string): number {
+    const index = parseInt(operand.substring(1), 10);
+    const value = this.state.ram[this.getRegisterBankBase() + index] || 0;
+    this.state.registers[`R${index}`] = value;
+    return value;
+  }
+
+  private setWorkingRegisterValue(operand: string, value: number): void {
+    const index = parseInt(operand.substring(1), 10);
+    const byteValue = value & 0xFF;
+    this.state.ram[this.getRegisterBankBase() + index] = byteValue;
+    this.state.registers[`R${index}`] = byteValue;
+  }
+
+  private getPSWValue(): number {
+    let psw = 0;
+    if (this.state.psw.CY) psw |= 0x80;
+    if (this.state.psw.AC) psw |= 0x40;
+    if (this.state.psw.F0) psw |= 0x20;
+    if (this.state.psw.RS1) psw |= 0x10;
+    if (this.state.psw.RS0) psw |= 0x08;
+    if (this.state.psw.OV) psw |= 0x04;
+    if (this.state.psw.P) psw |= 0x01;
+    return psw;
+  }
+
+  private setPSWValue(value: number): void {
+    this.state.psw.CY = (value & 0x80) !== 0;
+    this.state.psw.AC = (value & 0x40) !== 0;
+    this.state.psw.F0 = (value & 0x20) !== 0;
+    this.state.psw.RS1 = (value & 0x10) !== 0;
+    this.state.psw.RS0 = (value & 0x08) !== 0;
+    this.state.psw.OV = (value & 0x04) !== 0;
+    this.state.psw.P = (value & 0x01) !== 0;
+    this.syncWorkingRegisterMirror();
+  }
+
+  private getSfrValueByName(name: string): number | undefined {
+    switch (name.toUpperCase()) {
+      case 'P0': return this.state.portValues.P0;
+      case 'P1': return this.state.portValues.P1;
+      case 'P2': return this.state.portValues.P2;
+      case 'P3': return this.state.portValues.P3;
+      case 'SP': return this.state.registers.SP;
+      case 'DPL': return this.state.registers.DPL;
+      case 'DPH': return this.state.registers.DPH;
+      case 'PCON': return 0;
+      case 'TCON': return this.state.timers.TCON;
+      case 'TMOD': return this.state.timers.TMOD;
+      case 'TL0': return this.state.timers.TL0;
+      case 'TL1': return this.state.timers.TL1;
+      case 'TH0': return this.state.timers.TH0;
+      case 'TH1': return this.state.timers.TH1;
+      case 'SCON': return this.state.uart.SCON;
+      case 'SBUF': return this.state.uart.SBUF;
+      case 'IE': return this.state.interrupts.IE;
+      case 'IP': return this.state.interrupts.IP;
+      case 'PSW': return this.getPSWValue();
+      case 'ACC': return this.state.registers.A;
+      case 'B': return this.state.registers.B;
+      case 'T2CON':
+      case 'RCAP2L':
+      case 'RCAP2H':
+      case 'TL2':
+      case 'TH2':
+        return 0;
+      default:
+        return undefined;
+    }
+  }
+
+  private setSfrValueByName(name: string, value: number): boolean {
+    const byteValue = value & 0xFF;
+    switch (name.toUpperCase()) {
+      case 'P0': this.state.portValues.P0 = byteValue; return true;
+      case 'P1': this.state.portValues.P1 = byteValue; return true;
+      case 'P2': this.state.portValues.P2 = byteValue; return true;
+      case 'P3': this.state.portValues.P3 = byteValue; return true;
+      case 'SP': this.state.registers.SP = byteValue; return true;
+      case 'DPL': this.state.registers.DPL = byteValue; return true;
+      case 'DPH': this.state.registers.DPH = byteValue; return true;
+      case 'PCON': return true;
+      case 'TMOD': this.state.timers.TMOD = byteValue; return true;
+      case 'TCON':
+        this.state.timers.TCON = byteValue;
+        this.state.timers.TR0 = (byteValue & 0x10) !== 0;
+        this.state.timers.TR1 = (byteValue & 0x40) !== 0;
+        this.state.timers.TF0 = (byteValue & 0x20) !== 0;
+        this.state.timers.TF1 = (byteValue & 0x80) !== 0;
+        return true;
+      case 'TL0': this.state.timers.TL0 = byteValue; return true;
+      case 'TL1': this.state.timers.TL1 = byteValue; return true;
+      case 'TH0': this.state.timers.TH0 = byteValue; return true;
+      case 'TH1': this.state.timers.TH1 = byteValue; return true;
+      case 'SCON':
+        this.state.uart.SCON = byteValue;
+        this.state.uart.TI = (byteValue & 0x02) !== 0;
+        this.state.uart.RI = (byteValue & 0x01) !== 0;
+        return true;
+      case 'SBUF': this.state.uart.SBUF = byteValue; return true;
+      case 'IE':
+        this.state.interrupts.IE = byteValue;
+        this.state.interrupts.EA = (byteValue & 0x80) !== 0;
+        this.state.interrupts.ES = (byteValue & 0x10) !== 0;
+        this.state.interrupts.ET1 = (byteValue & 0x08) !== 0;
+        this.state.interrupts.EX1 = (byteValue & 0x04) !== 0;
+        this.state.interrupts.ET0 = (byteValue & 0x02) !== 0;
+        this.state.interrupts.EX0 = (byteValue & 0x01) !== 0;
+        return true;
+      case 'IP': this.state.interrupts.IP = byteValue; return true;
+      case 'PSW': this.setPSWValue(byteValue); return true;
+      case 'ACC':
+        this.state.registers.A = byteValue;
+        this.updateParity();
+        return true;
+      case 'B': this.state.registers.B = byteValue; return true;
+      case 'T2CON':
+      case 'RCAP2L':
+      case 'RCAP2H':
+      case 'TL2':
+      case 'TH2':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private isBitOperand(operand: string | undefined): boolean {
+    if (!operand) return false;
+    const resolved = this.resolveSymbol(operand);
+    const upper = resolved.toUpperCase();
+    if (/^P[0-3]\.[0-7]$/.test(upper)) return true;
+    if ([
+      'CY', 'C', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'P',
+      'TI', 'RI', 'TR0', 'TR1', 'TF0', 'TF1',
+      'EA', 'ET0', 'ET1', 'EX0', 'EX1', 'ES',
+      'IT0', 'IE0', 'IT1', 'IE1',
+    ].includes(upper)) {
+      return true;
+    }
+
+    const bitNum = this.parseNumber(upper);
+    if (Number.isNaN(bitNum) || bitNum < 0 || bitNum > 0xFF) return false;
+    return bitNum <= 0x7F || this.sfrMap.has(bitNum & 0xF8);
+  }
+
   /** Resolve EQU/BIT/DATA symbols in an operand string */
   private resolveSymbol(operand: string): string {
     if (!operand) return operand;
@@ -382,7 +543,10 @@ export class Simulator {
       const dirUpper = mnemonic.toUpperCase();
       if (dirUpper === 'ORG') {
         if (operands[0]) {
-          currentAddress = this.parseNumber(operands[0]);
+          const parsedAddress = this.parseNumber(operands[0]);
+          if (!Number.isNaN(parsedAddress)) {
+            currentAddress = parsedAddress & 0xFFFF;
+          }
         }
         return; // ORG is a directive, not an instruction
       }
@@ -408,8 +572,9 @@ export class Simulator {
         }
         for (const op of operands) {
           const val = this.parseNumber(op);
-          this.codeMemory[currentAddress++] = (val >> 8) & 0xFF; // High byte first
-          this.codeMemory[currentAddress++] = val & 0xFF;        // Low byte
+          const word = Number.isNaN(val) ? 0 : val;
+          this.codeMemory[currentAddress++] = (word >> 8) & 0xFF; // High byte first
+          this.codeMemory[currentAddress++] = word & 0xFF;        // Low byte
         }
         return;
       }
@@ -419,7 +584,8 @@ export class Simulator {
         if (label) {
           this.labels.set(label.slice(0, -1), currentAddress);
         }
-        const size = operands[0] ? this.parseNumber(operands[0]) : 1;
+        const parsedSize = operands[0] ? this.parseNumber(operands[0]) : 1;
+        const size = Number.isNaN(parsedSize) || parsedSize < 0 ? 1 : parsedSize;
         currentAddress += size;
         return;
       }
@@ -481,10 +647,16 @@ export class Simulator {
           case 'MOV':
             // MOV instruction length varies based on operands
             if (operands.length === 2 && operands[0] && operands[1]) {
-              const dest = operands[0].toUpperCase();
-              const src = operands[1].toUpperCase();
+              const destRaw = this.resolveSymbol(operands[0]);
+              const srcRaw = this.resolveSymbol(operands[1]);
+              const dest = destRaw.toUpperCase();
+              const src = srcRaw.toUpperCase();
 
-              if (src.startsWith('#')) { // MOV dest, #data
+              if ((dest === 'C' || dest === 'CY') && this.isBitOperand(srcRaw)) {
+                instructionLength = 2; // MOV C, bit
+              } else if (this.isBitOperand(destRaw) && (src === 'C' || src === 'CY')) {
+                instructionLength = 2; // MOV bit, C
+              } else if (src.startsWith('#')) { // MOV dest, #data
                 if (dest === 'DPTR') {
                   instructionLength = 3; // MOV DPTR, #data16
                 } else if (dest === 'A' || dest.match(/^R[0-7]$/) || dest.match(/^@R[01]$/)) {
@@ -948,7 +1120,10 @@ export class Simulator {
       case 'CY': case 'C': return this.state.psw.CY;
       case 'AC': return this.state.psw.AC;
       case 'F0': return this.state.psw.F0;
+      case 'RS1': return this.state.psw.RS1;
+      case 'RS0': return this.state.psw.RS0;
       case 'OV': return this.state.psw.OV;
+      case 'P': return this.state.psw.P;
       case 'TI': return this.state.uart.TI;
       case 'RI': return this.state.uart.RI;
       case 'TR0': return this.state.timers.TR0;
@@ -966,12 +1141,19 @@ export class Simulator {
       case 'IT1': return (this.state.timers.TCON & 0x04) !== 0;
       case 'IE1': return (this.state.timers.TCON & 0x08) !== 0;
       default: {
-        // Numeric bit address: bits 0x00-0x7F → RAM 20H-2FH
+        // Numeric bit address: 00H-7FH → RAM 20H-2FH, 80H-FFH → bit-addressable SFRs
         const bitNum = this.parseNumber(upper);
-        if (!isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
+        if (!Number.isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
           const byteAddr = 0x20 + (bitNum >> 3);
           const bitPos = bitNum & 0x07;
           return (this.state.ram[byteAddr] & (1 << bitPos)) !== 0;
+        }
+        if (!Number.isNaN(bitNum) && bitNum >= 0x80 && bitNum <= 0xFF) {
+          const sfrName = this.sfrMap.get(bitNum & 0xF8);
+          const sfrValue = sfrName ? this.getSfrValueByName(sfrName) : undefined;
+          if (sfrValue !== undefined) {
+            return (sfrValue & (1 << (bitNum & 0x07))) !== 0;
+          }
         }
         return false;
       }
@@ -997,7 +1179,10 @@ export class Simulator {
       case 'CY': case 'C': this.state.psw.CY = value; break;
       case 'AC': this.state.psw.AC = value; break;
       case 'F0': this.state.psw.F0 = value; break;
+      case 'RS1': this.state.psw.RS1 = value; this.syncWorkingRegisterMirror(); break;
+      case 'RS0': this.state.psw.RS0 = value; this.syncWorkingRegisterMirror(); break;
       case 'OV': this.state.psw.OV = value; break;
+      case 'P': this.state.psw.P = value; break;
       case 'TI': this.state.uart.TI = value; value ? (this.state.uart.SCON |= 0x02) : (this.state.uart.SCON &= ~0x02); break;
       case 'RI': this.state.uart.RI = value; value ? (this.state.uart.SCON |= 0x01) : (this.state.uart.SCON &= ~0x01); break;
       case 'TR0': this.state.timers.TR0 = value; value ? (this.state.timers.TCON |= 0x10) : (this.state.timers.TCON &= ~0x10); break;
@@ -1015,16 +1200,25 @@ export class Simulator {
       case 'EX1': this.state.interrupts.EX1 = value; value ? (this.state.interrupts.IE |= 0x04) : (this.state.interrupts.IE &= ~0x04); break;
       case 'ES': this.state.interrupts.ES = value; value ? (this.state.interrupts.IE |= 0x10) : (this.state.interrupts.IE &= ~0x10); break;
       default: {
-        // Numeric bit address: 8051 bit addressing scheme
-        // Bits 0x00-0x7F → RAM 20H-2FH (bit 0 = RAM[20H].0, bit 7 = RAM[20H].7, bit 8 = RAM[21H].0, etc.)
+        // Numeric bit address: 8051 bit addressing scheme.
         const bitNum = this.parseNumber(upper);
-        if (!isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
+        if (!Number.isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
           const byteAddr = 0x20 + (bitNum >> 3);
           const bitPos = bitNum & 0x07;
           if (value) {
             this.state.ram[byteAddr] |= (1 << bitPos);
           } else {
             this.state.ram[byteAddr] &= ~(1 << bitPos);
+          }
+          return;
+        }
+        if (!Number.isNaN(bitNum) && bitNum >= 0x80 && bitNum <= 0xFF) {
+          const sfrName = this.sfrMap.get(bitNum & 0xF8);
+          const sfrValue = sfrName ? this.getSfrValueByName(sfrName) : undefined;
+          if (sfrName && sfrValue !== undefined) {
+            const bitMask = 1 << (bitNum & 0x07);
+            const nextValue = value ? (sfrValue | bitMask) : (sfrValue & ~bitMask);
+            this.setSfrValueByName(sfrName, nextValue);
           }
         }
         break;
@@ -1061,7 +1255,8 @@ export class Simulator {
         stringChar = ch;
         // Flush any pending number
         if (current.trim()) {
-          result.push(this.parseNumber(current.trim()));
+          const parsed = this.parseNumber(current.trim());
+          result.push(Number.isNaN(parsed) ? 0 : parsed);
           current = '';
         }
         continue;
@@ -1076,7 +1271,8 @@ export class Simulator {
       }
       if (ch === ',') {
         if (current.trim()) {
-          result.push(this.parseNumber(current.trim()));
+          const parsed = this.parseNumber(current.trim());
+          result.push(Number.isNaN(parsed) ? 0 : parsed);
         }
         current = '';
         continue;
@@ -1084,7 +1280,8 @@ export class Simulator {
       current += ch;
     }
     if (current.trim() && !inString) {
-      result.push(this.parseNumber(current.trim()));
+      const parsed = this.parseNumber(current.trim());
+      result.push(Number.isNaN(parsed) ? 0 : parsed);
     }
     return result;
   }
@@ -1098,24 +1295,30 @@ export class Simulator {
       'IE', 'IP',
       'PSW', 'SP', 'DPL', 'DPH', 'B',
     ];
-    const u = op.toUpperCase();
+    const u = this.resolveSymbol(op).toUpperCase();
     if (SFR_NAMES.includes(u)) return true;
-    if (/^[0-9A-F]{1,3}H$/i.test(u)) return true; // hex address like 90H, 0B0H
-    if (/^\d{1,3}$/.test(u) && parseInt(u, 10) <= 255) return true; // decimal direct addr
-    return false;
+    const address = this.parseNumber(u);
+    return !Number.isNaN(address) && address >= 0 && address <= 0xFF;
   }
 
   private parseNumber(s: string): number {
     const t = s.trim();
-    if (/H$/i.test(t)) {
+    if (!t) {
+      return Number.NaN;
+    }
+    if (/^0x[0-9A-F]+$/i.test(t)) {
+      return parseInt(t.substring(2), 16);
+    }
+    if (/^[0-9A-F]+H$/i.test(t)) {
       return parseInt(t.replace(/H$/i, ''), 16);
     }
-    if (/B$/i.test(t)) {
+    if (/^[01]+B$/i.test(t)) {
       return parseInt(t.replace(/B$/i, ''), 2);
     }
-    // Pure decimal
-    const v = parseInt(t, 10);
-    return isNaN(v) ? 0 : v;
+    if (/^\d+$/i.test(t)) {
+      return parseInt(t, 10);
+    }
+    return Number.NaN;
   }
 
   private getValue(operand: string | undefined): number {
@@ -1130,23 +1333,32 @@ export class Simulator {
         // Character literal: #'A'
         const charVal = this.parseCharLiteral(inner);
         if (charVal !== null) return charVal;
-        return this.parseNumber(inner);
+        const parsed = this.parseNumber(inner);
+        return Number.isNaN(parsed) ? 0 : parsed;
     }
     
     // Indirect addressing (@R0, @R1)
     if (operand.match(/^@R[01]$/i)) {
         const regName = operand.substring(1).toUpperCase();
-        const address = this.state.registers[regName] || 0;
+        const address = this.getWorkingRegisterValue(regName);
         return this.state.ram[address] || 0;
     }
     
     // Register addressing
-    if (operand.toUpperCase() in this.state.registers) {
-        return this.state.registers[operand.toUpperCase()] || 0;
+    const operandUpper = operand.toUpperCase();
+    if (this.isWorkingRegisterName(operandUpper)) {
+        return this.getWorkingRegisterValue(operandUpper);
+    }
+    if (operandUpper in this.state.registers) {
+        return this.state.registers[operandUpper] || 0;
     }
     
     // Special SFR names
-    const operandUpper = operand.toUpperCase();
+    const modeledSfrValue = this.getSfrValueByName(operandUpper);
+    if (modeledSfrValue !== undefined) {
+        return modeledSfrValue;
+    }
+
     switch (operandUpper) {
         case 'P0': return this.state.portValues.P0;
         case 'P1': return this.state.portValues.P1;
@@ -1178,14 +1390,10 @@ export class Simulator {
     
     // Direct addressing or SFR by address
     const address = this.parseNumber(operand);
-    if (!isNaN(address)) {
+    if (!Number.isNaN(address) && address >= 0 && address <= 0xFF) {
         const sfrName = this.sfrMap.get(address);
         if (sfrName) {
-            if (sfrName.startsWith('P')) {
-                return this.state.portValues[sfrName as keyof typeof this.state.portValues];
-            } else {
-                return this.state.registers[sfrName as keyof typeof this.state.registers] || 0;
-            }
+            return this.getSfrValueByName(sfrName) ?? 0;
         } else if (address < 128) { // Internal RAM
             return this.state.ram[address] || 0;
         }
@@ -1204,19 +1412,29 @@ export class Simulator {
     // Indirect addressing (@R0, @R1)
     if (operand.match(/^@R[01]$/i)) {
         const regName = operand.substring(1).toUpperCase();
-        const address = this.state.registers[regName] || 0;
+        const address = this.getWorkingRegisterValue(regName);
         this.state.ram[address] = value;
+        this.syncWorkingRegisterMirror();
         return;
     }
     
     // Register addressing
-    if (operand.toUpperCase() in this.state.registers) {
-        this.state.registers[operand.toUpperCase()] = value;
+    const operandUpper = operand.toUpperCase();
+    if (this.isWorkingRegisterName(operandUpper)) {
+        this.setWorkingRegisterValue(operandUpper, value);
+        return;
+    }
+    if (operandUpper in this.state.registers) {
+        this.state.registers[operandUpper] = value;
+        if (operandUpper === 'A') this.updateParity();
         return;
     }
     
     // Special SFR names
-    const operandUpper = operand.toUpperCase();
+    if (this.setSfrValueByName(operandUpper, value)) {
+        return;
+    }
+
     switch (operandUpper) {
         case 'P0': this.state.portValues.P0 = value; return;
         case 'P1': this.state.portValues.P1 = value; return;
@@ -1293,16 +1511,13 @@ export class Simulator {
     
     // Direct addressing or SFR by address
     const address = this.parseNumber(operand);
-    if (!isNaN(address)) {
+    if (!Number.isNaN(address) && address >= 0 && address <= 0xFF) {
         const sfrName = this.sfrMap.get(address);
         if (sfrName) {
-            if (sfrName.startsWith('P')) {
-                this.state.portValues[sfrName as keyof typeof this.state.portValues] = value;
-            } else {
-                this.state.registers[sfrName as keyof typeof this.state.registers] = value;
-            }
+            this.setSfrValueByName(sfrName, value);
         } else if (address < 128) { // Internal RAM
             this.state.ram[address] = value;
+            this.syncWorkingRegisterMirror();
         }
     }
   }
@@ -1323,15 +1538,15 @@ export class Simulator {
     const srcUpper = src.toUpperCase();
 
     // Handle bit-level MOV: MOV C, bit | MOV bit, C
-    if (destUpper === 'C' && src.includes('.')) {
-      // MOV C, P3.7 — read bit into CY
+    if ((destUpper === 'C' || destUpper === 'CY') && this.isBitOperand(src)) {
+      // MOV C, bit — read bit into CY
       const bitVal = this.getBitValue(src);
       this.state.psw.CY = bitVal;
       this.state.pc += 2;
       return;
     }
-    if (dest.includes('.') && srcUpper === 'C') {
-      // MOV P3.7, C — write CY to bit
+    if (this.isBitOperand(dest) && (srcUpper === 'C' || srcUpper === 'CY')) {
+      // MOV bit, C — write CY to bit
       this.setBitValue(dest, this.state.psw.CY);
       this.state.pc += 2;
       return;
@@ -1348,7 +1563,8 @@ export class Simulator {
       } else {
         inner = this.resolveSymbol(inner);
         const charVal = this.parseCharLiteral(inner);
-        val16 = charVal !== null ? charVal : this.parseNumber(inner);
+        const parsed = charVal !== null ? charVal : this.parseNumber(inner);
+        val16 = Number.isNaN(parsed) ? 0 : parsed;
       }
       this.state.registers.DPH = (val16 >> 8) & 0xFF;
       this.state.registers.DPL = val16 & 0xFF;
@@ -1610,6 +1826,7 @@ export class Simulator {
     // For 8-bit values, just push the value
     this.state.registers.SP = (this.state.registers.SP + 1) & 0xFF;
     this.state.ram[this.state.registers.SP] = value & 0xFF;
+    this.syncWorkingRegisterMirror();
   }
 
   private pushToStack16(value: number): void {
@@ -1620,6 +1837,7 @@ export class Simulator {
     // Push high byte
     this.state.registers.SP = (this.state.registers.SP + 1) & 0xFF;
     this.state.ram[this.state.registers.SP] = (value >> 8) & 0xFF;
+    this.syncWorkingRegisterMirror();
   }
 
   private popFromStack(): number {
@@ -2037,11 +2255,18 @@ export class Simulator {
     this.state.registers.A = valueDest;
     this.setValue(dest, valueA);
     this.updateParity();
-    this.state.pc += 1;
+    const destUpper = (dest || '').toUpperCase();
+    this.state.pc += (destUpper.match(/^R[0-7]$/) || destUpper.match(/^@R[01]$/)) ? 1 : 2;
   }
 
   private executeXCHD(operands: string[]): void {
-    if (operands.length !== 2 || !operands[0] || operands[0].toUpperCase() !== 'A') {
+    if (
+      operands.length !== 2 ||
+      !operands[0] ||
+      operands[0].toUpperCase() !== 'A' ||
+      !operands[1] ||
+      !operands[1].match(/^@R[01]$/i)
+    ) {
       this.state.pc += 1; // XCHD is a 1-byte instruction (simplified)
       return;
     }

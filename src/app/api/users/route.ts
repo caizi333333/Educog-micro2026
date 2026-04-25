@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { getAccessibleClassIds } from '@/lib/classroom';
 import { getPaginationParams, createPaginatedResponse, getPrismaSkipTake } from '@/lib/pagination';
 
 // 获取用户列表（需要管理员权限）
@@ -33,6 +34,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const accessibleClassIds = payload.role === 'TEACHER' ? await getAccessibleClassIds(payload) : null;
+    const visibleStudentIds = accessibleClassIds
+      ? (await prisma.classEnrollment.findMany({
+        where: { classId: { in: accessibleClassIds }, role: 'STUDENT', status: 'ACTIVE' },
+        select: { userId: true },
+      })).map((item: { userId: string }) => item.userId)
+      : null;
+
     // 获取查询参数
     const { searchParams } = new URL(request.url);
     const paginationParams = getPaginationParams(searchParams);
@@ -43,6 +52,13 @@ export async function GET(request: NextRequest) {
 
     // 构建查询条件
     const where: any = {};
+
+    if (visibleStudentIds) {
+      where.OR = [
+        { id: { in: visibleStudentIds } },
+        { id: payload.userId },
+      ];
+    }
     
     if (role) {
       where.role = role;
@@ -53,13 +69,14 @@ export async function GET(request: NextRequest) {
     }
     
     if (search) {
-      where.OR = [
+      const searchOr = [
         { email: { contains: search } },
         { username: { contains: search } },
         { name: { contains: search } },
         { studentId: { contains: search } },
         { teacherId: { contains: search } }
       ];
+      where.AND = [...(where.AND || []), { OR: searchOr }];
     }
 
     // 构建字段选择
@@ -82,6 +99,22 @@ export async function GET(request: NextRequest) {
         title: true,
         createdAt: true,
         lastLoginAt: true,
+        classEnrollments: {
+          where: { status: 'ACTIVE' },
+          select: {
+            classId: true,
+            role: true,
+            status: true,
+            classGroup: {
+              select: {
+                id: true,
+                name: true,
+                courseName: true,
+                semester: true,
+              }
+            }
+          }
+        },
         _count: {
           select: {
             quizAttempts: true,
@@ -142,6 +175,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const classId = typeof body.classId === 'string' && body.classId.trim() ? body.classId.trim() : null;
+    const classGroup = classId
+      ? await prisma.classGroup.findUnique({
+        where: { id: classId },
+        select: { id: true, name: true, status: true },
+      })
+      : null;
+
+    if (classId && (!classGroup || classGroup.status !== 'ACTIVE')) {
+      return NextResponse.json(
+        { error: '班级不存在或已停用' },
+        { status: 400 }
+      );
+    }
 
     // 这里可以调用register函数，但为了记录是管理员创建的，我们直接创建
     const bcrypt = await import('bcryptjs');
@@ -157,13 +204,26 @@ export async function POST(request: NextRequest) {
         status: body.status || 'ACTIVE',
         studentId: body.studentId,
         teacherId: body.teacherId,
-        class: body.class,
+        class: classGroup?.name ?? null,
         grade: body.grade,
         major: body.major,
         department: body.department,
         title: body.title
       }
     });
+
+    if (classGroup) {
+      await prisma.classEnrollment.upsert({
+        where: { classId_userId: { classId: classGroup.id, userId: user.id } },
+        update: { role: user.role === 'TEACHER' ? 'TEACHER' : 'STUDENT', status: 'ACTIVE' },
+        create: {
+          classId: classGroup.id,
+          userId: user.id,
+          role: user.role === 'TEACHER' ? 'TEACHER' : 'STUDENT',
+          status: 'ACTIVE',
+        },
+      });
+    }
 
     // 记录活动
     await prisma.userActivity.create({
@@ -173,7 +233,8 @@ export async function POST(request: NextRequest) {
         details: JSON.stringify({ 
           createdUserId: user.id,
           username: user.username,
-          role: user.role 
+          role: user.role,
+          classId: classGroup?.id ?? null
         })
       }
     });

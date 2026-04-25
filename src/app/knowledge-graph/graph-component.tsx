@@ -405,10 +405,11 @@ type Props = {
   filterHighlightIds?: Set<string> | null;
   initialSelectedNodeId?: string | null;
   nodeToChapterMap: Record<string, string>;
+  onSelectNodeId?: (nodeId: string | null) => void;
 };
 
 export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
-  ({ filterHighlightIds = null, initialSelectedNodeId = null, nodeToChapterMap }, ref) => {
+  ({ filterHighlightIds = null, initialSelectedNodeId = null, nodeToChapterMap, onSelectNodeId }, ref) => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialSelectedNodeId);
 
     useEffect(() => { setSelectedNodeId(initialSelectedNodeId); }, [initialSelectedNodeId]);
@@ -494,10 +495,15 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
 
     const onNodeClick = useCallback((_e: React.MouseEvent, node: RFNode) => {
       if (node.type === 'groupNode') return;
-      setSelectedNodeId(prev => prev === node.id ? null : node.id);
-    }, []);
+      const next = selectedNodeId === node.id ? null : node.id;
+      setSelectedNodeId(next);
+      onSelectNodeId?.(next);
+    }, [onSelectNodeId, selectedNodeId]);
 
-    const onPaneClick = useCallback(() => { setSelectedNodeId(null); }, []);
+    const onPaneClick = useCallback(() => {
+      setSelectedNodeId(null);
+      onSelectNodeId?.(null);
+    }, [onSelectNodeId]);
 
     const minimapColor = useCallback((node: RFNode) => {
       if (node.type === 'groupNode') return 'transparent';

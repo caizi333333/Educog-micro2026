@@ -82,6 +82,18 @@ type ServerLearningProgressRecord = {
   status?: string | null;
 };
 
+type PendingLearningEvent = {
+  eventType: string;
+  targetType: string;
+  targetId: string;
+  moduleId?: string;
+  chapterId?: string;
+  duration?: number;
+  progress?: number;
+  clientTime: string;
+  metadata?: Record<string, unknown>;
+};
+
 export function useTrackProgress(options: TrackProgressOptions) {
   const {
     moduleId,
@@ -187,6 +199,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
   // Simplified request management
   const isRequestInProgressRef = useRef<boolean>(false);
   const requestQueueRef = useRef<Array<{ timeSpent: number; progress?: number; resolve: () => void; reject: (error: Error) => void; abortController?: AbortController; status?: string }>>([]);
+  const eventQueueRef = useRef<PendingLearningEvent[]>([]);
   
   // Circuit breaker for error handling
   const circuitBreakerRef = useRef({
@@ -238,6 +251,51 @@ export function useTrackProgress(options: TrackProgressOptions) {
     }
     
     return false;
+  }, []);
+
+  const enqueueLearningEvent = useCallback((eventType: string, metadata: Record<string, unknown> = {}) => {
+    eventQueueRef.current.push({
+      eventType,
+      targetType: 'CHAPTER',
+      targetId: chapterIdRef.current,
+      moduleId: moduleIdRef.current,
+      chapterId: chapterIdRef.current,
+      progress: Math.round(progressRef.current),
+      clientTime: new Date().toISOString(),
+      metadata: {
+        source: 'useTrackProgress',
+        contentType: contentTypeRef.current,
+        ...metadata,
+      },
+    });
+
+    if (eventQueueRef.current.length > 100) {
+      eventQueueRef.current = eventQueueRef.current.slice(-100);
+    }
+  }, []);
+
+  const flushLearningEvents = useCallback(async () => {
+    if (typeof window === 'undefined' || eventQueueRef.current.length === 0) return;
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const events = eventQueueRef.current.splice(0, 100);
+    try {
+      const response = await fetch('/api/learning-events/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ events }),
+      });
+
+      if (!response.ok) {
+        eventQueueRef.current = [...events, ...eventQueueRef.current].slice(-100);
+      }
+    } catch {
+      eventQueueRef.current = [...events, ...eventQueueRef.current].slice(-100);
+    }
   }, []);
 
   // Enhanced queue processing with better error handling
@@ -667,7 +725,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
   }, [saveProgress, state.isTracking, checkCircuitBreaker]);
 
   // 更严格的用户活动跟踪
-  const trackActivity = useCallback(() => {
+  const trackActivity = useCallback((event?: Event) => {
     const now = Date.now();
     
     // 防抖：限制活动跟踪频率，避免过度触发
@@ -681,11 +739,17 @@ export function useTrackProgress(options: TrackProgressOptions) {
     lastActiveTimeRef.current = now;
     isActiveRef.current = true;
     hasUnsavedChangesRef.current = true;
+    const eventType = event?.type ? `USER_${event.type.toUpperCase()}` : 'USER_ACTIVITY';
+    enqueueLearningEvent(eventType, {
+      action: eventType,
+      component: 'learning-content',
+      interactions: state.interactions,
+    });
 
     if (timeSinceLastActive > 900000) { // 15分钟
       startTimeRef.current = now;
     }
-  }, []);
+  }, [enqueueLearningEvent, state.interactions]);
 
   // Handle visibility change
   const handleVisibilityChange = useCallback(() => {
@@ -695,13 +759,14 @@ export function useTrackProgress(options: TrackProgressOptions) {
       if (timeSpent >= minReadingTimeRef.current) {
         saveProgress(timeSpent);
       }
+      flushLearningEvents();
       isActiveRef.current = false;
     } else {
       // Page is visible again, reset timer
       startTimeRef.current = Date.now();
       isActiveRef.current = true;
     }
-  }, [saveProgress]);
+  }, [flushLearningEvents, saveProgress]);
 
   // Handle page unload
   const handleBeforeUnload = useCallback((_e: BeforeUnloadEvent) => {
@@ -739,14 +804,27 @@ export function useTrackProgress(options: TrackProgressOptions) {
         }
       }
     }
+    if (eventQueueRef.current.length > 0) {
+      const token = localStorage.getItem('accessToken');
+      if (token && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const events = eventQueueRef.current.splice(0, 100);
+        const blob = new Blob([JSON.stringify({ token, events })], { type: 'application/json' });
+        navigator.sendBeacon('/api/learning-events/batch', blob);
+      }
+    }
   }, [calculateProgress]);
 
   // 简化的滚动处理防抖
   const throttledScrollHandler = useRef(
     throttle(() => {
+      const previousProgress = progressRef.current;
       const newProgress = calculateProgress();
       // 简化的进度变化检查，减少不必要的活动跟踪
-      if (Math.abs(newProgress - progressRef.current) > 15) { // 进一步提高阈值到15%
+      if (Math.abs(newProgress - previousProgress) > 15) { // 进一步提高阈值到15%
+        enqueueLearningEvent('SCROLL_PROGRESS', {
+          action: 'SCROLL_PROGRESS',
+          component: 'learning-content',
+        });
         trackActivity();
       }
     }, 10000) // 增加到10秒，大幅减少频率
@@ -847,6 +925,12 @@ export function useTrackProgress(options: TrackProgressOptions) {
       }
     }, 900000); // 15 minutes
 
+    const learningEventFlushInterval = setInterval(() => {
+      flushLearningEvents().catch(() => {
+        // silent
+      });
+    }, 60000);
+
     // Cleanup function
     return () => {
       
@@ -872,7 +956,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
             
             // Use sendBeacon for reliable cleanup
             if (navigator.sendBeacon) {
-              const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+              const blob = new Blob([JSON.stringify({ ...data, token })], { type: 'application/json' });
               navigator.sendBeacon('/api/learning-progress', blob);
             }
           }
@@ -894,6 +978,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
       // Clear intervals and timeouts
       clearInterval(autoSaveIntervalId);
       clearInterval(healthCheckInterval);
+      clearInterval(learningEventFlushInterval);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }

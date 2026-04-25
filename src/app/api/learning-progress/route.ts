@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma, checkDatabaseConnection } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
+import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
 import { 
   CompletionCriteria, 
   isChapterCompleted,
@@ -251,6 +252,36 @@ export async function POST(request: Request) {
     // 移除用户活动记录以提高性能
 
     const achievementPoints = newAchievements.reduce((sum, ach) => sum + ach.points, 0);
+
+    try {
+      const classId = await getActiveClassIdForUser(payload.userId);
+      const learningEvent = normalizeLearningEventInput({
+        eventType: isCompleted ? 'COMPLETE_CHAPTER' : 'UPDATE_PROGRESS',
+        targetType: 'CHAPTER',
+        targetId: chapterId,
+        moduleId: finalModuleId,
+        chapterId,
+        duration: validatedTimeSpent,
+        progress: learningProgress.progress,
+        metadata: {
+          source: 'learning-progress-api',
+          action: data.action,
+          ...((data.metadata && typeof data.metadata === 'object') ? data.metadata : {}),
+        },
+      }, chapterId);
+
+      if (learningEvent) {
+        await prisma.learningEvent.create({
+          data: {
+            userId: payload.userId,
+            classId,
+            ...learningEvent,
+          },
+        });
+      }
+    } catch (eventError) {
+      console.error('记录学习行为失败:', eventError);
+    }
     
     // 清除超时定时器
     clearTimeout(timeoutId);
@@ -382,7 +413,7 @@ export async function GET(request: Request) {
     const progress = await prisma.learningProgress.findMany(queryOptions);
 
     // 为每个进度记录添加isCompleted字段
-    const progressWithCompletion = progress.map(p => ({
+    const progressWithCompletion = progress.map((p: any) => ({
       ...p,
       isCompleted: p.status === 'COMPLETED'
     }));
@@ -390,11 +421,11 @@ export async function GET(request: Request) {
     // 计算总体统计
     const stats = {
       totalModules: progress.length,
-      completedModules: progress.filter(p => p.status === 'COMPLETED').length,
-      inProgressModules: progress.filter(p => p.status === 'IN_PROGRESS').length,
-      totalTimeSpent: progress.reduce((sum, p) => sum + p.timeSpent, 0),
+      completedModules: progress.filter((p: any) => p.status === 'COMPLETED').length,
+      inProgressModules: progress.filter((p: any) => p.status === 'IN_PROGRESS').length,
+      totalTimeSpent: progress.reduce((sum: number, p: any) => sum + p.timeSpent, 0),
       averageProgress: progress.length > 0 
-        ? Math.round(progress.reduce((sum, p) => sum + p.progress, 0) / progress.length)
+        ? Math.round(progress.reduce((sum: number, p: any) => sum + p.progress, 0) / progress.length)
         : 0
     };
 

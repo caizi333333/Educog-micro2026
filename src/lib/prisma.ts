@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
-  __mockPrisma?: any;
+  __mockPrisma?: Record<PropertyKey, unknown>;
 };
 
 /**
@@ -12,17 +12,17 @@ const globalForPrisma = globalThis as unknown as {
  * - 正常运行：使用 PrismaClient 单例
  * - 测试：允许通过 globalThis.__mockPrisma “注入”一个 Prisma mock（不依赖 jest hoist/ESM mock）
  */
-const basePrisma: any = globalForPrisma.prisma ?? new PrismaClient({
+const basePrisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
-export const prisma: any = new Proxy(basePrisma, {
-  get(target, prop) {
-    const mock = (globalForPrisma as any).__mockPrisma;
-    if (mock && prop in mock) return mock[prop as any];
-    return (target as any)[prop];
+export const prisma = new Proxy(basePrisma, {
+  get(target, prop, receiver) {
+    const mock = globalForPrisma.__mockPrisma;
+    if (mock && prop in mock) return mock[prop];
+    return Reflect.get(target, prop, receiver);
   },
-});
+}) as PrismaClient;
 
 // 在开发环境中启用查询日志
 if (process.env.NODE_ENV === 'development') {

@@ -185,6 +185,7 @@ async function main() {
   // Clean existing data (order matters for FK constraints)
   console.log('\n[1/9] 清理旧数据...');
   await prisma.userPointsTransaction.deleteMany();
+  await prisma.learningEvent.deleteMany();
   await prisma.userAchievement.deleteMany();
   await prisma.quizAttempt.deleteMany();
   await prisma.userExperiment.deleteMany();
@@ -194,6 +195,8 @@ async function main() {
   await prisma.certificate.deleteMany();
   await prisma.userActivity.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.classEnrollment.deleteMany();
+  await prisma.classGroup.deleteMany();
   await prisma.user.deleteMany();
 
   // ------------------------------------------------------------------
@@ -237,13 +240,47 @@ async function main() {
   console.log(`  教师: ${teacher.name} (${teacher.username})`);
   console.log(`  管理员: ${admin.name} (${admin.username})`);
 
+  const classGroups = await Promise.all([
+    prisma.classGroup.create({
+      data: {
+        name: '机电2401',
+        inviteCode: 'EDU2401',
+        courseName: '8051单片机原理与应用',
+        semester: '2025-2026-1',
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+      },
+    }),
+    prisma.classGroup.create({
+      data: {
+        name: '机电2402',
+        inviteCode: 'EDU2402',
+        courseName: '8051单片机原理与应用',
+        semester: '2025-2026-1',
+        teacherId: teacher.id,
+        status: 'ACTIVE',
+      },
+    }),
+  ]);
+  const classByName = new Map(classGroups.map((classGroup) => [classGroup.name, classGroup]));
+  for (const classGroup of classGroups) {
+    await prisma.classEnrollment.create({
+      data: {
+        userId: teacher.id,
+        classId: classGroup.id,
+        role: 'TEACHER',
+        status: 'ACTIVE',
+      },
+    });
+  }
+
   // ------------------------------------------------------------------
   // 3. Create ~40 students
   // ------------------------------------------------------------------
   console.log('[3/9] 创建学生账号...');
   const studentPw = await bcrypt.hash('stu123456', 10);
 
-  const createdStudents: { id: string; def: StudentDef }[] = [];
+  const createdStudents: { id: string; def: StudentDef; classId: string }[] = [];
 
   for (const stu of students) {
     const enrollDate = randDate(
@@ -271,7 +308,20 @@ async function main() {
         ),
       },
     });
-    createdStudents.push({ id: user.id, def: stu });
+    const classGroup = classByName.get(stu.cls);
+    if (!classGroup) throw new Error(`Missing class group for ${stu.cls}`);
+    await prisma.classEnrollment.create({
+      data: {
+        userId: user.id,
+        classId: classGroup.id,
+        role: 'STUDENT',
+        status: 'ACTIVE',
+        joinedAt: enrollDate,
+        createdAt: enrollDate,
+        updatedAt: enrollDate,
+      },
+    });
+    createdStudents.push({ id: user.id, def: stu, classId: classGroup.id });
   }
 
   console.log(`  创建 ${createdStudents.length} 名学生 (机电2401: 20, 机电2402: 20)`);
@@ -312,6 +362,22 @@ async function main() {
           lastAccessAt: completedAt ?? randDate(startDate, SEMESTER_END),
           createdAt: startDate,
           updatedAt: completedAt ?? SEMESTER_END,
+        },
+      });
+      await prisma.learningEvent.create({
+        data: {
+          userId: stu.id,
+          classId: stu.classId,
+          eventType: isCompleted ? 'COMPLETE_CHAPTER' : 'UPDATE_PROGRESS',
+          targetType: 'CHAPTER',
+          targetId: ch.chapterId,
+          moduleId: ch.moduleId,
+          chapterId: ch.chapterId,
+          duration: timeSpent,
+          progress,
+          clientTime: completedAt ?? startDate,
+          createdAt: completedAt ?? startDate,
+          metadata: JSON.stringify({ source: 'seed', contentType: 'mixed' }),
         },
       });
       progressCount++;

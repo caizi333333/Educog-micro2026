@@ -1,14 +1,13 @@
 generator client {
   provider = "prisma-client-js"
-  // 兼容本地开发（native）与 CI/部署环境（Linux）
-  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
+  // 兼容本地开发（macOS）与 CI/部署环境（Linux）
+  binaryTargets = ["native", "darwin-arm64", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  // Vercel Postgres 会自动注入 POSTGRES_PRISMA_URL
-  // 本地或其他平台也可以将 POSTGRES_PRISMA_URL 设置为你的连接串
-  url      = env("POSTGRES_PRISMA_URL")
+  // 正式环境使用 PostgreSQL；本地开发也建议通过 docker-compose 启动同构数据库
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -38,13 +37,79 @@ model User {
   sessions           Session[]
   achievements       UserAchievement[]
   activities         UserActivity[]
+  classEnrollments   ClassEnrollment[]
   experiments        UserExperiment[]
+  learningEvents     LearningEvent[]
   pointsTransactions UserPointsTransaction[]
+  teachingClasses    ClassGroup[]            @relation("ClassTeacher")
   userProgress       UserProgress?
 
   @@index([email])
   @@index([username])
   @@index([role])
+}
+
+model ClassGroup {
+  id             String            @id @default(cuid())
+  name           String
+  inviteCode     String            @unique
+  courseName     String?
+  semester       String?
+  teacherId      String?
+  status         String            @default("ACTIVE")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  teacher        User?             @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  enrollments    ClassEnrollment[]
+  learningEvents LearningEvent[]
+
+  @@index([teacherId])
+  @@index([status])
+  @@index([name])
+}
+
+model ClassEnrollment {
+  id         String     @id @default(cuid())
+  userId     String
+  classId    String
+  role       String     @default("STUDENT")
+  status     String     @default("ACTIVE")
+  joinedAt   DateTime   @default(now())
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup ClassGroup @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, userId])
+  @@index([userId])
+  @@index([classId])
+  @@index([status])
+}
+
+model LearningEvent {
+  id         String      @id @default(cuid())
+  userId     String
+  classId    String?
+  eventType  String
+  targetType String
+  targetId   String
+  moduleId   String?
+  chapterId  String?
+  experimentId String?
+  quizId     String?
+  duration   Int?
+  progress   Int?
+  clientTime DateTime?
+  metadata   String?
+  createdAt  DateTime    @default(now())
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([classId])
+  @@index([eventType])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model Session {

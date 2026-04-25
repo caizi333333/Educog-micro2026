@@ -87,6 +87,7 @@ describe('Auth API Routes', () => {
         },
         accessToken: mockTokens.accessToken,
         refreshToken: mockTokens.refreshToken,
+        classEnrollment: null,
         firstLoginAchievement: {
           id: 'test-achievement-id',
           name: 'First Login',
@@ -229,6 +230,7 @@ describe('Auth API Routes', () => {
         },
         accessToken: mockTokens.accessToken,
         refreshToken: mockTokens.refreshToken,
+        classEnrollment: null,
         firstLoginAchievement: {
           id: 'test-achievement-id',
           name: 'First Login',

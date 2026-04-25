@@ -5,49 +5,48 @@
 @layer base {
   :root {
     /*
-      Modern Dark Theme — 2025 aesthetic (Linear/Vercel/Raycast inspired)
-      - Background: Deep slate blue-gray with warmth
-      - Cards: Glass-morphism with subtle lift
-      - Primary: Vibrant blue (#3b82f6)
-      - Accent: Softer purple (#7c5cfc)
-      - Layered depth: bg → card → popover with clear separation
+      EduCog bench theme
+      - Graphite base for dense learning tools
+      - Cyan primary for active circuits and navigation
+      - Amber/emerald accents for state and achievement feedback
+      - Fine-grid surfaces echo PCB and oscilloscope workbenches
     */
-    --background: 222 47% 11%;       /* #141a24 — deep warm slate */
-    --foreground: 210 20% 96%;       /* #f1f5f9 */
-    --card: 220 40% 15%;             /* #1c2433 — noticeably lighter than bg */
-    --card-foreground: 210 20% 96%;
-    --popover: 220 35% 18%;          /* #232d3f — lifted above card */
-    --popover-foreground: 210 20% 96%;
-    --primary: 217 91% 60%;          /* #3b82f6 — vibrant blue */
-    --primary-foreground: 222 47% 6%;
-    --secondary: 220 35% 22%;        /* subtle layer */
-    --secondary-foreground: 210 20% 96%;
-    --muted: 220 30% 20%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 263 70% 58%;           /* #7c5cfc — softer purple */
-    --accent-foreground: 210 20% 98%;
+    --background: 220 18% 7%;
+    --foreground: 190 32% 94%;
+    --card: 220 15% 11%;
+    --card-foreground: 190 32% 94%;
+    --popover: 220 14% 13%;
+    --popover-foreground: 190 32% 94%;
+    --primary: 184 82% 48%;
+    --primary-foreground: 220 18% 6%;
+    --secondary: 210 14% 16%;
+    --secondary-foreground: 190 30% 92%;
+    --muted: 210 12% 15%;
+    --muted-foreground: 195 13% 62%;
+    --accent: 42 92% 58%;
+    --accent-foreground: 220 18% 7%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 220 30% 20%;           /* subtle, low-contrast border */
-    --input: 220 30% 24%;
-    --ring: 217 91% 60%;
+    --destructive-foreground: 190 30% 98%;
+    --border: 205 16% 18%;
+    --input: 205 16% 20%;
+    --ring: 184 82% 48%;
 
-    --chart-1: 217 91% 60%;          /* Primary blue */
-    --chart-2: 160 65% 50%;          /* Teal green */
-    --chart-3: 35 90% 62%;           /* Warm orange */
-    --chart-4: 263 70% 58%;          /* Accent purple */
-    --chart-5: 340 75% 60%;          /* Rose */
+    --chart-1: 184 82% 48%;
+    --chart-2: 154 62% 48%;
+    --chart-3: 42 92% 58%;
+    --chart-4: 210 80% 62%;
+    --chart-5: 348 72% 62%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 222 50% 9%;  /* deepest layer */
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 50% 9%;
-    --sidebar-accent: 220 40% 16%;
-    --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 220 30% 16%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 220 20% 6%;
+    --sidebar-foreground: 190 32% 94%;
+    --sidebar-primary: 184 82% 48%;
+    --sidebar-primary-foreground: 220 20% 6%;
+    --sidebar-accent: 205 14% 13%;
+    --sidebar-accent-foreground: 190 32% 94%;
+    --sidebar-border: 205 16% 16%;
+    --sidebar-ring: 184 82% 48%;
   }
 
   .light {
@@ -57,29 +56,29 @@
     --card-foreground: 220 15% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 10%;
-    --primary: 217 91% 50%;          /* slightly deeper blue for light */
+    --primary: 185 85% 36%;
     --primary-foreground: 210 40% 98%;
     --secondary: 214 32% 96%;
     --secondary-foreground: 220 15% 10%;
     --muted: 214 32% 96%;
     --muted-foreground: 215 20% 45%;
-    --accent: 263 70% 55%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 42 92% 50%;
+    --accent-foreground: 220 15% 10%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 217 91% 50%;
 
-    --chart-1: 217 91% 50%;
-    --chart-2: 160 60% 40%;
-    --chart-3: 35 80% 50%;
-    --chart-4: 263 70% 55%;
-    --chart-5: 340 70% 50%;
+    --chart-1: 185 85% 36%;
+    --chart-2: 154 62% 38%;
+    --chart-3: 42 92% 50%;
+    --chart-4: 210 80% 52%;
+    --chart-5: 348 72% 52%;
 
     --sidebar-background: 210 40% 98%;
     --sidebar-foreground: 220 15% 10%;
-    --sidebar-primary: 217 91% 50%;
+    --sidebar-primary: 185 85% 36%;
     --sidebar-primary-foreground: 210 40% 98%;
     --sidebar-accent: 214 32% 93%;
     --sidebar-accent-foreground: 220 15% 10%;
@@ -101,6 +100,10 @@
 
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at 14% 10%, hsl(184 82% 48% / 0.10), transparent 28rem),
+      radial-gradient(circle at 88% 18%, hsl(42 92% 58% / 0.08), transparent 24rem),
+      linear-gradient(180deg, hsl(220 18% 7%) 0%, hsl(220 18% 5%) 100%);
   }
 
   /* Custom scrollbar — webkit browsers */
@@ -155,9 +158,9 @@
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(
       135deg,
-      hsl(217 91% 70%) 0%,
-      hsl(263 70% 68%) 50%,
-      hsl(217 91% 70%) 100%
+      hsl(184 82% 62%) 0%,
+      hsl(154 62% 58%) 48%,
+      hsl(42 92% 66%) 100%
     );
   }
 
@@ -165,8 +168,8 @@
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(
       135deg,
-      hsl(217 91% 45%) 0%,
-      hsl(263 70% 50%) 100%
+      hsl(185 85% 32%) 0%,
+      hsl(42 92% 44%) 100%
     );
   }
 
@@ -174,9 +177,61 @@
   .sidebar-gradient {
     background: linear-gradient(
       180deg,
-      hsl(222 50% 9%) 0%,
-      hsl(222 55% 7%) 100%
+      hsl(220 20% 6%) 0%,
+      hsl(220 19% 4%) 100%
     );
+  }
+
+  .edu-shell {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 18% 0%, hsl(184 82% 48% / 0.08), transparent 24rem),
+      radial-gradient(circle at 94% 2%, hsl(42 92% 58% / 0.07), transparent 20rem),
+      hsl(var(--background));
+  }
+
+  .edu-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(hsl(184 42% 62% / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(184 42% 62% / 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, black, transparent 78%);
+  }
+
+  .edu-panel {
+    @apply border border-white/[0.07] bg-white/[0.035] shadow-[0_18px_60px_rgba(0,0,0,0.28)];
+  }
+
+  .chip-mark {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, hsl(184 82% 48% / 0.18), hsl(42 92% 58% / 0.12)),
+      hsl(220 18% 8%);
+    box-shadow: inset 0 0 0 1px hsl(184 82% 48% / 0.28), 0 8px 26px hsl(184 82% 48% / 0.12);
+  }
+
+  .chip-mark::before,
+  .chip-mark::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 1px solid hsl(184 82% 58% / 0.20);
+    border-radius: 4px;
+  }
+
+  .circuit-grid {
+    background-image:
+      linear-gradient(hsl(184 40% 62% / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(184 40% 62% / 0.045) 1px, transparent 1px),
+      radial-gradient(circle at 84% 10%, hsl(42 92% 58% / 0.08), transparent 18rem);
+    background-size: 24px 24px, 24px 24px, auto;
   }
 }
 

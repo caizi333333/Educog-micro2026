@@ -20,6 +20,24 @@ export async function GET(request: Request) {
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       include: {
+        classEnrollments: {
+          where: { status: 'ACTIVE' },
+          select: {
+            classId: true,
+            role: true,
+            status: true,
+            joinedAt: true,
+            classGroup: {
+              select: {
+                id: true,
+                name: true,
+                courseName: true,
+                semester: true,
+                teacher: { select: { id: true, name: true, username: true } },
+              },
+            },
+          },
+        },
         _count: {
           select: {
             sessions: true,
@@ -79,6 +97,7 @@ export async function GET(request: Request) {
       teacherId: user.teacherId,
       department: user.department,
       title: user.title,
+      classEnrollments: user.classEnrollments,
       
       // 积分信息
       totalPoints: user.totalPoints,
@@ -106,7 +125,7 @@ export async function GET(request: Request) {
       },
       
       // 最近活动
-      recentActivity: recentActivity.map(activity => ({
+      recentActivity: recentActivity.map((activity: any) => ({
         action: activity.action,
         details: activity.details ? JSON.parse(activity.details) : null,
         createdAt: activity.createdAt
@@ -142,21 +161,28 @@ export async function PUT(request: Request) {
     }
 
     const data = await request.json();
-    const { name, avatar, class: userClass, grade, major, department, title } = data;
+    const updateData: Record<string, unknown> = {};
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.avatar !== undefined) updateData.avatar = data.avatar;
+
+    if (payload.role === 'STUDENT') {
+      if (data.studentId !== undefined) updateData.studentId = data.studentId;
+      if (data.grade !== undefined) updateData.grade = data.grade;
+      if (data.major !== undefined) updateData.major = data.major;
+    }
+
+    if (payload.role === 'TEACHER' || payload.role === 'ADMIN') {
+      if (data.department !== undefined) updateData.department = data.department;
+      if (data.title !== undefined) updateData.title = data.title;
+    }
+
+    updateData.updatedAt = new Date();
 
     // 更新用户信息
     const updatedUser = await prisma.user.update({
       where: { id: payload.userId },
-      data: {
-        name,
-        avatar,
-        class: userClass,
-        grade,
-        major,
-        department,
-        title,
-        updatedAt: new Date()
-      }
+      data: updateData
     });
 
     // 记录活动

@@ -5,7 +5,7 @@ require('@testing-library/jest-dom');
 process.env.NODE_ENV = 'test';
 
 // 提供测试环境必需的最小环境变量，避免 env.ts 校验失败
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'file:./test.db';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/educog_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_32_chars_min_len!!';
 
 // 为应用代码注入一个全局 Prisma mock（避免路由模块在 test 文件 mock 之前被 import）
@@ -13,13 +13,16 @@ if (!global.__mockPrisma) {
   const resolved = (value) => jest.fn().mockResolvedValue(value);
   global.__mockPrisma = {
     user: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
+    classGroup: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0) },
+    classEnrollment: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0) },
+    learningEvent: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0) },
     userProgress: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
     learningPath: { findFirst: resolved(null), findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
     learningProgress: { findUnique: resolved(null), findMany: resolved([]), findFirst: resolved(null), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), updateMany: resolved({ count: 0 }), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0), aggregate: resolved({ _avg: { progress: 0 } }), groupBy: resolved([]) },
     quizAttempt: { findFirst: resolved(null), findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0), aggregate: resolved({ _avg: { score: 0 } }) },
     userExperiment: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0), groupBy: resolved([]) },
     userPointsTransaction: { findMany: resolved([]), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), delete: resolved({}), groupBy: resolved([]), aggregate: resolved({}) },
-    userAchievement: { findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
+    userAchievement: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
     userActivity: { create: resolved({}), findMany: resolved([]), count: resolved(0), aggregate: resolved({ _count: { _all: 0 } }) },
     achievement: { findMany: resolved([]), findUnique: resolved(null) },
     experiment: { findMany: resolved([]), findUnique: resolved(null) },
@@ -80,6 +83,33 @@ if (typeof window !== 'undefined') {
   } catch (e) {
     // Ignore if window.location is already defined and can't be overridden
   }
+}
+
+// JSDOM does not implement canvas drawing APIs. Provide the minimum 2D context
+// shape needed by visual components so tests do not emit "not implemented" noise.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    value: jest.fn(() => ({
+      arc: jest.fn(),
+      beginPath: jest.fn(),
+      clearRect: jest.fn(),
+      closePath: jest.fn(),
+      fill: jest.fn(),
+      fillRect: jest.fn(),
+      fillText: jest.fn(),
+      lineTo: jest.fn(),
+      measureText: jest.fn(() => ({ width: 0 })),
+      moveTo: jest.fn(),
+      restore: jest.fn(),
+      rotate: jest.fn(),
+      save: jest.fn(),
+      scale: jest.fn(),
+      stroke: jest.fn(),
+      strokeRect: jest.fn(),
+      translate: jest.fn(),
+    })),
+    configurable: true,
+  });
 }
 
 // Mock Request and Response for Next.js API tests
@@ -219,6 +249,9 @@ global.createPrismaMock = () => {
 
   return {
     user: createEntityMock(),
+    classGroup: createEntityMock(),
+    classEnrollment: createEntityMock(),
+    learningEvent: createEntityMock(),
     userProgress: createEntityMock(),
     learningPath: createEntityMock(),
     userActivity: createEntityMock(),

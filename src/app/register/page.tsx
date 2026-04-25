@@ -23,7 +23,8 @@ export default function RegisterPage() {
     confirmPassword: '',
     name: '',
     role: 'STUDENT',
-    studentId: ''
+    studentId: '',
+    classInviteCode: ''
   });
 
   // 处理注册
@@ -71,7 +72,8 @@ export default function RegisterPage() {
           password: registerForm.password,
           name: registerForm.name,
           role: registerForm.role,
-          studentId: registerForm.studentId
+          studentId: registerForm.studentId,
+          classInviteCode: registerForm.classInviteCode
         })
       });
 
@@ -197,6 +199,17 @@ export default function RegisterPage() {
                 placeholder="请输入学号"
                 value={registerForm.studentId}
                 onChange={(e) => setRegisterForm({ ...registerForm, studentId: e.target.value })}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-classInviteCode">班级邀请码</Label>
+              <Input
+                id="register-classInviteCode"
+                type="text"
+                placeholder="请输入教师提供的邀请码"
+                value={registerForm.classInviteCode}
+                onChange={(e) => setRegisterForm({ ...registerForm, classInviteCode: e.target.value })}
                 disabled={loading}
               />
             </div>

@@ -136,6 +136,7 @@ describe('auth', () => {
         achievementId: 'first_login',
         name: '初次登录'
       } as any);
+      setupPrismaMock(mockPrisma, 'learningEvent', 'create', {} as any);
       setupPrismaMock(mockPrisma, 'session', 'create', {} as any);
       mockJwt.sign.mockReturnValue('mock-token' as never);
 
@@ -149,14 +150,96 @@ describe('auth', () => {
       expect(mockBcrypt.hash).toHaveBeenCalledWith('password123', 10);
     });
 
+    it('should force public registration to student role', async () => {
+      setupPrismaMock(mockPrisma, 'user', 'findUnique', null);
+      mockBcrypt.hash.mockResolvedValue('hashed-password' as never);
+      setupPrismaMock(mockPrisma, 'user', 'create', mockUser as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'userAchievement', 'create', {
+        id: 'achievement123',
+        achievementId: 'first_login',
+        name: '初次登录'
+      } as any);
+      setupPrismaMock(mockPrisma, 'learningEvent', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'session', 'create', {} as any);
+      mockJwt.sign.mockReturnValue('mock-token' as never);
+
+      await register({
+        ...mockUserData,
+        role: 'TEACHER',
+        teacherId: 'T001',
+        department: '自动化学院',
+        title: '讲师',
+      });
+
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          role: 'STUDENT',
+          teacherId: null,
+          department: null,
+          title: null,
+        }),
+      });
+    });
+
+    it('should join class by valid invite code during registration', async () => {
+      setupPrismaMock(mockPrisma, 'user', 'findUnique', null);
+      setupPrismaMock(mockPrisma, 'classGroup', 'findUnique', {
+        id: 'class-1',
+        name: '机电2401',
+        inviteCode: 'EDU2401',
+        status: 'ACTIVE',
+      } as any);
+      mockBcrypt.hash.mockResolvedValue('hashed-password' as never);
+      setupPrismaMock(mockPrisma, 'user', 'create', mockUser as any);
+      setupPrismaMock(mockPrisma, 'classEnrollment', 'create', {
+        id: 'enrollment-1',
+        classId: 'class-1',
+        role: 'STUDENT',
+        status: 'ACTIVE',
+        joinedAt: new Date(),
+        classGroup: { id: 'class-1', name: '机电2401' },
+      } as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'userAchievement', 'create', {
+        id: 'achievement123',
+        achievementId: 'first_login',
+        name: '初次登录'
+      } as any);
+      setupPrismaMock(mockPrisma, 'learningEvent', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'session', 'create', {} as any);
+      mockJwt.sign.mockReturnValue('mock-token' as never);
+
+      const result = await register({ ...mockUserData, classInviteCode: 'EDU2401' });
+
+      expect(result.classEnrollment?.classId).toBe('class-1');
+      expect(mockPrisma.classEnrollment.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'user123',
+          classId: 'class-1',
+          role: 'STUDENT',
+        }),
+      }));
+    });
+
+    it('should reject invalid class invite code during registration', async () => {
+      setupPrismaMock(mockPrisma, 'user', 'findUnique', null);
+      setupPrismaMock(mockPrisma, 'classGroup', 'findUnique', null);
+      mockBcrypt.hash.mockResolvedValue('hashed-password' as never);
+
+      await expect(register({ ...mockUserData, classInviteCode: 'BADCODE' }))
+        .rejects.toThrow('班级邀请码无效或已停用');
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
     it('should throw error if email already exists', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any); // Email exists
+      (mockPrisma.user.findUnique as unknown as jest.Mock).mockResolvedValueOnce(mockUser as any); // Email exists
 
       await expect(register(mockUserData)).rejects.toThrow('邮箱已被注册');
     });
 
     it('should throw error if username already exists', async () => {
-      (mockPrisma.user.findUnique as jest.Mock)
+      (mockPrisma.user.findUnique as unknown as jest.Mock)
         .mockResolvedValueOnce(null) // Email doesn't exist
         .mockResolvedValueOnce(mockUser as any); // Username exists
 

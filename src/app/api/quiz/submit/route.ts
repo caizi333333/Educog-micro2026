@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { calculateQuizPoints } from '@/lib/points-system';
 import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
+import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
 
 export async function POST(request: Request) {
   try {
@@ -83,6 +84,39 @@ export async function POST(request: Request) {
         }
       }
     });
+
+    try {
+      const classId = await getActiveClassIdForUser(payload.userId);
+      const learningEvent = normalizeLearningEventInput({
+        eventType: 'COMPLETE_QUIZ',
+        targetType: 'QUIZ',
+        targetId: quizId || 'comprehensive-assessment',
+        moduleId,
+        chapterId,
+        quizId: quizId || 'comprehensive-assessment',
+        duration: timeSpent || 0,
+        progress: score,
+        metadata: {
+          source: 'quiz-submit-api',
+          action: 'COMPLETE_QUIZ',
+          score,
+          weakAreas,
+          scoresByKA,
+        },
+      }, quizId || 'comprehensive-assessment');
+
+      if (learningEvent) {
+        await prisma.learningEvent.create({
+          data: {
+            userId: payload.userId,
+            classId,
+            ...learningEvent,
+          },
+        });
+      }
+    } catch (eventError) {
+      console.error('记录测评行为失败:', eventError);
+    }
 
     // 如果是章节测验，触发学习进度更新
     if (moduleId && chapterId) {

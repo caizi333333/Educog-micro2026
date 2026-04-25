@@ -38,11 +38,18 @@ export async function POST(request: NextRequest) {
       success: true,
       user: result.user,
       accessToken: result.accessToken,
-      firstLoginAchievement: result.firstLoginAchievement
+      firstLoginAchievement: result.firstLoginAchievement,
+      classEnrollment: result.classEnrollment ?? null
     }, { status: 201 });
 
     // 在测试环境中，cookies可能未定义
     if (response.cookies && response.cookies.set) {
+      response.cookies.set('accessToken', result.accessToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60
+      });
       response.cookies.set('refreshToken', result.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

@@ -45,15 +45,6 @@ if (!global.window) {
 } else {
   // 如果window已存在，只更新需要的属性
   global.window.PerformanceObserver = MockPerformanceObserver as any;
-  if (global.window.location) {
-    (global.window.location as any).href = 'http://localhost:3000';
-  } else {
-    Object.defineProperty(global.window, 'location', {
-      value: { href: 'http://localhost:3000' },
-      writable: true,
-      configurable: true
-    });
-  }
 }
 
 Object.defineProperty(global, 'navigator', {
@@ -68,10 +59,6 @@ describe('PerformanceMonitor', () => {
     jest.clearAllMocks();
     // 清除所有指标
     performanceMonitor.cleanup();
-    // 重新设置location.href
-    if (global.window && global.window.location) {
-      (global.window.location as any).href = 'http://localhost:3000';
-    }
   });
 
   describe('单例模式', () => {

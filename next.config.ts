@@ -1,15 +1,15 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: __dirname,
   // 允许开发环境从非 localhost 的来源（例如局域网/容器转发地址）加载 /_next 资源
   // Next.js 只校验 hostname（不含协议/端口）
   allowedDevOrigins: ['192.168.64.94'],
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
-  // 生产部署优先保证构建可通过；类型问题可在后续迭代中逐步修复
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     remotePatterns: [

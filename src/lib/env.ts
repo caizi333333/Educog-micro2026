@@ -4,8 +4,8 @@ import { z } from 'zod';
 const envSchema = z.object({
   // 数据库配置
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').refine(
-    (url) => url.includes('postgresql://') || url.includes('postgres://') || url.includes('file:'),
-    'DATABASE_URL must be a valid PostgreSQL or SQLite connection string'
+    (url) => url.includes('postgresql://') || url.includes('postgres://'),
+    'DATABASE_URL must be a valid PostgreSQL connection string'
   ),
   
   // JWT 配置

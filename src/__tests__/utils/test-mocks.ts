@@ -68,6 +68,40 @@ export const createMockPrismaClient = () => {
       upsert: jest.fn() as MockPrismaMethod,
       count: jest.fn() as MockPrismaMethod,
     },
+    classGroup: {
+      findUnique: jest.fn() as MockPrismaMethod,
+      findFirst: jest.fn() as MockPrismaMethod,
+      findMany: jest.fn() as MockPrismaMethod,
+      create: jest.fn() as MockPrismaMethod,
+      update: jest.fn() as MockPrismaMethod,
+      delete: jest.fn() as MockPrismaMethod,
+      deleteMany: jest.fn() as MockPrismaMethod,
+      upsert: jest.fn() as MockPrismaMethod,
+      count: jest.fn() as MockPrismaMethod,
+    },
+    classEnrollment: {
+      findUnique: jest.fn() as MockPrismaMethod,
+      findFirst: jest.fn() as MockPrismaMethod,
+      findMany: jest.fn() as MockPrismaMethod,
+      create: jest.fn() as MockPrismaMethod,
+      update: jest.fn() as MockPrismaMethod,
+      delete: jest.fn() as MockPrismaMethod,
+      deleteMany: jest.fn() as MockPrismaMethod,
+      upsert: jest.fn() as MockPrismaMethod,
+      count: jest.fn() as MockPrismaMethod,
+    },
+    learningEvent: {
+      findUnique: jest.fn() as MockPrismaMethod,
+      findFirst: jest.fn() as MockPrismaMethod,
+      findMany: jest.fn() as MockPrismaMethod,
+      create: jest.fn() as MockPrismaMethod,
+      createMany: jest.fn() as MockPrismaMethod,
+      update: jest.fn() as MockPrismaMethod,
+      delete: jest.fn() as MockPrismaMethod,
+      deleteMany: jest.fn() as MockPrismaMethod,
+      upsert: jest.fn() as MockPrismaMethod,
+      count: jest.fn() as MockPrismaMethod,
+    },
     achievement: {
       findUnique: jest.fn() as MockPrismaMethod,
       findMany: jest.fn() as MockPrismaMethod,
@@ -150,6 +184,12 @@ export const createMockPrismaClient = () => {
     $connect: jest.fn() as MockPrismaMethod,
     $disconnect: jest.fn() as MockPrismaMethod,
   };
+
+  client.$transaction.mockImplementation(async (arg: any) => {
+    if (typeof arg === 'function') return arg(client);
+    if (Array.isArray(arg)) return Promise.all(arg);
+    return arg;
+  });
 
   // 让应用代码（src/lib/prisma.ts）在测试环境下能拿到同一个 mock
   // 注意：使用 globalThis，避免 ESM mock/hoist 差异导致路由模块提前 import 时拿到真实 PrismaClient

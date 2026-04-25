@@ -28,14 +28,6 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-// Mock window.location
-const mockLocation = {
-  href: '',
-  search: '',
-};
-delete (window as any).location;
-(window as any).location = mockLocation;
-
 const mockPush = jest.fn();
 const mockToast = jest.fn();
 

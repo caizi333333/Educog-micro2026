@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     let created = 0;
     // 为每个学生创建一条新的 ACTIVE 路径，并将原 ACTIVE 置为 PAUSED（若存在）
     for (const s of students) {
-      await prisma.$transaction(async (tx: typeof prisma) => {
+      await prisma.$transaction(async (tx) => {
         const existing = await tx.learningPath.findFirst({
           where: { userId: s.id, status: 'ACTIVE' },
           select: { id: true },

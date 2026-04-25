@@ -546,6 +546,32 @@ describe('Simulator Enhanced Tests', () => {
       
       expect(simulator.state.registers.A).toBe(0xAA);
     });
+
+    it('应该正确处理数值位地址和MOV C, bit指令', () => {
+      const code = `
+        ORG 0000H
+        SETB 90H
+        SETB 8CH
+        SETB 0D7H
+        MOV C, TR0
+        CLR P1.1
+        MOV P1.1, C
+        END
+      `;
+
+      simulator.updateCode(code);
+      simulator.step(); // SETB 90H -> P1.0
+      simulator.step(); // SETB 8CH -> TR0
+      simulator.step(); // SETB 0D7H -> CY
+      simulator.step(); // MOV C, TR0
+      simulator.step(); // CLR P1.1
+      simulator.step(); // MOV P1.1, C
+
+      expect(simulator.state.portValues.P1 & 0x01).toBe(0x01);
+      expect(simulator.state.timers.TR0).toBe(true);
+      expect(simulator.state.psw.CY).toBe(true);
+      expect(simulator.state.portValues.P1 & 0x02).toBe(0x02);
+    });
   });
 
   describe('寻址模式测试', () => {
@@ -602,6 +628,63 @@ describe('Simulator Enhanced Tests', () => {
       expect(simulator.state.registers.R1).toBe(0x55);
     });
 
+    it('应该按PSW的RS1/RS0选择工作寄存器组', () => {
+      const code = `
+        ORG 0000H
+        MOV R0, #11H
+        SETB RS0
+        MOV R0, #22H
+        MOV A, R0
+        CLR RS0
+        MOV B, R0
+        END
+      `;
+
+      simulator.updateCode(code);
+      simulator.step(); // MOV R0, #11H, bank 0
+      simulator.step(); // SETB RS0, select bank 1
+      simulator.step(); // MOV R0, #22H, bank 1
+      simulator.step(); // MOV A, R0
+      simulator.step(); // CLR RS0, back to bank 0
+      simulator.step(); // MOV B, R0
+
+      expect(simulator.state.ram[0x00]).toBe(0x11);
+      expect(simulator.state.ram[0x08]).toBe(0x22);
+      expect(simulator.state.registers.A).toBe(0x22);
+      expect(simulator.state.registers.B).toBe(0x11);
+      expect(simulator.state.registers.R0).toBe(0x11);
+    });
+
+    it('应该正确读写数值直址SFR', () => {
+      const code = `
+        ORG 0000H
+        MOV 89H, #21H
+        MOV 88H, #50H
+        MOV 98H, #03H
+        MOV 0A8H, #82H
+        MOV 0E0H, #03H
+        END
+      `;
+
+      simulator.updateCode(code);
+      simulator.step(); // TMOD
+      simulator.step(); // TCON
+      simulator.step(); // SCON
+      simulator.step(); // IE
+      simulator.step(); // ACC
+
+      expect(simulator.state.timers.TMOD).toBe(0x21);
+      expect(simulator.state.timers.TR0).toBe(true);
+      expect(simulator.state.timers.TR1).toBe(true);
+      expect(simulator.state.uart.SCON).toBe(0x03);
+      expect(simulator.state.uart.TI).toBe(true);
+      expect(simulator.state.uart.RI).toBe(true);
+      expect(simulator.state.interrupts.EA).toBe(true);
+      expect(simulator.state.interrupts.ET0).toBe(true);
+      expect(simulator.state.registers.A).toBe(0x03);
+      expect(simulator.state.psw.P).toBe(false);
+    });
+
     it('应该正确处理立即寻址', () => {
       const code = `
         ORG 0000H
@@ -619,6 +702,29 @@ describe('Simulator Enhanced Tests', () => {
       expect(simulator.state.registers.A).toBe(0x55);
       expect(simulator.state.registers.R0).toBe(0xAA);
       expect(simulator.state.ram[0x30]).toBe(0xFF);
+    });
+
+    it('XCH A, direct应该按2字节指令更新PC', () => {
+      const code = `
+        ORG 0000H
+        MOV 30H, #12H
+        MOV A, #34H
+        XCH A, 30H
+        MOV B, #56H
+        END
+      `;
+
+      simulator.updateCode(code);
+      simulator.step(); // MOV 30H, #12H, PC=3
+      simulator.step(); // MOV A, #34H, PC=5
+      simulator.step(); // XCH A, 30H, PC=7
+
+      expect(simulator.state.pc).toBe(7);
+      expect(simulator.state.registers.A).toBe(0x12);
+      expect(simulator.state.ram[0x30]).toBe(0x34);
+
+      simulator.step(); // MOV B, #56H
+      expect(simulator.state.registers.B).toBe(0x56);
     });
   });
 

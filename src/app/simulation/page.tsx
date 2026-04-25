@@ -28,6 +28,7 @@ import StatusMonitor from '@/components/simulation/StatusMonitor';
 import MemoryViewer from '@/components/simulation/MemoryViewer';
 import ExecutionTrace from '@/components/simulation/ExecutionTrace';
 import ExperimentGuide from '@/components/simulation/ExperimentGuide';
+import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
 
 export default function SimulationPage() {
   const {
@@ -102,16 +103,16 @@ export default function SimulationPage() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-6 -mt-4 bg-[#0d0d14]">
+      <div className="circuit-grid flex h-[calc(100vh-3.5rem)] -m-6 -mt-4 flex-col bg-[#080a0d] text-[#d8f3f2]">
         {/* ── Top Toolbar ── */}
-        <div className="flex items-center gap-1 px-2 py-1.5 bg-[#181825] border-b border-[#313244] flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-1 border-b border-white/[0.08] bg-[#0e1317]/95 px-2 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
           {/* Left section */}
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="p-1.5 rounded-md hover:bg-[#313244] text-[#6c7086] hover:text-[#cdd6f4] transition-colors"
+                  className="rounded-md p-1.5 text-[#7f9698] transition-colors hover:bg-white/[0.07] hover:text-[#d8f3f2]"
                 >
                   {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
                 </button>
@@ -121,7 +122,7 @@ export default function SimulationPage() {
               </TooltipContent>
             </Tooltip>
 
-            <div className="w-px h-5 bg-[#313244] mx-1" />
+            <div className="mx-1 h-5 w-px bg-white/[0.09]" />
 
             {/* Run controls */}
             <Tooltip>
@@ -132,7 +133,7 @@ export default function SimulationPage() {
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
                     isRunning
                       ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 ring-1 ring-red-500/20"
-                      : "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 ring-1 ring-emerald-500/20"
+                      : "bg-cyan-400/15 text-cyan-300 hover:bg-cyan-400/25 ring-1 ring-cyan-300/20"
                   )}
                 >
                   {isRunning ? <Square className="w-3 h-3" /> : <Play className="w-3.5 h-3.5" />}
@@ -149,7 +150,7 @@ export default function SimulationPage() {
                 <button
                   onClick={stepSimulation}
                   disabled={isRunning}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4] disabled:opacity-30 transition-all"
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#9db3b5] transition-all hover:bg-white/[0.07] hover:text-[#d8f3f2] disabled:opacity-30"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
                   单步
@@ -162,7 +163,7 @@ export default function SimulationPage() {
               <TooltipTrigger asChild>
                 <button
                   onClick={resetSimulation}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4] transition-all"
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#9db3b5] transition-all hover:bg-white/[0.07] hover:text-[#d8f3f2]"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   重置
@@ -178,25 +179,25 @@ export default function SimulationPage() {
               <div className={cn(
                 "w-2 h-2 rounded-full transition-all",
                 isRunning
-                  ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)] animate-pulse"
+                  ? "bg-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.55)] animate-pulse"
                   : error
                     ? "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.4)]"
-                    : "bg-[#45475a]"
+                    : "bg-[#3b4a4d]"
               )} />
-              <span className="text-[11px] font-medium text-[#a6adc8]">
+              <span className="text-[11px] font-medium text-[#9db3b5]">
                 {isRunning ? '运行中' : error ? '错误' : simulatorState?.terminated ? '执行完毕' : simulatorState ? '调试中' : '就绪'}
               </span>
             </div>
 
             {currentExp && (
-              <Badge variant="outline" className="text-[10px] font-medium bg-[#313244]/50 border-[#45475a] text-[#a6adc8]">
-                <Cpu className="w-3 h-3 mr-1 text-[#89b4fa]" />
+              <Badge variant="outline" className="border-white/[0.10] bg-white/[0.04] text-[10px] font-medium text-[#9db3b5]">
+                <Cpu className="mr-1 h-3 w-3 text-cyan-300" />
                 {currentExp.title}
               </Badge>
             )}
 
             {stepCount > 0 && (
-              <span className="text-[10px] text-[#585b70] font-mono">
+              <span className="font-mono text-[10px] text-[#65777a]">
                 PC: 0x{stepCount.toString(16).toUpperCase().padStart(4, '0')}
               </span>
             )}
@@ -207,7 +208,7 @@ export default function SimulationPage() {
             {selectedExperiment && !isRunning && (result || simulatorState?.terminated) && (
               <button
                 onClick={completeExperiment}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 ring-1 ring-emerald-500/20 transition-all"
+                className="flex items-center gap-1.5 rounded-md bg-emerald-400/15 px-3 py-1.5 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-300/20 transition-all hover:bg-emerald-400/25"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 完成实验
@@ -220,7 +221,7 @@ export default function SimulationPage() {
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left: Experiment selector */}
           <div className={cn(
-            "flex-shrink-0 border-r border-[#313244] transition-all duration-300 overflow-hidden bg-[#11111b]",
+            "flex-shrink-0 overflow-hidden border-r border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_-1px_0_0_rgba(255,255,255,0.025)] transition-all duration-300",
             sidebarOpen ? "w-[260px]" : "w-0"
           )}>
             <ExperimentSelector
@@ -250,10 +251,12 @@ export default function SimulationPage() {
             />
           </div>
 
+          <HyperExperimentCanvas simulatorState={simulatorState} />
+
           {/* Right: Status panel */}
-          <div className="w-[300px] flex-shrink-0 border-l border-[#313244] flex flex-col overflow-hidden bg-[#11111b]">
+          <div className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)]">
             {/* Tab bar */}
-            <div className="flex border-b border-[#313244] bg-[#181825] flex-shrink-0">
+            <div className="flex flex-shrink-0 border-b border-white/[0.08] bg-[#0e1317]">
               {([
                 { key: 'registers' as const, label: '寄存器', icon: Activity },
                 { key: 'memory' as const, label: '内存', icon: MemoryStick },
@@ -267,8 +270,8 @@ export default function SimulationPage() {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-all border-b-2",
                     activeRightTab === tab.key
-                      ? "border-[#89b4fa] text-[#89b4fa] bg-[#89b4fa]/5"
-                      : "border-transparent text-[#6c7086] hover:text-[#a6adc8] hover:bg-[#313244]/30"
+                      ? "border-cyan-300 bg-cyan-300/[0.07] text-cyan-200"
+                      : "border-transparent text-[#7f9698] hover:bg-white/[0.05] hover:text-[#c0dcde]"
                   )}
                 >
                   <tab.icon className="w-3.5 h-3.5" />

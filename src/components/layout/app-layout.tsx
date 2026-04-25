@@ -36,6 +36,7 @@ import {
   Shield,
   ChevronRight,
   LayoutDashboard,
+  Sparkles,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +58,7 @@ import { useAchievementCheck } from '@/hooks/use-achievement-check';
 
 // Navigation groups
 const learningItems = [
+  { href: '/hyper', label: '总览工作台', icon: Sparkles },
   { href: '/knowledge-graph', label: '知识图谱', icon: Share2 },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
@@ -78,7 +80,7 @@ const adminItems = [
 // All menu items flattened for title lookup
 const getAllMenuItems = (role?: string) => {
   const items = [
-    { href: '/', label: '课程内容', icon: BookOpen },
+    { href: '/', label: '课程实验', icon: BookOpen },
     ...learningItems,
     ...analysisItems,
   ];
@@ -136,8 +138,8 @@ function NavItem({ item, pathname }: { item: { href: string; label: string; icon
         tooltip={item.label}
         className={
           isActive
-            ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary rounded-l-none'
-            : 'hover:bg-muted/60 hover:translate-x-0.5 transition-all duration-150'
+            ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary rounded-l-none shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.08)]'
+            : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground hover:translate-x-0.5 transition-all duration-150'
         }
       >
         {/* 关闭 prefetch 避免 dev 环境频繁出现 _rsc 预取被中断（ERR_ABORTED） */}
@@ -170,7 +172,7 @@ function Header() {
   }
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b bg-background/80 backdrop-blur-sm px-4 sticky top-0 z-30">
+    <header className="flex h-14 items-center gap-3 border-b border-white/[0.07] bg-background/[0.72] px-4 sticky top-0 z-30 shadow-[0_10px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl">
       <SidebarTrigger />
       <Separator orientation="vertical" className="h-5" />
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -260,15 +262,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar className="sidebar-gradient border-r border-white/[0.07]">
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Cpu className="h-4.5 w-4.5 text-primary" />
+            <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md">
+              <Cpu className="h-[18px] w-[18px] text-primary" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-foreground group-data-[collapsible=icon]:hidden">
-              芯智育才
-            </span>
+            <div className="group-data-[collapsible=icon]:hidden">
+              <span className="block text-lg font-bold tracking-tight text-foreground">
+                芯智育才
+              </span>
+              <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                8051 Lab
+              </span>
+            </div>
           </div>
         </SidebarHeader>
 
@@ -276,7 +283,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Home */}
           <SidebarGroup>
             <SidebarMenu>
-              <NavItem item={{ href: '/', label: '课程内容', icon: BookOpen }} pathname={pathname} />
+              <NavItem item={{ href: '/', label: '课程实验', icon: BookOpen }} pathname={pathname} />
             </SidebarMenu>
           </SidebarGroup>
 
@@ -333,7 +340,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
 
-        <SidebarFooter className="p-2">
+        <SidebarFooter className="border-t border-white/[0.06] p-2">
           {loading ? (
             <div className="flex items-center gap-2 p-2">
               <Skeleton className="h-9 w-9 rounded-full" />
@@ -347,7 +354,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start gap-2.5 p-2 h-auto hover:bg-muted/60">
                   <Avatar className="h-9 w-9 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold ring-1 ring-primary/20">
                       {getInitial(user.name)}
                     </AvatarFallback>
                   </Avatar>
@@ -395,7 +402,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className="edu-shell">
         <Header />
         <main className="flex-1 p-6">{children}</main>
       </SidebarInset>

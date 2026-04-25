@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { getAccessibleClassIds } from '@/lib/classroom';
 
 // 获取单个用户信息
 export async function GET(
@@ -41,6 +42,24 @@ export async function GET(
       );
     }
 
+    if (payload.role === 'TEACHER' && payload.userId !== id) {
+      const accessibleClassIds = await getAccessibleClassIds(payload);
+      const enrollmentCount = await prisma.classEnrollment.count({
+        where: {
+          userId: id,
+          classId: { in: accessibleClassIds },
+          role: 'STUDENT',
+          status: 'ACTIVE',
+        },
+      });
+      if (enrollmentCount === 0) {
+        return NextResponse.json(
+          { error: '无权查看该学生' },
+          { status: 403 }
+        );
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -61,6 +80,22 @@ export async function GET(
         createdAt: true,
         updatedAt: true,
         lastLoginAt: true,
+        classEnrollments: {
+          where: { status: 'ACTIVE' },
+          select: {
+            classId: true,
+            role: true,
+            status: true,
+            classGroup: {
+              select: {
+                id: true,
+                name: true,
+                courseName: true,
+                semester: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             experiments: true,
@@ -88,8 +123,8 @@ export async function GET(
       return NextResponse.json({
         ...user,
         stats: {
-          completedExperiments: stats.find(s => s.status === 'COMPLETED')?._count || 0,
-          inProgressExperiments: stats.find(s => s.status === 'IN_PROGRESS')?._count || 0,
+          completedExperiments: stats.find((s: any) => s.status === 'COMPLETED')?._count || 0,
+          inProgressExperiments: stats.find((s: any) => s.status === 'IN_PROGRESS')?._count || 0,
           totalActivities: user._count.activities
         }
       });
@@ -142,6 +177,22 @@ export async function PUT(
     }
 
     const body = await request.json();
+    const classId = isAdmin && typeof body.classId === 'string' && body.classId.trim()
+      ? body.classId.trim()
+      : null;
+    const classGroup = classId
+      ? await prisma.classGroup.findUnique({
+        where: { id: classId },
+        select: { id: true, name: true, status: true },
+      })
+      : null;
+
+    if (classId && (!classGroup || classGroup.status !== 'ACTIVE')) {
+      return NextResponse.json(
+        { error: '班级不存在或已停用' },
+        { status: 400 }
+      );
+    }
 
     // 准备更新数据
     const updateData: any = {};
@@ -150,9 +201,15 @@ export async function PUT(
     if (isSelf || isAdmin) {
       if (body.name !== undefined) updateData.name = body.name;
       if (body.avatar !== undefined) updateData.avatar = body.avatar;
-      if (body.class !== undefined) updateData.class = body.class;
+    }
+
+    if (isSelf && payload.role === 'STUDENT') {
+      if (body.studentId !== undefined) updateData.studentId = body.studentId;
       if (body.grade !== undefined) updateData.grade = body.grade;
       if (body.major !== undefined) updateData.major = body.major;
+    }
+
+    if (isSelf && payload.role === 'TEACHER') {
       if (body.department !== undefined) updateData.department = body.department;
       if (body.title !== undefined) updateData.title = body.title;
     }
@@ -165,12 +222,16 @@ export async function PUT(
       if (body.status !== undefined) updateData.status = body.status;
       if (body.studentId !== undefined) updateData.studentId = body.studentId;
       if (body.teacherId !== undefined) updateData.teacherId = body.teacherId;
+      if (body.grade !== undefined) updateData.grade = body.grade;
+      if (body.major !== undefined) updateData.major = body.major;
+      if (body.department !== undefined) updateData.department = body.department;
+      if (body.title !== undefined) updateData.title = body.title;
     }
 
     // 更新用户
     const user = await prisma.user.update({
       where: { id: id },
-      data: updateData,
+      data: classGroup ? { ...updateData, class: classGroup.name } : updateData,
       select: {
         id: true,
         email: true,
@@ -182,6 +243,19 @@ export async function PUT(
       }
     });
 
+    if (classGroup) {
+      await prisma.classEnrollment.upsert({
+        where: { classId_userId: { classId: classGroup.id, userId: id } },
+        update: { role: user.role === 'TEACHER' ? 'TEACHER' : 'STUDENT', status: 'ACTIVE' },
+        create: {
+          classId: classGroup.id,
+          userId: id,
+          role: user.role === 'TEACHER' ? 'TEACHER' : 'STUDENT',
+          status: 'ACTIVE',
+        },
+      });
+    }
+
     // 记录活动
     await prisma.userActivity.create({
       data: {
@@ -189,7 +263,7 @@ export async function PUT(
         action: 'UPDATE_PROFILE',
         details: JSON.stringify({
           targetUserId: id,
-          updatedFields: Object.keys(updateData)
+          updatedFields: [...Object.keys(updateData), ...(classGroup ? ['classId'] : [])]
         })
       }
     });

@@ -35,6 +35,25 @@ jest.mock('@/lib/prisma', () => ({
       create: jest.fn(),
       findUnique: jest.fn()
     },
+    classGroup: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn()
+    },
+    classEnrollment: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+      count: jest.fn()
+    },
+    learningEvent: {
+      create: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn()
+    },
     learningProgress: {
       aggregate: jest.fn()
     },

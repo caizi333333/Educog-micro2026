@@ -94,11 +94,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Editor body */}
-      <div className="flex-1 flex min-h-0 bg-[#1e1e2e] relative overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-[#0d1216]">
         {/* Gutter */}
         <div
           ref={lineNumbersRef}
-          className="w-[60px] flex-shrink-0 overflow-hidden select-none bg-[#181825] border-r border-[#313244]"
+          className="w-[60px] flex-shrink-0 select-none overflow-hidden border-r border-white/[0.08] bg-[#0a0f13]"
           style={{ lineHeight: `${LINE_HEIGHT}px` }}
         >
           <div className="py-3">
@@ -114,7 +114,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   key={lineNum}
                   className={cn(
                     "h-5 flex items-center justify-end pr-2 cursor-pointer text-[11px] font-mono relative group",
-                    isCurrent && "bg-[#45475a]/50",
+                    isCurrent && "bg-cyan-300/[0.10]",
                     hasBP && "bg-red-500/10",
                   )}
                   onClick={() => onBreakpointToggle(lineNum)}
@@ -135,17 +135,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   {/* Current line arrow */}
                   {isCurrent && !hasBP && (
                     <div className="absolute left-1.5 top-1/2 -translate-y-1/2">
-                      <div className="w-0 h-0 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent border-l-yellow-400 drop-shadow-[0_0_3px_rgba(250,204,21,0.6)]" />
+                      <div className="h-0 w-0 border-b-[4px] border-l-[6px] border-t-[4px] border-transparent border-l-amber-300 drop-shadow-[0_0_3px_rgba(252,211,77,0.55)]" />
                     </div>
                   )}
 
                   <span className={cn(
                     "tabular-nums transition-colors",
                     isCurrent
-                      ? "text-yellow-400 font-bold"
+                      ? "text-amber-300 font-bold"
                       : cursorLine === lineNum
-                        ? "text-[#a6adc8]"
-                        : "text-[#585b70]"
+                        ? "text-[#a6c2c4]"
+                        : "text-[#596b70]"
                   )}>
                     {lineNum}
                   </span>
@@ -166,15 +166,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 height: `${LINE_HEIGHT}px`,
               }}
             >
-              <div className="absolute inset-0 bg-[#f9e2af]/8" />
-              <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#f9e2af] shadow-[0_0_8px_rgba(249,226,175,0.4)]" />
+              <div className="absolute inset-0 bg-amber-300/[0.08]" />
+              <div className="absolute bottom-0 left-0 top-0 w-[2px] bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.35)]" />
             </div>
           )}
 
           {/* Active cursor line highlight (dim) */}
           {currentLine <= 0 && cursorLine > 0 && (
             <div
-              className="absolute left-0 right-0 bg-[#313244]/30 pointer-events-none z-[1]"
+              className="pointer-events-none absolute left-0 right-0 z-[1] bg-cyan-300/[0.045]"
               style={{
                 top: `${12 + (cursorLine - 1) * LINE_HEIGHT - scrollTop}px`,
                 height: `${LINE_HEIGHT}px`,
@@ -186,7 +186,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           {Array.from(errorLines).map(ln => (
             <div
               key={`err-${ln}`}
-              className="absolute left-0 right-0 bg-red-500/8 border-l-2 border-red-500/50 pointer-events-none z-[1]"
+              className="pointer-events-none absolute left-0 right-0 z-[1] border-l-2 border-red-500/50 bg-red-500/[0.08]"
               style={{
                 top: `${12 + (ln - 1) * LINE_HEIGHT - scrollTop}px`,
                 height: `${LINE_HEIGHT}px`,
@@ -218,10 +218,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             onClick={handleCursorChange}
             onKeyUp={handleCursorChange}
             onKeyDown={handleKeyDown}
-            className="absolute inset-0 w-full h-full px-4 py-3 font-mono text-[13px] bg-transparent border-0 resize-none focus:outline-none focus:ring-0 caret-[#89b4fa] selection:bg-[#585b70]/60 z-[3]"
+            className="absolute inset-0 z-[3] h-full w-full resize-none border-0 bg-transparent px-4 py-3 font-mono text-[13px] caret-cyan-300 selection:bg-cyan-300/20 focus:outline-none focus:ring-0"
             style={{
               color: 'transparent',
-              caretColor: '#89b4fa',
+              caretColor: '#38d7e6',
               lineHeight: `${LINE_HEIGHT}px`,
               tabSize: 4,
               WebkitTextFillColor: 'transparent',
@@ -236,7 +236,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       </div>
 
       {/* Bottom status bar */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#181825] border-t border-[#313244] text-[11px] flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between border-t border-white/[0.08] bg-[#0a0f13] px-3 py-1 text-[11px]">
         <div className="flex items-center gap-3">
           {errorCount > 0 ? (
             <div className="flex items-center gap-1 text-red-400">
@@ -256,20 +256,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-[#6c7086]">
+        <div className="flex items-center gap-3 text-[#6f8588]">
           <span>行 {cursorLine}, 列 {cursorCol}</span>
-          <span className="text-[#45475a]">|</span>
+          <span className="text-[#3f5155]">|</span>
           <span>{lines.length} 行</span>
-          <span className="text-[#45475a]">|</span>
+          <span className="text-[#3f5155]">|</span>
           <span>8051 ASM</span>
-          <span className="text-[#45475a]">|</span>
+          <span className="text-[#3f5155]">|</span>
           <span>UTF-8</span>
         </div>
       </div>
 
       {/* Validation errors panel */}
       {errorCount + warnCount > 0 && (
-        <div className="max-h-28 overflow-auto bg-[#1e1e2e] border-t border-[#313244] flex-shrink-0">
+        <div className="max-h-28 flex-shrink-0 overflow-auto border-t border-white/[0.08] bg-[#0d1216]">
           <div className="px-3 py-1.5 space-y-0.5">
             {validation.errors.map((err, i) => (
               <div key={`e${i}`} className="flex items-start gap-2 text-[11px] py-0.5 hover:bg-[#313244]/30 px-1 rounded cursor-pointer transition-colors">

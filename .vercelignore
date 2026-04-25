@@ -8,10 +8,13 @@ build
 dist
 .next
 out
+coverage/
 
 # Development
 .git
 .trae
+tmp/
+.playwright-mcp/
 .log
 *.log
 dev.log
