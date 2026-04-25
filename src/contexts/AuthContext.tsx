@@ -30,6 +30,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getCookieValue(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const prefix = `${name}=`;
+  const cookie = document.cookie.split('; ').find((item) => item.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+}
+
+function clearStoredAuth() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
+  const secureAttr = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `accessToken=; path=/; max-age=0; SameSite=Lax${secureAttr}`;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   // 服务端和客户端都初始化为false，避免Hydration不匹配
@@ -69,15 +83,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 刷新用户信息
   const refreshUser = useCallback(async () => {
     try {
+      const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
+      if (!accessToken) {
+        throw new Error('Missing access token');
+      }
+
       const response = await fetch('/api/auth/me', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+          'Authorization': `Bearer ${accessToken}`
+        },
+        cache: 'no-store',
       });
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
       } else {
         throw new Error('Failed to refresh user');
@@ -119,24 +140,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 登出
   const logout = useCallback(async () => {
+    const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+        headers: accessToken ? {
+          'Authorization': `Bearer ${accessToken}`
+        } : undefined,
       });
     } catch (error) {
       console.error('Logout error:', error);
     }
 
     // 清理本地存储
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    clearStoredAuth();
     setUser(null);
     
     // 如果在受保护的页面，重定向到登录页
-    const publicPaths = ['/login', '/register', '/', '/api/health'];
+    const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
     const isPublicPath = publicPaths.some(path => pathname === path || pathname?.startsWith(path));
     
     if (!isPublicPath) {
@@ -154,44 +175,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       setLoading(true); // 开始加载时设置loading为true
       try {
-        const accessToken = localStorage.getItem('accessToken');
+        const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
         const userStr = localStorage.getItem('user');
         
-        if (accessToken && userStr) {
+        if (accessToken) {
           const decoded: any = jwtDecode(accessToken);
           const now = Date.now() / 1000;
           
           // 检查 token 是否过期
           if (decoded.exp && decoded.exp > now) {
-            const userData = JSON.parse(userStr);
-            setUser(userData);
+            if (userStr) {
+              const userData = JSON.parse(userStr);
+              setUser(userData);
+            }
             
             // 尝试刷新用户信息
             try {
               const response = await fetch('/api/auth/me', {
                 headers: {
                   'Authorization': `Bearer ${accessToken}`
-                }
+                },
+                cache: 'no-store',
               });
 
               if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
+                localStorage.setItem('accessToken', accessToken);
                 localStorage.setItem('user', JSON.stringify(data.user));
+              } else if (!userStr) {
+                clearStoredAuth();
               }
             } catch (error) {
               console.error('Failed to refresh user:', error);
+              if (!userStr) {
+                clearStoredAuth();
+              }
             }
           } else {
             // Token 过期，清理存储
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('user');
+            clearStoredAuth();
           }
         }
       } catch (error) {
         console.error('Failed to load user from storage:', error);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
+        clearStoredAuth();
       } finally {
         // 无论成功还是失败，都要设置loading为false
         setLoading(false);

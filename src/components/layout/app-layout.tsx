@@ -239,6 +239,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
   const isPublicPath = publicPaths.includes(pathname || '');
 
+  React.useEffect(() => {
+    if (!loading && !user && !isPublicPath) {
+      const from = pathname ? `?from=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/login${from}`);
+    }
+  }, [isPublicPath, loading, pathname, router, user]);
+
   if (isPublicPath) {
     return <>{children}</>;
   }
@@ -255,7 +262,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070a0d] text-slate-300">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" />
+          <p className="mt-4 text-sm">正在进入登录页...</p>
+        </div>
+      </div>
+    );
   }
 
   const showAdmin = user.role === 'TEACHER' || user.role === 'ADMIN';

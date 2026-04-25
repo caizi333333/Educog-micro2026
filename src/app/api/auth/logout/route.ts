@@ -1,50 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { logout, verifyToken } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+function createLogoutResponse(): NextResponse {
+  const response = NextResponse.json({
+    success: true,
+    message: '登出成功'
+  });
+  response.headers?.set?.('Cache-Control', 'no-store, max-age=0');
+  response.cookies?.delete('accessToken');
+  response.cookies?.delete('refreshToken');
+  return response;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // 获取访问令牌
+    // 获取访问令牌。优先使用请求头，缺失时回退到 cookie，保证退出登录可以清掉服务端 cookie。
     const authorization = request.headers.get('authorization');
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '未授权' },
-        { status: 401 }
-      );
-    }
-
-    const accessToken = authorization.substring(7);
+    const accessToken = authorization?.startsWith('Bearer ')
+      ? authorization.substring(7)
+      : request.cookies?.get('accessToken')?.value;
     
-    // 验证令牌
-    const payload = await verifyToken(accessToken);
-    if (!payload) {
-      return NextResponse.json(
-        { error: '令牌无效' },
-        { status: 401 }
-      );
-    }
-    
-    // 获取刷新令牌
     const refreshToken = request.cookies?.get('refreshToken')?.value;
-
-    // 执行登出
-    await logout(payload.userId, refreshToken);
-
-    // 清除cookie
-    const response = NextResponse.json({
-      success: true,
-      message: '登出成功'
-    });
-
-    // 在测试环境中，cookies可能未定义
-    if (response.cookies && response.cookies.delete) {
-      response.cookies.delete('refreshToken');
+    if (accessToken) {
+      const payload = await verifyToken(accessToken);
+      if (payload) {
+        await logout(payload.userId, refreshToken);
+      }
     }
 
-    return response;
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || '登出失败' },
-      { status: 400 }
-    );
+    return createLogoutResponse();
+  } catch {
+    // 即使服务端会话清理失败，也要清浏览器 cookie，避免用户停在空白受保护页面。
+    return createLogoutResponse();
   }
 }
