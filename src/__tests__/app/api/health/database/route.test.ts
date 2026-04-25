@@ -39,7 +39,7 @@ describe('/api/health/database', () => {
 
       await GET();
 
-      expect(mockCreateHealthCheckResponse).toHaveBeenCalledTimes(1);
+      expect(mockCreateHealthCheckResponse).toHaveBeenCalledWith({ includeDatabaseInfo: false });
       expect(mockNextResponse.json).toHaveBeenCalledWith(mockHealthCheck, {
         status: 200
       });
@@ -63,7 +63,7 @@ describe('/api/health/database', () => {
 
       await GET();
 
-      expect(mockCreateHealthCheckResponse).toHaveBeenCalledTimes(1);
+      expect(mockCreateHealthCheckResponse).toHaveBeenCalledWith({ includeDatabaseInfo: false });
       expect(mockNextResponse.json).toHaveBeenCalledWith(mockHealthCheck, {
         status: 503
       });
@@ -81,12 +81,11 @@ describe('/api/health/database', () => {
         timestamp: expect.any(String),
         database: {
           isConnected: false,
-          error: 'Database connection failed'
+          error: '健康检查失败'
         },
         recommendations: [
           '无法执行健康检查',
-          '请检查应用程序配置',
-          '联系技术支持获取帮助'
+          '请联系系统管理员'
         ]
       }, { status: 503 });
     });
@@ -107,8 +106,7 @@ describe('/api/health/database', () => {
         },
         recommendations: [
           '无法执行健康检查',
-          '请检查应用程序配置',
-          '联系技术支持获取帮助'
+          '请联系系统管理员'
         ]
       }, { status: 503 });
     });
@@ -143,9 +141,9 @@ describe('/api/health/database', () => {
       expect(callArgs).toHaveProperty('database');
       expect(callArgs).toHaveProperty('recommendations');
       expect(callArgs.database).toHaveProperty('isConnected', false);
-      expect(callArgs.database).toHaveProperty('error', 'Connection refused');
+      expect(callArgs.database).toHaveProperty('error', '健康检查失败');
       expect(Array.isArray(callArgs.recommendations)).toBe(true);
-      expect(callArgs.recommendations).toHaveLength(3);
+      expect(callArgs.recommendations).toHaveLength(2);
     });
   });
 });

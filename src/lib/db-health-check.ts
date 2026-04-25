@@ -94,15 +94,15 @@ export function getDatabaseInfo() {
 /**
  * 创建数据库健康检查API端点的响应
  */
-export async function createHealthCheckResponse() {
+export async function createHealthCheckResponse(options: { includeDatabaseInfo?: boolean } = {}) {
   const health = await checkDatabaseHealth();
-  const dbInfo = getDatabaseInfo();
+  const { includeDatabaseInfo = true } = options;
   
   return {
     timestamp: new Date().toISOString(),
     database: {
       ...health,
-      info: dbInfo,
+      ...(includeDatabaseInfo ? { info: getDatabaseInfo() } : {}),
     },
     recommendations: health.isConnected 
       ? ['数据库连接正常'] 

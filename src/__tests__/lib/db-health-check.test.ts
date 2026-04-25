@@ -317,11 +317,13 @@ describe('db-health-check', () => {
       expect(result.timestamp).toBeDefined();
       expect(result.database.isConnected).toBe(true);
       expect(result.database.latency).toBeGreaterThanOrEqual(0);
-      expect(result.database.info.provider).toBe('postgresql');
-      expect(result.database.info.host).toBe('localhost');
-      expect(result.database.info.port).toBe('5432');
-      expect(result.database.info.database).toBe('testdb');
-      expect(result.database.info.hasCredentials).toBe(true);
+      expect(result.database.info).toMatchObject({
+        provider: 'postgresql',
+        host: 'localhost',
+        port: '5432',
+        database: 'testdb',
+        hasCredentials: true,
+      });
       expect(result.recommendations).toEqual(['数据库连接正常']);
     });
 
@@ -337,7 +339,7 @@ describe('db-health-check', () => {
       expect(result.timestamp).toBeDefined();
       expect(result.database.isConnected).toBe(false);
       expect(result.database.error).toBe('Connection failed');
-      expect(result.database.info.provider).toBe('postgresql');
+      expect(result.database.info).toMatchObject({ provider: 'postgresql' });
       expect(result.recommendations[0]).toBe('数据库连接失败，请检查以下项目：');
       expect(result.recommendations).toContain('检查DATABASE_URL环境变量配置');
     });
