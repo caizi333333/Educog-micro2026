@@ -1,87 +1,21 @@
-name: educog-micro
+version: '3.8'
 
 services:
-  app:
-    image: educog-micro:latest
-    container_name: educog-app
-    build:
-      context: .
-      dockerfile_inline: |
-        FROM node:20-bookworm-slim AS deps
-        WORKDIR /app
-        ENV NEXT_TELEMETRY_DISABLED=1
-        RUN apt-get update \
-          && apt-get install -y --no-install-recommends openssl ca-certificates \
-          && rm -rf /var/lib/apt/lists/*
-        COPY package.json package-lock.json ./
-        RUN npm ci
-
-        FROM deps AS builder
-        WORKDIR /app
-        COPY prisma ./prisma
-        RUN npx prisma generate
-        COPY next.config.ts tsconfig.json tailwind.config.ts postcss.config.mjs components.json .eslintrc.json ./
-        COPY public ./public
-        COPY src ./src
-        RUN npm run build
-
-        FROM node:20-bookworm-slim AS runner
-        WORKDIR /app
-        ENV NODE_ENV=production
-        ENV NEXT_TELEMETRY_DISABLED=1
-        ENV HOSTNAME=0.0.0.0
-        ENV PORT=3000
-        RUN apt-get update \
-          && apt-get install -y --no-install-recommends openssl ca-certificates \
-          && rm -rf /var/lib/apt/lists/*
-        COPY --from=builder /app/node_modules ./node_modules
-        COPY --from=builder /app/package.json ./package.json
-        COPY --from=builder /app/package-lock.json ./package-lock.json
-        COPY --from=builder /app/prisma ./prisma
-        COPY --from=builder /app/public ./public
-        COPY --from=builder /app/.next/standalone ./
-        COPY --from=builder /app/.next/static ./.next/static
-        EXPOSE 3000
-        CMD ["sh", "-c", "./node_modules/.bin/prisma db push && node server.js"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - "NODE_ENV=production"
-      - "HOSTNAME=0.0.0.0"
-      - "PORT=3000"
-      - "DATABASE_URL=postgresql://${POSTGRES_USER:-educog_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-educog_micro}"
-      - "JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}"
-      - "PEPPER=${PEPPER:?PEPPER is required}"
-      - "NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}"
-      - "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
-      - "INIT_SECRET=${INIT_SECRET:?INIT_SECRET is required}"
-      - JWT_REFRESH_SECRET
-      - NEXTAUTH_SECRET
-      - GOOGLE_GENAI_API_KEY
-      - DEEPSEEK_API_KEY
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 45s
-
   postgres:
     image: postgres:15-alpine
     container_name: educog-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-educog_micro}
-      POSTGRES_USER: ${POSTGRES_USER:-educog_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: educog_micro
+      POSTGRES_USER: educog_user
+      POSTGRES_PASSWORD: educog_password
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U educog_user -d educog_micro"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,6 +24,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: educog-redis
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
