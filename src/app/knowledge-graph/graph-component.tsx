@@ -267,6 +267,7 @@ type KNodeData = {
   label: string; desc: string; cat: Category; level: 0|1|2|3;
   isDimmed: boolean; isHighlighted: boolean; isSelected: boolean;
   chapterMap: Record<string, string>;
+  onNodeSelect: (nodeId: string) => void;
   [k: string]: unknown;
 };
 
@@ -284,12 +285,18 @@ function KnowledgeNode({ data, id }: NodeProps<RFNode<KNodeData>>) {
       <Handle type="target" position={Position.Top} className="!w-1 !h-1 !bg-transparent !border-0" />
       <Popover>
         <PopoverTrigger asChild>
-          <div
+          <button
+            type="button"
+            aria-pressed={data.isSelected}
+            onClick={(event) => {
+              event.stopPropagation();
+              data.onNodeSelect(id);
+            }}
             className={cn('relative flex items-center justify-center cursor-pointer transition-all duration-300', size, radius)}
             style={{
               background: data.isSelected ? c.gradient : data.isDimmed ? 'rgba(30,30,46,0.6)' : c.bg,
               border: data.isSelected ? `2px solid ${c.color}` : `1px solid ${data.isDimmed ? 'rgba(69,71,90,0.3)' : c.border}`,
-              opacity: data.isDimmed ? 0.2 : 1,
+              opacity: data.isDimmed ? 0.34 : 1,
               transform: data.isSelected ? 'scale(1.15)' : 'scale(1)',
               boxShadow: data.isSelected
                 ? `0 0 20px ${c.glow}, 0 0 40px ${c.glow.replace('0.4', '0.15')}, inset 0 1px 0 rgba(255,255,255,0.1)`
@@ -320,7 +327,7 @@ function KnowledgeNode({ data, id }: NodeProps<RFNode<KNodeData>>) {
             <span className={cn(textSize, 'text-center whitespace-nowrap')} style={{ color: data.isDimmed ? '#585b70' : c.text }}>
               {data.label}
             </span>
-          </div>
+          </button>
         </PopoverTrigger>
         <PopoverContent
           className="w-64 bg-[#1e1e2e]/95 backdrop-blur-xl border-[#313244] shadow-2xl"
@@ -341,7 +348,7 @@ function KnowledgeNode({ data, id }: NodeProps<RFNode<KNodeData>>) {
             <p className="text-xs text-[#a6adc8] leading-relaxed">{data.desc}</p>
             {data.chapterMap[id] && (
               <Button asChild variant="outline" size="sm" className="w-full gap-1.5 h-7 text-xs border-[#313244] hover:bg-[#313244]">
-                <Link href={`/#item-${data.chapterMap[id]}`}>
+                <Link href={`/knowledge-graph?chapter=${data.chapterMap[id]}&node=${encodeURIComponent(id)}`} prefetch={false}>
                   <BookOpen className="h-3 w-3" />
                   查看第 {data.chapterMap[id]} 章
                 </Link>
@@ -415,6 +422,12 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
     useEffect(() => { setSelectedNodeId(initialSelectedNodeId); }, [initialSelectedNodeId]);
     useImperativeHandle(ref, () => ({ reset() { setSelectedNodeId(null); } }));
 
+    const selectNode = useCallback((nodeId: string) => {
+      const next = selectedNodeId === nodeId ? null : nodeId;
+      setSelectedNodeId(next);
+      onSelectNodeId?.(next);
+    }, [onSelectNodeId, selectedNodeId]);
+
     const { activeNodeIds, activeEdgeKeys } = useMemo(() => {
       if (selectedNodeId) {
         const nids = new Set<string>([selectedNodeId]);
@@ -426,11 +439,16 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
         return { activeNodeIds: nids, activeEdgeKeys: eids };
       }
       if (filterHighlightIds) {
+        const nids = new Set<string>(filterHighlightIds);
         const eids = new Set<string>();
         edgeDefs.forEach(e => {
-          if (filterHighlightIds.has(e.s) && filterHighlightIds.has(e.t)) eids.add(`${e.s}-${e.t}`);
+          if (filterHighlightIds.has(e.s) || filterHighlightIds.has(e.t)) {
+            nids.add(e.s);
+            nids.add(e.t);
+            eids.add(`${e.s}-${e.t}`);
+          }
         });
-        return { activeNodeIds: filterHighlightIds, activeEdgeKeys: eids };
+        return { activeNodeIds: nids, activeEdgeKeys: eids };
       }
       return { activeNodeIds: null, activeEdgeKeys: null };
     }, [selectedNodeId, filterHighlightIds]);
@@ -452,12 +470,13 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
           isHighlighted: activeNodeIds ? activeNodeIds.has(n.id) : true,
           isSelected: selectedNodeId === n.id,
           chapterMap: nodeToChapterMap,
+          onNodeSelect: selectNode,
         },
         style: { zIndex: n.level === 0 ? 30 : n.level === 1 ? 20 : 10 },
       }));
 
       return [...groups, ...knodes];
-    }, [activeNodeIds, selectedNodeId, nodeToChapterMap]);
+    }, [activeNodeIds, selectNode, selectedNodeId, nodeToChapterMap]);
 
     const rfEdges = useMemo<RFEdge[]>(() => {
       return edgeDefs.map(e => {
@@ -474,7 +493,7 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
           style: {
             stroke: color,
             strokeWidth: isActive ? (selectedNodeId ? 2 : 1.5) : 0.5,
-            opacity: isActive ? (selectedNodeId ? 0.9 : 0.5) : 0.08,
+            opacity: isActive ? (selectedNodeId ? 0.9 : 0.62) : 0.1,
             filter: isActive && selectedNodeId ? `drop-shadow(0 0 3px ${c.glow})` : 'none',
           },
           markerEnd: {
@@ -495,10 +514,8 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
 
     const onNodeClick = useCallback((_e: React.MouseEvent, node: RFNode) => {
       if (node.type === 'groupNode') return;
-      const next = selectedNodeId === node.id ? null : node.id;
-      setSelectedNodeId(next);
-      onSelectNodeId?.(next);
-    }, [onSelectNodeId, selectedNodeId]);
+      selectNode(node.id);
+    }, [selectNode]);
 
     const onPaneClick = useCallback(() => {
       setSelectedNodeId(null);
@@ -523,6 +540,8 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
           fitView
           fitViewOptions={{ padding: 0.08, maxZoom: 1.1 }}
           minZoom={0.3}

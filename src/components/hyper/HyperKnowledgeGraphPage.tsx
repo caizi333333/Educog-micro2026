@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import type { ComponentType, CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -59,6 +60,18 @@ const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
   { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length },
 ];
 
+function parseChapterParam(value: string | null): number | 'all' | null {
+  if (!value || value === 'all') return value === 'all' ? 'all' : null;
+  const matched = value.match(/\d+/);
+  if (!matched) return null;
+  const chapter = Number(matched[0]);
+  return Number.isInteger(chapter) && chapter > 0 ? chapter : null;
+}
+
+function isGraphView(value: string | null): value is GraphView {
+  return value === 'knowledge' || value === 'problem' || value === 'ideological';
+}
+
 const problemCategoryMeta: Record<ProblemNode['category'], { label: string; icon: ComponentType<{ className?: string }>; tone: string }> = {
   concept: { label: '概念理解', icon: AlertTriangle, tone: 'border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-100' },
   coding: { label: '编程实现', icon: Code2, tone: 'border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-100' },
@@ -101,6 +114,13 @@ function DetailPanel({ point, children }: { point: KnowledgePoint | null; childr
     );
   }
 
+  const resources = point.resources || [];
+  const mediaResources = resources.filter((resource) => {
+    if (!resource.url) return false;
+    const url = resource.url.toLowerCase();
+    return resource.type === 'video' || url.endsWith('.pdf') || url.includes('/player.');
+  });
+
   return (
     <aside className="rounded-md border border-white/[0.08] bg-white/[0.035]">
       <div className="border-b border-white/[0.08] p-5">
@@ -124,19 +144,42 @@ function DetailPanel({ point, children }: { point: KnowledgePoint | null; childr
           </div>
         </div>
       </div>
+      {mediaResources.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <BookOpen className="h-3.5 w-3.5" />
+            视频 / PDF
+          </div>
+          <div className="space-y-3">
+            {mediaResources.slice(0, 2).map((resource) => (
+              <div key={`${resource.type}-${resource.title}-${resource.url}`} className="overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
+                <div className="border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">{resource.title}</div>
+                <iframe
+                  src={resource.url}
+                  title={resource.title}
+                  className="h-44 w-full bg-black"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="p-5">
         <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
           <BookOpen className="h-3.5 w-3.5" />
           关联资源
         </div>
         <div className="space-y-2">
-          {(point.resources || []).slice(0, 5).map((resource) => (
+          {resources.slice(0, 5).map((resource) => (
             <div key={`${resource.type}-${resource.title}`} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3 text-sm">
               <div className="text-slate-200">{resource.title}</div>
               <div className="mt-1 font-mono text-[11px] uppercase text-slate-500">{resource.type}</div>
             </div>
           ))}
-          {(!point.resources || point.resources.length === 0) && (
+          {resources.length === 0 && (
             <div className="text-sm text-slate-500">暂无资源记录。</div>
           )}
         </div>
@@ -1154,8 +1197,9 @@ function IdeologicalGraphView({
 }
 
 export function HyperKnowledgeGraphPage() {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<GraphView>('knowledge');
-  const [knowledgeCanvasMode, setKnowledgeCanvasMode] = useState<KnowledgeCanvasMode>('full');
+  const [knowledgeCanvasMode, setKnowledgeCanvasMode] = useState<KnowledgeCanvasMode>('core');
   const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
   const [graphSelectedNodeId, setGraphSelectedNodeId] = useState<string | null>(null);
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
@@ -1198,6 +1242,50 @@ export function HyperKnowledgeGraphPage() {
     });
     return map;
   }, []);
+
+  useEffect(() => {
+    if (!searchParams) return;
+
+    const viewParam = searchParams.get('view');
+    const nodeParam = searchParams.get('node');
+    const chapterParam = parseChapterParam(searchParams.get('chapter'));
+
+    if (isGraphView(viewParam)) setView(viewParam);
+
+    if (chapterParam !== null) {
+      setChapter(chapterParam);
+      if (!viewParam) setView('knowledge');
+    }
+
+    if (!nodeParam) return;
+
+    const knowledgePoint = knowledgePoints.find((point) => point.id === nodeParam) || knowledgePointByGraphId[nodeParam];
+    if (knowledgePoint) {
+      setView('knowledge');
+      setSelectedId(knowledgePoint.id);
+      setGraphSelectedNodeId(knowledgePoint.graphNodeId || null);
+      setChapter(knowledgePoint.chapter);
+      setKnowledgeCanvasMode(knowledgePoint.graphNodeId ? 'core' : 'full');
+      return;
+    }
+
+    if (problemGraph.some((node) => node.id === nodeParam)) {
+      setView('problem');
+      setSelectedProblemId(nodeParam);
+      return;
+    }
+
+    if (ideologicalNodes.some((node) => node.id === nodeParam)) {
+      setView('ideological');
+      setSelectedIdeologicalId(nodeParam);
+      return;
+    }
+
+    setView('knowledge');
+    setGraphSelectedNodeId(nodeParam);
+    setKnowledgeCanvasMode('core');
+  }, [knowledgePointByGraphId, searchParams]);
+
   const graphHighlightIds = useMemo(() => {
     const ids = new Set<string>();
     const q = query.trim().toLowerCase();
@@ -1270,7 +1358,7 @@ export function HyperKnowledgeGraphPage() {
                 setSelectedIdeologicalId(ideologicalNodes[0]?.id || '');
                 setQuery('');
                 setChapter('all');
-                setKnowledgeCanvasMode('full');
+                setKnowledgeCanvasMode('core');
               }}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
             >
@@ -1299,8 +1387,8 @@ export function HyperKnowledgeGraphPage() {
           onSelect={setSelectedIdeologicalId}
         />
       ) : (
-      <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[220px_minmax(0,1fr)] 2xl:grid-cols-[220px_minmax(0,1fr)_320px] md:px-6">
-        <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
+      <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_320px] md:px-6">
+        <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-none lg:sticky lg:top-20 lg:self-start">
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -1369,7 +1457,7 @@ export function HyperKnowledgeGraphPage() {
           </div>
         </aside>
 
-        <section className="order-1 min-h-[760px] overflow-hidden rounded-md border border-white/[0.08] bg-[#070b10] xl:order-none">
+        <section className="order-1 min-w-0 overflow-hidden rounded-md border border-white/[0.08] bg-[#070b10] lg:order-none">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Network className="h-4 w-4 text-cyan-200" />
@@ -1403,7 +1491,7 @@ export function HyperKnowledgeGraphPage() {
               </div>
             </div>
           </div>
-          <div className="min-h-[620px] md:min-h-[780px]">
+          <div className="h-[620px] md:h-[780px]">
             {knowledgeCanvasMode === 'full' ? (
               <FullKnowledgeMap
                 points={knowledgePoints}
@@ -1431,7 +1519,7 @@ export function HyperKnowledgeGraphPage() {
           </div>
         </section>
 
-        <div className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
+        <div className="order-3 space-y-4 lg:order-none lg:col-span-2 2xl:col-span-1">
           <DetailPanel point={selected}>{children}</DetailPanel>
           <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">

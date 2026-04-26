@@ -64,6 +64,7 @@ describe('Knowledge Graph API Routes', () => {
         expect(data.success).toBe(true);
         expect(data.data).toBeDefined();
         expect(Array.isArray(data.data)).toBe(true);
+        expect(data.data).toHaveLength(270);
       });
 
       it('应该返回学习路径', async () => {
@@ -92,6 +93,7 @@ describe('Knowledge Graph API Routes', () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.completedNodes).toHaveLength(2);
+        expect(data.data.totalNodes).toBe(270);
         expect(data.data.completionRate).toBeGreaterThan(0);
       });
 

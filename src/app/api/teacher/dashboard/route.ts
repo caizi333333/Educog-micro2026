@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { getAccessibleClassIds } from '@/lib/classroom';
+import { experiments as experimentCatalog } from '@/lib/experiment-config';
 
 export async function GET(request: NextRequest) {
   try {
@@ -122,7 +123,9 @@ export async function GET(request: NextRequest) {
 
     // 按学生聚合章节掌握度
     const studentChapterMastery: Record<string, Record<string, number>> = {};
+    const studentTimeSpent: Record<string, number> = {};
     for (const lp of learningProgress) {
+      studentTimeSpent[lp.userId] = (studentTimeSpent[lp.userId] || 0) + (lp.timeSpent || 0);
       if (!lp.chapterId) continue;
       if (!studentChapterMastery[lp.userId]) studentChapterMastery[lp.userId] = {};
       studentChapterMastery[lp.userId][lp.chapterId] = lp.progress;
@@ -159,6 +162,7 @@ export async function GET(request: NextRequest) {
         experimentsCompleted: expData.completed,
         experimentsTotal: expData.total,
         chapterMastery,
+        totalTimeSpent: studentTimeSpent[s.id] || 0,
         activityCount,
         lastActive: s.lastLoginAt,
       };
@@ -178,11 +182,18 @@ export async function GET(request: NextRequest) {
     const allExpCompleted = Object.values(studentExperiments).reduce((s: number, e) => s + e.completed, 0);
     const allExpTotal = Object.values(studentExperiments).reduce((s: number, e) => s + e.total, 0);
     const avgExpCompletion = allExpTotal > 0 ? Math.round(allExpCompleted / allExpTotal * 100) : 0;
+    const totalTimeSpent = Object.values(studentTimeSpent).reduce((sum, value) => sum + value, 0);
 
     // 预警学生（平均分 < 60）
     const alertStudents = studentList
       .filter((s: any) => s.avgQuizScore > 0 && s.avgQuizScore < 60)
       .map((s: any) => ({ name: s.name, avg: s.avgQuizScore }));
+
+    const experimentsForDashboard = experimentCatalog.map((experiment) => ({
+      id: experiment.id,
+      name: experiment.title,
+      completed: experimentCompletion[experiment.id] || 0,
+    }));
 
     return NextResponse.json({
       overview: {
@@ -190,12 +201,15 @@ export async function GET(request: NextRequest) {
         activeToday,
         avgQuizScore,
         avgExpCompletion,
+        totalTimeSpent,
+        avgTimeSpent: totalStudents > 0 ? Math.round(totalTimeSpent / totalStudents) : 0,
       },
       classes: classEnrollments
         .map((enrollment: any) => enrollment.classGroup)
         .filter(Boolean)
         .filter((item: any, index: number, self: any[]) => self.findIndex((next) => next.id === item.id) === index),
       students: studentList,
+      experiments: experimentsForDashboard,
       experimentCompletion,
       eventActivity: learningEvents.reduce((acc: Record<string, number>, event: any) => {
         acc[event.eventType] = (acc[event.eventType] || 0) + 1;

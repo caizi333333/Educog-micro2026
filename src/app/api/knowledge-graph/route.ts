@@ -1,72 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { getChildPoints, knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 
-// 知识图谱节点数据
-const knowledgeNodes = [
-  {
-    id: 'basic-concepts',
-    title: '单片机基础概念',
-    type: 'concept',
-    difficulty: 'beginner',
-    description: '了解单片机的基本概念、结构和工作原理',
-    prerequisites: [],
-    connections: ['8051-architecture', 'programming-basics'],
-    learningTime: 45,
-    completionRate: 92,
-    popularity: 95,
-    tags: ['基础', '概念', '入门'],
-    resources: { videos: 5, exercises: 8, projects: 2, documents: 12 },
-    position: { x: 100, y: 100 },
-    mastery: 85
-  },
-  {
-    id: '8051-architecture',
-    title: '8051架构详解',
-    type: 'theory',
-    difficulty: 'intermediate',
-    description: '深入了解8051微控制器的内部架构和工作机制',
-    prerequisites: ['basic-concepts'],
-    connections: ['programming-basics', 'memory-management', 'io-ports'],
-    learningTime: 90,
-    completionRate: 78,
-    popularity: 88,
-    tags: ['架构', '8051', '理论'],
-    resources: { videos: 10, exercises: 20, projects: 5, documents: 18 },
-    position: { x: 100, y: 300 },
-    mastery: 68
-  },
-  {
-    id: 'programming-basics',
-    title: '汇编语言基础',
-    type: 'skill',
-    difficulty: 'beginner',
-    description: '学习8051汇编语言的基本语法和编程技巧',
-    prerequisites: ['basic-concepts'],
-    connections: ['8051-architecture', 'io-ports', 'interrupts'],
-    learningTime: 120,
-    completionRate: 85,
-    popularity: 90,
-    tags: ['编程', '汇编', '语法'],
-    resources: { videos: 15, exercises: 30, projects: 8, documents: 25 },
-    position: { x: 400, y: 200 },
-    mastery: 72
-  }
-];
+function mapLevelToDifficulty(level: KnowledgePoint['level']) {
+  if (level === 1) return 'beginner';
+  if (level === 2) return 'intermediate';
+  return 'advanced';
+}
 
-// 学习路径数据
+function mapLevelToType(level: KnowledgePoint['level']) {
+  if (level === 1) return 'concept';
+  if (level === 2) return 'theory';
+  return 'practice';
+}
+
+function resourceCounts(point: KnowledgePoint) {
+  const resources = point.resources ?? [];
+  return {
+    videos: resources.filter((item) => item.type === 'video' || item.type === 'animation').length,
+    exercises: resources.filter((item) => item.type === 'quiz').length,
+    projects: resources.filter((item) => item.type === 'experiment').length,
+    documents: resources.filter((item) => item.type === 'document' || item.type === 'slide').length,
+  };
+}
+
+function toKnowledgeNode(point: KnowledgePoint, index: number) {
+  const children = getChildPoints(point.id);
+  const learningTime = point.resources?.reduce((sum, item) => sum + (item.duration ?? 0), 0) || 30 + point.level * 15;
+
+  return {
+    id: point.id,
+    title: point.name,
+    type: mapLevelToType(point.level),
+    difficulty: mapLevelToDifficulty(point.level),
+    description: point.description ?? '',
+    prerequisites: point.parentId ? [point.parentId] : [],
+    connections: children.map((child) => child.id),
+    learningTime,
+    completionRate: 0,
+    popularity: Math.max(20, 100 - Math.floor(index / 8)),
+    tags: [`第${point.chapter}章`, `L${point.level}`],
+    resources: resourceCounts(point),
+    position: {
+      x: 140 + ((point.chapter - 1) % 5) * 260,
+      y: 100 + point.level * 130 + Math.floor((point.chapter - 1) / 5) * 520,
+    },
+    mastery: 0,
+    chapter: point.chapter,
+    level: point.level,
+    graphNodeId: point.graphNodeId ?? null,
+  };
+}
+
+const knowledgeNodes = knowledgePoints.map(toKnowledgeNode);
+
 const learningPaths = [
   {
     id: 'beginner-path',
-    title: '初学者路径',
-    description: '适合零基础学习者的完整学习路径',
-    nodes: ['basic-concepts', '8051-architecture', 'programming-basics'],
-    estimatedTime: 255,
+    title: '8051基础入门路径',
+    description: '覆盖单片机概述、硬件结构和指令系统的基础学习路径',
+    nodes: knowledgePoints.filter((point) => point.chapter <= 3 && point.level <= 2).map((point) => point.id),
+    estimatedTime: 360,
     difficulty: 'beginner',
-    completionRate: 85,
-    enrolledUsers: 1250,
-    rating: 4.6,
-    tags: ['入门', '基础', '完整']
+    completionRate: 0,
+    enrolledUsers: 0,
+    rating: 4.5,
+    tags: ['入门', '硬件结构', '指令系统']
+  },
+  {
+    id: 'practice-path',
+    title: '实验应用强化路径',
+    description: '面向定时器、中断、串口和接口技术的实验应用路径',
+    nodes: knowledgePoints.filter((point) => point.chapter >= 5 && point.chapter <= 8 && point.level <= 2).map((point) => point.id),
+    estimatedTime: 420,
+    difficulty: 'intermediate',
+    completionRate: 0,
+    enrolledUsers: 0,
+    rating: 4.5,
+    tags: ['实验', '中断', '接口技术']
   }
 ];
 

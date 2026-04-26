@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -7,7 +8,9 @@ import {
   BarChart3,
   BookOpen,
   CheckCircle2,
+  Clock,
   FileDown,
+  GitBranch,
   Loader2,
   Medal,
   Search,
@@ -29,6 +32,8 @@ interface TeacherStudent {
   class?: string | null;
   chapterScores?: number[];
   avgScore?: number;
+  avgQuizScore?: number;
+  totalTimeSpent?: number;
 }
 
 interface TeacherExperiment {
@@ -43,6 +48,8 @@ interface TeacherDashboardData {
     activeToday: number;
     avgQuizScore: number;
     avgExpCompletion: number;
+    totalTimeSpent?: number;
+    avgTimeSpent?: number;
   };
   students: TeacherStudent[];
   experiments: TeacherExperiment[];
@@ -65,6 +72,16 @@ function achievementColor(achievement?: Achievement) {
   if (achievement.rarity === 'epic') return '#c084fc';
   if (achievement.rarity === 'rare') return '#60a5fa';
   return '#67e8f9';
+}
+
+function formatMinutes(value?: number) {
+  const minutes = Math.max(0, Math.round(value || 0));
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}h ${rest}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
 }
 
 export function HyperTeacherPage() {
@@ -128,7 +145,7 @@ export function HyperTeacherPage() {
       student.name,
       student.studentId || '',
       student.class || '',
-      String(student.avgScore || 0),
+      String(student.avgScore ?? student.avgQuizScore ?? 0),
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
@@ -192,6 +209,43 @@ export function HyperTeacherPage() {
     }
   };
 
+  const awardMedal = async () => {
+    if (!selectedStudent?.id || !selectedMedal?.id) {
+      toast({ title: '无法授予', description: '请先选择学生和徽章。', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('/api/achievements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          achievementId: selectedMedal.id,
+          targetUserId: selectedStudent.id,
+          reason,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || result.error || '授予失败');
+      }
+      toast({ title: '已授予徽章', description: `${selectedStudent.name} 已获得“${selectedMedal.title}”。` });
+    } catch (awardError) {
+      toast({
+        title: '授予失败',
+        description: awardError instanceof Error ? awardError.message : '请稍后重试',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="-m-6 flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#070a0d] text-slate-100">
@@ -247,7 +301,7 @@ export function HyperTeacherPage() {
                   <div className="truncate text-sm font-semibold text-slate-100">{student.name}</div>
                   <div className="truncate font-mono text-[10px] text-slate-500">{student.studentId || student.class || '未登记'}</div>
                 </div>
-                <div className="font-mono text-sm text-cyan-100">{Math.round(student.avgScore || 0)}</div>
+                <div className="font-mono text-sm text-cyan-100">{Math.round(student.avgScore ?? student.avgQuizScore ?? 0)}</div>
               </button>
             );
           }) : (
@@ -281,6 +335,10 @@ export function HyperTeacherPage() {
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               推送任务
             </button>
+            <Link href="/knowledge-graph?view=knowledge" className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]">
+              <GitBranch className="h-4 w-4" />
+              维护图谱
+            </Link>
           </div>
         </div>
 
@@ -291,12 +349,13 @@ export function HyperTeacherPage() {
           </div>
         )}
 
-        <section className="mb-6 grid gap-3 md:grid-cols-4">
+        <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {([
             ['学生总数', data?.overview?.totalStudents || 0, Users],
             ['今日活跃', data?.overview?.activeToday || 0, CheckCircle2],
             ['平均测验', `${Math.round(data?.overview?.avgQuizScore || 0)}%`, BarChart3],
             ['实验完成', `${Math.round(data?.overview?.avgExpCompletion || 0)}%`, Target],
+            ['平均时长', formatMinutes(data?.overview?.avgTimeSpent), Clock],
           ] satisfies StatItem[]).map(([label, value, Icon]) => (
             <div key={label} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
               <Icon className="h-4 w-4 text-cyan-200" />
@@ -349,7 +408,7 @@ export function HyperTeacherPage() {
       </main>
 
       <aside className="border-t border-white/[0.08] bg-[#0c1117] p-5 xl:border-l xl:border-t-0">
-        <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">表彰预览 · 不写入数据库</div>
+        <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">课堂表彰 · 写入成就记录</div>
         <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 to-amber-200 text-lg font-semibold text-[#061014]">
@@ -399,6 +458,16 @@ export function HyperTeacherPage() {
             <div className="mt-1 font-mono text-[10px] text-slate-500">{selectedMedal?.id || 'ACHIEVEMENT'} · 预览</div>
             <p className="mt-3 text-xs leading-5 text-slate-400">{reason || selectedMedal?.description || '填写理由后用于课堂记录。'}</p>
           </div>
+
+          <button
+            type="button"
+            onClick={awardMedal}
+            disabled={actionLoading || !selectedStudent?.id}
+            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-amber-300 px-4 text-sm font-semibold text-[#1b1300] hover:bg-amber-200 disabled:opacity-50"
+          >
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Medal className="h-4 w-4" />}
+            授予徽章
+          </button>
         </div>
       </aside>
     </div>

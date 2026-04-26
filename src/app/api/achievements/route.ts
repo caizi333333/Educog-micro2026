@@ -385,7 +385,18 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    const { achievementId, name, description, icon, category, progress } = data;
+    const { achievementId, name, progress, targetUserId, reason } = data;
+    const canAwardOthers = payload.role === 'TEACHER' || payload.role === 'ADMIN';
+    const recipientUserId = typeof targetUserId === 'string' && targetUserId.trim()
+      ? targetUserId.trim()
+      : payload.userId;
+
+    if (recipientUserId !== payload.userId && !canAwardOthers) {
+      return NextResponse.json({
+        error: '权限不足',
+        message: '仅教师或管理员可为学生授予徽章'
+      }, { status: 403 });
+    }
 
     // 验证成就ID
     const validAchievement = ACHIEVEMENTS_V2.find(ach => ach.id === achievementId);
@@ -396,11 +407,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const recipient = await prisma.user.findUnique({
+      where: { id: recipientUserId },
+      select: { id: true, role: true, status: true }
+    });
+    if (!recipient || recipient.status !== 'ACTIVE') {
+      return NextResponse.json({
+        error: '用户不存在',
+        message: '未找到可授予徽章的有效用户'
+      }, { status: 404 });
+    }
+
     // 检查成就是否已存在
     const existing = await prisma.userAchievement.findUnique({
       where: {
         userId_achievementId: {
-          userId: payload.userId,
+          userId: recipientUserId,
           achievementId: achievementId
         }
       }
@@ -429,7 +451,7 @@ export async function POST(request: Request) {
     // 创建新成就
     const achievement = await prisma.userAchievement.create({
       data: {
-        userId: payload.userId,
+        userId: recipientUserId,
         achievementId,
         name: validAchievement.title,
         description: validAchievement.description,
@@ -442,11 +464,13 @@ export async function POST(request: Request) {
     // 记录活动
     await prisma.userActivity.create({
       data: {
-        userId: payload.userId,
-        action: 'UNLOCK_ACHIEVEMENT',
+        userId: recipientUserId,
+        action: recipientUserId === payload.userId ? 'UNLOCK_ACHIEVEMENT' : 'TEACHER_AWARD_ACHIEVEMENT',
         details: JSON.stringify({
           achievementId,
-          achievementName: name
+          achievementName: name || validAchievement.title,
+          awardedBy: recipientUserId === payload.userId ? null : payload.userId,
+          reason: typeof reason === 'string' ? reason : ''
         })
       }
     });
