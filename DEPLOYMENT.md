@@ -1,5 +1,39 @@
 # EduCog-Micro 部署和调试指南
 
+## 国内服务器 Docker Compose 部署
+
+适用场景：腾讯云 CVM、阿里云 ECS、华为云 Flexus 等国内云服务器。服务器只需要安装 Docker 和 Docker Compose。
+
+### 1. 配置生产环境变量
+
+```bash
+export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+export JWT_SECRET="$(openssl rand -hex 32)"
+export PEPPER="$(openssl rand -hex 16)"
+export INIT_SECRET="$(openssl rand -hex 32)"
+export NEXT_PUBLIC_APP_URL="https://你的域名"
+export NEXTAUTH_URL="https://你的域名"
+export APP_PORT=3000
+```
+
+如暂时没有域名，可先把两个 URL 改成 `http://服务器公网IP:3000`。
+
+### 2. 启动服务
+
+```bash
+docker compose up -d --build
+docker compose ps
+docker compose logs -f app
+```
+
+### 3. 首次初始化账号
+
+```bash
+curl "https://你的域名/api/init?secret=$INIT_SECRET"
+```
+
+初始化后立即登录后台修改默认账号密码。正式环境不要对外开放 PostgreSQL 端口；需要查看数据库时使用 `docker compose exec postgres psql -U educog_user -d educog_micro`。
+
 ## 部署到 Vercel
 
 ### 1. 自动部署（推荐）

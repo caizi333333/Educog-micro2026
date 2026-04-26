@@ -2,15 +2,34 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, max-age=0',
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: noStoreHeaders });
+}
+
 export async function GET(request: Request) {
   // 检查是否已经初始化
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret');
   
-  // 简单的安全检查
-  const initSecret = process.env.INIT_SECRET || 'init-educog-2024';
+  // 生产环境必须显式配置初始化密钥，避免默认密钥暴露初始化入口。
+  const initSecret =
+    process.env.INIT_SECRET ||
+    (process.env.NODE_ENV === 'production' ? undefined : 'init-educog-2024');
+
+  if (!initSecret) {
+    return jsonResponse({ error: '初始化密钥未配置' }, 500);
+  }
+
+  if (process.env.NODE_ENV === 'production' && initSecret.length < 32) {
+    return jsonResponse({ error: '初始化密钥长度不足' }, 500);
+  }
+
   if (secret !== initSecret) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
+    return jsonResponse({ error: '未授权' }, 401);
   }
 
   try {
@@ -21,7 +40,7 @@ export async function GET(request: Request) {
     });
     
     if (existingAdmin) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         message: '数据库已初始化',
         users: await prisma.user.count()
       });
@@ -67,7 +86,7 @@ export async function GET(request: Request) {
       await prisma.user.create({ data: userData });
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: '初始化成功！',
       users: [
@@ -79,9 +98,9 @@ export async function GET(request: Request) {
     
   } catch (error: any) {
     console.error('初始化失败:', error);
-    return NextResponse.json({ 
+    return jsonResponse({ 
       error: '初始化失败',
       details: error.message 
-    }, { status: 500 });
+    }, 500);
   }
 }

@@ -26,10 +26,44 @@ const mockNextResponse = {
 
 (NextResponse.json as jest.Mock) = mockNextResponse.json;
 
+const noStoreOptions = (status = 200) => ({
+  status,
+  headers: {
+    'Cache-Control': 'no-store, max-age=0',
+  },
+});
+
+const setNodeEnv = (value: string | undefined) => {
+  const mutableEnv = process.env as Record<string, string | undefined>;
+  if (value === undefined) {
+    delete mutableEnv.NODE_ENV;
+  } else {
+    mutableEnv.NODE_ENV = value;
+  }
+};
+
 describe('/api/init', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalInitSecret = process.env.INIT_SECRET;
+
   beforeEach(() => {
     jest.clearAllMocks();
     console.error = jest.fn();
+    setNodeEnv(originalNodeEnv);
+    if (originalInitSecret === undefined) {
+      delete process.env.INIT_SECRET;
+    } else {
+      process.env.INIT_SECRET = originalInitSecret;
+    }
+  });
+
+  afterAll(() => {
+    setNodeEnv(originalNodeEnv);
+    if (originalInitSecret === undefined) {
+      delete process.env.INIT_SECRET;
+    } else {
+      process.env.INIT_SECRET = originalInitSecret;
+    }
   });
 
   describe('GET', () => {
@@ -41,7 +75,7 @@ describe('/api/init', () => {
 
       expect(mockNextResponse.json).toHaveBeenCalledWith(
         { error: '未授权' },
-        { status: 401 }
+        noStoreOptions(401)
       );
     });
 
@@ -53,7 +87,37 @@ describe('/api/init', () => {
 
       expect(mockNextResponse.json).toHaveBeenCalledWith(
         { error: '未授权' },
-        { status: 401 }
+        noStoreOptions(401)
+      );
+    });
+
+    it('should require explicit init secret in production', async () => {
+      setNodeEnv('production');
+      delete process.env.INIT_SECRET;
+
+      const request = new Request('http://localhost:3000/api/init?secret=init-educog-2024');
+      mockNextResponse.json.mockReturnValue({ status: 500 });
+
+      await GET(request);
+
+      expect(mockNextResponse.json).toHaveBeenCalledWith(
+        { error: '初始化密钥未配置' },
+        noStoreOptions(500)
+      );
+    });
+
+    it('should reject short init secret in production', async () => {
+      setNodeEnv('production');
+      process.env.INIT_SECRET = 'short-secret';
+
+      const request = new Request('http://localhost:3000/api/init?secret=short-secret');
+      mockNextResponse.json.mockReturnValue({ status: 500 });
+
+      await GET(request);
+
+      expect(mockNextResponse.json).toHaveBeenCalledWith(
+        { error: '初始化密钥长度不足' },
+        noStoreOptions(500)
       );
     });
 
@@ -79,7 +143,7 @@ describe('/api/init', () => {
       expect(mockNextResponse.json).toHaveBeenCalledWith({
         message: '数据库已初始化',
         users: 5
-      });
+      }, noStoreOptions());
     });
 
     it('should successfully initialize database with default users', async () => {
@@ -156,7 +220,7 @@ describe('/api/init', () => {
           { username: 'teacher', password: 'teacher123456', role: '教师' },
           { username: 'student', password: 'student123456', role: '学生' }
         ]
-      });
+      }, noStoreOptions());
     });
 
     it('should handle database errors during initialization', async () => {
@@ -174,7 +238,7 @@ describe('/api/init', () => {
           error: '初始化失败',
           details: 'Database connection failed'
         },
-        { status: 500 }
+        noStoreOptions(500)
       );
     });
 
@@ -196,7 +260,7 @@ describe('/api/init', () => {
           error: '初始化失败',
           details: 'User creation failed'
         },
-        { status: 500 }
+        noStoreOptions(500)
       );
     });
 
@@ -217,7 +281,7 @@ describe('/api/init', () => {
           error: '初始化失败',
           details: 'Hashing failed'
         },
-        { status: 500 }
+        noStoreOptions(500)
       );
     });
 
@@ -234,7 +298,7 @@ describe('/api/init', () => {
       expect(mockNextResponse.json).toHaveBeenCalledWith({
         message: '数据库已初始化',
         users: 1
-      });
+      }, noStoreOptions());
     });
   });
 });
