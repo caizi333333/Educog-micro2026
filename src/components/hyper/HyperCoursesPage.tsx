@@ -410,19 +410,6 @@ function CourseMaterialPanel() {
           </a>
         ))}
       </div>
-      <Link
-        href="/lab-viz"
-        className="group flex items-center justify-between gap-3 rounded-md border border-emerald-300/25 bg-black/20 p-3 hover:border-emerald-300/50 hover:bg-black/30"
-      >
-        <div className="flex items-center gap-3">
-          <Zap className="h-4 w-4 shrink-0 text-emerald-200" />
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-slate-100 group-hover:text-emerald-100">实验可视化演示 · 流水灯 / 计数器 / 指令系统 / 定时器</div>
-            <div className="mt-0.5 text-[11px] text-slate-500">React + antd · 已嵌入 /lab-viz · 来自本地 51 MCU lab/visualization-app</div>
-          </div>
-        </div>
-        <ArrowRight className="h-4 w-4 text-emerald-300 transition-transform group-hover:translate-x-0.5" />
-      </Link>
     </div>
   );
 }

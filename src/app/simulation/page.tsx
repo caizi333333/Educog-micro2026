@@ -205,18 +205,6 @@ export default function SimulationPage() {
 
           {/* Right: Complete button */}
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a
-                  href="/lab-viz"
-                  className="flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-[#9db3b5] transition-all hover:bg-white/[0.08] hover:text-[#d8f3f2]"
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  可视化演示
-                </a>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">流水灯 / 计数器 / 指令系统 / 定时器（本地 51 MCU lab）</TooltipContent>
-            </Tooltip>
             {selectedExperiment && !isRunning && (result || simulatorState?.terminated) && (
               <button
                 onClick={completeExperiment}

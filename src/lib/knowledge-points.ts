@@ -124,7 +124,6 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '2.3.1', name: 'P0口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '开漏输出结构、需外接上拉电阻、可作地址/数据总线' },
   { id: '2.3.2', name: 'P1口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口结构、内部上拉电阻、通用I/O口', resources: [
     { type: 'image', title: '实验1 流水灯硬件原理图（P1→LED1-4）', url: '/resources/course/diagrams/lab1-flowing-led-schematic.svg' },
-    { type: 'experiment', title: '可视化演示：流水灯交互', url: '/lab-viz' },
   ], appliedIn: ['exp01'] },
   { id: '2.3.3', name: 'P2口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口、可作高8位地址总线' },
   { id: '2.3.4', name: 'P3口结构与第二功能', level: 3, parentId: '2.3', chapter: 2, description: 'P3口的第二功能：RXD/TXD/INT0/INT1/T0/T1/WR/RD' },
@@ -163,7 +162,6 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'slide', title: '第3章 指令系统 课件PPT', refId: 'ch03-ppt' },
     { type: 'quiz', title: '第3章 单元测验', refId: 'quiz-ch3' },
     { type: 'experiment', title: '实验二：指令系统实验', refId: 'exp02', duration: 90 },
-    { type: 'experiment', title: '可视化演示：指令系统训练', url: '/lab-viz' },
   ] },
 
   { id: '3.1', name: '寻址方式', level: 2, parentId: '3', chapter: 3, description: '89C51支持的7种寻址方式', graphNodeId: 'addressing_modes', resources: [
@@ -368,7 +366,6 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'quiz', title: '第6章 单元测验', refId: 'quiz-ch6' },
     { type: 'experiment', title: '实验三：定时/计数器实验', refId: 'exp03', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
-    { type: 'experiment', title: '可视化演示：计数器 / 定时器交互', url: '/lab-viz' },
   ], prerequisites: ['5', '2.2.3'], appliedIn: ['exp03', 'exp06', 'exp07'] },
 
   { id: '6.1', name: '定时器基础', level: 2, parentId: '6', chapter: 6, description: '定时器/计数器的工作原理与控制寄存器', graphNodeId: 'timers', resources: [
