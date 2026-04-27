@@ -11,6 +11,7 @@ import {
   Clock,
   Cpu,
   FileText,
+  Image as ImageIcon,
   LayoutGrid,
   Loader2,
   Monitor,
@@ -61,6 +62,19 @@ const labReportMaterial = {
   meta: 'PDF · 实验模板 · 本地教案材料已转换',
 };
 
+const verifiedDiagrams: { title: string; href: string; meta: string }[] = [
+  {
+    title: '实验1 流水灯硬件原理图',
+    href: '/resources/course/diagrams/lab1-flowing-led-schematic.svg',
+    meta: 'SVG · 单片机 P1 端口 → LED1-4 连接图（本地实验素材）',
+  },
+  {
+    title: '实验1 流水灯程序流程图',
+    href: '/resources/course/diagrams/lab1-flowing-led-flowchart.svg',
+    meta: 'SVG · 初始化 → 点亮 → 延时 → 循环 主流程（本地实验素材）',
+  },
+];
+
 const resourceLabels: Record<KnowledgePointResource['type'], string> = {
   video: '视频',
   animation: '动画',
@@ -68,6 +82,7 @@ const resourceLabels: Record<KnowledgePointResource['type'], string> = {
   quiz: '测验',
   document: '文档',
   experiment: '实验',
+  image: '图样',
 };
 
 const resourceIcons: Record<KnowledgePointResource['type'], LucideIcon> = {
@@ -77,6 +92,7 @@ const resourceIcons: Record<KnowledgePointResource['type'], LucideIcon> = {
   quiz: CheckCircle2,
   document: FileText,
   experiment: Cpu,
+  image: ImageIcon,
 };
 
 function iconForTopic(topic: string): LucideIcon {
@@ -360,21 +376,40 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 
 function CourseMaterialPanel() {
   return (
-    <div className="mb-5 grid gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4 md:grid-cols-[1fr_auto] md:items-center">
-      <div>
-        <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Course Material · 已接入资料</div>
-        <h2 className="mt-2 text-base font-semibold text-slate-50">{labReportMaterial.title}</h2>
-        <p className="mt-1 text-sm text-slate-400">{labReportMaterial.meta}</p>
+    <div className="mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Course Material · 已接入资料</div>
+          <h2 className="mt-2 text-base font-semibold text-slate-50">{labReportMaterial.title}</h2>
+          <p className="mt-1 text-sm text-slate-400">{labReportMaterial.meta}</p>
+        </div>
+        <a
+          href={labReportMaterial.href}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
+        >
+          <FileText className="h-4 w-4" />
+          打开PDF
+        </a>
       </div>
-      <a
-        href={labReportMaterial.href}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
-      >
-        <FileText className="h-4 w-4" />
-        打开PDF
-      </a>
+      <div className="grid gap-2 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
+        {verifiedDiagrams.map((diagram) => (
+          <a
+            key={diagram.href}
+            href={diagram.href}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-start gap-3 rounded-md border border-emerald-300/15 bg-black/20 p-3 hover:border-emerald-300/40 hover:bg-black/30"
+          >
+            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">{diagram.meta}</div>
+            </div>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

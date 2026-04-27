@@ -5,9 +5,9 @@
 // ============================================================================
 
 export interface KnowledgePointResource {
-  type: 'video' | 'animation' | 'slide' | 'quiz' | 'document' | 'experiment';
+  type: 'video' | 'animation' | 'slide' | 'quiz' | 'document' | 'experiment' | 'image';
   title: string;
-  url?: string;          // For verified course videos or public documents
+  url?: string;          // For verified course videos, documents, or local diagram assets
   refId?: string;        // For quizzes (quiz question ID) or experiments (exp01 etc)
   duration?: number;     // minutes
 }
@@ -117,7 +117,9 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
   ] },
   { id: '2.3.1', name: 'P0口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '开漏输出结构、需外接上拉电阻、可作地址/数据总线' },
-  { id: '2.3.2', name: 'P1口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口结构、内部上拉电阻、通用I/O口' },
+  { id: '2.3.2', name: 'P1口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口结构、内部上拉电阻、通用I/O口', resources: [
+    { type: 'image', title: '实验1 流水灯硬件原理图（P1→LED1-4）', url: '/resources/course/diagrams/lab1-flowing-led-schematic.svg' },
+  ] },
   { id: '2.3.3', name: 'P2口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口、可作高8位地址总线' },
   { id: '2.3.4', name: 'P3口结构与第二功能', level: 3, parentId: '2.3', chapter: 2, description: 'P3口的第二功能：RXD/TXD/INT0/INT1/T0/T1/WR/RD' },
   { id: '2.3.5', name: 'I/O口驱动能力与扩展', level: 3, parentId: '2.3', chapter: 2, description: '各端口灌电流/拉电流能力及74HC245/74HC573扩展' },
@@ -465,6 +467,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'slide', title: '8.1 显示接口 课件', refId: 'ch08-ppt-s1' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'animation', title: '数码管动态扫描显示原理动画', refId: 'anim-7seg-scan' },
+    { type: 'image', title: '实验1 流水灯程序流程图', url: '/resources/course/diagrams/lab1-flowing-led-flowchart.svg' },
   ] },
   { id: '8.1.1', name: 'LED数码管（共阴/共阳）', level: 3, parentId: '8.1', chapter: 8, description: '七段数码管的结构、段码表与驱动电路' },
   { id: '8.1.2', name: '动态显示与静态显示', level: 3, parentId: '8.1', chapter: 8, description: '静态锁存显示和动态扫描显示的原理与比较' },

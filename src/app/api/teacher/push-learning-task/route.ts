@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { getPointsByLevel } from '@/lib/knowledge-points';
 
 type PathType = 'BASIC' | 'ADVANCED';
 type TargetScope = 'ALL' | 'CLASS' | 'STUDENTS';
 
-const CHAPTER_SCHEDULE: { chapterId: string; moduleId: string; name: string }[] = [
-  { chapterId: 'ch1', moduleId: 'module-1', name: '第1章 单片机概述' },
-  { chapterId: 'ch2', moduleId: 'module-1', name: '第2章 89C51硬件结构' },
-  { chapterId: 'ch3', moduleId: 'module-1', name: '第3章 I/O端口' },
-  { chapterId: 'ch4', moduleId: 'module-2', name: '第4章 指令系统与寻址' },
-  { chapterId: 'ch5', moduleId: 'module-2', name: '第5章 C51程序设计' },
-  { chapterId: 'ch6', moduleId: 'module-3', name: '第6章 中断系统' },
-  { chapterId: 'ch7', moduleId: 'module-3', name: '第7章 定时器/计数器' },
-  { chapterId: 'ch8', moduleId: 'module-4', name: '第8章 串行通信' },
-  { chapterId: 'ch9', moduleId: 'module-4', name: '第9章 系统扩展与接口' },
-];
+// Derived from the canonical 10-chapter syllabus in src/lib/knowledge-points.ts
+// Chapters 1-3 → module-1 基础, 4-5 → module-2 编程, 6-7 → module-3 内核外设,
+// 8-9 → module-4 接口与系统, 10 → module-5 前沿
+function moduleIdForChapter(chapter: number): string {
+  if (chapter <= 3) return 'module-1';
+  if (chapter <= 5) return 'module-2';
+  if (chapter <= 7) return 'module-3';
+  if (chapter <= 9) return 'module-4';
+  return 'module-5';
+}
+
+const CHAPTER_SCHEDULE: { chapterId: string; moduleId: string; name: string }[] =
+  getPointsByLevel(1)
+    .slice()
+    .sort((a, b) => a.chapter - b.chapter)
+    .map((point) => ({
+      chapterId: `ch${point.chapter}`,
+      moduleId: moduleIdForChapter(point.chapter),
+      name: `第${point.chapter}章 ${point.name}`,
+    }));
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +48,7 @@ export async function POST(request: NextRequest) {
     const targetClass: string | undefined = body.targetClass || undefined;
     const studentIds: string[] = Array.isArray(body.studentIds) ? body.studentIds : [];
     const pathType: PathType = body.pathType || 'BASIC';
-    const moduleCount: number = Math.max(1, Math.min(9, Number(body.moduleCount || 5)));
+    const moduleCount: number = Math.max(1, Math.min(CHAPTER_SCHEDULE.length, Number(body.moduleCount || 5)));
 
     let students = [];
     if (scope === 'ALL') {
