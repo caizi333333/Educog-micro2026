@@ -23,6 +23,7 @@
     "prisma:studio": "prisma studio",
     "db:init": "tsx scripts/init-database.ts",
     "db:migrate": "./scripts/generate-migration.sh",
+    "db:seed-knowledge": "tsx scripts/seed-knowledge.ts",
     "vercel-build": "prisma generate && prisma db push && next build",
     "test": "jest",
     "test:watch": "jest --watch",

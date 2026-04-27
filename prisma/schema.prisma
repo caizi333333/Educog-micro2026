@@ -294,3 +294,26 @@ model UserProgress {
   @@index([userId])
   @@index([lastActiveDate])
 }
+
+// Knowledge graph nodes mirrored from src/lib/knowledge-points.ts.
+// Foundation only — populated by scripts/seed-knowledge.ts. Read/write APIs
+// and the teacher editor that mutates this table are a separate slice.
+model KnowledgeNode {
+  id            String   @id // matches the static knowledge-points id (e.g. "8.1.5")
+  name          String
+  level         Int      // 1 | 2 | 3
+  chapter       Int
+  description   String?
+  graphNodeId   String?  // legacy curated graph alias used by deep links
+  parentId      String?  // matches another KnowledgeNode.id, NOT a FK constraint to allow staged seeding
+  resources     Json?    // KnowledgePointResource[] from the static source, verbatim
+  prerequisites String[] @default([])  // ids of other KnowledgeNodes this depends on
+  appliedIn     String[] @default([])  // experiment refIds where this point is exercised
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([chapter])
+  @@index([level])
+  @@index([parentId])
+  @@index([graphNodeId])
+}

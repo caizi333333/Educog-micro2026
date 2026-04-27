@@ -21,6 +21,11 @@ export interface KnowledgePoint {
   description?: string;
   graphNodeId?: string;
   resources?: KnowledgePointResource[];
+  // Real cross-chapter relationships beyond strict parent-child hierarchy.
+  // prerequisites: this point's id depends on understanding these other ids first.
+  // appliedIn: lab/experiment refIds where this concept is exercised in practice.
+  prerequisites?: string[];
+  appliedIn?: string[];
 }
 
 export const knowledgePoints: KnowledgePoint[] = [
@@ -120,7 +125,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '2.3.2', name: 'P1口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口结构、内部上拉电阻、通用I/O口', resources: [
     { type: 'image', title: '实验1 流水灯硬件原理图（P1→LED1-4）', url: '/resources/course/diagrams/lab1-flowing-led-schematic.svg' },
     { type: 'experiment', title: '可视化演示：流水灯交互', url: '/lab-viz' },
-  ] },
+  ], appliedIn: ['exp01'] },
   { id: '2.3.3', name: 'P2口结构与特性', level: 3, parentId: '2.3', chapter: 2, description: '准双向口、可作高8位地址总线' },
   { id: '2.3.4', name: 'P3口结构与第二功能', level: 3, parentId: '2.3', chapter: 2, description: 'P3口的第二功能：RXD/TXD/INT0/INT1/T0/T1/WR/RD' },
   { id: '2.3.5', name: 'I/O口驱动能力与扩展', level: 3, parentId: '2.3', chapter: 2, description: '各端口灌电流/拉电流能力及74HC245/74HC573扩展' },
@@ -234,7 +239,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'quiz', title: '第4章 单元测验', refId: 'quiz-ch4' },
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
     { type: 'document', title: 'Keil C51编程快速参考手册', refId: 'doc-c51-reference' },
-  ] },
+  ], prerequisites: ['1.5', '2.2', '3'], appliedIn: ['exp01', 'exp02'] },
 
   { id: '4.1', name: 'Keil C51开发环境', level: 2, parentId: '4', chapter: 4, description: '工程管理、编译调试与程序下载', resources: [
     { type: 'slide', title: '4.1 Keil C51开发环境 课件', refId: 'ch04-ppt-s1' },
@@ -297,7 +302,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'quiz', title: '第5章 单元测验', refId: 'quiz-ch5' },
     { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
-  ] },
+  ], prerequisites: ['2.2.3', '2.5'], appliedIn: ['exp05', 'exp06'] },
 
   { id: '5.1', name: '中断基本概念', level: 2, parentId: '5', chapter: 5, description: '中断的定义、分类与优先级机制', graphNodeId: 'interrupts', resources: [
     { type: 'slide', title: '5.1 中断基本概念 课件', refId: 'ch05-ppt-s1' },
@@ -364,7 +369,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'experiment', title: '实验三：定时/计数器实验', refId: 'exp03', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
     { type: 'experiment', title: '可视化演示：计数器 / 定时器交互', url: '/lab-viz' },
-  ] },
+  ], prerequisites: ['5', '2.2.3'], appliedIn: ['exp03', 'exp06', 'exp07'] },
 
   { id: '6.1', name: '定时器基础', level: 2, parentId: '6', chapter: 6, description: '定时器/计数器的工作原理与控制寄存器', graphNodeId: 'timers', resources: [
     { type: 'slide', title: '6.1 定时器基础 课件', refId: 'ch06-ppt-s1' },
@@ -414,7 +419,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'slide', title: '第7章 串行通信 课件PPT', refId: 'ch07-ppt' },
     { type: 'quiz', title: '第7章 单元测验', refId: 'quiz-ch7' },
     { type: 'experiment', title: '实验九：串口通信实验', refId: 'exp09', duration: 90 },
-  ] },
+  ], prerequisites: ['5', '6'], appliedIn: ['exp09'] },
 
   { id: '7.1', name: '通信基础', level: 2, parentId: '7', chapter: 7, description: '串行通信的基本概念与分类', resources: [
     { type: 'slide', title: '7.1 通信基础 课件', refId: 'ch07-ppt-s1' },
@@ -464,7 +469,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'quiz', title: '第8章 单元测验', refId: 'quiz-ch8' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'experiment', title: '实验八：步进电机控制实验', refId: 'exp08', duration: 120 },
-  ] },
+  ], prerequisites: ['2.3', '4'], appliedIn: ['exp01', 'exp04', 'exp05', 'exp07', 'exp08'] },
 
   { id: '8.1', name: '显示接口', level: 2, parentId: '8', chapter: 8, description: 'LED数码管和LCD液晶显示器的驱动方法', resources: [
     { type: 'slide', title: '8.1 显示接口 课件', refId: 'ch08-ppt-s1' },
@@ -472,11 +477,11 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'animation', title: '数码管动态扫描显示原理动画', refId: 'anim-7seg-scan' },
     { type: 'image', title: '实验1 流水灯程序流程图', url: '/resources/course/diagrams/lab1-flowing-led-flowchart.svg' },
   ] },
-  { id: '8.1.1', name: 'LED数码管（共阴/共阳）', level: 3, parentId: '8.1', chapter: 8, description: '七段数码管的结构、段码表与驱动电路' },
+  { id: '8.1.1', name: 'LED数码管（共阴/共阳）', level: 3, parentId: '8.1', chapter: 8, description: '七段数码管的结构、段码表与驱动电路', appliedIn: ['exp04'] },
   { id: '8.1.2', name: '动态显示与静态显示', level: 3, parentId: '8.1', chapter: 8, description: '静态锁存显示和动态扫描显示的原理与比较' },
   { id: '8.1.3', name: 'LCD1602驱动', level: 3, parentId: '8.1', chapter: 8, description: 'LCD1602字符液晶的接口连接与指令集编程' },
   { id: '8.1.4', name: 'LCD12864驱动', level: 3, parentId: '8.1', chapter: 8, description: 'LCD12864图形液晶的初始化与图文显示编程' },
-  { id: '8.1.5', name: 'LED点阵显示', level: 3, parentId: '8.1', chapter: 8, description: '8x8 LED点阵的行列扫描驱动与字符显示' },
+  { id: '8.1.5', name: 'LED点阵显示', level: 3, parentId: '8.1', chapter: 8, description: '8x8 LED点阵的行列扫描驱动与字符显示', prerequisites: ['2.3.2'], appliedIn: ['exp04'] },
 
   { id: '8.2', name: '键盘接口', level: 2, parentId: '8', chapter: 8, description: '按键输入的硬件连接与软件处理', resources: [
     { type: 'slide', title: '8.2 键盘接口 课件', refId: 'ch08-ppt-s2' },
@@ -484,7 +489,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'animation', title: '矩阵键盘扫描原理动画', refId: 'anim-matrix-keypad' },
   ] },
   { id: '8.2.1', name: '独立按键', level: 3, parentId: '8.2', chapter: 8, description: '独立按键的连接方式与电平检测方法' },
-  { id: '8.2.2', name: '矩阵键盘', level: 3, parentId: '8.2', chapter: 8, description: '4x4矩阵键盘的行列扫描法与反转法' },
+  { id: '8.2.2', name: '矩阵键盘', level: 3, parentId: '8.2', chapter: 8, description: '4x4矩阵键盘的行列扫描法与反转法', prerequisites: ['2.3'], appliedIn: ['exp05'] },
   { id: '8.2.3', name: '按键消抖', level: 3, parentId: '8.2', chapter: 8, description: '硬件消抖（RC滤波）和软件消抖（延时检测）' },
 
   { id: '8.3', name: 'AD/DA转换', level: 2, parentId: '8', chapter: 8, description: '模数和数模转换器的接口与编程', resources: [
@@ -526,7 +531,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'experiment', title: '项目二：智慧路灯系统设计', refId: 'proj02', duration: 180 },
     { type: 'experiment', title: '项目三：智能小车运动控制系统设计', refId: 'proj03', duration: 180 },
     { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 180 },
-  ] },
+  ], prerequisites: ['7', '8'], appliedIn: ['proj02', 'proj03', 'proj04'] },
 
   { id: '9.1', name: '系统设计方法', level: 2, parentId: '9', chapter: 9, description: '嵌入式系统开发的工程化方法', resources: [
     { type: 'slide', title: '9.1 系统设计方法 课件', refId: 'ch09-ppt-s1' },
@@ -572,7 +577,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'slide', title: '第10章 前沿应用 课件PPT', refId: 'ch10-ppt' },
     { type: 'quiz', title: '第10章 单元测验', refId: 'quiz-ch10' },
     { type: 'document', title: '物联网与AIoT前沿技术综述', refId: 'doc-aiot-overview' },
-  ] },
+  ], prerequisites: ['9'] },
 
   { id: '10.1', name: '物联网应用', level: 2, parentId: '10', chapter: 10, description: '单片机与无线通信模块的物联网应用', resources: [
     { type: 'slide', title: '10.1 物联网应用 课件', refId: 'ch10-ppt-s1' },

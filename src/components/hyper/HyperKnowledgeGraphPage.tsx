@@ -22,22 +22,34 @@ import {
   ArrowRight,
   AlertTriangle,
   BookOpen,
+  CheckCircle2,
+  ChevronRight,
   Code2,
+  Cpu,
+  ExternalLink,
+  FileText,
   GitBranch,
   Flag,
+  Image as ImageIcon,
   Layers,
   Lightbulb,
+  Link2,
   ListTree,
+  Monitor,
   Network,
+  PlayCircle,
   Rocket,
   RotateCcw,
   Search,
   ShieldCheck,
+  Sparkles,
   Target,
   Users,
+  Zap,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
+import { knowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { problemGraph, problemGraphStats, type ProblemNode } from '@/lib/problem-graph';
 import {
@@ -49,10 +61,7 @@ import {
   type IdeologicalNode,
 } from '@/lib/ideological-graph';
 import { cn } from '@/lib/utils';
-import { KnowledgeGraphComponent } from '@/app/knowledge-graph/graph-component';
-
 type GraphView = 'knowledge' | 'problem' | 'ideological';
-type KnowledgeCanvasMode = 'full' | 'core';
 
 const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
   { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length },
@@ -105,55 +114,163 @@ function progressForChapter(progress: HyperLearningProgressRecord[], chapter: nu
   return Math.round(records.reduce((sum, item) => sum + (item.progress || 0), 0) / records.length);
 }
 
-function DetailPanel({ point, children }: { point: KnowledgePoint | null; children: KnowledgePoint[] }) {
+const RESOURCE_META: Record<KnowledgePointResource['type'], { label: string; icon: LucideIcon }> = {
+  video: { label: '视频', icon: PlayCircle },
+  animation: { label: '动画', icon: Zap },
+  slide: { label: '课件', icon: Monitor },
+  quiz: { label: '测验', icon: CheckCircle2 },
+  document: { label: '文档', icon: FileText },
+  experiment: { label: '实验', icon: Cpu },
+  image: { label: '图样', icon: ImageIcon },
+};
+
+function hrefForKgResource(resource: KnowledgePointResource): string | null {
+  if (resource.url) return resource.url;
+  if (resource.type === 'experiment' && resource.refId) return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
+  if (resource.type === 'quiz') return '/quiz';
+  return null;
+}
+
+function isInlineImage(resource: KnowledgePointResource): boolean {
+  if (resource.type !== 'image' || !resource.url) return false;
+  const url = resource.url.toLowerCase();
+  return url.endsWith('.svg') || url.endsWith('.png') || url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.webp');
+}
+
+function isMediaResource(resource: KnowledgePointResource): boolean {
+  if (!resource.url) return false;
+  if (resource.type === 'video') return true;
+  const url = resource.url.toLowerCase();
+  return url.endsWith('.pdf') || url.includes('/player.');
+}
+
+function getNextPoint(current: KnowledgePoint, all: KnowledgePoint[]): KnowledgePoint | null {
+  const idx = all.findIndex((p) => p.id === current.id);
+  if (idx < 0 || idx === all.length - 1) return null;
+  return all[idx + 1];
+}
+
+function DetailPanel({
+  point,
+  childPoints,
+  pointById,
+  experimentTitleByRefId,
+  onSelectId,
+}: {
+  point: KnowledgePoint | null;
+  childPoints: KnowledgePoint[];
+  pointById: Record<string, KnowledgePoint>;
+  experimentTitleByRefId: Record<string, string>;
+  onSelectId: (id: string) => void;
+}) {
   if (!point) {
     return (
       <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-sm text-slate-400">
-        选择一个节点查看详情。
+        在画布或左侧列表选中一个节点，这里会展示节点说明、前置知识、配套资源、应用实验和下一节点的推荐路径。
       </aside>
     );
   }
 
   const resources = point.resources || [];
-  const mediaResources = resources.filter((resource) => {
-    if (!resource.url) return false;
-    const url = resource.url.toLowerCase();
-    return resource.type === 'video' || url.endsWith('.pdf') || url.includes('/player.');
-  });
+  const inlineImages = resources.filter(isInlineImage);
+  const mediaResources = resources.filter(isMediaResource);
+  const otherResources = resources.filter((r) => !inlineImages.includes(r) && !mediaResources.includes(r));
+  const prereqs = (point.prerequisites || [])
+    .map((id) => pointById[id])
+    .filter((p): p is KnowledgePoint => Boolean(p));
+  const appliedExperiments = (point.appliedIn || []).map((refId) => ({
+    refId,
+    title: experimentTitleByRefId[refId] || refId,
+  }));
+  const parent = point.parentId ? pointById[point.parentId] : null;
+  const nextPoint = getNextPoint(point, knowledgePoints);
 
   return (
-    <aside className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+    <aside className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
       <div className="border-b border-white/[0.08] p-5">
-        <div className="font-mono text-[11px] text-cyan-200">NODE · CH{point.chapter}</div>
+        <div className="flex items-center gap-2 font-mono text-[11px] text-cyan-200">
+          <span>NODE · CH{point.chapter}</span>
+          <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">L{point.level}</span>
+          <span className="text-slate-600">·</span>
+          <span className="text-slate-500">#{point.id}</span>
+        </div>
         <h2 className="mt-2 text-xl font-semibold text-slate-50">{point.name}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">{point.description || '该节点暂无详细说明。'}</p>
+        {parent && (
+          <button
+            type="button"
+            onClick={() => onSelectId(parent.id)}
+            className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-cyan-200"
+          >
+            <Layers className="h-3 w-3" />
+            上级：{parent.name}
+          </button>
+        )}
       </div>
-      <div className="border-b border-white/[0.08] p-5">
-        <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-          <Layers className="h-3.5 w-3.5" />
-          层级信息
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
-            <div className="font-mono text-lg text-slate-50">L{point.level}</div>
-            <div className="text-xs text-slate-500">节点层级</div>
+
+      {prereqs.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <Link2 className="h-3.5 w-3.5" />
+            前置知识
           </div>
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
-            <div className="font-mono text-lg text-slate-50">{children.length}</div>
-            <div className="text-xs text-slate-500">下级节点</div>
+          <div className="space-y-1.5">
+            {prereqs.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onSelectId(p.id)}
+                className="flex w-full items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-left text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] hover:text-cyan-100"
+              >
+                <span className="line-clamp-1">{p.name}</span>
+                <span className="shrink-0 font-mono text-[10px] text-slate-500">CH{p.chapter} · #{p.id}</span>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {inlineImages.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <ImageIcon className="h-3.5 w-3.5" />
+            图样
+          </div>
+          <div className="space-y-3">
+            {inlineImages.map((resource) => (
+              <a
+                key={resource.url}
+                href={resource.url}
+                target="_blank"
+                rel="noreferrer"
+                className="group block overflow-hidden rounded-md border border-white/[0.08] bg-white"
+              >
+                <img src={resource.url} alt={resource.title} className="block w-full" loading="lazy" />
+                <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
+                  <span className="line-clamp-1">{resource.title}</span>
+                  <ExternalLink className="ml-2 h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" />
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {mediaResources.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
           <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <BookOpen className="h-3.5 w-3.5" />
+            <PlayCircle className="h-3.5 w-3.5" />
             视频 / PDF
           </div>
           <div className="space-y-3">
             {mediaResources.slice(0, 2).map((resource) => (
               <div key={`${resource.type}-${resource.title}-${resource.url}`} className="overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
-                <div className="border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">{resource.title}</div>
+                <div className="flex items-center justify-between border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">
+                  <span className="line-clamp-1">{resource.title}</span>
+                  <a href={resource.url} target="_blank" rel="noreferrer" className="ml-2 shrink-0 text-slate-500 hover:text-cyan-200">
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
                 <iframe
                   src={resource.url}
                   title={resource.title}
@@ -167,23 +284,115 @@ function DetailPanel({ point, children }: { point: KnowledgePoint | null; childr
           </div>
         </div>
       )}
-      <div className="p-5">
-        <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-          <BookOpen className="h-3.5 w-3.5" />
-          关联资源
+
+      {otherResources.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <BookOpen className="h-3.5 w-3.5" />
+            配套资源
+          </div>
+          <div className="space-y-1.5">
+            {otherResources.map((resource) => {
+              const meta = RESOURCE_META[resource.type];
+              const Icon = meta.icon;
+              const href = hrefForKgResource(resource);
+              const inner = (
+                <>
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                  <span className="min-w-0 flex-1 truncate text-slate-200 group-hover:text-cyan-100">{resource.title}</span>
+                  <span className="shrink-0 rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">{meta.label}</span>
+                </>
+              );
+              const baseCls = 'group flex w-full items-center gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-xs hover:border-cyan-300/30 hover:bg-cyan-300/[0.05]';
+              if (!href) {
+                return (
+                  <div key={`${resource.type}-${resource.title}`} className={cn(baseCls, 'cursor-default opacity-70')}>
+                    {inner}
+                  </div>
+                );
+              }
+              if (href.startsWith('http') || href.startsWith('/')) {
+                return (
+                  <a key={`${resource.type}-${resource.title}`} href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className={baseCls}>
+                    {inner}
+                  </a>
+                );
+              }
+              return (
+                <Link key={`${resource.type}-${resource.title}`} href={href} className={baseCls}>
+                  {inner}
+                </Link>
+              );
+            })}
+          </div>
         </div>
-        <div className="space-y-2">
-          {resources.slice(0, 5).map((resource) => (
-            <div key={`${resource.type}-${resource.title}`} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3 text-sm">
-              <div className="text-slate-200">{resource.title}</div>
-              <div className="mt-1 font-mono text-[11px] uppercase text-slate-500">{resource.type}</div>
+      )}
+
+      {appliedExperiments.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <Sparkles className="h-3.5 w-3.5" />
+            应用于实验
+          </div>
+          <div className="space-y-1.5">
+            {appliedExperiments.map((exp) => (
+              <Link
+                key={exp.refId}
+                href={`/simulation?experiment=${encodeURIComponent(exp.refId)}`}
+                className="group flex items-center justify-between gap-2 rounded-md border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-xs text-emerald-100 hover:border-emerald-300/40 hover:bg-emerald-300/[0.08]"
+              >
+                <span className="flex items-center gap-2">
+                  <Cpu className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
+                  <span className="line-clamp-1">{exp.title}</span>
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-emerald-300">{exp.refId}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {childPoints.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <ListTree className="h-3.5 w-3.5" />
+            下级节点 · {childPoints.length}
+          </div>
+          <div className="space-y-1">
+            {childPoints.slice(0, 6).map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onSelectId(c.id)}
+                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
+              >
+                <span className="line-clamp-1">{c.name}</span>
+                <span className="font-mono text-[10px] text-slate-600">L{c.level}</span>
+              </button>
+            ))}
+            {childPoints.length > 6 && (
+              <div className="px-3 pt-1 font-mono text-[10px] text-slate-600">+{childPoints.length - 6} 个</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {nextPoint && (
+        <div className="p-5">
+          <button
+            type="button"
+            onClick={() => onSelectId(nextPoint.id)}
+            className="group flex w-full items-center justify-between gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 text-left hover:border-cyan-300/45 hover:bg-cyan-300/[0.10]"
+          >
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-300">下一节点</div>
+              <div className="mt-1 truncate text-sm font-medium text-slate-100">{nextPoint.name}</div>
+              <div className="mt-0.5 font-mono text-[10px] text-slate-500">CH{nextPoint.chapter} · L{nextPoint.level} · #{nextPoint.id}</div>
             </div>
-          ))}
-          {resources.length === 0 && (
-            <div className="text-sm text-slate-500">暂无资源记录。</div>
-          )}
+            <ChevronRight className="h-4 w-4 shrink-0 text-cyan-300 transition-transform group-hover:translate-x-0.5" />
+          </button>
         </div>
-      </div>
+      )}
     </aside>
   );
 }
@@ -483,46 +692,119 @@ function FullKnowledgeMap({
   visibleIds,
   progress,
   onSelect,
+  chapterFilter,
 }: {
   points: KnowledgePoint[];
   selectedId: string;
   visibleIds: Set<string>;
   progress: HyperLearningProgressRecord[];
   onSelect: (point: KnowledgePoint) => void;
+  chapterFilter: number | 'all';
 }) {
   const layout = useMemo(() => {
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
+    const pointById: Record<string, KnowledgePoint> = {};
+    points.forEach((p) => { pointById[p.id] = p; });
     const chapterNumbers = Array.from(new Set(points.map((point) => point.chapter))).sort((a, b) => a - b);
-    const centers = chapterNumbers.map((chapter, index) => {
-      const col = index % 5;
-      const row = Math.floor(index / 5);
-      return {
-        chapter,
-        x: 300 + col * 610,
-        y: 275 + row * 560,
-      };
-    });
 
-    centers.forEach((center) => {
-      const chapterPoints = points.filter((point) => point.chapter === center.chapter);
+    if (chapterFilter === 'all') {
+      // Compact 5x2 overview: each chapter is a small card with L1 root and L2 nodes
+      // arrayed below it. L3 leaves are intentionally omitted to keep the canvas
+      // scannable at fit-view zoom. Selecting a chapter from the sidebar drills into
+      // the expanded single-chapter shelf below.
+      const COL_COUNT = 5;
+      const COL_W = 460;
+      const ROW_H = 360;
+
+      chapterNumbers.forEach((chapter, index) => {
+        const col = index % COL_COUNT;
+        const row = Math.floor(index / COL_COUNT);
+        const cellX = 60 + col * COL_W;
+        const cellY = 60 + row * ROW_H;
+        const chapterPoints = points.filter((point) => point.chapter === chapter);
+        const root = chapterPoints.find((point) => point.level === 1);
+        const levelTwo = chapterPoints.filter((point) => point.level === 2);
+        const tone = knowledgeTone(chapter);
+        const chapterProgress = progressForChapter(progress, chapter);
+
+        nodes.push(createMapGroup(`kg-card-${chapter}`, cellX, cellY, {
+          label: `CH${chapter} · ${root?.name || '章节'}`,
+          subtitle: chapterProgress === null
+            ? `${chapterPoints.length} 个知识点 · ${levelTwo.length} 个二级`
+            : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
+          tone,
+          width: COL_W - 30,
+          height: ROW_H - 30,
+        }));
+
+        if (root) {
+          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 70, {
+            label: root.name,
+            subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
+            levelLabel: 'L1',
+            tone,
+            size: 'root',
+            selected: root.id === selectedId,
+            visible: visibleIds.has(root.id),
+          }));
+        }
+
+        const cols = Math.min(3, Math.max(1, levelTwo.length));
+        levelTwo.forEach((parent, parentIndex) => {
+          const c = parentIndex % cols;
+          const r = Math.floor(parentIndex / cols);
+          const px = cellX + 50 + c * ((COL_W - 130) / Math.max(cols, 1));
+          const py = cellY + 170 + r * 56;
+          nodes.push(createMapNode(parent.id, px, py, {
+            label: parent.name,
+            levelLabel: 'L2',
+            tone,
+            size: 'branch',
+            selected: parent.id === selectedId,
+            visible: visibleIds.has(parent.id),
+          }));
+          if (root) {
+            edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.2));
+          }
+        });
+      });
+    } else {
+      // Single-chapter expanded shelf: L1 anchor on left, L2 in a row to its right,
+      // each L2's L3 leaves stacked tightly below it. Full canvas width + height to
+      // a single chapter for readable detail.
+      const chapter = chapterFilter;
+      const chapterPoints = points.filter((point) => point.chapter === chapter);
       const root = chapterPoints.find((point) => point.level === 1);
       const levelTwo = chapterPoints.filter((point) => point.level === 2);
-      const chapterProgress = progressForChapter(progress, center.chapter);
-      const tone = knowledgeTone(center.chapter);
+      const tone = knowledgeTone(chapter);
+      const chapterProgress = progressForChapter(progress, chapter);
 
-      nodes.push(createMapGroup(`kg-group-${center.chapter}`, center.x - 270, center.y - 210, {
-        label: `CH${center.chapter} · ${root?.name || '章节'}`,
-        subtitle: chapterProgress === null ? `${chapterPoints.length} 个知识点` : `${chapterPoints.length} 个知识点 · ${chapterProgress}%`,
+      const SHELF_X = 80;
+      const ROOT_X = 130;
+      const L2_START_X = 340;
+      const L2_GAP_X = 200;
+      const L3_OFFSET_Y = 90;
+      const L3_GAP_Y = 40;
+      const maxL3 = Math.max(0, ...levelTwo.map((p) => points.filter((c) => c.parentId === p.id).length));
+      const shelfWidth = Math.max(1100, L2_START_X + Math.max(levelTwo.length, 1) * L2_GAP_X + 60);
+      const shelfHeight = Math.max(280, L3_OFFSET_Y + maxL3 * L3_GAP_Y + 80);
+
+      nodes.push(createMapGroup(`kg-shelf-${chapter}`, SHELF_X - 40, 50, {
+        label: `CH${chapter} · ${root?.name || '章节'}`,
+        subtitle: chapterProgress === null
+          ? `${chapterPoints.length} 个知识点`
+          : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
         tone,
-        width: 540,
-        height: 455,
+        width: shelfWidth,
+        height: shelfHeight,
       }));
 
+      const rootCenterY = 140;
       if (root) {
-        nodes.push(createMapNode(root.id, center.x, center.y - 120, {
+        nodes.push(createMapNode(root.id, SHELF_X + ROOT_X, rootCenterY, {
           label: root.name,
-          subtitle: chapterProgress === null ? `CH${center.chapter}` : `${chapterProgress}%`,
+          subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
           levelLabel: 'L1',
           tone,
           size: 'root',
@@ -532,26 +814,25 @@ function FullKnowledgeMap({
       }
 
       levelTwo.forEach((parent, parentIndex) => {
-        const parentAngle = -Math.PI / 2 + (Math.PI * 2 * parentIndex) / Math.max(levelTwo.length, 1);
-        const parentX = center.x + Math.cos(parentAngle) * 170;
-        const parentY = center.y + 18 + Math.sin(parentAngle) * 130;
-        const children = points.filter((point) => point.parentId === parent.id);
+        const parentX = SHELF_X + L2_START_X + parentIndex * L2_GAP_X;
+        const parentY = rootCenterY;
+        const childPoints = points.filter((point) => point.parentId === parent.id);
         nodes.push(createMapNode(parent.id, parentX, parentY, {
           label: parent.name,
-          subtitle: `${children.length}`,
+          subtitle: childPoints.length > 0 ? `${childPoints.length} 子项` : undefined,
           levelLabel: 'L2',
           tone,
           size: 'branch',
           selected: parent.id === selectedId,
           visible: visibleIds.has(parent.id),
         }));
-        if (root) edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.6));
+        if (root) {
+          edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.6));
+        }
 
-        children.forEach((child, childIndex) => {
-          const spread = Math.PI * 0.95;
-          const childAngle = parentAngle - spread / 2 + (spread * (childIndex + 0.5)) / Math.max(children.length, 1);
-          const childRadius = 86 + Math.min(children.length, 8) * 3;
-          nodes.push(createMapNode(child.id, parentX + Math.cos(childAngle) * childRadius, parentY + Math.sin(childAngle) * childRadius, {
+        childPoints.forEach((child, childIndex) => {
+          const childY = parentY + L3_OFFSET_Y + childIndex * L3_GAP_Y;
+          nodes.push(createMapNode(child.id, parentX, childY, {
             label: child.name,
             levelLabel: 'L3',
             tone: visibleIds.has(child.id) ? tone : 'slate',
@@ -562,10 +843,27 @@ function FullKnowledgeMap({
           edges.push(graphEdge(parent.id, child.id, tone, visibleIds.has(parent.id) && visibleIds.has(child.id), 0.9));
         });
       });
-    });
+    }
+
+    // Cross-chapter prerequisite edges (amber, dashed) — show real semantic links
+    // beyond hierarchy. Only draw when both endpoints are in the rendered node set
+    // (i.e., overview mode where all L1/L2 are present).
+    if (chapterFilter === 'all') {
+      const renderedIds = new Set(nodes.map((n) => n.id));
+      const prereqTone: GraphTone = 'amber';
+      points.forEach((p) => {
+        (p.prerequisites || []).forEach((preId) => {
+          const pre = pointById[preId];
+          if (!pre || pre.chapter === p.chapter) return;
+          if (!renderedIds.has(p.id) || !renderedIds.has(pre.id)) return;
+          const both = visibleIds.has(p.id) && visibleIds.has(pre.id);
+          edges.push(graphEdge(pre.id, p.id, prereqTone, both, 1.2, true));
+        });
+      });
+    }
 
     return { nodes, edges };
-  }, [points, progress, selectedId, visibleIds]);
+  }, [points, progress, selectedId, visibleIds, chapterFilter]);
 
   return (
     <GraphMapStage
@@ -1199,9 +1497,7 @@ function IdeologicalGraphView({
 export function HyperKnowledgeGraphPage() {
   const searchParams = useSearchParams();
   const [view, setView] = useState<GraphView>('knowledge');
-  const [knowledgeCanvasMode, setKnowledgeCanvasMode] = useState<KnowledgeCanvasMode>('full');
   const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
-  const [graphSelectedNodeId, setGraphSelectedNodeId] = useState<string | null>(null);
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
   const [selectedIdeologicalId, setSelectedIdeologicalId] = useState(ideologicalNodes[0]?.id || '');
   const [query, setQuery] = useState('');
@@ -1223,17 +1519,10 @@ export function HyperKnowledgeGraphPage() {
     };
   }, []);
 
-  const selected = knowledgePoints.find((point) => point.id === selectedId) || null;
-  const children = selected ? knowledgePoints.filter((point) => point.parentId === selected.id) : [];
-  const siblings = selected
-    ? knowledgePoints.filter((point) => point.chapter === selected.chapter && point.id !== selected.id).slice(0, 8)
-    : [];
-  const graphNodeMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    knowledgePoints.forEach((point) => {
-      if (point.graphNodeId && !map[point.graphNodeId]) map[point.graphNodeId] = String(point.chapter);
-    });
-    return map;
+  const pointById = useMemo(() => {
+    const m: Record<string, KnowledgePoint> = {};
+    knowledgePoints.forEach((p) => { m[p.id] = p; });
+    return m;
   }, []);
   const knowledgePointByGraphId = useMemo(() => {
     const map: Record<string, KnowledgePoint> = {};
@@ -1242,6 +1531,26 @@ export function HyperKnowledgeGraphPage() {
     });
     return map;
   }, []);
+  const experimentTitleByRefId = useMemo(() => {
+    const m: Record<string, string> = {};
+    knowledgePoints.forEach((p) => {
+      p.resources?.forEach((r) => {
+        if (r.type === 'experiment' && r.refId && !m[r.refId]) m[r.refId] = r.title;
+      });
+    });
+    return m;
+  }, []);
+
+  const selected = pointById[selectedId] || null;
+  const childPoints = selected ? knowledgePoints.filter((point) => point.parentId === selected.id) : [];
+  const siblings = selected
+    ? knowledgePoints.filter((point) => point.chapter === selected.chapter && point.id !== selected.id).slice(0, 8)
+    : [];
+
+  const goToPoint = (id: string) => {
+    if (!pointById[id]) return;
+    setSelectedId(id);
+  };
 
   useEffect(() => {
     if (!searchParams) return;
@@ -1263,9 +1572,7 @@ export function HyperKnowledgeGraphPage() {
     if (knowledgePoint) {
       setView('knowledge');
       setSelectedId(knowledgePoint.id);
-      setGraphSelectedNodeId(knowledgePoint.graphNodeId || null);
       setChapter(knowledgePoint.chapter);
-      setKnowledgeCanvasMode(knowledgePoint.graphNodeId ? 'core' : 'full');
       return;
     }
 
@@ -1282,21 +1589,8 @@ export function HyperKnowledgeGraphPage() {
     }
 
     setView('knowledge');
-    setGraphSelectedNodeId(nodeParam);
-    setKnowledgeCanvasMode('full');
   }, [knowledgePointByGraphId, searchParams]);
 
-  const graphHighlightIds = useMemo(() => {
-    const ids = new Set<string>();
-    const q = query.trim().toLowerCase();
-    knowledgePoints.forEach((point) => {
-      const chapterMatch = chapter === 'all' || point.chapter === chapter;
-      const queryMatch = !q || `${point.name} ${point.description || ''}`.toLowerCase().includes(q);
-      if (chapterMatch && queryMatch && point.graphNodeId) ids.add(point.graphNodeId);
-    });
-    return ids.size > 0 ? ids : null;
-  }, [chapter, query]);
-  const activeGraphHighlightIds = chapter === 'all' && query.trim() === '' ? null : graphHighlightIds;
   const filteredList = useMemo(() => {
     const q = query.trim().toLowerCase();
     return knowledgePoints.filter((point) => {
@@ -1353,12 +1647,10 @@ export function HyperKnowledgeGraphPage() {
               type="button"
               onClick={() => {
                 setSelectedId(knowledgePoints[0]?.id || '');
-                setGraphSelectedNodeId(null);
                 setSelectedProblemId(problemGraph[0]?.id || '');
                 setSelectedIdeologicalId(ideologicalNodes[0]?.id || '');
                 setQuery('');
                 setChapter('all');
-                setKnowledgeCanvasMode('full');
               }}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
             >
@@ -1436,10 +1728,7 @@ export function HyperKnowledgeGraphPage() {
                 <button
                   key={point.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedId(point.id);
-                    setGraphSelectedNodeId(point.graphNodeId || null);
-                  }}
+                  onClick={() => goToPoint(point.id)}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
                     selectedId === point.id ? 'bg-cyan-300/[0.12] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
@@ -1461,29 +1750,9 @@ export function HyperKnowledgeGraphPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Network className="h-4 w-4 text-cyan-200" />
-              {knowledgeCanvasMode === 'full' ? '270 个知识点完整映射图' : 'CPU · 存储 · I/O · 中断 · 应用核心关系图'}
+              270 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-md border border-white/[0.08] bg-black/20 p-1">
-                {[
-                  { id: 'full' as const, label: '完整映射' },
-                  { id: 'core' as const, label: '核心关系' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setKnowledgeCanvasMode(item.id)}
-                    className={cn(
-                      'h-7 rounded px-2.5 text-xs transition',
-                      knowledgeCanvasMode === item.id
-                        ? 'bg-cyan-300 text-[#001014]'
-                        : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-100',
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
               <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
                 <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {levelCounts.l1}</span>
                 <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {levelCounts.l2}</span>
@@ -1492,35 +1761,25 @@ export function HyperKnowledgeGraphPage() {
             </div>
           </div>
           <div className="h-[520px] md:h-[620px] xl:h-[720px]">
-            {knowledgeCanvasMode === 'full' ? (
-              <FullKnowledgeMap
-                points={knowledgePoints}
-                selectedId={selectedId}
-                visibleIds={visibleKnowledgeIds}
-                progress={progress}
-                onSelect={(point) => {
-                  setSelectedId(point.id);
-                  setGraphSelectedNodeId(point.graphNodeId || null);
-                }}
-              />
-            ) : (
-              <KnowledgeGraphComponent
-                filterHighlightIds={activeGraphHighlightIds}
-                initialSelectedNodeId={graphSelectedNodeId}
-                nodeToChapterMap={graphNodeMap}
-                onSelectNodeId={(nodeId) => {
-                  setGraphSelectedNodeId(nodeId);
-                  if (!nodeId) return;
-                  const nextPoint = knowledgePointByGraphId[nodeId];
-                  if (nextPoint) setSelectedId(nextPoint.id);
-                }}
-              />
-            )}
+            <FullKnowledgeMap
+              points={knowledgePoints}
+              selectedId={selectedId}
+              visibleIds={visibleKnowledgeIds}
+              progress={progress}
+              onSelect={(point) => goToPoint(point.id)}
+              chapterFilter={chapter}
+            />
           </div>
         </section>
 
         <div className="order-3 space-y-4 lg:order-none lg:col-span-2 xl:col-span-1">
-          <DetailPanel point={selected}>{children}</DetailPanel>
+          <DetailPanel
+            point={selected}
+            childPoints={childPoints}
+            pointById={pointById}
+            experimentTitleByRefId={experimentTitleByRefId}
+            onSelectId={goToPoint}
+          />
           <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <ListTree className="h-4 w-4 text-cyan-200" />
@@ -1531,10 +1790,7 @@ export function HyperKnowledgeGraphPage() {
                 <button
                   key={point.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedId(point.id);
-                    setGraphSelectedNodeId(point.graphNodeId || null);
-                  }}
+                  onClick={() => goToPoint(point.id)}
                   className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
                 >
                   <span className="line-clamp-1">{point.name}</span>
