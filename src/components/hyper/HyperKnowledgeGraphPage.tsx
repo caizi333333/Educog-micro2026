@@ -1199,7 +1199,7 @@ function IdeologicalGraphView({
 export function HyperKnowledgeGraphPage() {
   const searchParams = useSearchParams();
   const [view, setView] = useState<GraphView>('knowledge');
-  const [knowledgeCanvasMode, setKnowledgeCanvasMode] = useState<KnowledgeCanvasMode>('core');
+  const [knowledgeCanvasMode, setKnowledgeCanvasMode] = useState<KnowledgeCanvasMode>('full');
   const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
   const [graphSelectedNodeId, setGraphSelectedNodeId] = useState<string | null>(null);
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
@@ -1283,7 +1283,7 @@ export function HyperKnowledgeGraphPage() {
 
     setView('knowledge');
     setGraphSelectedNodeId(nodeParam);
-    setKnowledgeCanvasMode('core');
+    setKnowledgeCanvasMode('full');
   }, [knowledgePointByGraphId, searchParams]);
 
   const graphHighlightIds = useMemo(() => {
@@ -1358,7 +1358,7 @@ export function HyperKnowledgeGraphPage() {
                 setSelectedIdeologicalId(ideologicalNodes[0]?.id || '');
                 setQuery('');
                 setChapter('all');
-                setKnowledgeCanvasMode('core');
+                setKnowledgeCanvasMode('full');
               }}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
             >
@@ -1387,7 +1387,7 @@ export function HyperKnowledgeGraphPage() {
           onSelect={setSelectedIdeologicalId}
         />
       ) : (
-      <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_320px] md:px-6">
+      <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_300px] md:px-6">
         <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-none lg:sticky lg:top-20 lg:self-start">
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
@@ -1491,7 +1491,7 @@ export function HyperKnowledgeGraphPage() {
               </div>
             </div>
           </div>
-          <div className="h-[620px] md:h-[780px]">
+          <div className="h-[520px] md:h-[620px] xl:h-[720px]">
             {knowledgeCanvasMode === 'full' ? (
               <FullKnowledgeMap
                 points={knowledgePoints}
@@ -1519,7 +1519,7 @@ export function HyperKnowledgeGraphPage() {
           </div>
         </section>
 
-        <div className="order-3 space-y-4 lg:order-none lg:col-span-2 2xl:col-span-1">
+        <div className="order-3 space-y-4 lg:order-none lg:col-span-2 xl:col-span-1">
           <DetailPanel point={selected}>{children}</DetailPanel>
           <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">

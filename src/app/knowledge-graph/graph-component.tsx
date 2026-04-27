@@ -492,8 +492,8 @@ export const KnowledgeGraphComponent = forwardRef<KnowledgeGraphRef, Props>(
           animated: isActive && !!selectedNodeId,
           style: {
             stroke: color,
-            strokeWidth: isActive ? (selectedNodeId ? 2 : 1.5) : 0.5,
-            opacity: isActive ? (selectedNodeId ? 0.9 : 0.62) : 0.1,
+            strokeWidth: isActive ? (selectedNodeId ? 2.4 : 2) : 0.6,
+            opacity: isActive ? (selectedNodeId ? 0.95 : 0.85) : 0.12,
             filter: isActive && selectedNodeId ? `drop-shadow(0 0 3px ${c.glow})` : 'none',
           },
           markerEnd: {
