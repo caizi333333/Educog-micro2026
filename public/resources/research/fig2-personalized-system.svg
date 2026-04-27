@@ -80,7 +80,7 @@
   <!-- RAG答疑 -->
   <ellipse cx="89.5" cy="77" rx="18" ry="8" class="process-module"/>
   <text x="89.5" y="75" text-anchor="middle" class="module-text">RAG</text>
-  <text x="89.5" y="80" text-anchor="middle" class="module-text">Q&A System</text>
+  <text x="89.5" y="80" text-anchor="middle" class="module-text">Q&amp;A System</text>
   
   <!-- 算法标注 -->
   <text x="89.5" y="90" text-anchor="middle" class="detail-text">AI Algorithms</text>
