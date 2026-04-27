@@ -17,6 +17,7 @@ import {
   PlayCircle,
   Search,
   Settings,
+  Share2,
   Timer,
   ToggleRight,
   Users,
@@ -32,6 +33,13 @@ import {
   normalizeExperimentRecords,
   type HyperExperimentCard,
 } from '@/lib/hyper-data';
+import {
+  getChildPoints,
+  getPointsByLevel,
+  getResourcesByChapter,
+  type KnowledgePoint,
+  type KnowledgePointResource,
+} from '@/lib/knowledge-points';
 import { cn } from '@/lib/utils';
 
 const topicIcons: Record<string, LucideIcon> = {
@@ -42,8 +50,51 @@ const topicIcons: Record<string, LucideIcon> = {
   显示器件: Monitor,
 };
 
+type SectionMode = 'chapters' | 'labs';
+
+const courseChapters = getPointsByLevel(1).sort((a, b) => a.chapter - b.chapter);
+
+const labReportMaterial = {
+  title: '微控制器原理及应用技术实验报告（1-8）',
+  href: '/resources/course/microcontroller-lab-report-1-8.pdf',
+  meta: 'PDF · 实验模板 · 本地教案材料已转换',
+};
+
+const resourceLabels: Record<KnowledgePointResource['type'], string> = {
+  video: '视频',
+  animation: '动画',
+  slide: '课件',
+  quiz: '测验',
+  document: '文档',
+  experiment: '实验',
+};
+
+const resourceIcons: Record<KnowledgePointResource['type'], LucideIcon> = {
+  video: PlayCircle,
+  animation: Zap,
+  slide: Monitor,
+  quiz: CheckCircle2,
+  document: FileText,
+  experiment: Cpu,
+};
+
 function iconForTopic(topic: string): LucideIcon {
   return topicIcons[topic] || Cpu;
+}
+
+function hrefForResource(resource: KnowledgePointResource): string | null {
+  if (resource.url) return resource.url;
+  if (resource.type === 'experiment' && resource.refId) {
+    return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
+  }
+  if (resource.type === 'quiz') return '/quiz';
+  return null;
+}
+
+function buildChapterSummary(chapter: KnowledgePoint, childPoints: KnowledgePoint[]): string {
+  const keyTopics = childPoints.slice(0, 5).map((point) => point.name).join('、');
+  const topicText = keyTopics ? `重点覆盖${keyTopics}等内容` : `重点围绕${chapter.name}展开`;
+  return `本章围绕${chapter.description || chapter.name}展开，${topicText}。学生完成本章后，可继续进入知识图谱查看概念关系，并通过测验、实验和资料阅读完成巩固。`;
 }
 
 function formatDate(value: string | null): string {
@@ -153,15 +204,21 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
 
 function CourseSideNav({
   topics,
+  chapters,
+  activeSection,
   activeView,
   activeTopic,
+  setSection,
   setView,
   setTopic,
   labs,
 }: {
   topics: string[];
+  chapters: KnowledgePoint[];
+  activeSection: SectionMode;
   activeView: string;
   activeTopic: string;
+  setSection: (value: SectionMode) => void;
   setView: (value: string) => void;
   setTopic: (value: string) => void;
   labs: HyperExperimentCard[];
@@ -173,7 +230,7 @@ function CourseSideNav({
     );
 
   return (
-    <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:sticky lg:top-20 lg:self-start">
+    <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-1 lg:sticky lg:top-20 lg:self-start">
       <div className="border-b border-white/[0.08] px-2 pb-3">
         <div className="font-mono text-[11px] text-slate-500">当前课程</div>
         <div className="mt-1 text-sm font-semibold text-slate-100">《单片机原理与应用》</div>
@@ -181,6 +238,36 @@ function CourseSideNav({
       </div>
 
       <div className="mt-3 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">导航</div>
+      <button className={navClass(activeSection === 'chapters')} onClick={() => setSection('chapters')}>
+        <BookOpen className="h-3.5 w-3.5" />
+        课程章节
+        <span className="ml-auto font-mono text-[10px] text-slate-500">{chapters.length}</span>
+      </button>
+      <button className={navClass(activeSection === 'labs')} onClick={() => setSection('labs')}>
+        <LayoutGrid className="h-3.5 w-3.5" />
+        实验工作台
+        <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.length}</span>
+      </button>
+
+      {activeSection === 'chapters' && (
+        <>
+          <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">章节目录</div>
+          {chapters.map((chapter) => (
+            <a
+              key={chapter.id}
+              href={`#item-${chapter.chapter}`}
+              className={navClass(false)}
+              onClick={() => setSection('chapters')}
+            >
+              <span className="font-mono text-[10px] text-cyan-200">CH{chapter.chapter}</span>
+              <span className="min-w-0 truncate">{chapter.name}</span>
+            </a>
+          ))}
+        </>
+      )}
+
+      {activeSection === 'labs' && (
+        <>
       <button className={navClass(activeView === 'all' && activeTopic === 'all')} onClick={() => { setView('all'); setTopic('all'); }}>
         <LayoutGrid className="h-3.5 w-3.5" />
         全部实验
@@ -212,6 +299,8 @@ function CourseSideNav({
           </button>
         );
       })}
+        </>
+      )}
 
       <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">其他</div>
       {[
@@ -229,10 +318,205 @@ function CourseSideNav({
   );
 }
 
+function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource; chapter: number }) {
+  const Icon = resourceIcons[resource.type];
+  const href = hrefForResource(resource);
+  const content = (
+    <>
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0 truncate">{resource.title}</span>
+      <span className="shrink-0 rounded-sm bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+        {resourceLabels[resource.type]}
+      </span>
+    </>
+  );
+
+  const className =
+    'inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/25 hover:bg-cyan-300/[0.06] hover:text-cyan-100';
+
+  if (!href) {
+    return (
+      <span className={cn(className, 'hover:border-white/[0.08] hover:bg-white/[0.035] hover:text-slate-300')} title={`第${chapter}章资料位`}>
+        {content}
+      </span>
+    );
+  }
+
+  if (href.startsWith('http')) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={className}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
+  );
+}
+
+function CourseMaterialPanel() {
+  return (
+    <div className="mb-5 grid gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4 md:grid-cols-[1fr_auto] md:items-center">
+      <div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Course Material · 已接入资料</div>
+        <h2 className="mt-2 text-base font-semibold text-slate-50">{labReportMaterial.title}</h2>
+        <p className="mt-1 text-sm text-slate-400">{labReportMaterial.meta}</p>
+      </div>
+      <a
+        href={labReportMaterial.href}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
+      >
+        <FileText className="h-4 w-4" />
+        打开PDF
+      </a>
+    </div>
+  );
+}
+
+function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
+  const childPoints = getChildPoints(chapter.id);
+  const chapterPoints = childPoints.length + 1;
+  const resources = getResourcesByChapter(chapter.chapter);
+  const video = resources.find((resource) => resource.type === 'video' && resource.url);
+  const visibleResources = resources.slice(0, 10);
+  const summary = buildChapterSummary(chapter, childPoints);
+
+  return (
+    <article id={`item-${chapter.chapter}`} className="scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+      <span id={`chapter-${chapter.chapter}`} className="sr-only" />
+      <div className="border-b border-white/[0.08] bg-[#0c1117] p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[11px] text-cyan-100">
+            CH{chapter.chapter}
+          </span>
+          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
+            {chapterPoints} 个核心条目
+          </span>
+          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
+            {resources.length} 项资源
+          </span>
+        </div>
+        <h3 className="mt-3 text-lg font-semibold text-slate-50">{chapter.name}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-400">{chapter.description}</p>
+      </div>
+
+      <div className="grid gap-4 p-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="min-w-0 space-y-4">
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-100">章节概要</div>
+            <p className="text-sm leading-6 text-slate-400">{summary}</p>
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-100">二级知识点</div>
+            <div className="flex flex-wrap gap-2">
+              {childPoints.slice(0, 8).map((point) => (
+                <Link
+                  key={point.id}
+                  href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.graphNodeId || point.id)}`}
+                  className="rounded-md border border-white/[0.08] bg-black/20 px-2.5 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.08] hover:text-cyan-100"
+                >
+                  {point.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-100">章节资源</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {visibleResources.map((resource) => (
+                <ResourceChip key={`${resource.type}-${resource.refId || resource.url || resource.title}`} resource={resource} chapter={chapter.chapter} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          {video?.url ? (
+            <div className="overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
+              <div className="flex items-center gap-2 border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">
+                <PlayCircle className="h-3.5 w-3.5 text-cyan-200" />
+                {video.title}
+              </div>
+              <iframe
+                src={video.url}
+                title={video.title}
+                className="aspect-video w-full"
+                allow="fullscreen; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-[180px] flex-col justify-center rounded-md border border-white/[0.08] bg-black/20 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                <BookOpen className="h-4 w-4 text-cyan-200" />
+                章节内容已接入
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                本章当前接入知识点、课件位、测验位和实验入口；有公开视频时会在此处直接预览。
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.08] px-4 py-3">
+        <Link href={`/knowledge-graph?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08]">
+          <Share2 className="h-3.5 w-3.5" />
+          知识图谱
+        </Link>
+        <Link href="/quiz" className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08]">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          章节测验
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function CourseChaptersView({ query }: { query: string }) {
+  const filteredChapters = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return courseChapters;
+    return courseChapters.filter((chapter) => {
+      const children = getChildPoints(chapter.id).map((point) => point.name).join(' ');
+      const resources = getResourcesByChapter(chapter.chapter).map((resource) => resource.title).join(' ');
+      return `${chapter.name} ${chapter.description || ''} ${children} ${resources}`.toLowerCase().includes(q);
+    });
+  }, [query]);
+
+  return (
+    <div className="order-1 min-w-0 lg:order-2">
+      <CourseMaterialPanel />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+          <BookOpen className="h-4 w-4 text-cyan-200" />
+          课程章节
+        </div>
+        <div className="font-mono text-[11px] text-slate-500">{filteredChapters.length} / {courseChapters.length} CHAPTERS</div>
+      </div>
+
+      <div className="grid gap-4">
+        {filteredChapters.map((chapter) => (
+          <ChapterCard key={chapter.id} chapter={chapter} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function HyperCoursesPage() {
   const [labs, setLabs] = useState<HyperExperimentCard[]>(() => buildHyperExperiments(experimentCatalog, []));
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [section, setSection] = useState<SectionMode>('chapters');
   const [view, setView] = useState('all');
   const [topic, setTopic] = useState('all');
 
@@ -278,9 +562,13 @@ export function HyperCoursesPage() {
               <Cpu className="h-3.5 w-3.5" />
               8051 · AT89C52 · Intel MCS-51
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">课程实验工作台</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">
+              {section === 'chapters' ? '课程内容' : '课程实验工作台'}
+            </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。
+              {section === 'chapters'
+                ? '按教学大纲恢复 10 个章节，接入知识图谱、视频、课件位、测验和实验报告。'
+                : '以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。'}
             </p>
           </div>
           <div className="relative w-full max-w-md">
@@ -288,7 +576,7 @@ export function HyperCoursesPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索实验、主题、编号..."
+              placeholder={section === 'chapters' ? '搜索章节、知识点、资源...' : '搜索实验、主题、编号...'}
               className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
           </div>
@@ -298,14 +586,20 @@ export function HyperCoursesPage() {
       <main className="grid gap-5 px-4 py-5 lg:grid-cols-[240px_1fr] md:px-6">
         <CourseSideNav
           topics={topics}
+          chapters={courseChapters}
+          activeSection={section}
           activeView={view}
           activeTopic={topic}
+          setSection={setSection}
           setView={setView}
           setTopic={setTopic}
           labs={labs}
         />
 
-        <div className="min-w-0">
+        {section === 'chapters' ? (
+          <CourseChaptersView query={query} />
+        ) : (
+          <div className="order-1 min-w-0 lg:order-2">
           {continueLab && (
             <Link
               href={continueLab.href}
@@ -339,7 +633,8 @@ export function HyperCoursesPage() {
               <LabCard key={lab.id} lab={lab} />
             ))}
           </div>
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );

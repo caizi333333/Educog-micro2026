@@ -80,7 +80,7 @@ const adminItems = [
 // All menu items flattened for title lookup
 const getAllMenuItems = (role?: string) => {
   const items = [
-    { href: '/', label: '课程实验', icon: BookOpen },
+    { href: '/', label: '课程内容', icon: BookOpen },
     ...learningItems,
     ...analysisItems,
   ];
@@ -297,7 +297,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Home */}
           <SidebarGroup>
             <SidebarMenu>
-              <NavItem item={{ href: '/', label: '课程实验', icon: BookOpen }} pathname={pathname} />
+              <NavItem item={{ href: '/', label: '课程内容', icon: BookOpen }} pathname={pathname} />
             </SidebarMenu>
           </SidebarGroup>
 
