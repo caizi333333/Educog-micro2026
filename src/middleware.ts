@@ -18,11 +18,13 @@ const publicPaths = [
   '/api/middleware-test'
 ];
 
+const publicExactPaths = ['/'];
+
 // 管理员路径
 const adminPaths = ['/admin'];
 
 // 静态资源路径
-const staticPaths = ['/_next', '/favicon.ico', '/public'];
+const staticPaths = ['/_next', '/favicon.ico', '/public', '/resources'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -45,7 +47,9 @@ export function middleware(request: NextRequest) {
   }
 
   // 检查是否是公开路径
-  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path));
+  const isPublicPath =
+    publicExactPaths.includes(pathname) ||
+    publicPaths.some(path => pathname === path || pathname.startsWith(path));
 
   // 获取令牌 - 优先从cookies获取，然后从headers获取
   const refreshToken = request.cookies.get('refreshToken')?.value;

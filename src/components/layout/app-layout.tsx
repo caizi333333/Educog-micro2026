@@ -235,18 +235,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   useAchievementCheck();
 
-  // Public pages don't show sidebar
+  // Public pages don't show sidebar. The course home is public for visitors,
+  // but keeps the full app chrome once a user is signed in.
   const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
+  const publicCoursePaths = ['/'];
   const isPublicPath = publicPaths.includes(pathname || '');
+  const isPublicCoursePath = publicCoursePaths.includes(pathname || '');
+  const renderPublicShell = isPublicPath || (isPublicCoursePath && !user);
 
   React.useEffect(() => {
-    if (!loading && !user && !isPublicPath) {
+    if (!loading && !user && !isPublicPath && !isPublicCoursePath) {
       const from = pathname ? `?from=${encodeURIComponent(pathname)}` : '';
       router.replace(`/login${from}`);
     }
-  }, [isPublicPath, loading, pathname, router, user]);
+  }, [isPublicCoursePath, isPublicPath, loading, pathname, router, user]);
 
-  if (isPublicPath) {
+  if (renderPublicShell) {
     return <>{children}</>;
   }
 

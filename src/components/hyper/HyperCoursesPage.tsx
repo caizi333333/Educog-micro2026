@@ -40,6 +40,7 @@ import {
   type KnowledgePoint,
   type KnowledgePointResource,
 } from '@/lib/knowledge-points';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const topicIcons: Record<string, LucideIcon> = {
@@ -513,6 +514,7 @@ function CourseChaptersView({ query }: { query: string }) {
 }
 
 export function HyperCoursesPage() {
+  const { user } = useAuth();
   const [labs, setLabs] = useState<HyperExperimentCard[]>(() => buildHyperExperiments(experimentCatalog, []));
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -553,8 +555,34 @@ export function HyperCoursesPage() {
     });
   }, [labs, query, topic, view]);
 
+  const isPublicShell = !user;
+
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
+    <div
+      className={cn(
+        'bg-[#070a0d] text-slate-100',
+        isPublicShell ? 'min-h-screen' : '-m-6 min-h-[calc(100vh-3.5rem)]',
+      )}
+    >
+      {isPublicShell && (
+        <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-3 backdrop-blur-xl md:px-6">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md">
+              <Cpu className="h-[18px] w-[18px] text-primary" />
+            </div>
+            <div>
+              <span className="block text-base font-bold tracking-tight text-slate-50">芯智育才</span>
+              <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">8051 Lab</span>
+            </div>
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-white/[0.1] bg-white/[0.05] px-3 text-sm text-slate-100 hover:bg-white/[0.09]"
+          >
+            登录平台
+          </Link>
+        </div>
+      )}
       <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
