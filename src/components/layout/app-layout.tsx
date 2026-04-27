@@ -29,6 +29,7 @@ import {
   Settings,
   LogOut,
   ClipboardCheck,
+  ClipboardList,
   Trophy,
   ShieldCheck,
   GitBranch,
@@ -59,6 +60,7 @@ import { useAchievementCheck } from '@/hooks/use-achievement-check';
 // Navigation groups
 const learningItems = [
   { href: '/hyper', label: '总览工作台', icon: Sparkles },
+  { href: '/tasks', label: '我的任务', icon: ClipboardList },
   { href: '/knowledge-graph', label: '知识图谱', icon: Share2 },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
