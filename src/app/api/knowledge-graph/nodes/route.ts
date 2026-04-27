@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import {
-  knowledgePoints,
-  getPointById,
-  getChildPoints,
-  getPointsByChapter,
-  KnowledgePoint,
-} from '@/lib/knowledge-points';
+import { KnowledgePoint } from '@/lib/knowledge-points';
+import { fetchKnowledgePoints } from '@/lib/knowledge-source';
 
 interface KnowledgeNodeData {
   id: string;
@@ -57,9 +52,11 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const chapter = searchParams.get('chapter');
 
+    const { points: allPoints } = await fetchKnowledgePoints();
+
     // Fetch single node by ID
     if (nodeId) {
-      const point = getPointById(nodeId);
+      const point = allPoints.find((p) => p.id === nodeId);
       if (!point) {
         return NextResponse.json({
           success: false,
@@ -67,9 +64,9 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
 
-      const children = getChildPoints(nodeId);
+      const children = allPoints.filter((p) => p.parentId === nodeId);
       const siblings = point.parentId
-        ? getChildPoints(point.parentId).filter(p => p.id !== nodeId)
+        ? allPoints.filter((p) => p.parentId === point.parentId && p.id !== nodeId)
         : [];
 
       // Query user mastery from LearningProgress if userId provided
@@ -102,8 +99,10 @@ export async function GET(request: NextRequest) {
         type: mapLevelToType(point.level),
         difficulty: mapLevelToDifficulty(point.level),
         description: point.description ?? '',
-        prerequisites: point.parentId ? [point.parentId] : [],
-        connections: children.map(c => c.id).concat(siblings.map(s => s.id)),
+        prerequisites: point.prerequisites && point.prerequisites.length > 0
+          ? point.prerequisites
+          : (point.parentId ? [point.parentId] : []),
+        connections: children.map((c) => c.id).concat(siblings.map((s) => s.id)),
         learningTime: point.resources
           ? point.resources.reduce((sum, r) => sum + (r.duration ?? 0), 0) || 60
           : 60,
@@ -116,6 +115,7 @@ export async function GET(request: NextRequest) {
         chapter: point.chapter,
         level: point.level,
         graphNodeId: point.graphNodeId ?? null,
+        appliedIn: point.appliedIn ?? [],
       };
 
       return NextResponse.json({
@@ -125,13 +125,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all nodes, optionally filtered by chapter
-    let points = knowledgePoints;
-    if (chapter) {
-      points = getPointsByChapter(parseInt(chapter, 10));
-    }
+    const points = chapter
+      ? allPoints.filter((p) => p.chapter === parseInt(chapter, 10))
+      : allPoints;
 
     // If userId provided, batch-fetch their progress for all relevant modules
-    let progressMap = new Map<string, number>();
+    const progressMap = new Map<string, number>();
     if (userId) {
       const moduleIds = points.map(p => p.id);
       const progressRecords = await prisma.learningProgress.findMany({
@@ -146,25 +145,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const nodes = points.map(point => ({
-      id: point.id,
-      title: point.name,
-      type: mapLevelToType(point.level),
-      difficulty: mapLevelToDifficulty(point.level),
-      description: point.description ?? '',
-      prerequisites: point.parentId ? [point.parentId] : [],
-      connections: getChildPoints(point.id).map(c => c.id),
-      learningTime: point.resources
-        ? point.resources.reduce((sum, r) => sum + (r.duration ?? 0), 0) || 60
-        : 60,
-      tags: [`第${point.chapter}章`, `L${point.level}`],
-      resources: countResources(point),
-      position: { x: point.chapter * 200, y: point.level * 150 },
-      mastery: progressMap.get(point.id) ?? 0,
-      chapter: point.chapter,
-      level: point.level,
-      graphNodeId: point.graphNodeId ?? null,
-    }));
+    const nodes = points.map((point) => {
+      const children = allPoints.filter((p) => p.parentId === point.id);
+      return {
+        id: point.id,
+        title: point.name,
+        type: mapLevelToType(point.level),
+        difficulty: mapLevelToDifficulty(point.level),
+        description: point.description ?? '',
+        prerequisites: point.prerequisites && point.prerequisites.length > 0
+          ? point.prerequisites
+          : (point.parentId ? [point.parentId] : []),
+        connections: children.map((c) => c.id),
+        learningTime: point.resources
+          ? point.resources.reduce((sum, r) => sum + (r.duration ?? 0), 0) || 60
+          : 60,
+        tags: [`第${point.chapter}章`, `L${point.level}`],
+        resources: countResources(point),
+        position: { x: point.chapter * 200, y: point.level * 150 },
+        mastery: progressMap.get(point.id) ?? 0,
+        chapter: point.chapter,
+        level: point.level,
+        graphNodeId: point.graphNodeId ?? null,
+        appliedIn: point.appliedIn ?? [],
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { getChildPoints, knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
+import { type KnowledgePoint } from '@/lib/knowledge-points';
+import { fetchKnowledgePoints } from '@/lib/knowledge-source';
 
 function mapLevelToDifficulty(level: KnowledgePoint['level']) {
   if (level === 1) return 'beginner';
@@ -25,8 +26,8 @@ function resourceCounts(point: KnowledgePoint) {
   };
 }
 
-function toKnowledgeNode(point: KnowledgePoint, index: number) {
-  const children = getChildPoints(point.id);
+function toKnowledgeNode(point: KnowledgePoint, index: number, all: KnowledgePoint[]) {
+  const children = all.filter((p) => p.parentId === point.id);
   const learningTime = point.resources?.reduce((sum, item) => sum + (item.duration ?? 0), 0) || 30 + point.level * 15;
 
   return {
@@ -35,7 +36,9 @@ function toKnowledgeNode(point: KnowledgePoint, index: number) {
     type: mapLevelToType(point.level),
     difficulty: mapLevelToDifficulty(point.level),
     description: point.description ?? '',
-    prerequisites: point.parentId ? [point.parentId] : [],
+    prerequisites: point.prerequisites && point.prerequisites.length > 0
+      ? point.prerequisites
+      : (point.parentId ? [point.parentId] : []),
     connections: children.map((child) => child.id),
     learningTime,
     completionRate: 0,
@@ -50,37 +53,38 @@ function toKnowledgeNode(point: KnowledgePoint, index: number) {
     chapter: point.chapter,
     level: point.level,
     graphNodeId: point.graphNodeId ?? null,
+    appliedIn: point.appliedIn ?? [],
   };
 }
 
-const knowledgeNodes = knowledgePoints.map(toKnowledgeNode);
-
-const learningPaths = [
-  {
-    id: 'beginner-path',
-    title: '8051基础入门路径',
-    description: '覆盖单片机概述、硬件结构和指令系统的基础学习路径',
-    nodes: knowledgePoints.filter((point) => point.chapter <= 3 && point.level <= 2).map((point) => point.id),
-    estimatedTime: 360,
-    difficulty: 'beginner',
-    completionRate: 0,
-    enrolledUsers: 0,
-    rating: 4.5,
-    tags: ['入门', '硬件结构', '指令系统']
-  },
-  {
-    id: 'practice-path',
-    title: '实验应用强化路径',
-    description: '面向定时器、中断、串口和接口技术的实验应用路径',
-    nodes: knowledgePoints.filter((point) => point.chapter >= 5 && point.chapter <= 8 && point.level <= 2).map((point) => point.id),
-    estimatedTime: 420,
-    difficulty: 'intermediate',
-    completionRate: 0,
-    enrolledUsers: 0,
-    rating: 4.5,
-    tags: ['实验', '中断', '接口技术']
-  }
-];
+function buildLearningPaths(points: KnowledgePoint[]) {
+  return [
+    {
+      id: 'beginner-path',
+      title: '8051基础入门路径',
+      description: '覆盖单片机概述、硬件结构和指令系统的基础学习路径',
+      nodes: points.filter((point) => point.chapter <= 3 && point.level <= 2).map((point) => point.id),
+      estimatedTime: 360,
+      difficulty: 'beginner',
+      completionRate: 0,
+      enrolledUsers: 0,
+      rating: 4.5,
+      tags: ['入门', '硬件结构', '指令系统']
+    },
+    {
+      id: 'practice-path',
+      title: '实验应用强化路径',
+      description: '面向定时器、中断、串口和接口技术的实验应用路径',
+      nodes: points.filter((point) => point.chapter >= 5 && point.chapter <= 8 && point.level <= 2).map((point) => point.id),
+      estimatedTime: 420,
+      difficulty: 'intermediate',
+      completionRate: 0,
+      enrolledUsers: 0,
+      rating: 4.5,
+      tags: ['实验', '中断', '接口技术']
+    }
+  ];
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,43 +94,49 @@ export async function GET(request: NextRequest) {
 
     // 获取知识图谱节点
     if (type === 'nodes') {
+      const { points } = await fetchKnowledgePoints();
+      const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
       return NextResponse.json({
         success: true,
-        data: knowledgeNodes
+        data: nodes,
       });
     }
 
     // 获取学习路径
     if (type === 'paths') {
+      const { points } = await fetchKnowledgePoints();
       return NextResponse.json({
         success: true,
-        data: learningPaths
+        data: buildLearningPaths(points),
       });
     }
 
     // 获取用户进度
     if (type === 'progress' && userId) {
       try {
-        const userProgress = await prisma.userProgress.findUnique({
-          where: { userId },
-          select: {
-            modulesCompleted: true,
-            totalTimeSpent: true,
-            averageScore: true
-          }
-        });
+        const [userProgress, sourceResult] = await Promise.all([
+          prisma.userProgress.findUnique({
+            where: { userId },
+            select: {
+              modulesCompleted: true,
+              totalTimeSpent: true,
+              averageScore: true,
+            },
+          }),
+          fetchKnowledgePoints(),
+        ]);
 
-        // 基于完成的模块数量估算完成的节点
+        const points = sourceResult.points;
         const completedNodesCount = userProgress?.modulesCompleted || 0;
-        const completedNodes = knowledgeNodes.slice(0, completedNodesCount).map(n => n.id);
+        const completedNodes = points.slice(0, completedNodesCount).map((n) => n.id);
 
         return NextResponse.json({
           success: true,
           data: {
             completedNodes,
-            totalNodes: knowledgeNodes.length,
-            completionRate: (completedNodes.length / knowledgeNodes.length) * 100
-          }
+            totalNodes: points.length,
+            completionRate: points.length > 0 ? (completedNodes.length / points.length) * 100 : 0,
+          },
         });
       } catch (error) {
         console.error('Error fetching user progress:', error);
@@ -140,36 +150,33 @@ export async function GET(request: NextRequest) {
     // 获取推荐节点
     if (type === 'recommendations' && userId) {
       try {
-        const userProgress = await prisma.userProgress.findUnique({
-          where: { userId },
-          select: {
-            modulesCompleted: true,
-            averageScore: true
-          }
-        });
+        const [userProgress, sourceResult] = await Promise.all([
+          prisma.userProgress.findUnique({
+            where: { userId },
+            select: {
+              modulesCompleted: true,
+              averageScore: true,
+            },
+          }),
+          fetchKnowledgePoints(),
+        ]);
 
-        // 基于完成的模块数量和平均分数估算完成的节点
+        const points = sourceResult.points;
+        const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
         const completedNodesCount = userProgress?.modulesCompleted || 0;
-        const completedNodes = knowledgeNodes.slice(0, completedNodesCount).map(n => n.id);
+        const completedNodes = nodes.slice(0, completedNodesCount).map((n) => n.id);
 
-        const recommendations = knowledgeNodes
-          .filter(node => {
-            // 未完成的节点
+        const recommendations = nodes
+          .filter((node) => {
             if (completedNodes.includes(node.id)) return false;
-            
-            // 检查前置条件是否满足
-            const prerequisitesMet = node.prerequisites.every(prereq => 
-              completedNodes.includes(prereq)
-            );
-            
-            return prerequisitesMet;
+            return node.prerequisites.every((prereq) => completedNodes.includes(prereq));
           })
           .sort((a, b) => b.popularity - a.popularity)
           .slice(0, 5);
 
         return NextResponse.json({
           success: true,
-          data: recommendations
+          data: recommendations,
         });
       } catch (error) {
         console.error('Error fetching recommendations:', error);
