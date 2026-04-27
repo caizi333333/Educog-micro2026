@@ -59,6 +59,16 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Allow same-origin embedding of the bundled lab-viz Vite app under /lab-viz
+      {
+        source: '/resources/lab-viz/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
 
     ];
   },
