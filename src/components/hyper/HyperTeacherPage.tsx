@@ -339,6 +339,10 @@ export function HyperTeacherPage() {
               <Users className="h-4 w-4" />
               班级管理
             </Link>
+            <Link href="/teacher/pushed" className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]">
+              <BarChart3 className="h-4 w-4" />
+              推送回查
+            </Link>
             <Link href="/knowledge-graph?view=knowledge" className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]">
               <GitBranch className="h-4 w-4" />
               维护图谱

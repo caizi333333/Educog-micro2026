@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Clock, GitBranch, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock, GitBranch, KeyRound, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AssignedExperiment = {
@@ -92,6 +92,13 @@ export default function MyTasksPage() {
               {!loading && data && totalCount === 0 && '当前没有待处理的任务。'}
             </p>
           </div>
+          <Link
+            href="/classes/join"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]"
+          >
+            <KeyRound className="h-4 w-4" />
+            加入班级
+          </Link>
           <button
             type="button"
             onClick={load}
