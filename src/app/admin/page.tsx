@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, BookOpen, BarChart3, Settings } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, Network } from 'lucide-react';
 import Link from 'next/link';
 
 interface Stats {
@@ -46,6 +46,13 @@ export default function AdminPage() {
       icon: BookOpen,
       href: '/simulation',
       color: 'text-green-500',
+    },
+    {
+      title: '知识图谱维护',
+      description: '编辑 270 节点 / 前置 / 实验关联',
+      icon: Network,
+      href: '/admin/knowledge-graph',
+      color: 'text-cyan-500',
     },
     {
       title: '数据统计',
