@@ -460,7 +460,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
                 章节内容已接入
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                本章当前接入知识点、课件位、测验位和实验入口；有公开视频时会在此处直接预览。
+                本章当前接入知识点、课件位、测验位和实验入口；待补经确认的课程视频后再开放预览。
               </p>
             </div>
           )}
@@ -595,7 +595,7 @@ export function HyperCoursesPage() {
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {section === 'chapters'
-                ? '按教学大纲恢复 10 个章节，接入知识图谱、视频、课件位、测验和实验报告。'
+                ? '按教学大纲恢复 10 个章节，接入知识图谱、课件位、测验和实验报告；视频位待补真实录课材料。'
                 : '以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。'}
             </p>
           </div>

@@ -7,7 +7,7 @@
 export interface KnowledgePointResource {
   type: 'video' | 'animation' | 'slide' | 'quiz' | 'document' | 'experiment';
   title: string;
-  url?: string;          // For videos (bilibili embeds etc)
+  url?: string;          // For verified course videos or public documents
   refId?: string;        // For quizzes (quiz question ID) or experiments (exp01 etc)
   duration?: number;     // minutes
 }
@@ -113,7 +113,6 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '2.3', name: 'I/O接口', level: 2, parentId: '2', chapter: 2, description: 'P0-P3四个8位并行I/O端口的结构与特性', graphNodeId: 'io', resources: [
     { type: 'slide', title: '2.3 I/O接口 课件', refId: 'ch02-ppt-s3' },
-    { type: 'video', title: '8051 控制 LED 闪烁程序', url: 'https://player.bilibili.com/player.html?bvid=BV15W411B7Dj&autoplay=0', duration: 15 },
     { type: 'animation', title: 'P0-P3端口内部结构对比动画', refId: 'anim-io-ports' },
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
   ] },
@@ -291,7 +290,6 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   { id: '5', name: '中断系统', level: 1, chapter: 5, description: '中断概念、89C51中断源、外部中断、中断嵌套与应用', graphNodeId: 'interrupts', resources: [
     { type: 'slide', title: '第5章 中断系统 课件PPT', refId: 'ch05-ppt' },
-    { type: 'video', title: '8051 中断系统详解', url: 'https://player.bilibili.com/player.html?bvid=BV1qt411T79Y&autoplay=0', duration: 20 },
     { type: 'quiz', title: '第5章 单元测验', refId: 'quiz-ch5' },
     { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
@@ -299,7 +297,6 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '5.1', name: '中断基本概念', level: 2, parentId: '5', chapter: 5, description: '中断的定义、分类与优先级机制', graphNodeId: 'interrupts', resources: [
     { type: 'slide', title: '5.1 中断基本概念 课件', refId: 'ch05-ppt-s1' },
-    { type: 'video', title: '8051 中断系统详解', url: 'https://player.bilibili.com/player.html?bvid=BV1qt411T79Y&autoplay=0', duration: 20 },
     { type: 'animation', title: '中断处理流程动画演示', refId: 'anim-interrupt-flow' },
     { type: 'quiz', title: '中断基本概念 练习题', refId: 'quiz-ch5-basics' },
   ] },
@@ -359,7 +356,6 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   { id: '6', name: '定时器/计数器', level: 1, chapter: 6, description: '定时器/计数器的原理、工作模式与应用', graphNodeId: 'timers', resources: [
     { type: 'slide', title: '第6章 定时器/计数器 课件PPT', refId: 'ch06-ppt' },
-    { type: 'video', title: '8051 定时器/计数器编程', url: 'https://player.bilibili.com/player.html?bvid=BV1U4411V7hL&autoplay=0', duration: 25 },
     { type: 'quiz', title: '第6章 单元测验', refId: 'quiz-ch6' },
     { type: 'experiment', title: '实验三：定时/计数器实验', refId: 'exp03', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
@@ -367,7 +363,6 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '6.1', name: '定时器基础', level: 2, parentId: '6', chapter: 6, description: '定时器/计数器的工作原理与控制寄存器', graphNodeId: 'timers', resources: [
     { type: 'slide', title: '6.1 定时器基础 课件', refId: 'ch06-ppt-s1' },
-    { type: 'video', title: '8051 定时器/计数器编程', url: 'https://player.bilibili.com/player.html?bvid=BV1U4411V7hL&autoplay=0', duration: 25 },
     { type: 'animation', title: 'TMOD/TCON寄存器位功能动画', refId: 'anim-tmod-tcon' },
     { type: 'quiz', title: '定时器基础 练习题', refId: 'quiz-ch6-basics' },
   ] },
@@ -461,7 +456,6 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   { id: '8', name: '接口技术', level: 1, chapter: 8, description: '显示、键盘、AD/DA、传感器与电机驱动接口', graphNodeId: 'io', resources: [
     { type: 'slide', title: '第8章 接口技术 课件PPT', refId: 'ch08-ppt' },
-    { type: 'video', title: '8051 驱动7段数码管', url: 'https://player.bilibili.com/player.html?bvid=BV1Kb411T7St&autoplay=0', duration: 18 },
     { type: 'quiz', title: '第8章 单元测验', refId: 'quiz-ch8' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'experiment', title: '实验八：步进电机控制实验', refId: 'exp08', duration: 120 },
@@ -469,7 +463,6 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '8.1', name: '显示接口', level: 2, parentId: '8', chapter: 8, description: 'LED数码管和LCD液晶显示器的驱动方法', resources: [
     { type: 'slide', title: '8.1 显示接口 课件', refId: 'ch08-ppt-s1' },
-    { type: 'video', title: '8051 驱动7段数码管', url: 'https://player.bilibili.com/player.html?bvid=BV1Kb411T7St&autoplay=0', duration: 18 },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'animation', title: '数码管动态扫描显示原理动画', refId: 'anim-7seg-scan' },
   ] },
