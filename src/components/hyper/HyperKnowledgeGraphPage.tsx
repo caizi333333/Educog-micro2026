@@ -200,10 +200,12 @@ function DetailPanel({
           <button
             type="button"
             onClick={() => onSelectId(parent.id)}
-            className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-cyan-200"
+            className="group mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
           >
             <Layers className="h-3 w-3" />
-            上级：{parent.name}
+            <span>上级</span>
+            <span className="text-slate-500 group-hover:text-cyan-200/80">/</span>
+            <span className="font-medium">{parent.name}</span>
           </button>
         )}
       </div>

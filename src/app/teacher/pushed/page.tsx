@@ -169,7 +169,25 @@ export default function TeacherPushedPage() {
         </div>
       )}
 
-      {data && (
+      {data && data.totalStudents === 0 && classes.length === 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-5 text-sm">
+          <div className="font-medium">还没有任何班级</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            先去 <Link href="/teacher/classes" className="underline">班级管理</Link> 创建一个班、把学生加进去，再回来看推送状况。
+          </p>
+        </div>
+      )}
+
+      {data && data.totalStudents === 0 && classes.length > 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-5 text-sm">
+          <div className="font-medium">所选班级里还没有学生</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            到 <Link href="/teacher/classes" className="underline">班级管理</Link> 详情页用「复制加入链接」发学生，或直接「手动添加学生」。
+          </p>
+        </div>
+      )}
+
+      {data && data.totalStudents > 0 && (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-md border bg-card p-4">

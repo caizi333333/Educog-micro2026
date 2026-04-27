@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BookOpen, Clock, GitBranch, KeyRound, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,7 +51,7 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -72,11 +72,22 @@ export default function MyTasksPage() {
       setError(String(err));
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const onFocus = () => { load(); };
+    window.addEventListener('focus', onFocus);
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [load]);
 
   const totalCount = (data?.counts.assignedExperiments ?? 0) + (data?.counts.activePaths ?? 0);
 

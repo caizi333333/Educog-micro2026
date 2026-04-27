@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ClipboardCopy, Loader2, Plus, RefreshCw, Trash2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardCopy, Link2, Loader2, Plus, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Enrollment = {
@@ -50,6 +50,7 @@ export default function TeacherClassDetailPage({ params }: { params: Promise<{ i
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [addLocator, setAddLocator] = useState('');
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +141,19 @@ export default function TeacherClassDetailPage({ params }: { params: Promise<{ i
     }
   };
 
+  const copyJoinLink = async () => {
+    if (!data?.inviteCode) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${origin}/classes/join?code=${encodeURIComponent(data.inviteCode)}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   const students = (data?.enrollments ?? []).filter((e) => e.role === 'STUDENT');
   const teachers = (data?.enrollments ?? []).filter((e) => e.role === 'TEACHER');
 
@@ -172,7 +186,7 @@ export default function TeacherClassDetailPage({ params }: { params: Promise<{ i
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-wider text-cyan-600 dark:text-cyan-300">邀请码</div>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
                 <code className="rounded-md border bg-background px-3 py-1.5 font-mono text-base">{data.inviteCode}</code>
                 <button
                   type="button"
@@ -180,11 +194,19 @@ export default function TeacherClassDetailPage({ params }: { params: Promise<{ i
                   className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2 text-xs hover:bg-muted"
                 >
                   {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-                  {copied ? '已复制' : '复制'}
+                  {copied ? '已复制' : '复制邀请码'}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyJoinLink}
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/[0.08] px-2 text-xs text-cyan-700 hover:bg-cyan-500/[0.14] dark:text-cyan-200"
+                >
+                  {linkCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Link2 className="h-3.5 w-3.5" />}
+                  {linkCopied ? '已复制链接' : '复制加入链接'}
                 </button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                学生在 <Link href="/classes/join" className="underline">/classes/join</Link> 输入此码即可加入；或老师下面手动添加。
+                把链接发给学生即可一键加入；或学生在 <Link href="/classes/join" className="underline">/classes/join</Link> 手动输码。
               </p>
             </div>
             <button

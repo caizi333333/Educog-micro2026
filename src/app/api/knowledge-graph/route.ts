@@ -94,11 +94,12 @@ export async function GET(request: NextRequest) {
 
     // 获取知识图谱节点
     if (type === 'nodes') {
-      const { points } = await fetchKnowledgePoints();
+      const { points, source } = await fetchKnowledgePoints();
       const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
       return NextResponse.json({
         success: true,
         data: nodes,
+        source,
       });
     }
 

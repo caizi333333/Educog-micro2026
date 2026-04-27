@@ -84,6 +84,7 @@ export default function AdminKnowledgeGraphPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [source, setSource] = useState<'db' | 'static' | null>(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
@@ -94,6 +95,7 @@ export default function AdminKnowledgeGraphPage() {
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setNodes((data.data as ApiNode[]).map(nodeFromApi));
+        if (data.source === 'db' || data.source === 'static') setSource(data.source);
       } else {
         setMessage({ kind: 'err', text: '读取节点失败：' + (data.error || '未知错误') });
       }
@@ -265,8 +267,19 @@ export default function AdminKnowledgeGraphPage() {
             </Link>
           </div>
           <h1 className="mt-1 text-2xl font-bold">知识图谱维护</h1>
-          <p className="text-sm text-muted-foreground">
-            编辑、新增、删除知识点节点。修改即写入 KnowledgeNode 表，下个 /api/knowledge-graph 调用立即生效。
+          <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+            <span>编辑、新增、删除知识点节点。修改即写入 KnowledgeNode 表。</span>
+            <span className="font-mono text-xs">总计 {nodes.length} 节点</span>
+            {source && (
+              <span className={cn(
+                'rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+                source === 'db'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+              )}>
+                来源 {source}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -310,6 +323,26 @@ export default function AdminKnowledgeGraphPage() {
           )}
         >
           {message.text}
+        </div>
+      )}
+
+      {source === 'static' && !loading && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm">
+          <div>
+            <div className="font-medium">数据库还没有 KnowledgeNode 数据</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              当前展示的 270 节点来自静态文件 fallback。点右上「种子静态数据」一键导入数据库后才能编辑生效。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={seedFromStatic}
+            disabled={seeding}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-amber-500 px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            立即导入 270 节点
+          </button>
         </div>
       )}
 
