@@ -62,6 +62,24 @@ const labReportMaterial = {
   meta: 'PDF · 实验模板 · 本地教案材料已转换',
 };
 
+const researchFigures: { title: string; href: string; caption: string }[] = [
+  {
+    title: 'Figure 1 · 三图融合教学模型',
+    href: '/resources/research/fig1-three-graph-fusion.svg',
+    caption: '知识图谱 + 问题图谱 + 思政图谱融合架构（即本平台 /knowledge-graph 三个 tab 的设计依据）',
+  },
+  {
+    title: 'Figure 2 · 个性化学习支撑系统',
+    href: '/resources/research/fig2-personalized-system.svg',
+    caption: '输入-处理-输出三层结构，对应实验仿真→学情分析→AI 推荐的闭环',
+  },
+  {
+    title: 'Figure 3 · 教学改革实验结果',
+    href: '/resources/research/fig3-experimental-results.svg',
+    caption: '改革前后学习成绩与达成度对比（独立样本 t 检验，统计显著）',
+  },
+];
+
 const verifiedDiagrams: { title: string; href: string; meta: string }[] = [
   {
     title: '实验1 流水灯硬件原理图',
@@ -374,6 +392,41 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
   );
 }
 
+function ResearchBasisPanel() {
+  return (
+    <div className="mb-5 rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-amber-200">Research Basis · 研究依据</div>
+          <h2 className="mt-2 text-base font-semibold text-slate-50">本平台设计来自《基于知识图谱的微控制器课程改革》研究</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            孙延才 · 2025 · 论文配图为本平台架构与教学闭环的原始论证（点击图卡查看 SVG 矢量原图）
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-3 border-t border-amber-300/15 pt-3 md:grid-cols-3">
+        {researchFigures.map((fig) => (
+          <a
+            key={fig.href}
+            href={fig.href}
+            target="_blank"
+            rel="noreferrer"
+            className="group block overflow-hidden rounded-md border border-amber-300/15 bg-white"
+          >
+            <div className="flex items-center justify-center bg-white p-2">
+              <img src={fig.href} alt={fig.title} className="block h-32 w-auto" loading="lazy" />
+            </div>
+            <div className="border-t border-amber-300/15 bg-[#0c1117] px-3 py-2">
+              <div className="text-[12px] font-medium text-slate-100 group-hover:text-amber-100">{fig.title}</div>
+              <div className="mt-0.5 text-[10px] leading-snug text-slate-500">{fig.caption}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CourseMaterialPanel() {
   return (
     <div className="mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
@@ -529,6 +582,7 @@ function CourseChaptersView({ query }: { query: string }) {
 
   return (
     <div className="order-1 min-w-0 lg:order-2">
+      <ResearchBasisPanel />
       <CourseMaterialPanel />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

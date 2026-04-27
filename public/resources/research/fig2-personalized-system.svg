@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="180" height="120" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120">
+  <!-- 定义样式 -->
+  <defs>
+    <style>
+      .title-text { font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; fill: #000000; }
+      .layer-text { font-family: Arial, sans-serif; font-size: 6px; font-weight: bold; fill: #000000; }
+      .module-text { font-family: Arial, sans-serif; font-size: 5px; fill: #FFFFFF; font-weight: bold; }
+      .detail-text { font-family: Arial, sans-serif; font-size: 4px; fill: #000000; }
+      
+      .input-layer { fill: #E8F4FD; stroke: #2980B9; stroke-width: 0.5; }
+      .process-layer { fill: #FEF9E7; stroke: #F39C12; stroke-width: 0.5; }
+      .output-layer { fill: #E8F8F5; stroke: #27AE60; stroke-width: 0.5; }
+      
+      .input-module { fill: #3498DB; stroke: #2980B9; stroke-width: 0.3; }
+      .process-module { fill: #E67E22; stroke: #D35400; stroke-width: 0.3; }
+      .output-module { fill: #27AE60; stroke: #229954; stroke-width: 0.3; }
+      
+      .flow-arrow { stroke: #000000; stroke-width: 0.8; fill: none; marker-end: url(#arrow); }
+    </style>
+    
+    <!-- 箭头标记 -->
+    <marker id="arrow" markerWidth="4" markerHeight="3" refX="3.5" refY="1.5" orient="auto">
+      <polygon points="0,0 0,3 4,1.5" fill="#000000"/>
+    </marker>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="180" height="120" fill="#FFFFFF"/>
+  
+  <!-- 标题 -->
+  <text x="90" y="8" text-anchor="middle" class="title-text">Personalized Learning Support System</text>
+  
+  <!-- 输入层 -->
+  <rect x="5" y="15" width="45" height="90" rx="2" class="input-layer"/>
+  <text x="27.5" y="22" text-anchor="middle" class="layer-text">INPUT</text>
+  
+  <!-- 静态特征 -->
+  <rect x="8" y="25" width="39" height="18" rx="1" class="input-module"/>
+  <text x="27.5" y="31" text-anchor="middle" class="module-text">Static Features</text>
+  <text x="27.5" y="36" text-anchor="middle" class="module-text">Demographics</text>
+  <text x="27.5" y="40" text-anchor="middle" class="module-text">Knowledge Base</text>
+  
+  <!-- 动态行为 -->
+  <rect x="8" y="45" width="39" height="18" rx="1" class="input-module"/>
+  <text x="27.5" y="51" text-anchor="middle" class="module-text">Dynamic Behaviors</text>
+  <text x="27.5" y="56" text-anchor="middle" class="module-text">Login Patterns</text>
+  <text x="27.5" y="60" text-anchor="middle" class="module-text">Resource Access</text>
+  
+  <!-- 认知状态 -->
+  <rect x="8" y="65" width="39" height="18" rx="1" class="input-module"/>
+  <text x="27.5" y="71" text-anchor="middle" class="module-text">Cognitive States</text>
+  <text x="27.5" y="76" text-anchor="middle" class="module-text">Understanding</text>
+  <text x="27.5" y="80" text-anchor="middle" class="module-text">Mastery Level</text>
+  
+  <!-- 数据标注 -->
+  <text x="27.5" y="90" text-anchor="middle" class="detail-text">Multi-dimensional</text>
+  <text x="27.5" y="94" text-anchor="middle" class="detail-text">Data Collection</text>
+  <text x="27.5" y="98" text-anchor="middle" class="detail-text">n=320 learners</text>
+  
+  <!-- 处理层 -->
+  <rect x="67" y="15" width="45" height="90" rx="2" class="process-layer"/>
+  <text x="89.5" y="22" text-anchor="middle" class="layer-text">PROCESSING</text>
+  
+  <!-- K-means聚类 -->
+  <ellipse cx="89.5" cy="32" rx="18" ry="8" class="process-module"/>
+  <text x="89.5" y="30" text-anchor="middle" class="module-text">K-means++</text>
+  <text x="89.5" y="35" text-anchor="middle" class="module-text">Clustering</text>
+  
+  <!-- Dijkstra路径 -->
+  <ellipse cx="89.5" cy="47" rx="18" ry="8" class="process-module"/>
+  <text x="89.5" y="45" text-anchor="middle" class="module-text">Dijkstra</text>
+  <text x="89.5" y="50" text-anchor="middle" class="module-text">Path Planning</text>
+  
+  <!-- MAB推荐 -->
+  <ellipse cx="89.5" cy="62" rx="18" ry="8" class="process-module"/>
+  <text x="89.5" y="60" text-anchor="middle" class="module-text">MAB-UCB</text>
+  <text x="89.5" y="65" text-anchor="middle" class="module-text">Recommendation</text>
+  
+  <!-- RAG答疑 -->
+  <ellipse cx="89.5" cy="77" rx="18" ry="8" class="process-module"/>
+  <text x="89.5" y="75" text-anchor="middle" class="module-text">RAG</text>
+  <text x="89.5" y="80" text-anchor="middle" class="module-text">Q&A System</text>
+  
+  <!-- 算法标注 -->
+  <text x="89.5" y="90" text-anchor="middle" class="detail-text">AI Algorithms</text>
+  <text x="89.5" y="94" text-anchor="middle" class="detail-text">Real-time</text>
+  <text x="89.5" y="98" text-anchor="middle" class="detail-text">Processing</text>
+  
+  <!-- 输出层 -->
+  <rect x="129" y="15" width="45" height="90" rx="2" class="output-layer"/>
+  <text x="151.5" y="22" text-anchor="middle" class="layer-text">OUTPUT</text>
+  
+  <!-- 路径推荐 -->
+  <rect x="132" y="25" width="39" height="18" rx="1" class="output-module"/>
+  <text x="151.5" y="31" text-anchor="middle" class="module-text">Learning Path</text>
+  <text x="151.5" y="36" text-anchor="middle" class="module-text">Recommendation</text>
+  <text x="151.5" y="40" text-anchor="middle" class="module-text">Adaptive Routes</text>
+  
+  <!-- 资源推送 -->
+  <rect x="132" y="45" width="39" height="18" rx="1" class="output-module"/>
+  <text x="151.5" y="51" text-anchor="middle" class="module-text">Smart Resources</text>
+  <text x="151.5" y="56" text-anchor="middle" class="module-text">Content Delivery</text>
+  <text x="151.5" y="60" text-anchor="middle" class="module-text">Multi-media</text>
+  
+  <!-- 智能答疑 -->
+  <rect x="132" y="65" width="39" height="18" rx="1" class="output-module"/>
+  <text x="151.5" y="71" text-anchor="middle" class="module-text">Intelligent</text>
+  <text x="151.5" y="76" text-anchor="middle" class="module-text">Tutoring</text>
+  <text x="151.5" y="80" text-anchor="middle" class="module-text">Socratic Method</text>
+  
+  <!-- 服务标注 -->
+  <text x="151.5" y="90" text-anchor="middle" class="detail-text">Personalized</text>
+  <text x="151.5" y="94" text-anchor="middle" class="detail-text">Services</text>
+  <text x="151.5" y="98" text-anchor="middle" class="detail-text">24/7 Available</text>
+  
+  <!-- 数据流箭头 -->
+  <line x1="50" y1="34" x2="67" y2="34" class="flow-arrow"/>
+  <line x1="50" y1="54" x2="67" y2="54" class="flow-arrow"/>
+  <line x1="50" y1="74" x2="67" y2="74" class="flow-arrow"/>
+  
+  <line x1="112" y1="34" x2="129" y2="34" class="flow-arrow"/>
+  <line x1="112" y1="54" x2="129" y2="54" class="flow-arrow"/>
+  <line x1="112" y1="74" x2="129" y2="74" class="flow-arrow"/>
+  
+  <!-- 反馈回路 -->
+  <path d="M 151.5 105 Q 90 110 27.5 105" stroke="#666666" stroke-width="0.5" stroke-dasharray="1,1" fill="none" marker-end="url(#arrow)"/>
+  <text x="90" y="113" text-anchor="middle" class="detail-text">Feedback Loop</text>
+</svg>
