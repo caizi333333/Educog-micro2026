@@ -37,6 +37,46 @@ interface RelatedNode {
   level: number;
 }
 
+// Parse '[#7.4.3]' style inline citations in AI answer text. Each match
+// becomes a clickable chip linking to /knowledge-graph?node=ID. The chip
+// label uses the node's name from relatedNodes when available, falling
+// back to '#id'. Surrounding text keeps its newlines via React fragments.
+function renderWithCitations(content: string, relatedNodes?: RelatedNode[]): React.ReactNode[] {
+  if (!content) return [];
+  const byId = new Map<string, RelatedNode>();
+  for (const n of relatedNodes ?? []) byId.set(n.id, n);
+  const re = /\[#([0-9]+(?:\.[0-9]+)*)\]/g;
+  const out: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      out.push(<span key={`t${key++}`}>{content.slice(lastIndex, match.index)}</span>);
+    }
+    const id = match[1] as string;
+    const node = byId.get(id);
+    out.push(
+      <a
+        key={`c${key++}`}
+        href={`/knowledge-graph?node=${encodeURIComponent(id)}`}
+        target="_blank"
+        rel="noreferrer"
+        className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/[0.08] px-1.5 py-0.5 align-baseline text-[11px] text-cyan-700 hover:bg-cyan-500/[0.14] dark:text-cyan-200"
+        title={node ? `CH${node.chapter} · L${node.level} · ${node.name}` : `节点 ${id}（未在检索结果中）`}
+      >
+        <span className="font-mono">#{id}</span>
+        {node && <span>{node.name}</span>}
+      </a>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    out.push(<span key={`t${key++}`}>{content.slice(lastIndex)}</span>);
+  }
+  return out;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'assistant';
@@ -526,7 +566,11 @@ void timer0_isr() interrupt 1 {
                               ? 'bg-gradient-to-br from-blue-50 to-blue-100/60 text-slate-800 border border-blue-200/60 font-medium' 
                               : 'bg-gradient-to-br from-slate-50 to-slate-100/60 text-slate-800 border border-slate-200/60'
                           }`}>
-                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            <div className="whitespace-pre-wrap">
+                              {message.type === 'assistant'
+                                ? renderWithCitations(message.content, message.relatedNodes)
+                                : message.content}
+                            </div>
                             
                             {/* 代码块 */}
                             {message.codeBlocks && message.codeBlocks.map((block, index) => (
