@@ -50,6 +50,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { knowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
+import { quizQuestions, type Question } from '@/lib/quiz-data';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { problemGraph, problemGraphStats, type ProblemNode } from '@/lib/problem-graph';
 import {
@@ -150,6 +151,49 @@ function getNextPoint(current: KnowledgePoint, all: KnowledgePoint[]): Knowledge
   return all[idx + 1];
 }
 
+function QuizPreviewItem({ q, index }: { q: Question; index: number }) {
+  const [showAnswer, setShowAnswer] = useState(false);
+  return (
+    <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+      <div className="mb-2 flex items-start gap-2 text-[11px]">
+        <span className="font-mono text-[10px] text-slate-500">Q{index + 1} · CH{q.chapter}</span>
+        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">
+          {q.type === 'code-completion' ? '代码补全' : '选择'}
+        </span>
+      </div>
+      <p className="text-[12px] leading-5 text-slate-200">{q.questionText}</p>
+      {q.type === 'code-completion' && (
+        <pre className="mt-2 max-h-24 overflow-y-auto rounded-sm border border-white/[0.05] bg-black/40 p-2 font-mono text-[10px] leading-4 text-slate-300">
+          {q.code}
+        </pre>
+      )}
+      {q.type === 'multiple-choice' && (
+        <ul className="mt-2 space-y-0.5 text-[11px] text-slate-400">
+          {q.options.map((opt, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span className="font-mono text-[10px] text-slate-600">{String.fromCharCode(65 + i)}.</span>
+              <span>{opt}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        onClick={() => setShowAnswer((v) => !v)}
+        className="mt-2 inline-flex h-6 items-center gap-1 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-2 text-[10px] text-emerald-200 hover:border-emerald-300/40 hover:bg-emerald-300/[0.12]"
+      >
+        {showAnswer ? '隐藏答案' : '查看答案'}
+      </button>
+      {showAnswer && (
+        <div className="mt-2 rounded-sm border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-1.5 text-[11px] text-emerald-100">
+          <span className="text-slate-500">正确答案：</span>
+          <span className="ml-1 font-medium">{q.correctAnswer}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailPanel({
   point,
   childPoints,
@@ -184,6 +228,7 @@ function DetailPanel({
   }));
   const parent = point.parentId ? pointById[point.parentId] : null;
   const nextPoint = getNextPoint(point, knowledgePoints);
+  const matchingQuestions = quizQuestions.filter((q) => q.ka === point.id).slice(0, 4);
 
   return (
     <aside className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
@@ -349,6 +394,28 @@ function DetailPanel({
                 </span>
                 <span className="shrink-0 font-mono text-[10px] text-emerald-300">{exp.refId}</span>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {matchingQuestions.length > 0 && (
+        <div className="border-b border-white/[0.08] p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              本节测验题 · {matchingQuestions.length}
+            </div>
+            <Link
+              href={`/quiz?chapter=${point.chapter}`}
+              className="font-mono text-[10px] text-cyan-300 hover:text-cyan-100"
+            >
+              到测验页 →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {matchingQuestions.map((q, i) => (
+              <QuizPreviewItem key={q.id} q={q} index={i} />
             ))}
           </div>
         </div>
