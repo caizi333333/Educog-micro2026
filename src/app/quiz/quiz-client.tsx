@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { quizQuestions, type Question, type CodeCompletionQuestion } from '@/lib/quiz-data';
+import { knowledgePoints } from '@/lib/knowledge-points';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -36,6 +37,38 @@ import { processAchievementResponse } from '@/hooks/use-achievement-notification
 
 type AnswersState = { [key: number]: string };
 type ScorePerKa = { [ka: string]: { correct: number; total: number; score: number } };
+
+const HIERARCHICAL_ID = /^\d+(\.\d+)*$/;
+const KP_NAME_BY_ID: Record<string, { name: string; chapter: number; level: number }> = (() => {
+  const m: Record<string, { name: string; chapter: number; level: number }> = {};
+  for (const p of knowledgePoints) m[p.id] = { name: p.name, chapter: p.chapter, level: p.level };
+  return m;
+})();
+
+// Render the `ka` field. If it matches a knowledge-graph node id (e.g. '7.4.3'),
+// surface as a clickable chip linking to /knowledge-graph?node=id and prefix
+// the chip text with the resolved node name. Otherwise render as plain text.
+function KaChip({ ka, className }: { ka: string; className?: string }) {
+  if (!HIERARCHICAL_ID.test(ka)) {
+    return <span className={cn('font-medium text-slate-100', className)}>{ka}</span>;
+  }
+  const node = KP_NAME_BY_ID[ka];
+  return (
+    <Link
+      href={`/knowledge-graph?node=${encodeURIComponent(ka)}`}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-2 py-0.5 text-xs text-cyan-100 hover:border-cyan-300/50 hover:bg-cyan-300/[0.14]',
+        className,
+      )}
+      title={node ? `CH${node.chapter} · L${node.level} · 点击在知识图谱中查看` : `节点 ${ka}`}
+    >
+      <span className="font-mono opacity-70">#{ka}</span>
+      {node && <span>{node.name}</span>}
+    </Link>
+  );
+}
 
 // Fisher-Yates shuffle algorithm
 const shuffleArray = (array: Question[]) => {
@@ -496,7 +529,9 @@ export function QuizClient() {
                 {scoreEntries.map(([ka, result]) => (
                   <div key={ka} className="rounded-md border border-white/[0.08] bg-black/20 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <span className="line-clamp-1 text-sm font-medium text-slate-100">{ka}</span>
+                      <span className="min-w-0">
+                        <KaChip ka={ka} />
+                      </span>
                       <span
                         className={cn(
                           'shrink-0 font-mono text-sm font-semibold',
@@ -554,12 +589,15 @@ export function QuizClient() {
                             </span>
                           </div>
                         </div>
-                        <Button asChild variant="link" size="sm" className="mt-2 h-auto p-0 text-cyan-200 hover:text-cyan-100">
-                          <Link href={`/#item-${question.chapter}`}>
-                            <BookCopy className="mr-2 h-4 w-4" />
-                            复习第 {question.chapter} 章
-                          </Link>
-                        </Button>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button asChild variant="link" size="sm" className="h-auto p-0 text-cyan-200 hover:text-cyan-100">
+                            <Link href={`/#item-${question.chapter}`}>
+                              <BookCopy className="mr-2 h-4 w-4" />
+                              复习第 {question.chapter} 章
+                            </Link>
+                          </Button>
+                          <KaChip ka={question.ka} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -584,9 +622,7 @@ export function QuizClient() {
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
                     {weakKAs.slice(0, 8).map((ka) => (
-                      <span key={ka} className="rounded border border-amber-300/20 bg-amber-300/[0.08] px-2 py-1 text-xs text-amber-100">
-                        {ka}
-                      </span>
+                      <KaChip key={ka} ka={ka} className="border-amber-300/20 bg-amber-300/[0.08] text-amber-100" />
                     ))}
                   </div>
                   <Button
@@ -900,7 +936,9 @@ export function QuizClient() {
               当前知识原子
             </div>
             <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-              <div className="text-base font-semibold text-slate-50">{currentQuestion.ka}</div>
+              <div className="text-base font-semibold text-slate-50">
+                <KaChip ka={currentQuestion.ka} />
+              </div>
               <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                 <span>章节内题量</span>
                 <span className="font-mono text-slate-300">{chapterQuestionCount}</span>
