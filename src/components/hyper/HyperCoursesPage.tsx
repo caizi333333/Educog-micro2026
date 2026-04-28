@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { experiments as experimentCatalog } from '@/lib/experiment-config';
+import { quizQuestions } from '@/lib/quiz-data';
 import {
   buildHyperExperiments,
   fetchHyperJson,
@@ -423,6 +424,26 @@ function ResearchBasisPanel() {
           </a>
         ))}
       </div>
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-300/15 pt-3">
+        <a
+          href="/resources/research/course-reform-paper.md"
+          target="_blank"
+          rel="noreferrer"
+          className="group inline-flex items-center gap-2 rounded-md border border-amber-300/25 bg-black/20 px-3 py-2 text-xs hover:border-amber-300/50 hover:bg-black/30"
+        >
+          <FileText className="h-3.5 w-3.5 text-amber-200" />
+          <span className="text-slate-200 group-hover:text-amber-100">论文全文（Markdown · 31KB）</span>
+        </a>
+        <a
+          href="/resources/research/course-reform-project-application.pdf"
+          target="_blank"
+          rel="noreferrer"
+          className="group inline-flex items-center gap-2 rounded-md border border-amber-300/25 bg-black/20 px-3 py-2 text-xs hover:border-amber-300/50 hover:bg-black/30"
+        >
+          <FileText className="h-3.5 w-3.5 text-amber-200" />
+          <span className="text-slate-200 group-hover:text-amber-100">教改项目申报书（PDF · 3.0MB）</span>
+        </a>
+      </div>
     </div>
   );
 }
@@ -474,6 +495,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
   const video = resources.find((resource) => resource.type === 'video' && resource.url);
   const visibleResources = resources.slice(0, 10);
   const summary = buildChapterSummary(chapter, childPoints);
+  const quizCount = quizQuestions.filter((q) => q.chapter === chapter.chapter).length;
 
   return (
     <article id={`item-${chapter.chapter}`} className="scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
@@ -489,6 +511,14 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
           <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
             {resources.length} 项资源
           </span>
+          {quizCount > 0 && (
+            <Link
+              href={`/quiz?chapter=${chapter.chapter}`}
+              className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.08] px-2 py-1 font-mono text-[11px] text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-300/[0.14]"
+            >
+              {quizCount} 道测验题
+            </Link>
+          )}
         </div>
         <h3 className="mt-3 text-lg font-semibold text-slate-50">{chapter.name}</h3>
         <p className="mt-2 text-sm leading-6 text-slate-400">{chapter.description}</p>
