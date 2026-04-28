@@ -426,13 +426,13 @@ function ResearchBasisPanel() {
       </div>
       <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-300/15 pt-3">
         <a
-          href="/resources/research/course-reform-paper.md"
+          href="/resources/research/course-reform-paper.txt"
           target="_blank"
           rel="noreferrer"
           className="group inline-flex items-center gap-2 rounded-md border border-amber-300/25 bg-black/20 px-3 py-2 text-xs hover:border-amber-300/50 hover:bg-black/30"
         >
           <FileText className="h-3.5 w-3.5 text-amber-200" />
-          <span className="text-slate-200 group-hover:text-amber-100">论文全文（Markdown · 31KB）</span>
+          <span className="text-slate-200 group-hover:text-amber-100">论文全文（纯文本 · 31KB · Markdown 源）</span>
         </a>
         <a
           href="/resources/research/course-reform-project-application.pdf"
