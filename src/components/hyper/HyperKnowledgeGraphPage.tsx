@@ -259,6 +259,39 @@ function DetailPanel({
         )}
       </div>
 
+      {point.tutor && (
+        <div className="border-b border-white/[0.08] bg-cyan-500/[0.03] p-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-200">
+            <Lightbulb className="h-3.5 w-3.5" />
+            讲解
+          </div>
+          <div className="space-y-3 text-sm leading-6 text-slate-200">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-cyan-300/80">本质</div>
+              <div className="mt-0.5">{point.tutor.core}</div>
+            </div>
+            {point.tutor.whyImportant && (
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">为什么重要</div>
+                <div className="mt-0.5 text-slate-300">{point.tutor.whyImportant}</div>
+              </div>
+            )}
+            {point.tutor.commonMistake && (
+              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-2.5">
+                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-amber-200">常见误区</div>
+                <div className="mt-0.5 text-slate-200">{point.tutor.commonMistake}</div>
+              </div>
+            )}
+            {point.tutor.takeaway && (
+              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-2.5">
+                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-emerald-200">带走这一句</div>
+                <div className="mt-0.5 font-medium text-slate-50">{point.tutor.takeaway}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {prereqs.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
           <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">

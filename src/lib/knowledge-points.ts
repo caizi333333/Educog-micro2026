@@ -12,6 +12,16 @@ export interface KnowledgePointResource {
   duration?: number;     // minutes
 }
 
+// Short tutor commentary attached to high-value KP nodes. Each field is one
+// student-facing sentence, not a wall of text — meant for the DetailPanel
+// "讲解" header above the resource list.
+export interface KnowledgePointTutor {
+  core: string;          // 一句话本质 — "this idea boils down to ..."
+  whyImportant?: string; // 为什么这一节非学不可
+  commonMistake?: string;// 学生常踩的坑
+  takeaway?: string;     // 离开页面前要带走的一句话
+}
+
 export interface KnowledgePoint {
   id: string;
   name: string;
@@ -21,6 +31,7 @@ export interface KnowledgePoint {
   description?: string;
   graphNodeId?: string;
   resources?: KnowledgePointResource[];
+  tutor?: KnowledgePointTutor;
   // Real cross-chapter relationships beyond strict parent-child hierarchy.
   // prerequisites: this point's id depends on understanding these other ids first.
   // appliedIn: lab/experiment refIds where this concept is exercised in practice.
@@ -32,7 +43,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点1：单片机概述（4学时）
   // ========================================================================
-  { id: '1', name: '单片机概述', level: 1, chapter: 1, description: '单片机基本概念、发展历史、分类选型与开发环境', graphNodeId: 'mcu', resources: [
+  { id: '1', name: '单片机概述', level: 1, chapter: 1, description: '单片机基本概念、发展历史、分类选型与开发环境', graphNodeId: 'mcu',
+    tutor: {
+      core: '单片机 = 把 CPU、RAM、ROM、定时器、I/O 都做进一颗芯片，让一个芯片就能跑完整的控制系统。',
+      whyImportant: '它是嵌入式系统的"砖头"——后面所有章节（中断、定时器、串口、接口）都是这块砖里的某一块。',
+      commonMistake: '把 8051 当成"小型 PC"。它没有操作系统，所有外设都得你写代码直接拨寄存器。',
+      takeaway: '8051 = 能独立完成"采集→判断→输出"控制闭环的一颗芯片。',
+    },
+    resources: [
     { type: 'slide', title: '第1章 单片机概述 课件PPT', refId: 'ch01-ppt' },
     { type: 'quiz', title: '第1章 单元测验', refId: 'quiz-ch1' },
     { type: 'experiment', title: '项目一：走进89C51的世界', refId: 'proj01', duration: 120 },
@@ -89,7 +107,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点2：硬件结构（6学时）
   // ========================================================================
-  { id: '2', name: '硬件结构', level: 1, chapter: 2, description: 'CPU结构、存储器、I/O接口、时钟时序与总线系统', graphNodeId: 'cpu', resources: [
+  { id: '2', name: '硬件结构', level: 1, chapter: 2, description: 'CPU结构、存储器、I/O接口、时钟时序与总线系统', graphNodeId: 'cpu',
+    tutor: {
+      core: '8051 内部 = 1 个 8 位 CPU + 4KB ROM + 128B RAM + 4 组 8 位 I/O 口 + 2 个定时器 + 1 个全双工串口 + 5 个中断源。',
+      whyImportant: '后续学到的中断 / 定时器 / 串口都是"在这张内部地图上拨某个寄存器"，地图本身得先记牢。',
+      commonMistake: '把 ROM 和 RAM 写混。代码烧在 ROM（内部 4KB / 外扩 64KB），运行变量放在 RAM（内部 128B / 外扩 64KB），二者地址空间是分开的。',
+      takeaway: '内部 RAM 只有 128 字节——下笔前先想清楚每个变量该放在哪一段。',
+    },
+    resources: [
     { type: 'slide', title: '第2章 硬件结构 课件PPT', refId: 'ch02-ppt' },
     { type: 'quiz', title: '第2章 单元测验', refId: 'quiz-ch2' },
     { type: 'animation', title: 'CPU内部结构与数据通路动画', refId: 'anim-cpu-datapath' },
@@ -158,7 +183,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点3：指令系统（4学时）
   // ========================================================================
-  { id: '3', name: '指令系统', level: 1, chapter: 3, description: '寻址方式、数据传送、算术逻辑运算、控制转移与位操作指令', graphNodeId: 'addressing_modes', resources: [
+  { id: '3', name: '指令系统', level: 1, chapter: 3, description: '寻址方式、数据传送、算术逻辑运算、控制转移与位操作指令', graphNodeId: 'addressing_modes',
+    tutor: {
+      core: '8051 共 111 条指令，背后只有 7 种寻址方式（立即 / 直接 / 寄存器 / 寄存器间接 / 变址 / 相对 / 位寻址）。',
+      whyImportant: '即便你只用 C 写代码，编译器最终也会把它翻成这些指令——理解它们才能调试关键时序、读懂反汇编。',
+      commonMistake: '把"立即寻址"和"直接寻址"搞混。`MOV A, #30H` 是把数 0x30 给 A，`MOV A, 30H` 是把地址 30H 处的内容给 A。',
+      takeaway: '写汇编先想"这一步是从哪取数、放到哪"——寻址方式就是这件事的语法。',
+    },
+    resources: [
     { type: 'slide', title: '第3章 指令系统 课件PPT', refId: 'ch03-ppt' },
     { type: 'quiz', title: '第3章 单元测验', refId: 'quiz-ch3' },
     { type: 'experiment', title: '实验二：指令系统实验', refId: 'exp02', duration: 90 },
@@ -232,7 +264,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点4：C语言编程（6学时）
   // ========================================================================
-  { id: '4', name: 'C语言编程', level: 1, chapter: 4, description: 'Keil C51开发环境、数据类型、控制结构与编程规范', resources: [
+  { id: '4', name: 'C语言编程', level: 1, chapter: 4, description: 'Keil C51开发环境、数据类型、控制结构与编程规范',
+    tutor: {
+      core: 'Keil C51 在标准 C 之上扩了 sfr / sbit / data / xdata 等关键字，让你直接读写 8051 的寄存器和外部存储器。',
+      whyImportant: '工程上几乎都用 C 写 8051——这一章决定你能不能把一段 C 代码翻译成对硬件的精确控制。',
+      commonMistake: '在 C51 里随便用 int / float。单片机 RAM 只有 128 字节，能用 `unsigned char` 就别用 `int`，能用 `bit` 就别用 `unsigned char`。',
+      takeaway: '写 8051 C，第一个问题永远是"这个变量该放在 data / idata / xdata 里？"',
+    },
+    resources: [
     { type: 'slide', title: '第4章 C语言编程 课件PPT', refId: 'ch04-ppt' },
     { type: 'quiz', title: '第4章 单元测验', refId: 'quiz-ch4' },
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
@@ -295,7 +334,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点5：中断系统（4学时）
   // ========================================================================
-  { id: '5', name: '中断系统', level: 1, chapter: 5, description: '中断概念、89C51中断源、外部中断、中断嵌套与应用', graphNodeId: 'interrupts', resources: [
+  { id: '5', name: '中断系统', level: 1, chapter: 5, description: '中断概念、89C51中断源、外部中断、中断嵌套与应用', graphNodeId: 'interrupts',
+    tutor: {
+      core: '中断 = 让 CPU 在跑主程序的同时，对外部 / 内部事件即时响应；8051 共 5 个中断源（INT0 / T0 / INT1 / T1 / 串口），可设两级优先级。',
+      whyImportant: '没有中断，所有事件都得靠 CPU 不停轮询；学会中断，才能写出真正"事件驱动"的嵌入式程序。',
+      commonMistake: '在中断服务程序里写很长的代码 / 调用阻塞函数。ISR 应当"短而快"——把长任务做成标志位，回到主循环再处理。',
+      takeaway: '中断 = "硬件举手 → CPU 立即接管 → 处理完回到原处"。',
+    },
+    resources: [
     { type: 'slide', title: '第5章 中断系统 课件PPT', refId: 'ch05-ppt' },
     { type: 'quiz', title: '第5章 单元测验', refId: 'quiz-ch5' },
     { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
@@ -361,7 +407,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点6：定时器/计数器（4学时）
   // ========================================================================
-  { id: '6', name: '定时器/计数器', level: 1, chapter: 6, description: '定时器/计数器的原理、工作模式与应用', graphNodeId: 'timers', resources: [
+  { id: '6', name: '定时器/计数器', level: 1, chapter: 6, description: '定时器/计数器的原理、工作模式与应用', graphNodeId: 'timers',
+    tutor: {
+      core: '8051 有 2 个 16 位定时器/计数器（T0 / T1）能在 CPU 跑别的事时独立计数；4 种工作模式决定它的位宽和触发方式。',
+      whyImportant: '几乎所有"周期性事件"——LED 闪烁、PWM、串口波特率、按键消抖——背后都是定时器。',
+      commonMistake: '把"定时模式"和"计数模式"分不清。定时模式数的是机器周期（内部时钟），计数模式数的是 T0 / T1 引脚的外部脉冲。',
+      takeaway: '想精确周期 → 选定时器；想数外部事件 → 选计数器。',
+    },
+    resources: [
     { type: 'slide', title: '第6章 定时器/计数器 课件PPT', refId: 'ch06-ppt' },
     { type: 'quiz', title: '第6章 单元测验', refId: 'quiz-ch6' },
     { type: 'experiment', title: '实验三：定时/计数器实验', refId: 'exp03', duration: 90 },
@@ -412,7 +465,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点7：串行通信（4学时）
   // ========================================================================
-  { id: '7', name: '串行通信', level: 1, chapter: 7, description: '通信基础知识、89C51串口与常用通信协议', graphNodeId: 'uart', resources: [
+  { id: '7', name: '串行通信', level: 1, chapter: 7, description: '通信基础知识、89C51串口与常用通信协议', graphNodeId: 'uart',
+    tutor: {
+      core: '8051 串口能在 4 种模式下收发 8 / 9 位数据；最常用的模式 1 是 8 位 UART，波特率由 T1 溢出率决定。',
+      whyImportant: '单片机和 PC、和别的板子、和上位机几乎都靠串口对话——这一节是"嵌入式系统对外说话"的入口。',
+      commonMistake: '设波特率时没算清楚。T1 模式 2、SMOD 位、晶振频率三件事任一项错，都会乱码。',
+      takeaway: '想让两块板子通信 → 先把波特率、数据位、停止位、奇偶校验四件事统一。',
+    },
+    resources: [
     { type: 'slide', title: '第7章 串行通信 课件PPT', refId: 'ch07-ppt' },
     { type: 'quiz', title: '第7章 单元测验', refId: 'quiz-ch7' },
     { type: 'experiment', title: '实验九：串口通信实验', refId: 'exp09', duration: 90 },
@@ -461,7 +521,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点8：接口技术（4学时）
   // ========================================================================
-  { id: '8', name: '接口技术', level: 1, chapter: 8, description: '显示、键盘、AD/DA、传感器与电机驱动接口', graphNodeId: 'io', resources: [
+  { id: '8', name: '接口技术', level: 1, chapter: 8, description: '显示、键盘、AD/DA、传感器与电机驱动接口', graphNodeId: 'io',
+    tutor: {
+      core: '8051 通过 I/O 口连各种外部器件——LED、按键、LCD、AD/DA、电机驱动——本质都是"读 / 写一个引脚的高低"。',
+      whyImportant: '本课程几乎所有实验最终都落在这一层——把抽象的"显示数字"翻译成具体的"P1.0 给高电平、P1.1 给低电平…"。',
+      commonMistake: '直接用 I/O 口拉负载。8051 的 P1 / P2 / P3 灌电流能力大约 10mA，驱动电机 / 大电流负载必须加三极管或专用驱动 IC。',
+      takeaway: '接接口前先问三件事：电平能否匹配 / 电流够不够 / 时序对不对。',
+    },
+    resources: [
     { type: 'slide', title: '第8章 接口技术 课件PPT', refId: 'ch08-ppt' },
     { type: 'quiz', title: '第8章 单元测验', refId: 'quiz-ch8' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
@@ -522,7 +589,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点9：系统设计（项目实践）
   // ========================================================================
-  { id: '9', name: '系统设计', level: 1, chapter: 9, description: '单片机系统的设计方法、PCB设计与调试测试', resources: [
+  { id: '9', name: '系统设计', level: 1, chapter: 9, description: '单片机系统的设计方法、PCB设计与调试测试',
+    tutor: {
+      core: '一个完整的 8051 系统 = 最小系统（晶振 + 复位 + 电源） + 外设接口 + 软件架构；做法是自顶向下分模块、自底向上集成。',
+      whyImportant: '知识点会忘，但"如何把一个需求拆成 MCU 系统"的方法论会跟你一辈子。',
+      commonMistake: '需求还没厘清就直接动手画原理图 / 写代码——返工的时间远多于前期分析的时间。',
+      takeaway: '上电之前，先把"需求 → 方案 → 模块划分 → 接口定义"在纸上画清楚。',
+    },
+    resources: [
     { type: 'slide', title: '第9章 系统设计 课件PPT', refId: 'ch09-ppt' },
     { type: 'quiz', title: '第9章 单元测验', refId: 'quiz-ch9' },
     { type: 'experiment', title: '项目二：智慧路灯系统设计', refId: 'proj02', duration: 180 },
@@ -570,7 +644,14 @@ export const knowledgePoints: KnowledgePoint[] = [
   // ========================================================================
   // 一级知识点10：前沿应用（2学时）
   // ========================================================================
-  { id: '10', name: '前沿应用', level: 1, chapter: 10, description: '物联网、人工智能、RISC-V与AIoT等前沿技术', resources: [
+  { id: '10', name: '前沿应用', level: 1, chapter: 10, description: '物联网、人工智能、RISC-V与AIoT等前沿技术',
+    tutor: {
+      core: '8051 不是过去式——它在 IoT 末端、低成本工业控制、教学领域仍然广泛使用；ARM Cortex-M、RISC-V 是它的延展方向。',
+      whyImportant: '学完 8051 不是终点，而是理解"任何 MCU 都是 CPU + 存储 + 外设 + 中断"这个共性后的起点。',
+      commonMistake: '学完 8051 就觉得它"过时"。它教的是嵌入式系统的"原型"，框架可以平移到 STM32、RISC-V 上。',
+      takeaway: '8051 是嵌入式系统的"教学原型"——掌握它，再学任何 MCU 都是同一个套路。',
+    },
+    resources: [
     { type: 'slide', title: '第10章 前沿应用 课件PPT', refId: 'ch10-ppt' },
     { type: 'quiz', title: '第10章 单元测验', refId: 'quiz-ch10' },
     { type: 'document', title: '物联网与AIoT前沿技术综述', refId: 'doc-aiot-overview' },
