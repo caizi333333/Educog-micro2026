@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { quizQuestions, type Question, type CodeCompletionQuestion } from '@/lib/quiz-data';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -71,10 +71,24 @@ export function QuizClient() {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [, setIsSavingResults] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // ?chapter=N filters the quiz to that chapter only. Preserved across the
+  // session so navigation between questions doesn't drop the filter.
+  const chapterFilter = useMemo(() => {
+    const raw = searchParams?.get('chapter');
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [searchParams]);
+
+  const sourceQuestions = useMemo(
+    () => (chapterFilter !== null ? quizQuestions.filter((q) => q.chapter === chapterFilter) : quizQuestions),
+    [chapterFilter],
+  );
 
   useEffect(() => {
     // Shuffling is done on the client-side to avoid hydration mismatch
-    setShuffledQuestions(shuffleArray(quizQuestions));
+    setShuffledQuestions(shuffleArray(sourceQuestions));
     
     // 尝试恢复测评进度
     if (typeof window !== 'undefined') {
@@ -236,7 +250,7 @@ export function QuizClient() {
   }
 
   const handleRestart = () => {
-    setShuffledQuestions(shuffleArray(quizQuestions));
+    setShuffledQuestions(shuffleArray(sourceQuestions));
     setCurrentQuestionIndex(0);
     setAnswers({});
     setAnswerStatus({});
@@ -636,10 +650,23 @@ export function QuizClient() {
               <ClipboardCheck className="h-3.5 w-3.5" />
               Assessment Console · Quiz
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">综合测试</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">
+              {chapterFilter ? `第 ${chapterFilter} 章 测验` : '综合测试'}
+            </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              逐题核对，系统会记录知识原子掌握度，并用于后续学习路径推荐。
+              {chapterFilter
+                ? `本卷只含第 ${chapterFilter} 章的 ${shuffledQuestions.length} 道题。系统仍按知识原子记录掌握度。`
+                : '逐题核对，系统会记录知识原子掌握度，并用于后续学习路径推荐。'}
             </p>
+            {chapterFilter && (
+              <Link
+                href="/quiz"
+                className="mt-3 inline-flex items-center gap-1 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-xs text-slate-300 hover:bg-white/[0.08]"
+              >
+                <ChevronsLeft className="h-3 w-3" />
+                返回全部 {quizQuestions.length} 题
+              </Link>
+            )}
           </div>
           <div className="grid min-w-[240px] gap-2">
             <div className="flex items-center justify-between font-mono text-[11px] text-slate-500">

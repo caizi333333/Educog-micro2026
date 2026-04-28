@@ -30,6 +30,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface RelatedNode {
+  id: string;
+  name: string;
+  chapter: number;
+  level: number;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'assistant';
@@ -39,6 +46,7 @@ interface Message {
   relatedTopics?: string[];
   confidence?: number;
   sources?: string[];
+  relatedNodes?: RelatedNode[];
 }
 
 interface CodeBlock {
@@ -142,9 +150,45 @@ const IntelligentQA: React.FC = memo(() => {
     }
   ], []);
 
-  // 模拟AI回答
+  // 真实 AI 回答：先调 /api/ai/chat（DeepSeek + RAG），失败再回落到下方
+  // 关键词模拟，避免页面在网络/key 异常时白屏。
   const generateAIResponse = async (question: string): Promise<Message> => {
-    // 模拟API调用延迟
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      if (token) {
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ question }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const data = json?.data;
+          if (data?.answer) {
+            const relatedTopics = (data.relevantChapters || []).map(
+              (c: { chapter: string; title: string }) => c.title,
+            );
+            const relatedNodes = Array.isArray(data.relatedNodes) ? data.relatedNodes : [];
+            return {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: data.answer,
+              timestamp: new Date(),
+              confidence: 90,
+              relatedTopics,
+              relatedNodes,
+              sources: relatedNodes.length > 0
+                ? [`知识库 RAG · 命中 ${relatedNodes.length} 个节点`]
+                : ['DeepSeek + 课程知识库'],
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('AI chat API failed, falling back to canned response:', err);
+    }
+
+    // 模拟API调用延迟（fallback 路径）
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     // 根据问题类型生成不同的回答
@@ -544,6 +588,28 @@ void timer0_isr() interrupt 1 {
                                           <ExternalLink className="h-3 w-3" />
                                           {source}
                                         </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 知识图谱节点（点击跳转到 /knowledge-graph 对应节点） */}
+                                {message.relatedNodes && message.relatedNodes.length > 0 && (
+                                  <div>
+                                    <p className="text-sm font-medium mb-2">命中的知识图谱节点：</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {message.relatedNodes.map((node) => (
+                                        <a
+                                          key={node.id}
+                                          href={`/knowledge-graph?node=${encodeURIComponent(node.id)}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/[0.08] px-2 py-1 text-[11px] text-cyan-700 hover:bg-cyan-500/[0.14] dark:text-cyan-200"
+                                          title={`CH${node.chapter} · L${node.level}`}
+                                        >
+                                          <span className="font-mono opacity-70">#{node.id}</span>
+                                          <span>{node.name}</span>
+                                        </a>
                                       ))}
                                     </div>
                                   </div>

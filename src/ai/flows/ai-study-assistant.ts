@@ -46,6 +46,12 @@ const AiStudyAssistantOutputSchema = z.object({
         title: z.string(),
         embedUrl: z.string(),
     })).optional().describe('A list of relevant videos to recommend.'),
+    relatedNodes: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        chapter: z.number(),
+        level: z.number(),
+    })).optional().describe('Knowledge-graph node ids the answer relies on; UI can deep-link to /knowledge-graph?node=X.'),
 });
 export type AiStudyAssistantOutput = z.infer<typeof AiStudyAssistantOutputSchema>;
 
@@ -70,11 +76,18 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
     // the previous stale 9-chapter keyword map.
     const relevantChapters = chaptersFromContext(ctx);
     const relevantVideos = findRelevantVideos(userMessage);
+    const relatedNodes = ctx.knowledgePoints.map((p) => ({
+      id: p.id,
+      name: p.name,
+      chapter: p.chapter,
+      level: p.level,
+    }));
 
     return {
       answer: response.answer,
       relevantChapters,
       relevantVideos,
+      relatedNodes,
     };
   } catch (error) {
     console.error('SimpleAiClient error:', error);
