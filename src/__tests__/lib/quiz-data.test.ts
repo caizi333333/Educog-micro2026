@@ -181,14 +181,17 @@ describe('Quiz Data Tests', () => {
     it('知识点名称应该一致', () => {
       const knowledgeAreas = quizQuestions.map(q => q.ka);
       const uniqueKAs = Array.from(new Set(knowledgeAreas));
-      
-      // 检查是否有相似但不完全相同的知识点名称
-      uniqueKAs.forEach(ka1 => {
-        uniqueKAs.forEach(ka2 => {
+
+      // 跳过形如 '7.1.1' 的层级节点 id —— 它们天然相似（同 parent 下的兄弟）
+      // 是有意为之，不是拼写错误。该一致性检查只用于老的中文 ka 名称
+      const HIERARCHICAL_ID = /^\d+(\.\d+)+$/;
+      const namedOnly = uniqueKAs.filter((ka) => !HIERARCHICAL_ID.test(ka));
+
+      namedOnly.forEach(ka1 => {
+        namedOnly.forEach(ka2 => {
           if (ka1 !== ka2) {
-            // 如果两个知识点名称很相似，可能是拼写错误
             const similarity = calculateSimilarity(ka1, ka2);
-            expect(similarity).toBeLessThan(0.8); // 相似度不应过高
+            expect(similarity).toBeLessThan(0.8);
           }
         });
       });

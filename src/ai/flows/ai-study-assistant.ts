@@ -8,37 +8,12 @@
  */
 import { videoLibrary } from '@/lib/video-library';
 import { SimpleAiClient } from '@/ai/simple-ai-client';
+import {
+  chaptersFromContext,
+  formatContextForPrompt,
+  retrieveContext,
+} from '@/ai/knowledge-context';
 import { z } from 'zod';
-
-const chaptersDataForTool: { id: string; title: string; keywords: string[] }[] = [
-    { id: '1', title: '第 1 章：微控制器概论', keywords: ['mcu', '微控制器', 'cpu', 'ram', 'rom', '8051'] },
-    { id: '2', title: '第 2 章：8051 存储器结构', keywords: ['存储器', '哈佛结构', 'ram', 'sfr', '堆栈'] },
-    { id: '3', title: '第 3 章：I/O 端口编程', keywords: ['io', '端口', 'p0', 'p1', 'p2', 'p3', '上拉电阻'] },
-    { id: '4', title: '第 4 章：8051 汇编语言基础', keywords: ['汇编', '寻址方式', 'mov', 'add', 'djnz'] },
-    { id: '5', title: '第 5 章：定时器/计数器', keywords: ['定时器', '计数器', 'tmod', 'tcon', '模式1', '模式2'] },
-    { id: '6', title: '第 6 章：中断系统', keywords: ['中断', 'interrupt', 'ie', 'ip', 'isr', 'reti', '中断向量'] },
-    { id: '7', title: '第 7 章：LED 动态显示', keywords: ['led', '数码管', '动态扫描', '位选', '段选', '消隐'] },
-    { id: '8', title: '第 8 章：模数转换器 (ADC)', keywords: ['adc', '模拟信号', '数字信号', 'adc0804'] },
-    { id: '9', title: '第 9 章：串行通信 (UART)', keywords: ['uart', '串口', '串行通信', '波特率', 'sbuf', 'scon'] },
-];
-
-// 搜索课程内容的辅助函数
-const searchCourseContent = (query: string) => {
-    const lowerCaseQuery = query.toLowerCase();
-    const relevantChapters = chaptersDataForTool.filter(chapter => {
-        // 检查标题匹配
-        const titleMatch = chapter.title.toLowerCase().includes(lowerCaseQuery);
-        
-        // 检查关键词匹配
-        const keywordMatch = chapter.keywords.some(chapKw => 
-            lowerCaseQuery.includes(chapKw.toLowerCase()) || 
-            chapKw.toLowerCase().includes(lowerCaseQuery)
-        );
-        
-        return titleMatch || keywordMatch;
-    });
-    return relevantChapters.map(ch => ({ chapter: ch.id, title: ch.title }));
-};
 
 // 查找相关视频的辅助函数
 const findRelevantVideos = (query: string) => {
@@ -81,19 +56,25 @@ export type AiStudyAssistantOutput = z.infer<typeof AiStudyAssistantOutputSchema
 async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStudyAssistantOutput> {
   try {
     const { question: userMessage } = input;
-    
-    // 使用简化的AI客户端
+
+    // RAG: pull the most relevant knowledge points + experiments from the
+    // canonical course content and inject them into the AI's system prompt
+    // so the answer is grounded.
+    const ctx = retrieveContext(userMessage);
+    const courseContext = formatContextForPrompt(ctx);
+
     const aiClient = new SimpleAiClient();
-    const response = await aiClient.chat(userMessage);
-    
-    // 搜索相关章节和视频
-    const relevantChapters = searchCourseContent(userMessage);
+    const response = await aiClient.chat(userMessage, courseContext);
+
+    // relevantChapters now reflects the actual retrieval hit set instead of
+    // the previous stale 9-chapter keyword map.
+    const relevantChapters = chaptersFromContext(ctx);
     const relevantVideos = findRelevantVideos(userMessage);
-    
+
     return {
       answer: response.answer,
-      relevantChapters: relevantChapters,
-      relevantVideos: relevantVideos,
+      relevantChapters,
+      relevantVideos,
     };
   } catch (error) {
     console.error('SimpleAiClient error:', error);
@@ -123,12 +104,12 @@ MOV TH1, #0FDH    ; 9600波特率@11.0592MHz
 SETB TR1          ; 启动定时器1
 \`\`\`
 
-如需更详细信息，建议阅读第5章相关内容。`,
-            relevantChapters: [{ chapter: '5', title: '第 5 章：定时器/计数器' }],
+如需更详细信息，建议阅读第6章相关内容。`,
+            relevantChapters: [{ chapter: '6', title: '第 6 章：定时器/计数器' }],
             relevantVideos: []
         };
     }
-    
+
     if (lowerQuestion.includes('中断') || lowerQuestion.includes('interrupt')) {
         return {
             answer: `关于8051中断系统：
@@ -156,12 +137,12 @@ ORG 000BH  ; T0中断向量
     RETI   ; 中断返回
 \`\`\`
 
-建议查看第6章了解详细的中断编程。`,
-            relevantChapters: [{ chapter: '6', title: '第 6 章：中断系统' }],
+建议查看第5章了解详细的中断编程。`,
+            relevantChapters: [{ chapter: '5', title: '第 5 章：中断系统' }],
             relevantVideos: []
         };
     }
-    
+
     if (lowerQuestion.includes('io') || lowerQuestion.includes('端口') || lowerQuestion.includes('p0') || lowerQuestion.includes('p1')) {
         return {
             answer: `关于8051 I/O端口：
@@ -180,12 +161,12 @@ SETB P1.0        ; P1.0输出高电平
 CLR P1.0         ; P1.0输出低电平
 \`\`\`
 
-详细内容请参考第3章。`,
-            relevantChapters: [{ chapter: '3', title: '第 3 章：I/O 端口编程' }],
+详细内容请参考第2章 2.3 I/O 接口与第8章接口技术。`,
+            relevantChapters: [{ chapter: '2', title: '第 2 章：硬件结构' }],
             relevantVideos: []
         };
     }
-    
+
     if (lowerQuestion.includes('串口') || lowerQuestion.includes('uart') || lowerQuestion.includes('通信')) {
         return {
             answer: `关于8051串行通信：
@@ -210,8 +191,8 @@ MOV TH1, #0FDH    ; 9600@11.0592MHz
 SETB TR1          ; 启动T1
 \`\`\`
 
-建议学习第9章获得完整的串行通信知识。`,
-            relevantChapters: [{ chapter: '9', title: '第 9 章：串行通信 (UART)' }],
+建议学习第7章获得完整的串行通信知识。`,
+            relevantChapters: [{ chapter: '7', title: '第 7 章：串行通信' }],
             relevantVideos: []
         };
     }

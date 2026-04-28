@@ -66,10 +66,10 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('什么是8051微控制器？');
 
       expect(mockDeepSeekClient.chat).toHaveBeenCalledWith([
-        { role: 'system', content: '你是"芯智育才"8051微控制器课程的AI助教。请基于课程内容回答学生问题，提供准确、实用的技术指导。' },
+        { role: 'system', content: expect.stringContaining('AI助教') },
         { role: 'user', content: '什么是8051微控制器？' }
       ]);
-      
+
       expect(result).toEqual({
         answer: '这是一个关于8051微控制器的回答',
         relevantChapters: [],
@@ -263,9 +263,9 @@ describe('SimpleAiClient', () => {
       await client.chat('测试问题');
 
       expect(mockDeepSeekClient.chat).toHaveBeenCalledWith([
-        { 
-          role: 'system', 
-          content: '你是"芯智育才"8051微控制器课程的AI助教。请基于课程内容回答学生问题，提供准确、实用的技术指导。' 
+        {
+          role: 'system',
+          content: expect.stringContaining('AI助教')
         },
         { role: 'user', content: '测试问题' }
       ]);

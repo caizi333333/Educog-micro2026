@@ -18,18 +18,24 @@ export class SimpleAiClient {
     );
   }
   
-  async chat(question: string): Promise<SimpleAiResponse> {
+  async chat(question: string, courseContext?: string): Promise<SimpleAiResponse> {
     try {
-      const systemPrompt = `你是"芯智育才"8051微控制器课程的AI助教。请基于课程内容回答学生问题，提供准确、实用的技术指导。`;
-      
+      const baseSystem =
+        '你是"芯智育才"8051单片机课程的AI助教。学生提问时请优先依据下面提供的"课程知识库检索结果"作答，' +
+        '引用时用 [#id] 标注节点编号（如 [#7.2.3]）；若检索结果与问题无关或为空，再结合通用知识回答，' +
+        '但务必明确指出依据来源。回答尽量结构化（先结论、再原理、必要时给极简代码示例），不要编造任何数据或实验结果。';
+      const systemPrompt = courseContext
+        ? `${baseSystem}\n\n${courseContext}`
+        : baseSystem;
+
       const messages = [
         { role: 'system' as const, content: systemPrompt },
         { role: 'user' as const, content: question }
       ];
-      
+
       const response = await this.deepseekClient.chat(messages);
       const answer = response.choices[0]?.message?.content || '抱歉，我无法提供答案。';
-      
+
       return {
         answer,
         relevantChapters: [],
