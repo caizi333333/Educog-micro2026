@@ -48,6 +48,11 @@ import {
   Users,
   X,
   Zap,
+  Cable,
+  CircuitBoard,
+  Clock,
+  Cog,
+  Radio,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -536,12 +541,32 @@ const graphTone: Record<GraphTone, { color: string; bg: string; border: string; 
 };
 
 const graphNodeSize: Record<GraphNodeSize, { width: number; height: number }> = {
-  core: { width: 154, height: 52 },
-  root: { width: 148, height: 48 },
-  branch: { width: 126, height: 38 },
-  leaf: { width: 92, height: 26 },
-  chapter: { width: 58, height: 26 },
+  core: { width: 188, height: 64 },
+  root: { width: 184, height: 60 },
+  branch: { width: 156, height: 42 },
+  leaf: { width: 124, height: 30 },
+  chapter: { width: 64, height: 28 },
 };
+
+// Per-chapter Lucide icon — picked to match the topic so an 8051 student
+// recognises the chapter at a glance without reading the label.
+const chapterIconMap: Record<number, LucideIcon> = {
+  1: Cpu,
+  2: Layers,
+  3: Code2,
+  4: FileText,
+  5: Zap,
+  6: Clock,
+  7: Radio,
+  8: Cable,
+  9: CircuitBoard,
+  10: Sparkles,
+};
+
+function getChapterIcon(chapter: number | undefined): LucideIcon {
+  if (typeof chapter !== 'number') return Cog;
+  return chapterIconMap[chapter] || Cog;
+}
 
 type MapNodeData = {
   label: string;
@@ -552,6 +577,8 @@ type MapNodeData = {
   selected: boolean;
   visible: boolean;
   clickable?: boolean;
+  chapter?: number;
+  mastery?: number;
   [key: string]: unknown;
 };
 
@@ -625,18 +652,21 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   const tone = graphTone[data.tone];
   const size = getGraphNodeSize(data.size);
   const isLeaf = data.size === 'leaf';
-  const opacity = data.visible || data.selected ? 1 : 0.17;
-  const labelMax = data.size === 'root' || data.size === 'core' ? 10 : data.size === 'branch' ? 9 : 7;
+  const isRoot = data.size === 'root' || data.size === 'core';
+  const opacity = data.visible || data.selected ? 1 : 0.18;
+  const labelMax = isRoot ? 14 : data.size === 'branch' ? 12 : 9;
+  const ChapterIcon = isRoot ? getChapterIcon(data.chapter) : null;
+  const showMastery = typeof data.mastery === 'number' && (isRoot || data.size === 'branch');
 
   return (
     <>
       <Handle type="target" position={Position.Top} className="!h-1 !w-1 !border-0 !bg-transparent" />
       <div
         className={cn(
-          'flex h-full w-full items-center gap-2 overflow-hidden rounded-md border px-2 text-left transition',
-          data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:scale-[1.03]',
-          data.selected && 'scale-[1.08]',
-          isLeaf ? 'justify-center' : 'justify-start',
+          'relative flex h-full w-full items-center overflow-hidden rounded-lg border text-left backdrop-blur-sm transition',
+          data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:-translate-y-[1px] hover:scale-[1.02]',
+          data.selected && 'scale-[1.06]',
+          isRoot ? 'gap-2.5 px-3' : isLeaf ? 'justify-center px-2.5' : 'gap-2 px-2.5',
         )}
         style={{
           width: size.width,
@@ -645,30 +675,58 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
           color: tone.text,
           borderColor: data.selected ? '#f8fafc' : tone.border,
           background: data.selected
-            ? `linear-gradient(135deg, ${tone.bg}, rgba(255,255,255,0.1))`
+            ? `linear-gradient(135deg, ${tone.bg}, rgba(255,255,255,0.14))`
             : data.visible
-              ? tone.bg
+              ? `linear-gradient(160deg, ${tone.bg}, rgba(8,12,20,0.55))`
               : 'rgba(15, 23, 42, 0.65)',
           boxShadow: data.selected
-            ? `0 0 0 1px rgba(248,250,252,0.4), 0 0 24px ${tone.color}55`
-            : data.size === 'root' || data.size === 'core'
-              ? `0 0 18px ${tone.color}20`
-              : 'none',
+            ? `0 0 0 1px rgba(248,250,252,0.4), 0 8px 24px ${tone.color}55, inset 0 1px 0 rgba(255,255,255,0.08)`
+            : isRoot
+              ? `0 4px 18px ${tone.color}26, inset 0 1px 0 rgba(255,255,255,0.05)`
+              : `0 1px 0 rgba(255,255,255,0.04) inset`,
         }}
       >
-        {!isLeaf && (
+        {ChapterIcon && (
           <span
-            className="flex h-6 min-w-6 items-center justify-center rounded border font-mono text-[10px]"
-            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.22)', color: tone.color }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.30)', color: tone.color }}
+          >
+            <ChapterIcon className="h-4 w-4" />
+          </span>
+        )}
+        {!isLeaf && !isRoot && data.levelLabel && (
+          <span
+            className="flex h-5 min-w-[22px] shrink-0 items-center justify-center rounded font-mono text-[9px] tracking-wider"
+            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.28)', color: tone.color }}
           >
             {data.levelLabel}
           </span>
         )}
-        <span className={cn('min-w-0 truncate', isLeaf ? 'text-[10px]' : 'text-xs font-semibold')}>
-          {truncateLabel(data.label, labelMax)}
-        </span>
-        {data.subtitle && !isLeaf && (
-          <span className="ml-auto shrink-0 font-mono text-[10px] opacity-70">{data.subtitle}</span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span
+            className={cn(
+              'min-w-0 truncate',
+              isRoot ? 'text-[13px] font-semibold leading-tight tracking-wide' : isLeaf ? 'text-[10px] leading-tight' : 'text-[11px] font-semibold leading-tight',
+            )}
+          >
+            {truncateLabel(data.label, labelMax)}
+          </span>
+          {isRoot && data.subtitle && (
+            <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70">{data.subtitle}</span>
+          )}
+        </div>
+        {data.subtitle && !isLeaf && !isRoot && (
+          <span className="ml-auto shrink-0 font-mono text-[9px] opacity-70">{data.subtitle}</span>
+        )}
+        {showMastery && (
+          <span
+            className="absolute bottom-0 left-0 h-[2px]"
+            style={{
+              width: `${Math.max(6, Math.min(100, data.mastery as number))}%`,
+              background: tone.color,
+              opacity: 0.85,
+            }}
+          />
         )}
       </div>
       <Handle type="source" position={Position.Bottom} className="!h-1 !w-1 !border-0 !bg-transparent" />
@@ -690,7 +748,7 @@ function GraphMapStage({
   heightClassName?: string;
 }) {
   return (
-    <div className={cn('relative overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_32%),#05080d]', heightClassName)}>
+    <div className={cn('relative overflow-hidden bg-[radial-gradient(ellipse_60%_40%_at_30%_15%,rgba(34,211,238,0.10),transparent_70%),radial-gradient(ellipse_50%_30%_at_80%_85%,rgba(168,85,247,0.06),transparent_70%),#05080d]', heightClassName)}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -704,12 +762,12 @@ function GraphMapStage({
         nodesConnectable={false}
         elementsSelectable
         fitView
-        fitViewOptions={{ padding: 0.14, maxZoom: 1.05 }}
-        minZoom={0.18}
-        maxZoom={2.2}
+        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+        minZoom={0.32}
+        maxZoom={2.4}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={0.85} color="rgba(148,163,184,0.08)" />
+        <Background variant={BackgroundVariant.Dots} gap={32} size={0.6} color="rgba(148,163,184,0.05)" />
         <Controls
           showInteractive={false}
           className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
@@ -740,19 +798,22 @@ function graphEdge(
     id: `${from}-${to}`,
     source: from,
     target: to,
-    type: 'smoothstep',
-    animated: active && width > 1.5,
+    // Bezier curves give the canvas a softer, more organic look than the
+    // right-angled smoothstep paths.
+    type: dashed ? 'default' : 'default',
+    animated: active && (dashed || width > 1.5),
     style: {
       stroke: color,
-      strokeWidth: active ? width : 0.8,
-      opacity: active ? 0.46 : 0.08,
-      strokeDasharray: dashed ? '6 5' : undefined,
+      strokeWidth: active ? width + 0.2 : 0.7,
+      opacity: active ? (dashed ? 0.62 : 0.55) : 0.08,
+      strokeDasharray: dashed ? '8 6' : undefined,
+      strokeLinecap: 'round',
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
       color,
-      width: active ? 14 : 8,
-      height: active ? 14 : 8,
+      width: active ? 12 : 6,
+      height: active ? 12 : 6,
     },
   };
 }
@@ -858,12 +919,14 @@ function FullKnowledgeMap({
         if (root) {
           nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 70, {
             label: root.name,
-            subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
+            subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
             levelLabel: 'L1',
             tone: masteryTone(masteryByKa?.[root.id]) ?? tone,
             size: 'root',
             selected: root.id === selectedId,
             visible: visibleIds.has(root.id),
+            chapter,
+            mastery: masteryByKa?.[root.id],
           }));
         }
 
@@ -880,6 +943,8 @@ function FullKnowledgeMap({
             size: 'branch',
             selected: parent.id === selectedId,
             visible: visibleIds.has(parent.id),
+            chapter,
+            mastery: masteryByKa?.[parent.id],
           }));
           if (root) {
             edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.2));
@@ -921,12 +986,14 @@ function FullKnowledgeMap({
       if (root) {
         nodes.push(createMapNode(root.id, SHELF_X + ROOT_X, rootCenterY, {
           label: root.name,
-          subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
+          subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
           levelLabel: 'L1',
           tone: masteryTone(masteryByKa?.[root.id]) ?? tone,
           size: 'root',
           selected: root.id === selectedId,
           visible: visibleIds.has(root.id),
+          chapter,
+          mastery: masteryByKa?.[root.id],
         }));
       }
 
@@ -936,12 +1003,14 @@ function FullKnowledgeMap({
         const childPoints = points.filter((point) => point.parentId === parent.id);
         nodes.push(createMapNode(parent.id, parentX, parentY, {
           label: parent.name,
-          subtitle: childPoints.length > 0 ? `${childPoints.length} 子项` : undefined,
+          subtitle: childPoints.length > 0 ? `${childPoints.length}` : undefined,
           levelLabel: 'L2',
           tone: masteryTone(masteryByKa?.[parent.id]) ?? tone,
           size: 'branch',
           selected: parent.id === selectedId,
           visible: visibleIds.has(parent.id),
+          chapter,
+          mastery: masteryByKa?.[parent.id],
         }));
         if (root) {
           edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.6));
@@ -957,6 +1026,8 @@ function FullKnowledgeMap({
             size: 'leaf',
             selected: child.id === selectedId,
             visible: visibleIds.has(child.id),
+            chapter,
+            mastery: masteryByKa?.[child.id],
           }));
           edges.push(graphEdge(parent.id, child.id, tone, visibleIds.has(parent.id) && visibleIds.has(child.id), 0.9));
         });
@@ -1876,7 +1947,7 @@ export function HyperKnowledgeGraphPage() {
           onSelect={setSelectedIdeologicalId}
         />
       ) : (
-      <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_300px] md:px-6">
+      <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[200px_minmax(0,1fr)] 2xl:grid-cols-[200px_minmax(0,1fr)_300px] md:px-6">
         {isMobileSidebarOpen && (
           <button
             type="button"
@@ -2021,7 +2092,7 @@ export function HyperKnowledgeGraphPage() {
           </div>
         </section>
 
-        <div className="order-3 space-y-4 lg:order-none lg:col-span-2 xl:col-span-1">
+        <div className="order-3 space-y-4 lg:order-none lg:col-span-2 2xl:col-span-1">
           <DetailPanel
             point={selected}
             childPoints={childPoints}
