@@ -84,18 +84,19 @@ describe('Quiz Data Tests', () => {
     it('应该涵盖多个知识点', () => {
       const knowledgeAreas = new Set(quizQuestions.map(q => q.ka));
       expect(knowledgeAreas.size).toBeGreaterThan(5);
-      
-      // 验证包含核心知识点
+
+      // ka 已对齐知识图谱节点 id（src/lib/knowledge-points.ts）
+      // 验证核心知识点的 id 都已被覆盖
       const expectedKAs = [
-        '存储器结构',
-        'CPU结构', 
-        'I/O 端口',
-        '寻址方式',
-        '定时器/计数器',
-        '中断系统',
-        '指令系统'
+        '2.2', // 存储器组织
+        '2.1', // CPU结构
+        '2.3', // I/O接口
+        '3.1', // 寻址方式
+        '6',   // 定时器/计数器
+        '5',   // 中断系统
+        '3',   // 指令系统
       ];
-      
+
       expectedKAs.forEach(ka => {
         expect(Array.from(knowledgeAreas)).toContain(ka);
       });
