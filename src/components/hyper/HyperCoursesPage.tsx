@@ -44,6 +44,7 @@ import {
 } from '@/lib/knowledge-points';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
 
 const topicIcons: Record<string, LucideIcon> = {
   基础入门: ToggleRight,
@@ -956,6 +957,12 @@ export function HyperCoursesPage() {
           </div>
         </div>
       </div>
+
+      {!isPublicShell && (
+        <div className="px-4 pt-4 md:px-6">
+          <NextStepBanner />
+        </div>
+      )}
 
       <main className="grid gap-5 px-4 py-5 lg:grid-cols-[240px_1fr] md:px-6">
         <CourseSideNav

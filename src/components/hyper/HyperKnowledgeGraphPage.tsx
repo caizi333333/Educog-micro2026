@@ -65,6 +65,7 @@ import {
 } from '@/lib/ideological-graph';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
 const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
@@ -1820,6 +1821,12 @@ export function HyperKnowledgeGraphPage() {
           </div>
         </div>
       </div>
+
+      {view === 'knowledge' && (
+        <div className="px-4 pt-4 md:px-6">
+          <NextStepBanner />
+        </div>
+      )}
 
       {view === 'problem' ? (
         <ProblemGraphView
