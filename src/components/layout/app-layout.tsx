@@ -30,6 +30,7 @@ import {
   LogOut,
   ClipboardCheck,
   ClipboardList,
+  Target,
   Trophy,
   ShieldCheck,
   GitBranch,
@@ -64,6 +65,7 @@ const learningItems = [
   { href: '/knowledge-graph', label: '知识图谱', icon: Share2 },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
+  { href: '/weak-nodes', label: '薄弱节点', icon: Target },
   { href: '/learning-path', label: '个性教学', icon: GitBranch },
 ];
 
