@@ -26,7 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { experiments as experimentCatalog } from '@/lib/experiment-config';
+import { experiments as experimentCatalog, getExperimentConfig } from '@/lib/experiment-config';
 import { quizQuestions } from '@/lib/quiz-data';
 import {
   buildHyperExperiments,
@@ -203,18 +203,28 @@ function LabThumb({ lab }: { lab: HyperExperimentCard }) {
 }
 
 function LabCard({ lab }: { lab: HyperExperimentCard }) {
+  const [expanded, setExpanded] = useState(false);
+  const config = getExperimentConfig(lab.id);
+  const code = config?.code?.trim() || '';
+  const objectives = config?.objectives ?? lab.objectives ?? [];
+  const knowledgePoints = config?.knowledgePoints ?? lab.knowledgePoints ?? [];
+
   return (
-    <Link
-      href={lab.href}
-      className="group flex min-h-[264px] flex-col overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-cyan-300/[0.045] hover:shadow-[0_10px_28px_rgba(0,0,0,0.28)]"
+    <article
+      className={cn(
+        'group flex flex-col overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.045]',
+        expanded ? '' : 'min-h-[264px]',
+      )}
     >
       <LabThumb lab={lab} />
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className="flex flex-col gap-2 p-4">
         <div className="min-w-0">
-          <h3 className="line-clamp-1 text-sm font-semibold text-slate-100 group-hover:text-cyan-100">{lab.title}</h3>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{lab.description}</p>
+          <h3 className="text-sm font-semibold text-slate-100 group-hover:text-cyan-100">{lab.title}</h3>
+          <p className={cn('mt-1 text-xs leading-5 text-slate-400', !expanded && 'line-clamp-2')}>
+            {lab.description}
+          </p>
         </div>
-        <div className="mt-auto border-t border-white/[0.07] pt-3">
+        <div className="border-t border-white/[0.07] pt-3">
           <div className="flex items-center justify-between gap-3">
             <Difficulty level={lab.level} />
             <span className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -233,8 +243,62 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
             <div className="mt-3 font-mono text-[11px] text-slate-500">{formatDate(lab.updatedAt)}</div>
           )}
         </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-black/20 px-2.5 text-[11px] text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+          >
+            {expanded ? '收起预览 ▴' : '内嵌预览 ▾'}
+          </button>
+          <Link
+            href={lab.href}
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-cyan-300 px-2.5 text-[11px] font-semibold text-[#001014] hover:bg-cyan-200"
+          >
+            进入仿真页 →
+          </Link>
+        </div>
+
+        {expanded && (
+          <div className="mt-2 space-y-3 border-t border-cyan-300/15 pt-3">
+            {objectives.length > 0 && (
+              <div>
+                <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">实验目标</div>
+                <ul className="list-disc space-y-0.5 pl-4 text-[12px] leading-5 text-slate-300">
+                  {objectives.slice(0, 4).map((obj, i) => (
+                    <li key={i}>{obj}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {knowledgePoints.length > 0 && (
+              <div>
+                <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">涉及知识点</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {knowledgePoints.slice(0, 6).map((kp, i) => (
+                    <span key={i} className="rounded-sm border border-white/[0.06] bg-black/20 px-1.5 py-0.5 text-[10px] text-slate-300">
+                      {kp}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {code && (
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">参考代码（节选）</div>
+                  <span className="font-mono text-[10px] text-slate-600">8051 ASM</span>
+                </div>
+                <pre className="max-h-[280px] overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-2 font-mono text-[10px] leading-4 text-slate-300">
+                  {code}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -357,6 +421,30 @@ function CourseSideNav({
 function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource; chapter: number }) {
   const Icon = resourceIcons[resource.type];
   const href = hrefForResource(resource);
+
+  // Inline image preview: any type='image' with a real URL gets rendered as
+  // a small thumbnail card instead of a text chip, so students see the
+  // figure right on the chapter card without opening a new tab.
+  if (resource.type === 'image' && resource.url) {
+    return (
+      <a
+        href={resource.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group col-span-full block overflow-hidden rounded-md border border-white/[0.08] bg-white sm:col-span-2"
+        title={`点击查看大图：${resource.title}`}
+      >
+        <div className="flex items-center justify-center bg-white p-2">
+          <img src={resource.url} alt={resource.title} className="block h-32 w-auto" loading="lazy" />
+        </div>
+        <div className="border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
+          {resource.title}
+          <span className="ml-2 font-mono text-[10px] text-slate-500">{resourceLabels[resource.type]}</span>
+        </div>
+      </a>
+    );
+  }
+
   const content = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -594,6 +682,8 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
   const visibleResources = resources.slice(0, 10);
   const summary = buildChapterSummary(chapter, childPoints);
   const quizCount = quizQuestions.filter((q) => q.chapter === chapter.chapter).length;
+  const [showTop5, setShowTop5] = useState(false);
+  const top5 = childPoints.slice(0, 5);
 
   return (
     <article id={`item-${chapter.chapter}`} className="scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
@@ -643,6 +733,45 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
               ))}
             </div>
           </div>
+
+          {top5.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowTop5((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+              >
+                <span className="font-semibold">本章核心 {top5.length} 个知识点 · 含描述</span>
+                <span className="font-mono text-[10px] text-slate-500">{showTop5 ? '收起 ▴' : '展开 ▾'}</span>
+              </button>
+              {showTop5 && (
+                <ul className="mt-2 space-y-1.5">
+                  {top5.map((point) => (
+                    <li
+                      key={point.id}
+                      className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-xs"
+                    >
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[10px] text-cyan-300">#{point.id}</span>
+                        <Link
+                          href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.id)}`}
+                          className="text-sm font-medium text-slate-100 hover:text-cyan-100"
+                        >
+                          {point.name}
+                        </Link>
+                        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                          L{point.level}
+                        </span>
+                      </div>
+                      {point.description && (
+                        <p className="mt-1 leading-5 text-slate-400">{point.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div>
             <div className="mb-2 text-sm font-semibold text-slate-100">章节资源</div>
