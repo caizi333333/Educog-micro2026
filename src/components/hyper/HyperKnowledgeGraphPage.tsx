@@ -39,12 +39,14 @@ import {
   Network,
   PlayCircle,
   Rocket,
+  Menu,
   RotateCcw,
   Search,
   ShieldCheck,
   Sparkles,
   Target,
   Users,
+  X,
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -62,6 +64,7 @@ import {
   type IdeologicalNode,
 } from '@/lib/ideological-graph';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
 const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
@@ -755,6 +758,15 @@ type KnowledgeVisualNode = {
   stroke: string;
 };
 
+// Map a quiz mastery percentage to the existing GraphTone palette so the
+// canvas can re-tint nodes that the student is weak / strong on.
+function masteryTone(score: number | undefined): GraphTone | null {
+  if (typeof score !== 'number') return null;
+  if (score >= 80) return 'emerald';
+  if (score >= 60) return 'amber';
+  return 'red';
+}
+
 function FullKnowledgeMap({
   points,
   selectedId,
@@ -762,6 +774,7 @@ function FullKnowledgeMap({
   progress,
   onSelect,
   chapterFilter,
+  masteryByKa,
 }: {
   points: KnowledgePoint[];
   selectedId: string;
@@ -769,6 +782,7 @@ function FullKnowledgeMap({
   progress: HyperLearningProgressRecord[];
   onSelect: (point: KnowledgePoint) => void;
   chapterFilter: number | 'all';
+  masteryByKa?: Record<string, number>;
 }) {
   const layout = useMemo(() => {
     const nodes: RFNode[] = [];
@@ -812,7 +826,7 @@ function FullKnowledgeMap({
             label: root.name,
             subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
             levelLabel: 'L1',
-            tone,
+            tone: masteryTone(masteryByKa?.[root.id]) ?? tone,
             size: 'root',
             selected: root.id === selectedId,
             visible: visibleIds.has(root.id),
@@ -828,7 +842,7 @@ function FullKnowledgeMap({
           nodes.push(createMapNode(parent.id, px, py, {
             label: parent.name,
             levelLabel: 'L2',
-            tone,
+            tone: masteryTone(masteryByKa?.[parent.id]) ?? tone,
             size: 'branch',
             selected: parent.id === selectedId,
             visible: visibleIds.has(parent.id),
@@ -875,7 +889,7 @@ function FullKnowledgeMap({
           label: root.name,
           subtitle: chapterProgress === null ? `CH${chapter}` : `${chapterProgress}%`,
           levelLabel: 'L1',
-          tone,
+          tone: masteryTone(masteryByKa?.[root.id]) ?? tone,
           size: 'root',
           selected: root.id === selectedId,
           visible: visibleIds.has(root.id),
@@ -890,7 +904,7 @@ function FullKnowledgeMap({
           label: parent.name,
           subtitle: childPoints.length > 0 ? `${childPoints.length} 子项` : undefined,
           levelLabel: 'L2',
-          tone,
+          tone: masteryTone(masteryByKa?.[parent.id]) ?? tone,
           size: 'branch',
           selected: parent.id === selectedId,
           visible: visibleIds.has(parent.id),
@@ -901,10 +915,11 @@ function FullKnowledgeMap({
 
         childPoints.forEach((child, childIndex) => {
           const childY = parentY + L3_OFFSET_Y + childIndex * L3_GAP_Y;
+          const childTone = visibleIds.has(child.id) ? tone : 'slate';
           nodes.push(createMapNode(child.id, parentX, childY, {
             label: child.name,
             levelLabel: 'L3',
-            tone: visibleIds.has(child.id) ? tone : 'slate',
+            tone: masteryTone(masteryByKa?.[child.id]) ?? childTone,
             size: 'leaf',
             selected: child.id === selectedId,
             visible: visibleIds.has(child.id),
@@ -932,7 +947,7 @@ function FullKnowledgeMap({
     }
 
     return { nodes, edges };
-  }, [points, progress, selectedId, visibleIds, chapterFilter]);
+  }, [points, progress, selectedId, visibleIds, chapterFilter, masteryByKa]);
 
   return (
     <GraphMapStage
@@ -1567,6 +1582,7 @@ export function HyperKnowledgeGraphPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
   const [view, setView] = useState<GraphView>('knowledge');
   const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
@@ -1574,6 +1590,8 @@ export function HyperKnowledgeGraphPage() {
   const [query, setQuery] = useState('');
   const [chapter, setChapter] = useState<number | 'all'>('all');
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
+  const [kaScores, setKaScores] = useState<Record<string, number>>({});
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const initialUrlAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -1590,6 +1608,54 @@ export function HyperKnowledgeGraphPage() {
       active = false;
     };
   }, []);
+
+  // Load latest quiz scores from localStorage so the canvas can re-tint the
+  // nodes the student is weak / strong on. Re-runs when the user identity
+  // changes (storage key is namespaced by user id).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const key = user ? `assessment-results-${user.id}` : 'assessment-results';
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        setKaScores({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as { scores?: Record<string, { score?: number }> };
+      const direct: Record<string, number> = {};
+      Object.entries(parsed.scores || {}).forEach(([ka, value]) => {
+        if (typeof value?.score === 'number' && /^\d+(\.\d+)*$/.test(ka)) {
+          direct[ka] = value.score;
+        }
+      });
+      // Aggregate child scores up to parents (L3 -> L2 -> L1) so the heat map
+      // shows on hierarchy nodes even when only leaves were quizzed.
+      const childIds: Record<string, string[]> = {};
+      knowledgePoints.forEach((p) => {
+        if (p.parentId) {
+          (childIds[p.parentId] ||= []).push(p.id);
+        }
+      });
+      const resolve = (id: string): number | null => {
+        if (typeof direct[id] === 'number') return direct[id];
+        const kids = childIds[id];
+        if (!kids?.length) return null;
+        const vals = kids.map(resolve).filter((v): v is number => typeof v === 'number');
+        if (!vals.length) return null;
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
+      };
+      const out: Record<string, number> = { ...direct };
+      knowledgePoints.forEach((p) => {
+        if (typeof out[p.id] !== 'number') {
+          const v = resolve(p.id);
+          if (typeof v === 'number') out[p.id] = v;
+        }
+      });
+      setKaScores(out);
+    } catch {
+      setKaScores({});
+    }
+  }, [user]);
 
   const pointById = useMemo(() => {
     const m: Record<string, KnowledgePoint> = {};
@@ -1771,7 +1837,33 @@ export function HyperKnowledgeGraphPage() {
         />
       ) : (
       <main className="grid items-start gap-5 px-4 py-5 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_300px] md:px-6">
-        <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-none lg:sticky lg:top-20 lg:self-start">
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="关闭目录"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          />
+        )}
+        <aside
+          className={cn(
+            'rounded-md border border-white/[0.08] bg-[#0c1117] p-3 text-slate-100',
+            'fixed inset-y-0 left-0 z-50 w-72 transform overflow-y-auto transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:transform-none lg:overflow-visible lg:bg-white/[0.035]',
+            'lg:order-none lg:sticky lg:top-20 lg:self-start',
+            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          )}
+        >
+          <div className="mb-3 flex items-center justify-between lg:hidden">
+            <span className="text-xs font-semibold text-slate-200">章节 · 知识点</span>
+            <button
+              type="button"
+              aria-label="关闭目录"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="rounded-md border border-white/[0.08] bg-black/30 p-1 text-slate-300 hover:bg-white/[0.06]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -1819,7 +1911,10 @@ export function HyperKnowledgeGraphPage() {
                 <button
                   key={point.id}
                   type="button"
-                  onClick={() => goToPoint(point.id)}
+                  onClick={() => {
+                    goToPoint(point.id);
+                    setIsMobileSidebarOpen(false);
+                  }}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
                     selectedId === point.id ? 'bg-cyan-300/[0.12] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
@@ -1840,10 +1935,32 @@ export function HyperKnowledgeGraphPage() {
         <section className="order-1 min-w-0 overflow-hidden rounded-md border border-white/[0.08] bg-[#070b10] lg:order-none">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <button
+                type="button"
+                aria-label="展开目录"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="rounded-md border border-white/[0.08] bg-black/30 p-1 text-slate-300 hover:bg-white/[0.06] lg:hidden"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
               <Network className="h-4 w-4 text-cyan-200" />
               270 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {Object.keys(kaScores).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-300">
+                  <span className="text-slate-500">掌握度</span>
+                  <span className="inline-flex items-center gap-1 rounded border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ≥80
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> 60–79
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 text-red-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> &lt;60
+                  </span>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
                 <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {levelCounts.l1}</span>
                 <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {levelCounts.l2}</span>
@@ -1859,6 +1976,7 @@ export function HyperKnowledgeGraphPage() {
               progress={progress}
               onSelect={(point) => goToPoint(point.id)}
               chapterFilter={chapter}
+              masteryByKa={kaScores}
             />
           </div>
         </section>
