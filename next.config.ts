@@ -59,6 +59,17 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Allow same-origin iframe embedding for course materials served as
+      // static files (PDFs, SVG diagrams). Course page uses inline previews.
+      {
+        source: '/resources/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
     ];
   },
   output: 'standalone',

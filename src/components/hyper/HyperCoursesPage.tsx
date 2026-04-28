@@ -394,6 +394,21 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 }
 
 function ResearchBasisPanel() {
+  const [showPaper, setShowPaper] = useState(false);
+  const [paperText, setPaperText] = useState<string | null>(null);
+  const [paperLoading, setPaperLoading] = useState(false);
+  const [showApplication, setShowApplication] = useState(false);
+
+  useEffect(() => {
+    if (!showPaper || paperText !== null || paperLoading) return;
+    setPaperLoading(true);
+    fetch('/resources/research/course-reform-paper.txt')
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`status ${r.status}`))))
+      .then((text) => setPaperText(text))
+      .catch(() => setPaperText('论文加载失败，请点击右下"在新标签打开"。'))
+      .finally(() => setPaperLoading(false));
+  }, [showPaper, paperText, paperLoading]);
+
   return (
     <div className="mb-5 rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -424,31 +439,88 @@ function ResearchBasisPanel() {
           </a>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-300/15 pt-3">
-        <a
-          href="/resources/research/course-reform-paper.txt"
-          target="_blank"
-          rel="noreferrer"
-          className="group inline-flex items-center gap-2 rounded-md border border-amber-300/25 bg-black/20 px-3 py-2 text-xs hover:border-amber-300/50 hover:bg-black/30"
-        >
-          <FileText className="h-3.5 w-3.5 text-amber-200" />
-          <span className="text-slate-200 group-hover:text-amber-100">论文全文（纯文本 · 31KB · Markdown 源）</span>
-        </a>
-        <a
-          href="/resources/research/course-reform-project-application.pdf"
-          target="_blank"
-          rel="noreferrer"
-          className="group inline-flex items-center gap-2 rounded-md border border-amber-300/25 bg-black/20 px-3 py-2 text-xs hover:border-amber-300/50 hover:bg-black/30"
-        >
-          <FileText className="h-3.5 w-3.5 text-amber-200" />
-          <span className="text-slate-200 group-hover:text-amber-100">教改项目申报书（PDF · 3.0MB）</span>
-        </a>
+      <div className="mt-3 space-y-3 border-t border-amber-300/15 pt-3">
+        {/* 论文全文 — 内联展开 */}
+        <div className="rounded-md border border-amber-300/15 bg-black/20">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setShowPaper((v) => !v)}
+              className="flex items-center gap-2 text-xs text-slate-200 hover:text-amber-100"
+            >
+              <FileText className="h-3.5 w-3.5 text-amber-200" />
+              <span>论文全文（37KB · 737 行 Markdown）</span>
+              <span className="font-mono text-[10px] text-slate-500">{showPaper ? '收起 ▴' : '展开 ▾'}</span>
+            </button>
+            <a
+              href="/resources/research/course-reform-paper.txt"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] text-slate-500 hover:text-amber-100"
+            >
+              新标签打开 ↗
+            </a>
+          </div>
+          {showPaper && (
+            <div className="border-t border-amber-300/15 p-3">
+              {paperLoading && <div className="text-xs text-slate-500">加载中…</div>}
+              {paperText && (
+                <pre className="max-h-[480px] overflow-y-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-300">
+                  {paperText}
+                </pre>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 教改项目申报书 — 内嵌 PDF */}
+        <div className="rounded-md border border-amber-300/15 bg-black/20">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setShowApplication((v) => !v)}
+              className="flex items-center gap-2 text-xs text-slate-200 hover:text-amber-100"
+            >
+              <FileText className="h-3.5 w-3.5 text-amber-200" />
+              <span>教改项目申报书 V4（PDF · 3.0MB）</span>
+              <span className="font-mono text-[10px] text-slate-500">{showApplication ? '收起 ▴' : '内嵌预览 ▾'}</span>
+            </button>
+            <a
+              href="/resources/research/course-reform-project-application.pdf"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] text-slate-500 hover:text-amber-100"
+            >
+              新标签打开 ↗
+            </a>
+          </div>
+          {showApplication && (
+            <object
+              data="/resources/research/course-reform-project-application.pdf"
+              type="application/pdf"
+              className="block h-[640px] w-full border-t border-amber-300/15 bg-white"
+            >
+              <div className="flex h-[640px] items-center justify-center bg-white p-6 text-sm text-slate-700">
+                浏览器未启用 PDF 内嵌预览。
+                <a
+                  href="/resources/research/course-reform-project-application.pdf"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 underline"
+                >
+                  点击在新标签打开
+                </a>
+              </div>
+            </object>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 function CourseMaterialPanel() {
+  const [showLabPdf, setShowLabPdf] = useState(false);
   return (
     <div className="mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -457,29 +529,55 @@ function CourseMaterialPanel() {
           <h2 className="mt-2 text-base font-semibold text-slate-50">{labReportMaterial.title}</h2>
           <p className="mt-1 text-sm text-slate-400">{labReportMaterial.meta}</p>
         </div>
-        <a
-          href={labReportMaterial.href}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
-        >
-          <FileText className="h-4 w-4" />
-          打开PDF
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowLabPdf((v) => !v)}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-emerald-300/40 bg-emerald-300/[0.10] px-4 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/[0.18]"
+          >
+            <FileText className="h-4 w-4" />
+            {showLabPdf ? '收起预览' : '内嵌预览'}
+          </button>
+          <a
+            href={labReportMaterial.href}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
+          >
+            <FileText className="h-4 w-4" />
+            新标签打开
+          </a>
+        </div>
       </div>
-      <div className="grid gap-2 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
+      {showLabPdf && (
+        <object
+          data={labReportMaterial.href}
+          type="application/pdf"
+          className="block h-[640px] w-full rounded-md border border-emerald-300/20 bg-white"
+        >
+          <div className="flex h-[640px] items-center justify-center bg-white p-6 text-sm text-slate-700">
+            浏览器未启用 PDF 内嵌预览。
+            <a href={labReportMaterial.href} target="_blank" rel="noreferrer" className="ml-2 underline">
+              点击在新标签打开
+            </a>
+          </div>
+        </object>
+      )}
+      <div className="grid gap-3 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
         {verifiedDiagrams.map((diagram) => (
           <a
             key={diagram.href}
             href={diagram.href}
             target="_blank"
             rel="noreferrer"
-            className="group flex items-start gap-3 rounded-md border border-emerald-300/15 bg-black/20 p-3 hover:border-emerald-300/40 hover:bg-black/30"
+            className="group block overflow-hidden rounded-md border border-emerald-300/15 bg-white"
           >
-            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
-              <div className="mt-0.5 text-[11px] text-slate-500">{diagram.meta}</div>
+            <div className="flex items-center justify-center bg-white p-2">
+              <img src={diagram.href} alt={diagram.title} className="block h-32 w-auto" loading="lazy" />
+            </div>
+            <div className="border-t border-emerald-300/15 bg-[#0c1117] px-3 py-2">
+              <div className="text-[12px] font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
+              <div className="mt-0.5 text-[10px] leading-snug text-slate-500">{diagram.meta}</div>
             </div>
           </a>
         ))}
