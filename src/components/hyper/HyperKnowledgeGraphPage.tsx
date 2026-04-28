@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ComponentType, CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -1498,6 +1498,8 @@ function IdeologicalGraphView({
 
 export function HyperKnowledgeGraphPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [view, setView] = useState<GraphView>('knowledge');
   const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
@@ -1505,6 +1507,7 @@ export function HyperKnowledgeGraphPage() {
   const [query, setQuery] = useState('');
   const [chapter, setChapter] = useState<number | 'all'>('all');
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
+  const initialUrlAppliedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -1560,38 +1563,57 @@ export function HyperKnowledgeGraphPage() {
     const viewParam = searchParams.get('view');
     const nodeParam = searchParams.get('node');
     const chapterParam = parseChapterParam(searchParams.get('chapter'));
+    const qParam = searchParams.get('q');
 
     if (isGraphView(viewParam)) setView(viewParam);
+    if (qParam) setQuery(qParam);
 
     if (chapterParam !== null) {
       setChapter(chapterParam);
       if (!viewParam) setView('knowledge');
     }
 
-    if (!nodeParam) return;
-
-    const knowledgePoint = knowledgePoints.find((point) => point.id === nodeParam) || knowledgePointByGraphId[nodeParam];
-    if (knowledgePoint) {
-      setView('knowledge');
-      setSelectedId(knowledgePoint.id);
-      setChapter(knowledgePoint.chapter);
-      return;
+    if (nodeParam) {
+      const knowledgePoint = knowledgePoints.find((point) => point.id === nodeParam) || knowledgePointByGraphId[nodeParam];
+      if (knowledgePoint) {
+        setView('knowledge');
+        setSelectedId(knowledgePoint.id);
+        setChapter(knowledgePoint.chapter);
+      } else if (problemGraph.some((node) => node.id === nodeParam)) {
+        setView('problem');
+        setSelectedProblemId(nodeParam);
+      } else if (ideologicalNodes.some((node) => node.id === nodeParam)) {
+        setView('ideological');
+        setSelectedIdeologicalId(nodeParam);
+      } else {
+        setView('knowledge');
+      }
     }
 
-    if (problemGraph.some((node) => node.id === nodeParam)) {
-      setView('problem');
-      setSelectedProblemId(nodeParam);
-      return;
-    }
-
-    if (ideologicalNodes.some((node) => node.id === nodeParam)) {
-      setView('ideological');
-      setSelectedIdeologicalId(nodeParam);
-      return;
-    }
-
-    setView('knowledge');
+    initialUrlAppliedRef.current = true;
   }, [knowledgePointByGraphId, searchParams]);
+
+  // Sync state -> URL (replace, no history pollution). Skipped on the very
+  // first render so we don't trample the deep-link applied above.
+  useEffect(() => {
+    if (!initialUrlAppliedRef.current) return;
+    const base = pathname || '/knowledge-graph';
+    const next = new URLSearchParams();
+    if (view !== 'knowledge') next.set('view', view);
+    if (chapter !== 'all') next.set('chapter', String(chapter));
+    const trimmedQ = query.trim();
+    if (trimmedQ) next.set('q', trimmedQ);
+    let nodeForUrl = '';
+    if (view === 'knowledge') nodeForUrl = selectedId;
+    else if (view === 'problem') nodeForUrl = selectedProblemId;
+    else if (view === 'ideological') nodeForUrl = selectedIdeologicalId;
+    if (nodeForUrl) next.set('node', nodeForUrl);
+    const qs = next.toString();
+    const url = qs ? `${base}?${qs}` : base;
+    if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== url) {
+      router.replace(url, { scroll: false });
+    }
+  }, [view, chapter, query, selectedId, selectedProblemId, selectedIdeologicalId, pathname, router]);
 
   const filteredList = useMemo(() => {
     const q = query.trim().toLowerCase();

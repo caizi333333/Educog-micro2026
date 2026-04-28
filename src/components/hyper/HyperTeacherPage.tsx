@@ -231,10 +231,16 @@ export function HyperTeacherPage() {
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.success === false) {
+      if (!response.ok) {
         throw new Error(result.message || result.error || '授予失败');
       }
+      if (result.success === false) {
+        // 后端用 success:false 表示「成就已解锁」，不算错误，提示更友好
+        toast({ title: '已授予过', description: `${selectedStudent.name} 已经获得过“${selectedMedal.title}”，不重复授予。` });
+        return;
+      }
       toast({ title: '已授予徽章', description: `${selectedStudent.name} 已获得“${selectedMedal.title}”。` });
+      setReason('');
     } catch (awardError) {
       toast({
         title: '授予失败',
@@ -471,11 +477,15 @@ export function HyperTeacherPage() {
             type="button"
             onClick={awardMedal}
             disabled={actionLoading || !selectedStudent?.id}
-            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-amber-300 px-4 text-sm font-semibold text-[#1b1300] hover:bg-amber-200 disabled:opacity-50"
+            title={!selectedStudent?.id ? '请先在左侧选择一名学生' : undefined}
+            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-amber-300 px-4 text-sm font-semibold text-[#1b1300] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Medal className="h-4 w-4" />}
             授予徽章
           </button>
+          {!selectedStudent?.id && (
+            <p className="mt-2 text-center text-[11px] text-slate-500">请先在左侧学生列表中选择一名学生再授予徽章</p>
+          )}
         </div>
       </aside>
     </div>
