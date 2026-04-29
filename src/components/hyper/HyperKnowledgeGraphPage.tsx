@@ -638,12 +638,19 @@ function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
         width: data.width,
         height: data.height,
         borderColor: tone.border,
-        background: `linear-gradient(135deg, ${tone.bg}, rgba(2, 6, 23, 0.2))`,
+        background: `linear-gradient(180deg, ${tone.bg}, rgba(2, 6, 23, 0.05))`,
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.04)`,
       }}
-      className="rounded-lg border border-dashed px-4 py-3"
+      className="relative rounded-2xl border px-4 py-3"
     >
-      <div className="font-mono text-[11px] font-semibold text-slate-300">{data.label}</div>
-      {data.subtitle && <div className="mt-1 font-mono text-[10px]" style={{ color: tone.color }}>{data.subtitle}</div>}
+      {/* small accent stripe on top edge so the group reads like a panel,
+          not a dashed sketch */}
+      <div
+        className="absolute left-4 top-0 h-[2px] w-16 rounded-b"
+        style={{ background: tone.color, opacity: 0.85 }}
+      />
+      <div className="font-mono text-[11px] font-semibold tracking-wide text-slate-200">{data.label}</div>
+      {data.subtitle && <div className="mt-1 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>{data.subtitle}</div>}
     </div>
   );
 }
@@ -665,7 +672,7 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
         className={cn(
           'relative flex h-full w-full items-center overflow-hidden rounded-lg border text-left backdrop-blur-sm transition',
           data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:-translate-y-[1px] hover:scale-[1.02]',
-          data.selected && 'scale-[1.06]',
+          data.selected && 'scale-[1.10]',
           isRoot ? 'gap-2.5 px-3' : isLeaf ? 'justify-center px-2.5' : 'gap-2 px-2.5',
         )}
         style={{
@@ -680,7 +687,7 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
               ? `linear-gradient(160deg, ${tone.bg}, rgba(8,12,20,0.55))`
               : 'rgba(15, 23, 42, 0.65)',
           boxShadow: data.selected
-            ? `0 0 0 1px rgba(248,250,252,0.4), 0 8px 24px ${tone.color}55, inset 0 1px 0 rgba(255,255,255,0.08)`
+            ? `0 0 0 2px ${tone.color}, 0 0 0 4px rgba(248,250,252,0.16), 0 12px 32px ${tone.color}66, inset 0 1px 0 rgba(255,255,255,0.10)`
             : isRoot
               ? `0 4px 18px ${tone.color}26, inset 0 1px 0 rgba(255,255,255,0.05)`
               : `0 1px 0 rgba(255,255,255,0.04) inset`,
@@ -962,15 +969,18 @@ function FullKnowledgeMap({
       const tone = knowledgeTone(chapter);
       const chapterProgress = progressForChapter(progress, chapter);
 
-      const SHELF_X = 80;
-      const ROOT_X = 130;
-      const L2_START_X = 340;
-      const L2_GAP_X = 200;
-      const L3_OFFSET_Y = 90;
-      const L3_GAP_Y = 40;
+      // Tighter horizontal rhythm so the shelf fits cleanly at common
+      // 1280–1440 viewports without auto-fit zooming everything illegibly
+      // small.
+      const SHELF_X = 40;
+      const ROOT_X = 110;
+      const L2_START_X = 280;
+      const L2_GAP_X = 168;
+      const L3_OFFSET_Y = 84;
+      const L3_GAP_Y = 36;
       const maxL3 = Math.max(0, ...levelTwo.map((p) => points.filter((c) => c.parentId === p.id).length));
-      const shelfWidth = Math.max(1100, L2_START_X + Math.max(levelTwo.length, 1) * L2_GAP_X + 60);
-      const shelfHeight = Math.max(280, L3_OFFSET_Y + maxL3 * L3_GAP_Y + 80);
+      const shelfWidth = Math.max(900, L2_START_X + Math.max(levelTwo.length, 1) * L2_GAP_X + 40);
+      const shelfHeight = Math.max(260, L3_OFFSET_Y + maxL3 * L3_GAP_Y + 60);
 
       nodes.push(createMapGroup(`kg-shelf-${chapter}`, SHELF_X - 40, 50, {
         label: `CH${chapter} · ${root?.name || '章节'}`,
@@ -1797,6 +1807,14 @@ export function HyperKnowledgeGraphPage() {
 
   useEffect(() => {
     if (!searchParams) return;
+    // After the initial deep-link is applied, the state→URL effect keeps
+    // searchParams in sync with the in-memory state. Re-applying URL→state
+    // on every searchParams change would force-override fields that the
+    // user just touched (e.g. clicking a node in the "all chapters"
+    // overview snaps the canvas to that node's single-chapter view because
+    // we re-derive chapter from the node id). Run this effect only on the
+    // very first render where the URL is the only source of truth.
+    if (initialUrlAppliedRef.current) return;
 
     const viewParam = searchParams.get('view');
     const nodeParam = searchParams.get('node');
@@ -1816,7 +1834,9 @@ export function HyperKnowledgeGraphPage() {
       if (knowledgePoint) {
         setView('knowledge');
         setSelectedId(knowledgePoint.id);
-        setChapter(knowledgePoint.chapter);
+        // Only honour a node-derived chapter switch on the initial deep
+        // link — never re-apply it from a state→URL round-trip.
+        if (chapterParam === null) setChapter(knowledgePoint.chapter);
       } else if (problemGraph.some((node) => node.id === nodeParam)) {
         setView('problem');
         setSelectedProblemId(nodeParam);
