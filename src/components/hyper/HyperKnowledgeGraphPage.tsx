@@ -1082,9 +1082,11 @@ function FullKnowledgeMap({
         });
       });
     } else {
-      // Single-chapter expanded shelf: L1 anchor on left, L2 in a row to its right,
-      // each L2's L3 leaves stacked tightly below it. Full canvas width + height to
-      // a single chapter for readable detail.
+      // Single-chapter hub-and-spoke: L1 sits at the centre, every L2
+      // around it on a ring, and each L2's L3 leaves continue outward
+      // along the same radial spoke. The radial form fits a square-ish
+      // canvas naturally at 1280–1440 viewports without the wide shelf
+      // getting auto-fit-zoomed into illegibility.
       const chapter = chapterFilter;
       const chapterPoints = points.filter((point) => point.chapter === chapter);
       const root = chapterPoints.find((point) => point.level === 1);
@@ -1092,32 +1094,21 @@ function FullKnowledgeMap({
       const tone = knowledgeTone(chapter);
       const chapterProgress = progressForChapter(progress, chapter);
 
-      // Tighter horizontal rhythm so the shelf fits cleanly at common
-      // 1280–1440 viewports without auto-fit zooming everything illegibly
-      // small.
-      const SHELF_X = 40;
-      const ROOT_X = 110;
-      const L2_START_X = 280;
-      const L2_GAP_X = 168;
-      const L3_OFFSET_Y = 84;
-      const L3_GAP_Y = 36;
-      const maxL3 = Math.max(0, ...levelTwo.map((p) => points.filter((c) => c.parentId === p.id).length));
-      const shelfWidth = Math.max(900, L2_START_X + Math.max(levelTwo.length, 1) * L2_GAP_X + 40);
-      const shelfHeight = Math.max(260, L3_OFFSET_Y + maxL3 * L3_GAP_Y + 60);
+      const cx = 480;
+      const cy = 360;
+      const L2_RADIUS = 210;
+      const L3_FIRST_OFFSET = 78;
+      const L3_STEP = 38;
+      // Start the first L2 at the top of the ring (-π/2) so simple chapters
+      // with 4–5 L2s read top-down rather than starting from the right.
+      const startAngle = -Math.PI / 2;
+      // The canvas header outside ReactFlow already renders the chapter
+      // title and progress; we don't drop a group container inside the
+      // radial layout because its label would land far from the visual
+      // centre and clutter the spokes.
 
-      nodes.push(createMapGroup(`kg-shelf-${chapter}`, SHELF_X - 40, 50, {
-        label: `CH${chapter} · ${root?.name || '章节'}`,
-        subtitle: chapterProgress === null
-          ? `${chapterPoints.length} 个知识点`
-          : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
-        tone,
-        width: shelfWidth,
-        height: shelfHeight,
-      }));
-
-      const rootCenterY = 140;
       if (root) {
-        nodes.push(createMapNode(root.id, SHELF_X + ROOT_X, rootCenterY, {
+        nodes.push(createMapNode(root.id, cx, cy, {
           label: root.name,
           subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
           levelLabel: 'L1',
@@ -1130,9 +1121,13 @@ function FullKnowledgeMap({
         }));
       }
 
+      const lvl2Count = Math.max(levelTwo.length, 1);
       levelTwo.forEach((parent, parentIndex) => {
-        const parentX = SHELF_X + L2_START_X + parentIndex * L2_GAP_X;
-        const parentY = rootCenterY;
+        const angle = startAngle + (parentIndex / lvl2Count) * Math.PI * 2;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const parentX = cx + cosA * L2_RADIUS;
+        const parentY = cy + sinA * L2_RADIUS;
         const childPoints = points.filter((point) => point.parentId === parent.id);
         nodes.push(createMapNode(parent.id, parentX, parentY, {
           label: parent.name,
@@ -1150,9 +1145,11 @@ function FullKnowledgeMap({
         }
 
         childPoints.forEach((child, childIndex) => {
-          const childY = parentY + L3_OFFSET_Y + childIndex * L3_GAP_Y;
+          const distance = L2_RADIUS + L3_FIRST_OFFSET + childIndex * L3_STEP;
+          const childX = cx + cosA * distance;
+          const childY = cy + sinA * distance;
           const childTone = visibleIds.has(child.id) ? tone : 'slate';
-          nodes.push(createMapNode(child.id, parentX, childY, {
+          nodes.push(createMapNode(child.id, childX, childY, {
             label: child.name,
             levelLabel: 'L3',
             tone: masteryTone(masteryByKa?.[child.id]) ?? childTone,
