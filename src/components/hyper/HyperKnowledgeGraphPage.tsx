@@ -579,6 +579,8 @@ type MapNodeData = {
   clickable?: boolean;
   chapter?: number;
   mastery?: number;
+  description?: string;
+  dimmed?: boolean;
   [key: string]: unknown;
 };
 
@@ -660,7 +662,11 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   const size = getGraphNodeSize(data.size);
   const isLeaf = data.size === 'leaf';
   const isRoot = data.size === 'root' || data.size === 'core';
-  const opacity = data.visible || data.selected ? 1 : 0.18;
+  // Focus mode: a non-selected node outside the kinship set fades to the
+  // background. Visible-but-out-of-search filter still trumps focus dimming.
+  const baseOpacity = data.visible || data.selected ? 1 : 0.18;
+  const focusFactor = data.dimmed && !data.selected ? 0.28 : 1;
+  const opacity = baseOpacity * focusFactor;
   const labelMax = isRoot ? 14 : data.size === 'branch' ? 12 : 9;
   const ChapterIcon = isRoot ? getChapterIcon(data.chapter) : null;
   const showMastery = typeof data.mastery === 'number' && (isRoot || data.size === 'branch');
@@ -743,6 +749,12 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
 
 const mapNodeTypes = { mapNode: MapNode, mapGroup: MapGroupNode };
 
+type HoverPayload = {
+  x: number;
+  y: number;
+  data: MapNodeData;
+};
+
 function GraphMapStage({
   nodes,
   edges,
@@ -754,8 +766,14 @@ function GraphMapStage({
   onSelect: (id: string) => void;
   heightClassName?: string;
 }) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<HoverPayload | null>(null);
+
   return (
-    <div className={cn('relative overflow-hidden bg-[radial-gradient(ellipse_60%_40%_at_30%_15%,rgba(34,211,238,0.10),transparent_70%),radial-gradient(ellipse_50%_30%_at_80%_85%,rgba(168,85,247,0.06),transparent_70%),#05080d]', heightClassName)}>
+    <div
+      ref={stageRef}
+      className={cn('relative overflow-hidden bg-[radial-gradient(ellipse_60%_40%_at_30%_15%,rgba(34,211,238,0.10),transparent_70%),radial-gradient(ellipse_50%_30%_at_80%_85%,rgba(168,85,247,0.06),transparent_70%),#05080d]', heightClassName)}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -765,6 +783,18 @@ function GraphMapStage({
           if ((node.data as MapNodeData).clickable === false) return;
           onSelect(node.id);
         }}
+        onNodeMouseEnter={(event, node) => {
+          if (node.type !== 'mapNode') return;
+          const stageRect = stageRef.current?.getBoundingClientRect();
+          if (!stageRect) return;
+          setHover({
+            x: event.clientX - stageRect.left,
+            y: event.clientY - stageRect.top,
+            data: node.data as MapNodeData,
+          });
+        }}
+        onNodeMouseLeave={() => setHover(null)}
+        onPaneClick={() => setHover(null)}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable
@@ -788,6 +818,38 @@ function GraphMapStage({
           style={{ width: 158, height: 104 }}
         />
       </ReactFlow>
+      {hover && <NodeHoverCard hover={hover} />}
+    </div>
+  );
+}
+
+function NodeHoverCard({ hover }: { hover: HoverPayload }) {
+  const { data } = hover;
+  const tone = graphTone[data.tone];
+  // Place above-and-right of the cursor by default; flip to the left edge
+  // when we'd otherwise overflow the canvas.
+  const left = Math.max(8, hover.x - 120);
+  const top = Math.max(8, hover.y - 96);
+  return (
+    <div
+      className="pointer-events-none absolute z-50 max-w-[260px] rounded-lg border bg-[#0b1117] p-3 shadow-2xl backdrop-blur"
+      style={{ left, top, borderColor: tone.border }}
+    >
+      <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+        {typeof data.chapter === 'number' && <span>CH{data.chapter}</span>}
+        {data.levelLabel && (
+          <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
+            {data.levelLabel}
+          </span>
+        )}
+        {typeof data.mastery === 'number' && (
+          <span style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
+        )}
+      </div>
+      <div className="mt-1 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
+      {data.description && (
+        <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
+      )}
     </div>
   );
 }
@@ -886,6 +948,37 @@ function FullKnowledgeMap({
   chapterFilter: number | 'all';
   masteryByKa?: Record<string, number>;
 }) {
+  // Focus mode: when a node is selected we keep its kinship set bright and
+  // dim everything else. Kinship = self + every ancestor up to the root +
+  // every descendant + every prerequisite (one hop). Empty set means "no
+  // selection" → no dimming applied, every node renders at full strength.
+  const focusIds = useMemo(() => {
+    if (!selectedId) return new Set<string>();
+    const byId: Record<string, KnowledgePoint> = {};
+    points.forEach((p) => { byId[p.id] = p; });
+    const focus = new Set<string>([selectedId]);
+    // Climb ancestors
+    let cursor: KnowledgePoint | undefined = byId[selectedId];
+    while (cursor?.parentId) {
+      focus.add(cursor.parentId);
+      cursor = byId[cursor.parentId];
+    }
+    // Walk descendants (BFS)
+    const queue = [selectedId];
+    while (queue.length) {
+      const id = queue.shift()!;
+      points.forEach((p) => {
+        if (p.parentId === id && !focus.has(p.id)) {
+          focus.add(p.id);
+          queue.push(p.id);
+        }
+      });
+    }
+    // One-hop prerequisites
+    byId[selectedId]?.prerequisites?.forEach((id) => focus.add(id));
+    return focus;
+  }, [points, selectedId]);
+
   const layout = useMemo(() => {
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
@@ -1061,8 +1154,37 @@ function FullKnowledgeMap({
       });
     }
 
+    // Focus pass: when there's a selected node, dim every map-node and edge
+    // that isn't part of the selected node's kinship set, and attach the
+    // raw description so hover tooltips can read it without re-deriving.
+    if (focusIds.size > 0) {
+      nodes.forEach((node) => {
+        if (node.type !== 'mapNode') return;
+        const data = node.data as MapNodeData;
+        const point = pointById[node.id];
+        if (point && !data.description) data.description = point.description;
+        if (!focusIds.has(node.id)) data.dimmed = true;
+      });
+      edges.forEach((edge) => {
+        if (focusIds.has(edge.source) && focusIds.has(edge.target)) return;
+        edge.style = {
+          ...edge.style,
+          opacity: typeof edge.style?.opacity === 'number' ? edge.style.opacity * 0.18 : 0.08,
+        };
+        edge.animated = false;
+      });
+    } else {
+      // No selection — still attach descriptions so hover tooltips work.
+      nodes.forEach((node) => {
+        if (node.type !== 'mapNode') return;
+        const data = node.data as MapNodeData;
+        const point = pointById[node.id];
+        if (point && !data.description) data.description = point.description;
+      });
+    }
+
     return { nodes, edges };
-  }, [points, progress, selectedId, visibleIds, chapterFilter, masteryByKa]);
+  }, [points, progress, selectedId, visibleIds, chapterFilter, masteryByKa, focusIds]);
 
   return (
     <GraphMapStage
