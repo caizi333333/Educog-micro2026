@@ -2250,7 +2250,13 @@ export function HyperKnowledgeGraphPage() {
               </div>
             </div>
           </div>
-          <div className="h-[520px] md:h-[620px] xl:h-[720px]">
+          {/* Re-keying on chapter change forces React to remount the
+              canvas, which lets the existing animate-fade-in keyframe
+              cross-fade the new layout in instead of snapping it on. */}
+          <div
+            key={`kg-canvas-${chapter}`}
+            className="h-[520px] animate-fade-in md:h-[620px] xl:h-[720px]"
+          >
             <FullKnowledgeMap
               points={knowledgePoints}
               selectedId={selectedId}
