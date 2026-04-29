@@ -16,6 +16,7 @@ import {
   type Edge as RFEdge,
   type Node as RFNode,
   type NodeProps,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
@@ -759,15 +760,41 @@ function GraphMapStage({
   nodes,
   edges,
   onSelect,
+  selectedId,
+  focusIds,
   heightClassName = 'h-[660px] md:h-[760px]',
 }: {
   nodes: RFNode[];
   edges: RFEdge[];
   onSelect: (id: string) => void;
+  selectedId?: string;
+  focusIds?: Set<string>;
   heightClassName?: string;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<HoverPayload | null>(null);
+
+  // When the user picks a node, ease the camera so the node and its
+  // immediate kinship fill the viewport. Skipped on first render and
+  // when the focus set is empty (no selection).
+  useEffect(() => {
+    if (!selectedId || !focusIds || focusIds.size === 0) return;
+    const instance = instanceRef.current;
+    if (!instance) return;
+    const targets = nodes.filter((n) => n.type === 'mapNode' && focusIds.has(n.id));
+    if (targets.length === 0) return;
+    instance.fitView({
+      nodes: targets.map((n) => ({ id: n.id })),
+      padding: 0.4,
+      duration: 480,
+      maxZoom: 1.25,
+      minZoom: 0.45,
+    });
+    // Re-run only when the user actually picks a different node — the
+    // focus set churn from a stale id would otherwise pin the camera.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   return (
     <div
@@ -778,6 +805,9 @@ function GraphMapStage({
         nodes={nodes}
         edges={edges}
         nodeTypes={mapNodeTypes}
+        onInit={(instance) => {
+          instanceRef.current = instance;
+        }}
         onNodeClick={(_, node) => {
           if (node.type !== 'mapNode') return;
           if ((node.data as MapNodeData).clickable === false) return;
@@ -1194,6 +1224,8 @@ function FullKnowledgeMap({
         const point = points.find((item) => item.id === id);
         if (point) onSelect(point);
       }}
+      selectedId={selectedId}
+      focusIds={focusIds}
       heightClassName="h-[620px] md:h-[780px]"
     />
   );
