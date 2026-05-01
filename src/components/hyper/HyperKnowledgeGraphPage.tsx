@@ -74,10 +74,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
-const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
-  { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length },
-  { id: 'problem', label: '问题图谱', count: problemGraph.length },
-  { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length },
+const graphViews: Array<{ id: GraphView; label: string; count: number; icon: LucideIcon; tone: string }> = [
+  { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length, icon: GitBranch, tone: '#67e8f9' },
+  { id: 'problem', label: '问题图谱', count: problemGraph.length, icon: AlertTriangle, tone: '#fbbf24' },
+  { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length, icon: Flag, tone: '#c084fc' },
 ];
 
 function parseChapterParam(value: string | null): number | 'all' | null {
@@ -611,6 +611,7 @@ type MapGroupData = {
   tone: GraphTone;
   width: number;
   height: number;
+  chapter?: number;
   [key: string]: unknown;
 };
 
@@ -655,25 +656,51 @@ function createMapGroup(
 
 function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
   const tone = graphTone[data.tone];
+  const ChapterIcon = typeof data.chapter === 'number' ? getChapterIcon(data.chapter) : null;
+  // Strip the leading "CH7 · " prefix from the legacy label so the group
+  // reads as a single title now that the chapter chip lives on its own.
+  const cleanedLabel = typeof data.chapter === 'number'
+    ? data.label.replace(/^CH\d+\s*[·•]\s*/, '')
+    : data.label;
   return (
     <div
       style={{
         width: data.width,
         height: data.height,
         borderColor: tone.border,
-        background: `linear-gradient(180deg, ${tone.bg}, rgba(2, 6, 23, 0.05))`,
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.04)`,
+        background: `linear-gradient(165deg, ${tone.bg} 0%, rgba(2, 6, 23, 0.08) 70%)`,
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.025), inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 36px -22px ${tone.color}33`,
       }}
-      className="relative rounded-2xl border px-4 py-3"
+      className="relative overflow-hidden rounded-2xl border"
     >
-      {/* small accent stripe on top edge so the group reads like a panel,
-          not a dashed sketch */}
+      {/* Header strip: tone-coloured top edge with a soft fade. Reads as
+          a card "tab" rather than a stripe stuck on the border. */}
       <div
-        className="absolute left-4 top-0 h-[2px] w-16 rounded-b"
-        style={{ background: tone.color, opacity: 0.85 }}
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: `linear-gradient(90deg, ${tone.color}, ${tone.color}00 80%)`, opacity: 0.9 }}
       />
-      <div className="font-mono text-[11px] font-semibold tracking-wide text-slate-200">{data.label}</div>
-      {data.subtitle && <div className="mt-1 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>{data.subtitle}</div>}
+      <div className="flex items-center gap-2 px-4 pt-3.5">
+        {ChapterIcon && (
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border"
+            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.32)', color: tone.color }}
+          >
+            <ChapterIcon className="h-3.5 w-3.5" />
+          </span>
+        )}
+        <div className="min-w-0">
+          {typeof data.chapter === 'number' && (
+            <div className="font-mono text-[9px] tracking-wider text-slate-500">CH{data.chapter}</div>
+          )}
+          <div className="truncate text-[12px] font-semibold leading-tight text-slate-100">{cleanedLabel}</div>
+        </div>
+      </div>
+      {data.subtitle && (
+        <div className="px-4 pt-1.5 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>
+          {data.subtitle}
+        </div>
+      )}
     </div>
   );
 }
@@ -869,7 +896,7 @@ function GraphMapStage({
         maxZoom={2.4}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={32} size={0.6} color="rgba(148,163,184,0.05)" />
+        <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="rgba(148,163,184,0.09)" />
         <Controls
           showInteractive={false}
           className="!overflow-hidden !rounded-lg !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-xl"
@@ -1074,17 +1101,18 @@ function FullKnowledgeMap({
         const chapterProgress = progressForChapter(progress, chapter);
 
         nodes.push(createMapGroup(`kg-card-${chapter}`, cellX, cellY, {
-          label: `CH${chapter} · ${root?.name || '章节'}`,
+          label: root?.name || '章节',
           subtitle: chapterProgress === null
             ? `${chapterPoints.length} 个知识点 · ${levelTwo.length} 个二级`
             : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
           tone,
           width: COL_W - 30,
           height: ROW_H - 30,
+          chapter,
         }));
 
         if (root) {
-          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 70, {
+          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 96, {
             label: root.name,
             subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
             levelLabel: 'L1',
@@ -1102,7 +1130,7 @@ function FullKnowledgeMap({
           const c = parentIndex % cols;
           const r = Math.floor(parentIndex / cols);
           const px = cellX + 50 + c * ((COL_W - 130) / Math.max(cols, 1));
-          const py = cellY + 170 + r * 56;
+          const py = cellY + 196 + r * 56;
           nodes.push(createMapNode(parent.id, px, py, {
             label: parent.name,
             levelLabel: 'L2',
@@ -1449,10 +1477,10 @@ function ProblemGraphView({
                 {problemGraphStats.level1}类问题域、{problemGraphStats.level2}个问题类型、{problemGraphStats.level3}个具体问题，按父子关系连线展示。
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {problemGraphStats.level1}</span>
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {problemGraphStats.level2}</span>
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L3 {problemGraphStats.level3}</span>
+            <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px] text-slate-400">
+              <span className="px-2 py-1">L1<span className="ml-1 text-slate-200">{problemGraphStats.level1}</span></span>
+              <span className="px-2 py-1">L2<span className="ml-1 text-slate-200">{problemGraphStats.level2}</span></span>
+              <span className="px-2 py-1">L3<span className="ml-1 text-slate-200">{problemGraphStats.level3}</span></span>
             </div>
           </div>
           <ProblemGraphCanvas selectedId={selected?.id || ''} visibleIds={visibleProblemIds} onSelect={onSelect} />
@@ -2188,6 +2216,7 @@ export function HyperKnowledgeGraphPage() {
         <div className="mt-5 -mb-1 flex flex-wrap gap-1 border-b border-white/[0.06]">
           {graphViews.map((item) => {
             const active = view === item.id;
+            const Icon = item.icon;
             return (
               <button
                 key={item.id}
@@ -2198,18 +2227,21 @@ export function HyperKnowledgeGraphPage() {
                 }}
                 aria-pressed={active}
                 className={cn(
-                  'group relative -mb-px inline-flex items-center gap-2 px-3 pb-3 pt-1.5 text-sm transition',
-                  active
-                    ? 'text-cyan-100'
-                    : 'text-slate-400 hover:text-slate-100',
+                  'group relative -mb-px inline-flex items-center gap-2 px-3 pb-3 pt-1.5 text-sm transition-colors',
+                  active ? 'text-slate-50' : 'text-slate-400 hover:text-slate-100',
                 )}
               >
+                <Icon
+                  className="h-4 w-4 transition"
+                  style={active ? { color: item.tone } : undefined}
+                />
                 <span className="font-medium">{item.label}</span>
                 <span
                   className={cn(
-                    'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
-                    active ? 'bg-cyan-300/15 text-cyan-200' : 'bg-white/[0.05] text-slate-500',
+                    'rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+                    active ? 'bg-white/[0.08] text-slate-100' : 'bg-white/[0.04] text-slate-500',
                   )}
+                  style={active ? { color: item.tone, backgroundColor: `${item.tone}1f` } : undefined}
                 >
                   {item.count}
                 </span>
@@ -2217,8 +2249,9 @@ export function HyperKnowledgeGraphPage() {
                   aria-hidden
                   className={cn(
                     'pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full transition-opacity',
-                    active ? 'bg-cyan-300 opacity-100' : 'bg-cyan-300/0 opacity-0 group-hover:bg-white/20 group-hover:opacity-100',
+                    active ? 'opacity-100' : 'opacity-0 group-hover:opacity-50',
                   )}
+                  style={{ background: active ? item.tone : 'rgba(255,255,255,0.25)' }}
                 />
               </button>
             );
@@ -2387,23 +2420,32 @@ export function HyperKnowledgeGraphPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {Object.keys(kaScores).length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-300">
-                  <span className="text-slate-500">掌握度</span>
-                  <span className="inline-flex items-center gap-1 rounded border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ≥80
+                <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px]">
+                  <span className="px-2 py-1 text-slate-500">掌握度</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.55)]" />
+                    ≥80
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> 60–79
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-amber-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)]" />
+                    60–79
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 text-red-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> &lt;60
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-red-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.55)]" />
+                    &lt;60
                   </span>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {levelCounts.l1}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {levelCounts.l2}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L3 {levelCounts.l3}</span>
+              <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px] text-slate-400">
+                <span className="px-2 py-1">
+                  L1<span className="ml-1 text-slate-200">{levelCounts.l1}</span>
+                </span>
+                <span className="px-2 py-1">
+                  L2<span className="ml-1 text-slate-200">{levelCounts.l2}</span>
+                </span>
+                <span className="px-2 py-1">
+                  L3<span className="ml-1 text-slate-200">{levelCounts.l3}</span>
+                </span>
               </div>
             </div>
           </div>
