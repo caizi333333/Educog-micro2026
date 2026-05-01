@@ -24,7 +24,7 @@ const publicExactPaths = ['/'];
 const adminPaths = ['/admin'];
 
 // 静态资源路径
-const staticPaths = ['/_next', '/favicon.ico', '/public', '/resources'];
+const staticPaths = ['/_next', '/favicon.ico', '/public', '/resources', '/prinx'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
