@@ -899,7 +899,10 @@ function graphEdge(
     target: to,
     // Bezier curves give the canvas a softer, more organic look than the
     // right-angled smoothstep paths.
-    type: dashed ? 'default' : 'default',
+    type: 'default',
+    // Dashed (cross-chapter prerequisite) edges always animate so the
+    // semantic link reads as a flowing pulse; solid edges animate only
+    // when they're already heavyweight (root → branch).
     animated: active && (dashed || width > 1.5),
     style: {
       stroke: color,
@@ -938,19 +941,6 @@ function ideologicalTone(category?: IdeologicalCategory): GraphTone {
   if (category === 'aerospace') return 'slate';
   return 'cyan';
 }
-
-type KnowledgeVisualNode = {
-  id: string;
-  label: string;
-  subtitle?: string;
-  level: KnowledgePoint['level'];
-  chapter: number;
-  x: number;
-  y: number;
-  r: number;
-  fill: string;
-  stroke: string;
-};
 
 // Map a quiz mastery percentage to the existing GraphTone palette so the
 // canvas can re-tint nodes that the student is weak / strong on.
@@ -1228,16 +1218,6 @@ function FullKnowledgeMap({
   );
 }
 
-type ProblemVisualNode = {
-  id: string;
-  label: string;
-  category: ProblemNode['category'];
-  level: ProblemNode['level'];
-  x: number;
-  y: number;
-  r: number;
-};
-
 function ProblemGraphCanvas({
   selectedId,
   visibleIds,
@@ -1365,7 +1345,9 @@ function ProblemGraphView({
             className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">问题类型 · 4类问题域</div>
+        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          问题类型 · {problemGraphStats.level1}类问题域
+        </div>
         <div className="space-y-2">
           {roots.map((root) => {
             const meta = problemCategoryMeta[root.category];
@@ -1406,7 +1388,9 @@ function ProblemGraphView({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">问题节点网络</h2>
-              <p className="mt-1 text-xs text-slate-500">4类问题域、40个问题类型、153个具体问题，按父子关系连线展示。</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {problemGraphStats.level1}类问题域、{problemGraphStats.level2}个问题类型、{problemGraphStats.level3}个具体问题，按父子关系连线展示。
+              </p>
             </div>
             <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
               <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {problemGraphStats.level1}</span>
@@ -1439,6 +1423,18 @@ function ProblemGraphView({
                 {node.name}
               </button>
             ))}
+            {filteredProblems.length === 0 && (
+              <div className="w-full rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-4 text-center text-xs text-slate-500">
+                没有命中问题节点。
+                <button
+                  type="button"
+                  onClick={() => onQueryChange('')}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除搜索
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1517,17 +1513,6 @@ function ProblemGraphView({
     </main>
   );
 }
-
-type IdeologicalVisualNode = {
-  id: string;
-  label: string;
-  category?: IdeologicalCategory;
-  level: number;
-  x: number;
-  y: number;
-  r: number;
-  selectable: boolean;
-};
 
 function IdeologicalGraphCanvas({
   selectedId,
@@ -1672,7 +1657,9 @@ function IdeologicalGraphView({
             className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">思政主题 · 6类元素</div>
+        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          思政主题 · {ideologicalGraphStats.totalCategories}类元素
+        </div>
         <div className="space-y-2">
           {roots.map((root) => {
             const Icon = ideologicalIconMap[root.category];
@@ -1716,7 +1703,9 @@ function IdeologicalGraphView({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">思政节点网络</h2>
-              <p className="mt-1 text-xs text-slate-500">中心主题、6类思政主题、二级元素和章节映射以节点连线展示。</p>
+              <p className="mt-1 text-xs text-slate-500">
+                中心主题、{ideologicalGraphStats.totalCategories}类思政主题、{ideologicalGraphStats.totalElements}个二级元素和{ideologicalGraphStats.chaptersWithSip.length}个章节映射，按父子关系连线展示。
+              </p>
             </div>
             <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[10px] text-slate-500">
               CH {ideologicalGraphStats.chaptersWithSip.join('/')}
@@ -1745,6 +1734,18 @@ function IdeologicalGraphView({
                 {mapping.ideologicalTheme}
               </button>
             ))}
+            {filteredMappings.length === 0 && (
+              <div className="w-full rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-4 text-center text-xs text-slate-500">
+                没有命中周次映射。
+                <button
+                  type="button"
+                  onClick={() => onQueryChange('')}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除搜索
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1859,6 +1860,17 @@ export function HyperKnowledgeGraphPage() {
   const [kaScores, setKaScores] = useState<Record<string, number>>({});
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const initialUrlAppliedRef = useRef(false);
+
+  // Esc closes the mobile drawer — matches the affordance most users
+  // expect from any modal-style overlay on the web.
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileSidebarOpen]);
 
   useEffect(() => {
     let active = true;
@@ -2051,7 +2063,7 @@ export function HyperKnowledgeGraphPage() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">知识图谱</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              汇总专业知识图谱、问题图谱和思政图谱，保留原有课程内容、问题域与周次映射。
+              点击任一节点查看本质、前置与配套资源；切换上方三张图，可在专业知识、典型问题与思政映射间穿梭。
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {graphViews.map((item) => (
@@ -2079,6 +2091,7 @@ export function HyperKnowledgeGraphPage() {
             <button
               type="button"
               onClick={() => {
+                setView('knowledge');
                 setSelectedId(knowledgePoints[0]?.id || '');
                 setSelectedProblemId(problemGraph[0]?.id || '');
                 setSelectedIdeologicalId(ideologicalNodes[0]?.id || '');
@@ -2086,6 +2099,7 @@ export function HyperKnowledgeGraphPage() {
                 setChapter('all');
               }}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
+              title="清空筛选、回到专业知识图谱概览"
             >
               <RotateCcw className="h-4 w-4" />
               重置视图
@@ -2185,7 +2199,9 @@ export function HyperKnowledgeGraphPage() {
               className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
           </div>
-          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">知识点列表 · 270点课程清单</div>
+          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            知识点列表 · {knowledgePoints.length}点课程清单
+          </div>
           <div className="max-h-[640px] space-y-1 overflow-y-auto pr-1">
             {filteredList.map((point) => {
               const chapterProgress = progressForChapter(progress, point.chapter);
@@ -2211,6 +2227,18 @@ export function HyperKnowledgeGraphPage() {
                 </button>
               );
             })}
+            {filteredList.length === 0 && (
+              <div className="rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-6 text-center text-xs text-slate-500">
+                没有匹配的知识点。
+                <button
+                  type="button"
+                  onClick={() => { setQuery(''); setChapter('all'); }}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除筛选
+                </button>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -2226,7 +2254,7 @@ export function HyperKnowledgeGraphPage() {
                 <Menu className="h-4 w-4" />
               </button>
               <Network className="h-4 w-4 text-cyan-200" />
-              270 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
+              {knowledgePoints.length} 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {Object.keys(kaScores).length > 0 && (
