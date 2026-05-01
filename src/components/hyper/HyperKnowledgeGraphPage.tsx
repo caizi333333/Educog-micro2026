@@ -243,19 +243,22 @@ function DetailPanel({
   return (
     <aside className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
       <div className="border-b border-white/[0.08] p-5">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-cyan-200">
-          <span>NODE · CH{point.chapter}</span>
-          <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">L{point.level}</span>
-          <span className="text-slate-600">·</span>
-          <span className="text-slate-500">#{point.id}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium text-cyan-200">
+            CH{point.chapter}
+          </span>
+          <span className="rounded-md border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+            L{point.level}
+          </span>
+          <span className="font-mono text-[10px] text-slate-500">#{point.id}</span>
         </div>
-        <h2 className="mt-2 text-xl font-semibold text-slate-50">{point.name}</h2>
+        <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{point.name}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">{point.description || '该节点暂无详细说明。'}</p>
         {parent && (
           <button
             type="button"
             onClick={() => onSelectId(parent.id)}
-            className="group mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+            className="group mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
           >
             <Layers className="h-3 w-3" />
             <span>上级</span>
@@ -267,30 +270,30 @@ function DetailPanel({
 
       {point.tutor && (
         <div className="border-b border-white/[0.08] bg-cyan-500/[0.03] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-200">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-cyan-200">
             <Lightbulb className="h-3.5 w-3.5" />
             讲解
           </div>
           <div className="space-y-3 text-sm leading-6 text-slate-200">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-cyan-300/80">本质</div>
+              <div className="text-[11px] font-semibold text-cyan-300/80">本质</div>
               <div className="mt-0.5">{point.tutor.core}</div>
             </div>
             {point.tutor.whyImportant && (
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">为什么重要</div>
+                <div className="text-[11px] font-semibold text-slate-300">为什么重要</div>
                 <div className="mt-0.5 text-slate-300">{point.tutor.whyImportant}</div>
               </div>
             )}
             {point.tutor.commonMistake && (
               <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-amber-200">常见误区</div>
+                <div className="text-[11px] font-semibold text-amber-200">常见误区</div>
                 <div className="mt-0.5 text-slate-200">{point.tutor.commonMistake}</div>
               </div>
             )}
             {point.tutor.takeaway && (
               <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-emerald-200">带走这一句</div>
+                <div className="text-[11px] font-semibold text-emerald-200">带走这一句</div>
                 <div className="mt-0.5 font-medium text-slate-50">{point.tutor.takeaway}</div>
               </div>
             )}
@@ -300,7 +303,7 @@ function DetailPanel({
 
       {prereqs.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <Link2 className="h-3.5 w-3.5" />
             前置知识
           </div>
@@ -322,7 +325,7 @@ function DetailPanel({
 
       {inlineImages.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <ImageIcon className="h-3.5 w-3.5" />
             图样
           </div>
@@ -348,7 +351,7 @@ function DetailPanel({
 
       {mediaResources.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <PlayCircle className="h-3.5 w-3.5" />
             视频 / PDF
           </div>
@@ -377,7 +380,7 @@ function DetailPanel({
 
       {otherResources.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <BookOpen className="h-3.5 w-3.5" />
             配套资源
           </div>
@@ -420,7 +423,7 @@ function DetailPanel({
 
       {appliedExperiments.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <Sparkles className="h-3.5 w-3.5" />
             应用于实验
           </div>
@@ -445,7 +448,7 @@ function DetailPanel({
       {matchingQuestions.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
               <CheckCircle2 className="h-3.5 w-3.5" />
               本节测验题 · {matchingQuestions.length}
             </div>
@@ -466,7 +469,7 @@ function DetailPanel({
 
       {childPoints.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <ListTree className="h-3.5 w-3.5" />
             下级节点 · {childPoints.length}
           </div>
@@ -497,7 +500,7 @@ function DetailPanel({
             className="group flex w-full items-center justify-between gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 text-left hover:border-cyan-300/45 hover:bg-cyan-300/[0.10]"
           >
             <div className="min-w-0">
-              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-300">下一节点</div>
+              <div className="text-[11px] font-semibold text-cyan-300">下一节点</div>
               <div className="mt-1 truncate text-sm font-medium text-slate-100">{nextPoint.name}</div>
               <div className="mt-0.5 font-mono text-[10px] text-slate-500">CH{nextPoint.chapter} · L{nextPoint.level} · #{nextPoint.id}</div>
             </div>
@@ -726,7 +729,7 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
             {truncateLabel(data.label, labelMax)}
           </span>
           {isRoot && data.subtitle && (
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70">{data.subtitle}</span>
+            <span className="font-mono text-[9px] tracking-wide opacity-70">{data.subtitle}</span>
           )}
         </div>
         {data.subtitle && !isLeaf && !isRoot && (
@@ -774,6 +777,21 @@ function GraphMapStage({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<HoverPayload | null>(null);
+  const [stageWidth, setStageWidth] = useState(1024);
+
+  // Track stage width so the hover card can flip to the cursor's left
+  // when it would otherwise clip the canvas right edge.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setStageWidth(rect.width);
+    });
+    observer.observe(el);
+    setStageWidth(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, []);
 
   // When the user picks a node, ease the camera so the node and its
   // immediate kinship fill the viewport. Skipped on first render and
@@ -837,49 +855,61 @@ function GraphMapStage({
         <Background variant={BackgroundVariant.Dots} gap={32} size={0.6} color="rgba(148,163,184,0.05)" />
         <Controls
           showInteractive={false}
-          className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
+          className="!overflow-hidden !rounded-lg !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-xl"
         />
         <MiniMap
           nodeColor={(node) => graphTone[((node.data as MapNodeData)?.tone || 'slate') as GraphTone]?.minimap || '#64748b'}
-          maskColor="rgba(2,6,23,0.58)"
+          nodeStrokeColor="rgba(255,255,255,0.12)"
+          nodeStrokeWidth={2}
+          maskColor="rgba(2,6,23,0.62)"
           pannable
           zoomable
-          className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
-          style={{ width: 158, height: 104 }}
+          className="!overflow-hidden !rounded-lg !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-xl"
+          style={{ width: 196, height: 128 }}
         />
       </ReactFlow>
-      {hover && <NodeHoverCard hover={hover} />}
+      {hover && <NodeHoverCard hover={hover} stageWidth={stageWidth} />}
     </div>
   );
 }
 
-function NodeHoverCard({ hover }: { hover: HoverPayload }) {
+function NodeHoverCard({ hover, stageWidth }: { hover: HoverPayload; stageWidth: number }) {
   const { data } = hover;
   const tone = graphTone[data.tone];
-  // Place above-and-right of the cursor by default; flip to the left edge
-  // when we'd otherwise overflow the canvas.
-  const left = Math.max(8, hover.x - 120);
+  const CARD_WIDTH = 260;
+  // Default placement: above and slightly right of the cursor. Mirror to
+  // the cursor's left edge when the card would otherwise clip the canvas
+  // right edge. Cap top at 8px so it never escapes off the top edge.
+  const wantsLeft = hover.x + 16 + CARD_WIDTH > stageWidth;
+  const left = wantsLeft
+    ? Math.max(8, hover.x - CARD_WIDTH - 12)
+    : Math.min(stageWidth - CARD_WIDTH - 8, hover.x + 16);
   const top = Math.max(8, hover.y - 96);
   return (
     <div
-      className="pointer-events-none absolute z-50 max-w-[260px] rounded-lg border bg-[#0b1117] p-3 shadow-2xl backdrop-blur"
-      style={{ left, top, borderColor: tone.border }}
+      className="pointer-events-none absolute z-50 overflow-hidden rounded-lg border bg-[#0b1117]/95 shadow-2xl backdrop-blur-md"
+      style={{ left, top, width: CARD_WIDTH, borderColor: tone.border }}
     >
-      <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-        {typeof data.chapter === 'number' && <span>CH{data.chapter}</span>}
-        {data.levelLabel && (
-          <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
-            {data.levelLabel}
-          </span>
-        )}
-        {typeof data.mastery === 'number' && (
-          <span style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
+      <span aria-hidden className="block h-[2px]" style={{ background: tone.color, opacity: 0.85 }} />
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+          {typeof data.chapter === 'number' && (
+            <span className="rounded-sm border border-white/[0.08] bg-black/30 px-1 py-0.5 text-[9px]">CH{data.chapter}</span>
+          )}
+          {data.levelLabel && (
+            <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
+              {data.levelLabel}
+            </span>
+          )}
+          {typeof data.mastery === 'number' && (
+            <span className="ml-auto" style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
+          )}
+        </div>
+        <div className="mt-1.5 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
+        {data.description && (
+          <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
         )}
       </div>
-      <div className="mt-1 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
-      {data.description && (
-        <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
-      )}
     </div>
   );
 }
@@ -1342,10 +1372,20 @@ function ProblemGraphView({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索问题、原因、解法..."
-            className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+            className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
+          {query && (
+            <button
+              type="button"
+              aria-label="清除搜索"
+              onClick={() => onQueryChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+        <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
           问题类型 · {problemGraphStats.level1}类问题域
         </div>
         <div className="space-y-2">
@@ -1442,8 +1482,13 @@ function ProblemGraphView({
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
         <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
           <div className="border-b border-white/[0.08] p-5">
-            <div className="font-mono text-[11px] text-cyan-200">PROBLEM · {selected?.id || 'N/A'}</div>
-            <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择问题'}</h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cyan-200">
+                Problem
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">#{selected?.id || 'N/A'}</span>
+            </div>
+            <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{selected?.name || '未选择问题'}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{selected?.description || '请选择一个问题节点查看详情。'}</p>
           </div>
           {selected && (
@@ -1654,10 +1699,20 @@ function IdeologicalGraphView({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索思政主题、周次..."
-            className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+            className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
+          {query && (
+            <button
+              type="button"
+              aria-label="清除搜索"
+              onClick={() => onQueryChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+        <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
           思政主题 · {ideologicalGraphStats.totalCategories}类元素
         </div>
         <div className="space-y-2">
@@ -1753,8 +1808,13 @@ function IdeologicalGraphView({
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
         <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
           <div className="border-b border-white/[0.08] p-5">
-            <div className="font-mono text-[11px] text-cyan-200">SIP · {selected?.id || 'N/A'}</div>
-            <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择主题'}</h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cyan-200">
+                SIP
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">#{selected?.id || 'N/A'}</span>
+            </div>
+            <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{selected?.name || '未选择主题'}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{selected?.description || '请选择一个思政节点查看详情。'}</p>
           </div>
           {selected && (
@@ -2054,40 +2114,19 @@ export function HyperKnowledgeGraphPage() {
 
   return (
     <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
-      <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
+      <div className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0c1117]/90 px-4 py-5 backdrop-blur-xl md:px-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-300/80">
               <Network className="h-3.5 w-3.5" />
-              Graph · Mastery · Storyline
+              Knowledge Graph
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">知识图谱</h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-50 md:text-[28px]">知识图谱</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               点击任一节点查看本质、前置与配套资源；切换上方三张图，可在专业知识、典型问题与思政映射间穿梭。
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {graphViews.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setView(item.id);
-                    setQuery('');
-                  }}
-                  className={cn(
-                    'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition',
-                    view === item.id
-                      ? 'border-cyan-300/50 bg-cyan-300/[0.12] text-cyan-100'
-                      : 'border-white/[0.08] bg-white/[0.035] text-slate-400 hover:bg-white/[0.07] hover:text-slate-100',
-                  )}
-                >
-                  <span>{item.label}</span>
-                  <span className="font-mono text-[10px] opacity-70">{item.count}</span>
-                </button>
-              ))}
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 self-start xl:self-end">
             <button
               type="button"
               onClick={() => {
@@ -2098,16 +2137,61 @@ export function HyperKnowledgeGraphPage() {
                 setQuery('');
                 setChapter('all');
               }}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 transition hover:bg-white/[0.08]"
               title="清空筛选、回到专业知识图谱概览"
             >
               <RotateCcw className="h-4 w-4" />
               重置视图
             </button>
-            <Link href="/" className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] hover:bg-cyan-200">
+            <Link
+              href="/"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200"
+            >
               返回课程 <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+        </div>
+        {/* Segmented tab control: a thin underline beneath the active label
+            replaces the previous cluster of pills. Counts sit as muted
+            secondary numerals so the eye lands on the label first. */}
+        <div className="mt-5 -mb-1 flex flex-wrap gap-1 border-b border-white/[0.06]">
+          {graphViews.map((item) => {
+            const active = view === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setView(item.id);
+                  setQuery('');
+                }}
+                aria-pressed={active}
+                className={cn(
+                  'group relative -mb-px inline-flex items-center gap-2 px-3 pb-3 pt-1.5 text-sm transition',
+                  active
+                    ? 'text-cyan-100'
+                    : 'text-slate-400 hover:text-slate-100',
+                )}
+              >
+                <span className="font-medium">{item.label}</span>
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
+                    active ? 'bg-cyan-300/15 text-cyan-200' : 'bg-white/[0.05] text-slate-500',
+                  )}
+                >
+                  {item.count}
+                </span>
+                <span
+                  aria-hidden
+                  className={cn(
+                    'pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full transition-opacity',
+                    active ? 'bg-cyan-300 opacity-100' : 'bg-cyan-300/0 opacity-0 group-hover:bg-white/20 group-hover:opacity-100',
+                  )}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -2196,10 +2280,20 @@ export function HyperKnowledgeGraphPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索知识点..."
-              className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+              className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
+            {query && (
+              <button
+                type="button"
+                aria-label="清除搜索"
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
             知识点列表 · {knowledgePoints.length}点课程清单
           </div>
           <div className="max-h-[640px] space-y-1 overflow-y-auto pr-1">
