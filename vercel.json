@@ -3,7 +3,9 @@
   "devCommand": "npm run dev",
   "installCommand": "npm ci",
   "framework": "nextjs",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "github": {
     "silent": true
   },
@@ -33,6 +35,29 @@
           "value": "SAMEORIGIN"
         }
       ]
+    },
+    {
+      "source": "/prinx/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/prinx",
+      "destination": "/prinx/login.html"
+    },
+    {
+      "source": "/prinx/",
+      "destination": "/prinx/login.html"
     }
   ]
 }
