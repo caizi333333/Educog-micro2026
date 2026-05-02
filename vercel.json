@@ -35,60 +35,16 @@
           "value": "SAMEORIGIN"
         }
       ]
-    },
-    {
-      "source": "/prinx/(.*)\\.html",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/prinx/(demo-mock|live)\\.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, must-revalidate"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
-    },
-    {
-      "source": "/prinx/(style|fit)\\.(css|js)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=3600"
-        }
-      ]
-    },
-    {
-      "source": "/prinx/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        }
-      ]
     }
   ],
   "rewrites": [
     {
       "source": "/prinx",
-      "destination": "/prinx/login.html"
+      "destination": "https://prinx-demo.vercel.app/login.html"
     },
     {
-      "source": "/prinx/",
-      "destination": "/prinx/login.html"
+      "source": "/prinx/:path*",
+      "destination": "https://prinx-demo.vercel.app/:path*"
     }
   ]
 }
