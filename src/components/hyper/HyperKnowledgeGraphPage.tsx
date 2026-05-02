@@ -187,13 +187,23 @@ function QuizPreviewItem({ q, index }: { q: Question; index: number }) {
           ))}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={() => setShowAnswer((v) => !v)}
-        className="mt-2 inline-flex h-6 items-center gap-1 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-2 text-[10px] text-emerald-200 hover:border-emerald-300/40 hover:bg-emerald-300/[0.12]"
-      >
-        {showAnswer ? '隐藏答案' : '查看答案'}
-      </button>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowAnswer((v) => !v)}
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-2 text-[10px] text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-300/[0.12]"
+        >
+          {showAnswer ? '隐藏答案' : '查看答案'}
+        </button>
+        <Link
+          href={`/quiz?chapter=${q.chapter}#${encodeURIComponent(q.id)}`}
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-cyan-300/20 bg-cyan-300/[0.06] px-2 text-[10px] text-cyan-200 transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.12]"
+          title="到测验页做这道题"
+        >
+          做这道题
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
       {showAnswer && (
         <div className="mt-2 rounded-sm border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-1.5 text-[11px] text-emerald-100">
           <span className="text-slate-500">正确答案：</span>
@@ -210,13 +220,36 @@ function DetailPanel({
   pointById,
   experimentTitleByRefId,
   onSelectId,
+  mastery,
 }: {
   point: KnowledgePoint | null;
   childPoints: KnowledgePoint[];
   pointById: Record<string, KnowledgePoint>;
   experimentTitleByRefId: Record<string, string>;
   onSelectId: (id: string) => void;
+  mastery?: number;
 }) {
+  const [linkCopied, setLinkCopied] = useState(false);
+  // Reset the copy-confirmation pill after a short delay so the next copy
+  // attempt re-pulses the toast.
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = setTimeout(() => setLinkCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [linkCopied]);
+  const copyShareLink = async (id: string) => {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/knowledge-graph?node=${encodeURIComponent(id)}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setLinkCopied(true);
+      }
+    } catch {
+      // Clipboard rejected (insecure context, permission). Silently
+      // ignore — the URL is also visible in the browser address bar.
+    }
+  };
   if (!point) {
     return (
       <aside className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-8 text-center shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
@@ -256,6 +289,43 @@ function DetailPanel({
             L{point.level}
           </span>
           <span className="font-mono text-[10px] text-slate-500">#{point.id}</span>
+          {typeof mastery === 'number' && (() => {
+            const m = Math.round(mastery);
+            const tone = m >= 80 ? 'emerald' : m >= 60 ? 'amber' : 'red';
+            const cls = tone === 'emerald'
+              ? 'border-emerald-400/40 bg-emerald-400/[0.10] text-emerald-200'
+              : tone === 'amber'
+                ? 'border-amber-400/40 bg-amber-400/[0.10] text-amber-200'
+                : 'border-red-400/40 bg-red-400/[0.10] text-red-200';
+            return (
+              <span
+                className={cn('inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium', cls)}
+                title="基于本节点最近一次测验的掌握度（聚合到子节点的平均分）"
+              >
+                <span className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: tone === 'emerald' ? '#34d399' : tone === 'amber' ? '#fbbf24' : '#f87171' }} />
+                掌握 {m}%
+              </span>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={() => copyShareLink(point.id)}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+            title="复制本节点深链"
+          >
+            {linkCopied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3 text-emerald-300" />
+                <span className="text-emerald-200">已复制</span>
+              </>
+            ) : (
+              <>
+                <Link2 className="h-3 w-3" />
+                <span>复制链接</span>
+              </>
+            )}
+          </button>
         </div>
         <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{point.name}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">{point.description || '该节点暂无详细说明。'}</p>
@@ -336,23 +406,32 @@ function DetailPanel({
 
       {inlineImages.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
-            <ImageIcon className="h-3.5 w-3.5" />
-            图样
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <ImageIcon className="h-3.5 w-3.5" />
+              图样 · {inlineImages.length}
+            </div>
+            <span className="font-mono text-[10px] text-slate-500">点击放大</span>
           </div>
-          <div className="space-y-3">
+          <div className={cn('grid gap-2.5', inlineImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {inlineImages.map((resource) => (
               <a
                 key={resource.url}
                 href={resource.url}
                 target="_blank"
                 rel="noreferrer"
-                className="group block overflow-hidden rounded-md border border-white/[0.08] bg-white"
+                title={resource.title}
+                className="group relative block overflow-hidden rounded-lg border border-white/[0.08] bg-white transition hover:border-cyan-300/40"
               >
-                <img src={resource.url} alt={resource.title} className="block w-full" loading="lazy" />
-                <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
+                <img
+                  src={resource.url}
+                  alt={resource.title}
+                  className="block aspect-[4/3] w-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                  loading="lazy"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-2.5 py-1.5 text-[10px] text-slate-100">
                   <span className="line-clamp-1">{resource.title}</span>
-                  <ExternalLink className="ml-2 h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" />
+                  <ExternalLink className="h-3 w-3 shrink-0 opacity-70 transition-opacity group-hover:opacity-100" />
                 </div>
               </a>
             ))}
@@ -612,6 +691,9 @@ type MapGroupData = {
   width: number;
   height: number;
   chapter?: number;
+  /** Optional 0–100 chapter progress; renders a thin bar across the
+   * bottom edge of the group card. */
+  progress?: number;
   [key: string]: unknown;
 };
 
@@ -699,6 +781,21 @@ function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
       {data.subtitle && (
         <div className="px-4 pt-1.5 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>
           {data.subtitle}
+        </div>
+      )}
+      {typeof data.progress === 'number' && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-white/[0.04]"
+        >
+          <div
+            className="h-full transition-[width] duration-500"
+            style={{
+              width: `${Math.max(2, Math.min(100, data.progress))}%`,
+              background: `linear-gradient(90deg, ${tone.color} 0%, ${tone.color}80 100%)`,
+              boxShadow: `0 0 8px ${tone.color}66`,
+            }}
+          />
         </div>
       )}
     </div>
@@ -1109,6 +1206,7 @@ function FullKnowledgeMap({
           width: COL_W - 30,
           height: ROW_H - 30,
           chapter,
+          progress: chapterProgress ?? undefined,
         }));
 
         if (root) {
@@ -1964,6 +2062,7 @@ export function HyperKnowledgeGraphPage() {
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
   const [kaScores, setKaScores] = useState<Record<string, number>>({});
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [listSort, setListSort] = useState<'chapter' | 'mastery'>('chapter');
   const initialUrlAppliedRef = useRef(false);
 
   // Esc closes the mobile drawer — matches the affordance most users
@@ -2143,12 +2242,41 @@ export function HyperKnowledgeGraphPage() {
 
   const filteredList = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return knowledgePoints.filter((point) => {
+    const base = knowledgePoints.filter((point) => {
       const chapterMatch = chapter === 'all' || point.chapter === chapter;
-      const queryMatch = !q || `${point.name} ${point.description || ''}`.toLowerCase().includes(q);
-      return chapterMatch && queryMatch;
+      if (!chapterMatch) return false;
+      if (!q) return true;
+      // Search across name, description, tutor blurbs and resource titles so a
+      // student can find "中断使能" or "EA" via either the section title or
+      // the explanatory copy / video name.
+      const haystack = [
+        point.name,
+        point.description || '',
+        point.tutor?.core || '',
+        point.tutor?.whyImportant || '',
+        point.tutor?.takeaway || '',
+        point.tutor?.commonMistake || '',
+        ...(point.resources?.map((r) => r.title) || []),
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
     });
-  }, [chapter, query]);
+    if (listSort === 'mastery') {
+      // Weak-first sort: nodes with a mastery score below 100 float up,
+      // ties broken by id for stability. Untested nodes sink to the
+      // bottom so the student sees what's actively underperforming first.
+      return [...base].sort((a, b) => {
+        const sa = kaScores[a.id];
+        const sb = kaScores[b.id];
+        const aHas = typeof sa === 'number';
+        const bHas = typeof sb === 'number';
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (aHas && bHas && sa !== sb) return sa - sb;
+        return a.id.localeCompare(b.id, 'en', { numeric: true });
+      });
+    }
+    return base;
+  }, [chapter, query, listSort, kaScores]);
   const visibleKnowledgeIds = useMemo(() => new Set(filteredList.map((point) => point.id)), [filteredList]);
   const chapterNumbers = useMemo(() => Array.from(new Set(knowledgePoints.map((point) => point.chapter))).sort((a, b) => a - b), []);
   const levelCounts = useMemo(() => ({
@@ -2361,12 +2489,48 @@ export function HyperKnowledgeGraphPage() {
               </button>
             )}
           </div>
-          <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
-            知识点列表 · {knowledgePoints.length}点课程清单
+          <div className="mb-2 flex items-center justify-between gap-2 px-2">
+            <div className="text-[11px] font-semibold text-slate-300">
+              知识点列表 · {knowledgePoints.length}点课程清单
+            </div>
+            <div className="inline-flex items-center overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px]">
+              <button
+                type="button"
+                onClick={() => setListSort('chapter')}
+                aria-pressed={listSort === 'chapter'}
+                className={cn(
+                  'px-2 py-1 transition',
+                  listSort === 'chapter' ? 'bg-cyan-300/[0.16] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200',
+                )}
+                title="按章节顺序"
+              >
+                章节
+              </button>
+              <button
+                type="button"
+                onClick={() => setListSort('mastery')}
+                aria-pressed={listSort === 'mastery'}
+                className={cn(
+                  'px-2 py-1 transition',
+                  listSort === 'mastery' ? 'bg-cyan-300/[0.16] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200',
+                )}
+                title={Object.keys(kaScores).length === 0 ? '尚无测验记录，按 id 兜底' : '弱项优先'}
+              >
+                弱项
+              </button>
+            </div>
           </div>
           <div className="max-h-[640px] space-y-1 overflow-y-auto pr-1">
             {filteredList.map((point) => {
-              const chapterProgress = progressForChapter(progress, point.chapter);
+              const score = kaScores[point.id];
+              const hasScore = typeof score === 'number';
+              const dotColor = !hasScore
+                ? null
+                : score >= 80
+                  ? '#34d399'
+                  : score >= 60
+                    ? '#fbbf24'
+                    : '#f87171';
               return (
                 <button
                   key={point.id}
@@ -2376,14 +2540,25 @@ export function HyperKnowledgeGraphPage() {
                     setIsMobileSidebarOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
+                    'group flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
                     selectedId === point.id ? 'bg-cyan-300/[0.12] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
                   )}
                 >
-                  {point.level === 1 ? <GitBranch className="h-3.5 w-3.5" /> : <ListTree className="h-3.5 w-3.5" />}
+                  {dotColor ? (
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}88` }}
+                      title={`掌握 ${Math.round(score)}%`}
+                    />
+                  ) : point.level === 1 ? (
+                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ListTree className="h-3.5 w-3.5 shrink-0" />
+                  )}
                   <span className="line-clamp-1">{point.name}</span>
-                  <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] text-slate-500">
-                    {chapterProgress !== null && <span>{chapterProgress}%</span>}
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-slate-500">
+                    {chapter === 'all' && <span>CH{point.chapter}</span>}
                     <span>L{point.level}</span>
                   </span>
                 </button>
@@ -2475,6 +2650,7 @@ export function HyperKnowledgeGraphPage() {
             pointById={pointById}
             experimentTitleByRefId={experimentTitleByRefId}
             onSelectId={goToPoint}
+            mastery={selected ? kaScores[selected.id] : undefined}
           />
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
