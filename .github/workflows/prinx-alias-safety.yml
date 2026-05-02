@@ -1,0 +1,43 @@
+# Safety net: 如果将来 sunyancai.top 域名再被解绑/迁出 educog-micro2026,
+# 这个 workflow 会在每次 main push 后兜底校验并修复.
+# 触发: main 分支 push, 仅当改动涉及 public/prinx/ 时才跑.
+name: PRINX alias safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/prinx/**'
+      - 'vercel.json'
+  workflow_dispatch:
+
+jobs:
+  ensure-domain-binding:
+    if: vars.PRINX_AUTO_REPAIR == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify domain attached to this project (else re-attach)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          set -e
+          for d in sunyancai.top www.sunyancai.top; do
+            HOLDER=$(curl -sf -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v9/projects/educog-micro2026/domains?teamId=$TEAM_ID" \
+              | python3 -c "import sys,json
+data=json.load(sys.stdin)
+for x in data.get('domains',[]):
+    if x.get('name')=='$d': print('OK'); break
+else: print('MISSING')")
+            echo "$d: $HOLDER"
+            if [ "$HOLDER" = "MISSING" ]; then
+              echo "Re-attaching $d ..."
+              curl -sf -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/educog-micro/domains/$d?teamId=$TEAM_ID" || true
+              curl -sf -X POST -H "Authorization: Bearer $VERCEL_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"name\":\"$d\"}" \
+                "https://api.vercel.com/v10/projects/educog-micro2026/domains?teamId=$TEAM_ID"
+            fi
+          done
