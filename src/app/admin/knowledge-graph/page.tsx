@@ -94,7 +94,21 @@ export default function AdminKnowledgeGraphPage() {
       const res = await fetch('/api/knowledge-graph?type=nodes');
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setNodes((data.data as ApiNode[]).map(nodeFromApi));
+        const apiNodes = data.data as ApiNode[];
+        // The API only ships `connections` (children) per node; reverse it
+        // here so the edit form can prefill the parent id field.
+        const parentByChild = new Map<string, string>();
+        for (const node of apiNodes) {
+          for (const childId of node.connections ?? []) {
+            if (!parentByChild.has(childId)) parentByChild.set(childId, node.id);
+          }
+        }
+        setNodes(apiNodes.map((n) => {
+          const out = nodeFromApi(n);
+          const parent = parentByChild.get(n.id);
+          if (parent) out.parentId = parent;
+          return out;
+        }));
         if (data.source === 'db' || data.source === 'static') setSource(data.source);
       } else {
         setMessage({ kind: 'err', text: '读取节点失败：' + (data.error || '未知错误') });
@@ -108,6 +122,14 @@ export default function AdminKnowledgeGraphPage() {
   useEffect(() => {
     loadNodes();
   }, [loadNodes]);
+
+  // Toast-style status message: any save/delete/seed result fades on its
+  // own after 5s so it doesn't pile up at the top of the page.
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   const chapters = useMemo(() => Array.from(new Set(nodes.map((n) => n.chapter))).sort((a, b) => a - b), [nodes]);
   const filtered = useMemo(() => {

@@ -74,10 +74,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
-const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
-  { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length },
-  { id: 'problem', label: '问题图谱', count: problemGraph.length },
-  { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length },
+const graphViews: Array<{ id: GraphView; label: string; count: number; icon: LucideIcon; tone: string }> = [
+  { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length, icon: GitBranch, tone: '#67e8f9' },
+  { id: 'problem', label: '问题图谱', count: problemGraph.length, icon: AlertTriangle, tone: '#fbbf24' },
+  { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length, icon: Flag, tone: '#c084fc' },
 ];
 
 function parseChapterParam(value: string | null): number | 'all' | null {
@@ -164,7 +164,7 @@ function getNextPoint(current: KnowledgePoint, all: KnowledgePoint[]): Knowledge
 function QuizPreviewItem({ q, index }: { q: Question; index: number }) {
   const [showAnswer, setShowAnswer] = useState(false);
   return (
-    <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+    <div className="rounded-lg border border-white/[0.05] bg-black/25 p-3">
       <div className="mb-2 flex items-start gap-2 text-[11px]">
         <span className="font-mono text-[10px] text-slate-500">Q{index + 1} · CH{q.chapter}</span>
         <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">
@@ -187,13 +187,23 @@ function QuizPreviewItem({ q, index }: { q: Question; index: number }) {
           ))}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={() => setShowAnswer((v) => !v)}
-        className="mt-2 inline-flex h-6 items-center gap-1 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-2 text-[10px] text-emerald-200 hover:border-emerald-300/40 hover:bg-emerald-300/[0.12]"
-      >
-        {showAnswer ? '隐藏答案' : '查看答案'}
-      </button>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowAnswer((v) => !v)}
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-2 text-[10px] text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-300/[0.12]"
+        >
+          {showAnswer ? '隐藏答案' : '查看答案'}
+        </button>
+        <Link
+          href={`/quiz?chapter=${q.chapter}#${encodeURIComponent(q.id)}`}
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-cyan-300/20 bg-cyan-300/[0.06] px-2 text-[10px] text-cyan-200 transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.12]"
+          title="到测验页做这道题"
+        >
+          做这道题
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
       {showAnswer && (
         <div className="mt-2 rounded-sm border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-1.5 text-[11px] text-emerald-100">
           <span className="text-slate-500">正确答案：</span>
@@ -210,17 +220,45 @@ function DetailPanel({
   pointById,
   experimentTitleByRefId,
   onSelectId,
+  mastery,
 }: {
   point: KnowledgePoint | null;
   childPoints: KnowledgePoint[];
   pointById: Record<string, KnowledgePoint>;
   experimentTitleByRefId: Record<string, string>;
   onSelectId: (id: string) => void;
+  mastery?: number;
 }) {
+  const [linkCopied, setLinkCopied] = useState(false);
+  // Reset the copy-confirmation pill after a short delay so the next copy
+  // attempt re-pulses the toast.
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = setTimeout(() => setLinkCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [linkCopied]);
+  const copyShareLink = async (id: string) => {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/knowledge-graph?node=${encodeURIComponent(id)}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setLinkCopied(true);
+      }
+    } catch {
+      // Clipboard rejected (insecure context, permission). Silently
+      // ignore — the URL is also visible in the browser address bar.
+    }
+  };
   if (!point) {
     return (
-      <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-sm text-slate-400">
-        在画布或左侧列表选中一个节点，这里会展示节点说明、前置知识、配套资源、应用实验和下一节点的推荐路径。
+      <aside className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-8 text-center shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+        <span className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] text-cyan-200">
+          <ListTree className="h-5 w-5" />
+        </span>
+        <p className="text-sm leading-6 text-slate-400">
+          在画布或左侧列表选中一个节点，这里会展示节点说明、前置知识、配套资源、应用实验和下一节点的推荐路径。
+        </p>
       </aside>
     );
   }
@@ -241,21 +279,61 @@ function DetailPanel({
   const matchingQuestions = quizQuestions.filter((q) => q.ka === point.id).slice(0, 4);
 
   return (
-    <aside className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+    <aside className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
       <div className="border-b border-white/[0.08] p-5">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-cyan-200">
-          <span>NODE · CH{point.chapter}</span>
-          <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">L{point.level}</span>
-          <span className="text-slate-600">·</span>
-          <span className="text-slate-500">#{point.id}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium text-cyan-200">
+            CH{point.chapter}
+          </span>
+          <span className="rounded-md border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+            L{point.level}
+          </span>
+          <span className="font-mono text-[10px] text-slate-500">#{point.id}</span>
+          {typeof mastery === 'number' && (() => {
+            const m = Math.round(mastery);
+            const tone = m >= 80 ? 'emerald' : m >= 60 ? 'amber' : 'red';
+            const cls = tone === 'emerald'
+              ? 'border-emerald-400/40 bg-emerald-400/[0.10] text-emerald-200'
+              : tone === 'amber'
+                ? 'border-amber-400/40 bg-amber-400/[0.10] text-amber-200'
+                : 'border-red-400/40 bg-red-400/[0.10] text-red-200';
+            return (
+              <span
+                className={cn('inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-medium', cls)}
+                title="基于本节点最近一次测验的掌握度（聚合到子节点的平均分）"
+              >
+                <span className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: tone === 'emerald' ? '#34d399' : tone === 'amber' ? '#fbbf24' : '#f87171' }} />
+                掌握 {m}%
+              </span>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={() => copyShareLink(point.id)}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+            title="复制本节点深链"
+          >
+            {linkCopied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3 text-emerald-300" />
+                <span className="text-emerald-200">已复制</span>
+              </>
+            ) : (
+              <>
+                <Link2 className="h-3 w-3" />
+                <span>复制链接</span>
+              </>
+            )}
+          </button>
         </div>
-        <h2 className="mt-2 text-xl font-semibold text-slate-50">{point.name}</h2>
+        <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{point.name}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">{point.description || '该节点暂无详细说明。'}</p>
         {parent && (
           <button
             type="button"
             onClick={() => onSelectId(parent.id)}
-            className="group mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+            className="group mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
           >
             <Layers className="h-3 w-3" />
             <span>上级</span>
@@ -266,32 +344,38 @@ function DetailPanel({
       </div>
 
       {point.tutor && (
-        <div className="border-b border-white/[0.08] bg-cyan-500/[0.03] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-200">
+        <div
+          className="relative border-b border-white/[0.08] p-5"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(34,211,238,0.015) 55%, transparent 100%)',
+          }}
+        >
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-cyan-200">
             <Lightbulb className="h-3.5 w-3.5" />
             讲解
           </div>
-          <div className="space-y-3 text-sm leading-6 text-slate-200">
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-cyan-300/80">本质</div>
-              <div className="mt-0.5">{point.tutor.core}</div>
+          <div className="space-y-2.5 text-sm leading-6 text-slate-200">
+            <div className="rounded-md border-l-2 border-cyan-300/60 bg-cyan-300/[0.04] py-2 pl-3 pr-3">
+              <div className="text-[11px] font-semibold text-cyan-200">本质</div>
+              <div className="mt-1">{point.tutor.core}</div>
             </div>
             {point.tutor.whyImportant && (
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">为什么重要</div>
-                <div className="mt-0.5 text-slate-300">{point.tutor.whyImportant}</div>
+              <div className="rounded-md border-l-2 border-slate-400/40 bg-white/[0.025] py-2 pl-3 pr-3">
+                <div className="text-[11px] font-semibold text-slate-200">为什么重要</div>
+                <div className="mt-1 text-slate-300">{point.tutor.whyImportant}</div>
               </div>
             )}
             {point.tutor.commonMistake && (
-              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-amber-200">常见误区</div>
-                <div className="mt-0.5 text-slate-200">{point.tutor.commonMistake}</div>
+              <div className="rounded-md border-l-2 border-amber-300/70 bg-amber-300/[0.05] py-2 pl-3 pr-3">
+                <div className="text-[11px] font-semibold text-amber-200">常见误区</div>
+                <div className="mt-1 text-slate-200">{point.tutor.commonMistake}</div>
               </div>
             )}
             {point.tutor.takeaway && (
-              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-emerald-200">带走这一句</div>
-                <div className="mt-0.5 font-medium text-slate-50">{point.tutor.takeaway}</div>
+              <div className="rounded-md border-l-2 border-emerald-300/70 bg-emerald-300/[0.05] py-2 pl-3 pr-3">
+                <div className="text-[11px] font-semibold text-emerald-200">带走这一句</div>
+                <div className="mt-1 font-medium text-slate-50">{point.tutor.takeaway}</div>
               </div>
             )}
           </div>
@@ -300,7 +384,7 @@ function DetailPanel({
 
       {prereqs.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <Link2 className="h-3.5 w-3.5" />
             前置知识
           </div>
@@ -310,7 +394,7 @@ function DetailPanel({
                 key={p.id}
                 type="button"
                 onClick={() => onSelectId(p.id)}
-                className="flex w-full items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-left text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] hover:text-cyan-100"
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-black/25 px-3 py-2 text-left text-xs text-slate-300 transition hover:translate-x-[1px] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
               >
                 <span className="line-clamp-1">{p.name}</span>
                 <span className="shrink-0 font-mono text-[10px] text-slate-500">CH{p.chapter} · #{p.id}</span>
@@ -322,23 +406,32 @@ function DetailPanel({
 
       {inlineImages.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <ImageIcon className="h-3.5 w-3.5" />
-            图样
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <ImageIcon className="h-3.5 w-3.5" />
+              图样 · {inlineImages.length}
+            </div>
+            <span className="font-mono text-[10px] text-slate-500">点击放大</span>
           </div>
-          <div className="space-y-3">
+          <div className={cn('grid gap-2.5', inlineImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {inlineImages.map((resource) => (
               <a
                 key={resource.url}
                 href={resource.url}
                 target="_blank"
                 rel="noreferrer"
-                className="group block overflow-hidden rounded-md border border-white/[0.08] bg-white"
+                title={resource.title}
+                className="group relative block overflow-hidden rounded-lg border border-white/[0.08] bg-white transition hover:border-cyan-300/40"
               >
-                <img src={resource.url} alt={resource.title} className="block w-full" loading="lazy" />
-                <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
+                <img
+                  src={resource.url}
+                  alt={resource.title}
+                  className="block aspect-[4/3] w-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                  loading="lazy"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-2.5 py-1.5 text-[10px] text-slate-100">
                   <span className="line-clamp-1">{resource.title}</span>
-                  <ExternalLink className="ml-2 h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" />
+                  <ExternalLink className="h-3 w-3 shrink-0 opacity-70 transition-opacity group-hover:opacity-100" />
                 </div>
               </a>
             ))}
@@ -348,7 +441,7 @@ function DetailPanel({
 
       {mediaResources.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <PlayCircle className="h-3.5 w-3.5" />
             视频 / PDF
           </div>
@@ -377,7 +470,7 @@ function DetailPanel({
 
       {otherResources.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <BookOpen className="h-3.5 w-3.5" />
             配套资源
           </div>
@@ -393,7 +486,7 @@ function DetailPanel({
                   <span className="shrink-0 rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">{meta.label}</span>
                 </>
               );
-              const baseCls = 'group flex w-full items-center gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-xs hover:border-cyan-300/30 hover:bg-cyan-300/[0.05]';
+              const baseCls = 'group flex w-full items-center gap-2 rounded-lg border border-white/[0.05] bg-black/25 px-3 py-2 text-xs transition hover:translate-x-[1px] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]';
               if (!href) {
                 return (
                   <div key={`${resource.type}-${resource.title}`} className={cn(baseCls, 'cursor-default opacity-70')}>
@@ -420,7 +513,7 @@ function DetailPanel({
 
       {appliedExperiments.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <Sparkles className="h-3.5 w-3.5" />
             应用于实验
           </div>
@@ -445,7 +538,7 @@ function DetailPanel({
       {matchingQuestions.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-300">
               <CheckCircle2 className="h-3.5 w-3.5" />
               本节测验题 · {matchingQuestions.length}
             </div>
@@ -466,7 +559,7 @@ function DetailPanel({
 
       {childPoints.length > 0 && (
         <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-300">
             <ListTree className="h-3.5 w-3.5" />
             下级节点 · {childPoints.length}
           </div>
@@ -494,14 +587,20 @@ function DetailPanel({
           <button
             type="button"
             onClick={() => onSelectId(nextPoint.id)}
-            className="group flex w-full items-center justify-between gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 text-left hover:border-cyan-300/45 hover:bg-cyan-300/[0.10]"
+            className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-xl border border-cyan-300/25 px-4 py-3 text-left transition-all hover:border-cyan-300/50 hover:shadow-[0_8px_24px_-12px_rgba(34,211,238,0.5)]"
+            style={{
+              background:
+                'linear-gradient(120deg, rgba(34,211,238,0.10) 0%, rgba(34,211,238,0.04) 60%, rgba(15,23,42,0.2) 100%)',
+            }}
           >
             <div className="min-w-0">
-              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-300">下一节点</div>
-              <div className="mt-1 truncate text-sm font-medium text-slate-100">{nextPoint.name}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">下一节点</div>
+              <div className="mt-1 truncate text-sm font-semibold text-slate-50">{nextPoint.name}</div>
               <div className="mt-0.5 font-mono text-[10px] text-slate-500">CH{nextPoint.chapter} · L{nextPoint.level} · #{nextPoint.id}</div>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-cyan-300 transition-transform group-hover:translate-x-0.5" />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-300/15 text-cyan-200 transition-all group-hover:bg-cyan-300/25 group-hover:text-cyan-100">
+              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
           </button>
         </div>
       )}
@@ -591,6 +690,10 @@ type MapGroupData = {
   tone: GraphTone;
   width: number;
   height: number;
+  chapter?: number;
+  /** Optional 0–100 chapter progress; renders a thin bar across the
+   * bottom edge of the group card. */
+  progress?: number;
   [key: string]: unknown;
 };
 
@@ -635,25 +738,66 @@ function createMapGroup(
 
 function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
   const tone = graphTone[data.tone];
+  const ChapterIcon = typeof data.chapter === 'number' ? getChapterIcon(data.chapter) : null;
+  // Strip the leading "CH7 · " prefix from the legacy label so the group
+  // reads as a single title now that the chapter chip lives on its own.
+  const cleanedLabel = typeof data.chapter === 'number'
+    ? data.label.replace(/^CH\d+\s*[·•]\s*/, '')
+    : data.label;
   return (
     <div
       style={{
         width: data.width,
         height: data.height,
         borderColor: tone.border,
-        background: `linear-gradient(180deg, ${tone.bg}, rgba(2, 6, 23, 0.05))`,
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.04)`,
+        background: `linear-gradient(165deg, ${tone.bg} 0%, rgba(2, 6, 23, 0.08) 70%)`,
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.025), inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 36px -22px ${tone.color}33`,
       }}
-      className="relative rounded-2xl border px-4 py-3"
+      className="relative overflow-hidden rounded-2xl border"
     >
-      {/* small accent stripe on top edge so the group reads like a panel,
-          not a dashed sketch */}
+      {/* Header strip: tone-coloured top edge with a soft fade. Reads as
+          a card "tab" rather than a stripe stuck on the border. */}
       <div
-        className="absolute left-4 top-0 h-[2px] w-16 rounded-b"
-        style={{ background: tone.color, opacity: 0.85 }}
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: `linear-gradient(90deg, ${tone.color}, ${tone.color}00 80%)`, opacity: 0.9 }}
       />
-      <div className="font-mono text-[11px] font-semibold tracking-wide text-slate-200">{data.label}</div>
-      {data.subtitle && <div className="mt-1 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>{data.subtitle}</div>}
+      <div className="flex items-center gap-2 px-4 pt-3.5">
+        {ChapterIcon && (
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border"
+            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.32)', color: tone.color }}
+          >
+            <ChapterIcon className="h-3.5 w-3.5" />
+          </span>
+        )}
+        <div className="min-w-0">
+          {typeof data.chapter === 'number' && (
+            <div className="font-mono text-[9px] tracking-wider text-slate-500">CH{data.chapter}</div>
+          )}
+          <div className="truncate text-[12px] font-semibold leading-tight text-slate-100">{cleanedLabel}</div>
+        </div>
+      </div>
+      {data.subtitle && (
+        <div className="px-4 pt-1.5 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>
+          {data.subtitle}
+        </div>
+      )}
+      {typeof data.progress === 'number' && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-white/[0.04]"
+        >
+          <div
+            className="h-full transition-[width] duration-500"
+            style={{
+              width: `${Math.max(2, Math.min(100, data.progress))}%`,
+              background: `linear-gradient(90deg, ${tone.color} 0%, ${tone.color}80 100%)`,
+              boxShadow: `0 0 8px ${tone.color}66`,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -726,7 +870,7 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
             {truncateLabel(data.label, labelMax)}
           </span>
           {isRoot && data.subtitle && (
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70">{data.subtitle}</span>
+            <span className="font-mono text-[9px] tracking-wide opacity-70">{data.subtitle}</span>
           )}
         </div>
         {data.subtitle && !isLeaf && !isRoot && (
@@ -774,6 +918,21 @@ function GraphMapStage({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<HoverPayload | null>(null);
+  const [stageWidth, setStageWidth] = useState(1024);
+
+  // Track stage width so the hover card can flip to the cursor's left
+  // when it would otherwise clip the canvas right edge.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setStageWidth(rect.width);
+    });
+    observer.observe(el);
+    setStageWidth(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, []);
 
   // When the user picks a node, ease the camera so the node and its
   // immediate kinship fill the viewport. Skipped on first render and
@@ -834,52 +993,64 @@ function GraphMapStage({
         maxZoom={2.4}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={32} size={0.6} color="rgba(148,163,184,0.05)" />
+        <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="rgba(148,163,184,0.09)" />
         <Controls
           showInteractive={false}
-          className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
+          className="!overflow-hidden !rounded-lg !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-xl"
         />
         <MiniMap
           nodeColor={(node) => graphTone[((node.data as MapNodeData)?.tone || 'slate') as GraphTone]?.minimap || '#64748b'}
-          maskColor="rgba(2,6,23,0.58)"
+          nodeStrokeColor="rgba(255,255,255,0.12)"
+          nodeStrokeWidth={2}
+          maskColor="rgba(2,6,23,0.62)"
           pannable
           zoomable
-          className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
-          style={{ width: 158, height: 104 }}
+          className="!overflow-hidden !rounded-lg !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-xl"
+          style={{ width: 196, height: 128 }}
         />
       </ReactFlow>
-      {hover && <NodeHoverCard hover={hover} />}
+      {hover && <NodeHoverCard hover={hover} stageWidth={stageWidth} />}
     </div>
   );
 }
 
-function NodeHoverCard({ hover }: { hover: HoverPayload }) {
+function NodeHoverCard({ hover, stageWidth }: { hover: HoverPayload; stageWidth: number }) {
   const { data } = hover;
   const tone = graphTone[data.tone];
-  // Place above-and-right of the cursor by default; flip to the left edge
-  // when we'd otherwise overflow the canvas.
-  const left = Math.max(8, hover.x - 120);
+  const CARD_WIDTH = 260;
+  // Default placement: above and slightly right of the cursor. Mirror to
+  // the cursor's left edge when the card would otherwise clip the canvas
+  // right edge. Cap top at 8px so it never escapes off the top edge.
+  const wantsLeft = hover.x + 16 + CARD_WIDTH > stageWidth;
+  const left = wantsLeft
+    ? Math.max(8, hover.x - CARD_WIDTH - 12)
+    : Math.min(stageWidth - CARD_WIDTH - 8, hover.x + 16);
   const top = Math.max(8, hover.y - 96);
   return (
     <div
-      className="pointer-events-none absolute z-50 max-w-[260px] rounded-lg border bg-[#0b1117] p-3 shadow-2xl backdrop-blur"
-      style={{ left, top, borderColor: tone.border }}
+      className="pointer-events-none absolute z-50 overflow-hidden rounded-lg border bg-[#0b1117]/95 shadow-2xl backdrop-blur-md"
+      style={{ left, top, width: CARD_WIDTH, borderColor: tone.border }}
     >
-      <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-        {typeof data.chapter === 'number' && <span>CH{data.chapter}</span>}
-        {data.levelLabel && (
-          <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
-            {data.levelLabel}
-          </span>
-        )}
-        {typeof data.mastery === 'number' && (
-          <span style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
+      <span aria-hidden className="block h-[2px]" style={{ background: tone.color, opacity: 0.85 }} />
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+          {typeof data.chapter === 'number' && (
+            <span className="rounded-sm border border-white/[0.08] bg-black/30 px-1 py-0.5 text-[9px]">CH{data.chapter}</span>
+          )}
+          {data.levelLabel && (
+            <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
+              {data.levelLabel}
+            </span>
+          )}
+          {typeof data.mastery === 'number' && (
+            <span className="ml-auto" style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
+          )}
+        </div>
+        <div className="mt-1.5 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
+        {data.description && (
+          <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
         )}
       </div>
-      <div className="mt-1 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
-      {data.description && (
-        <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
-      )}
     </div>
   );
 }
@@ -899,7 +1070,10 @@ function graphEdge(
     target: to,
     // Bezier curves give the canvas a softer, more organic look than the
     // right-angled smoothstep paths.
-    type: dashed ? 'default' : 'default',
+    type: 'default',
+    // Dashed (cross-chapter prerequisite) edges always animate so the
+    // semantic link reads as a flowing pulse; solid edges animate only
+    // when they're already heavyweight (root → branch).
     animated: active && (dashed || width > 1.5),
     style: {
       stroke: color,
@@ -938,19 +1112,6 @@ function ideologicalTone(category?: IdeologicalCategory): GraphTone {
   if (category === 'aerospace') return 'slate';
   return 'cyan';
 }
-
-type KnowledgeVisualNode = {
-  id: string;
-  label: string;
-  subtitle?: string;
-  level: KnowledgePoint['level'];
-  chapter: number;
-  x: number;
-  y: number;
-  r: number;
-  fill: string;
-  stroke: string;
-};
 
 // Map a quiz mastery percentage to the existing GraphTone palette so the
 // canvas can re-tint nodes that the student is weak / strong on.
@@ -1037,17 +1198,19 @@ function FullKnowledgeMap({
         const chapterProgress = progressForChapter(progress, chapter);
 
         nodes.push(createMapGroup(`kg-card-${chapter}`, cellX, cellY, {
-          label: `CH${chapter} · ${root?.name || '章节'}`,
+          label: root?.name || '章节',
           subtitle: chapterProgress === null
             ? `${chapterPoints.length} 个知识点 · ${levelTwo.length} 个二级`
             : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
           tone,
           width: COL_W - 30,
           height: ROW_H - 30,
+          chapter,
+          progress: chapterProgress ?? undefined,
         }));
 
         if (root) {
-          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 70, {
+          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 96, {
             label: root.name,
             subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
             levelLabel: 'L1',
@@ -1065,7 +1228,7 @@ function FullKnowledgeMap({
           const c = parentIndex % cols;
           const r = Math.floor(parentIndex / cols);
           const px = cellX + 50 + c * ((COL_W - 130) / Math.max(cols, 1));
-          const py = cellY + 170 + r * 56;
+          const py = cellY + 196 + r * 56;
           nodes.push(createMapNode(parent.id, px, py, {
             label: parent.name,
             levelLabel: 'L2',
@@ -1228,16 +1391,6 @@ function FullKnowledgeMap({
   );
 }
 
-type ProblemVisualNode = {
-  id: string;
-  label: string;
-  category: ProblemNode['category'];
-  level: ProblemNode['level'];
-  x: number;
-  y: number;
-  r: number;
-};
-
 function ProblemGraphCanvas({
   selectedId,
   visibleIds,
@@ -1355,17 +1508,29 @@ function ProblemGraphView({
 
   return (
     <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_340px] md:px-6">
-      <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
+      <aside className="order-2 rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <Input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索问题、原因、解法..."
-            className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+            className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
+          {query && (
+            <button
+              type="button"
+              aria-label="清除搜索"
+              onClick={() => onQueryChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">问题类型 · 4类问题域</div>
+        <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
+          问题类型 · {problemGraphStats.level1}类问题域
+        </div>
         <div className="space-y-2">
           {roots.map((root) => {
             const meta = problemCategoryMeta[root.category];
@@ -1402,22 +1567,24 @@ function ProblemGraphView({
       </aside>
 
       <section className="order-1 space-y-5 xl:order-none">
-        <div className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">问题节点网络</h2>
-              <p className="mt-1 text-xs text-slate-500">4类问题域、40个问题类型、153个具体问题，按父子关系连线展示。</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {problemGraphStats.level1}类问题域、{problemGraphStats.level2}个问题类型、{problemGraphStats.level3}个具体问题，按父子关系连线展示。
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {problemGraphStats.level1}</span>
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {problemGraphStats.level2}</span>
-              <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L3 {problemGraphStats.level3}</span>
+            <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px] text-slate-400">
+              <span className="px-2 py-1">L1<span className="ml-1 text-slate-200">{problemGraphStats.level1}</span></span>
+              <span className="px-2 py-1">L2<span className="ml-1 text-slate-200">{problemGraphStats.level2}</span></span>
+              <span className="px-2 py-1">L3<span className="ml-1 text-slate-200">{problemGraphStats.level3}</span></span>
             </div>
           </div>
           <ProblemGraphCanvas selectedId={selected?.id || ''} visibleIds={visibleProblemIds} onSelect={onSelect} />
         </div>
 
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
@@ -1439,21 +1606,38 @@ function ProblemGraphView({
                 {node.name}
               </button>
             ))}
+            {filteredProblems.length === 0 && (
+              <div className="w-full rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-4 text-center text-xs text-slate-500">
+                没有命中问题节点。
+                <button
+                  type="button"
+                  onClick={() => onQueryChange('')}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除搜索
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="border-b border-white/[0.08] p-5">
-            <div className="font-mono text-[11px] text-cyan-200">PROBLEM · {selected?.id || 'N/A'}</div>
-            <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择问题'}</h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cyan-200">
+                Problem
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">#{selected?.id || 'N/A'}</span>
+            </div>
+            <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{selected?.name || '未选择问题'}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{selected?.description || '请选择一个问题节点查看详情。'}</p>
           </div>
           {selected && (
             <div className="space-y-4 p-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+                <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
                   <div className="font-mono text-lg text-slate-50">L{selected.level}</div>
                   <div className="text-xs text-slate-500">问题层级</div>
                 </div>
@@ -1517,17 +1701,6 @@ function ProblemGraphView({
     </main>
   );
 }
-
-type IdeologicalVisualNode = {
-  id: string;
-  label: string;
-  category?: IdeologicalCategory;
-  level: number;
-  x: number;
-  y: number;
-  r: number;
-  selectable: boolean;
-};
 
 function IdeologicalGraphCanvas({
   selectedId,
@@ -1662,17 +1835,29 @@ function IdeologicalGraphView({
 
   return (
     <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_340px] md:px-6">
-      <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
+      <aside className="order-2 rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <Input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索思政主题、周次..."
-            className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+            className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
           />
+          {query && (
+            <button
+              type="button"
+              aria-label="清除搜索"
+              onClick={() => onQueryChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">思政主题 · 6类元素</div>
+        <div className="mb-2 px-2 text-[11px] font-semibold text-slate-300">
+          思政主题 · {ideologicalGraphStats.totalCategories}类元素
+        </div>
         <div className="space-y-2">
           {roots.map((root) => {
             const Icon = ideologicalIconMap[root.category];
@@ -1700,11 +1885,11 @@ function IdeologicalGraphView({
           })}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+          <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
             <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.totalElements}</div>
             <div className="text-xs text-slate-500">思政元素</div>
           </div>
-          <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+          <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
             <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.totalWeeklyMappings}</div>
             <div className="text-xs text-slate-500">周次映射</div>
           </div>
@@ -1712,11 +1897,13 @@ function IdeologicalGraphView({
       </aside>
 
       <section className="order-1 space-y-5 xl:order-none">
-        <div className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">思政节点网络</h2>
-              <p className="mt-1 text-xs text-slate-500">中心主题、6类思政主题、二级元素和章节映射以节点连线展示。</p>
+              <p className="mt-1 text-xs text-slate-500">
+                中心主题、{ideologicalGraphStats.totalCategories}类思政主题、{ideologicalGraphStats.totalElements}个二级元素和{ideologicalGraphStats.chaptersWithSip.length}个章节映射，按父子关系连线展示。
+              </p>
             </div>
             <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[10px] text-slate-500">
               CH {ideologicalGraphStats.chaptersWithSip.join('/')}
@@ -1725,7 +1912,7 @@ function IdeologicalGraphView({
           <IdeologicalGraphCanvas selectedId={selected?.id || ''} visibleIds={visibleIdeologicalIds} onSelect={onSelect} />
         </div>
 
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <BookOpen className="h-4 w-4 text-cyan-200" />
@@ -1745,25 +1932,42 @@ function IdeologicalGraphView({
                 {mapping.ideologicalTheme}
               </button>
             ))}
+            {filteredMappings.length === 0 && (
+              <div className="w-full rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-4 text-center text-xs text-slate-500">
+                没有命中周次映射。
+                <button
+                  type="button"
+                  onClick={() => onQueryChange('')}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除搜索
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]">
           <div className="border-b border-white/[0.08] p-5">
-            <div className="font-mono text-[11px] text-cyan-200">SIP · {selected?.id || 'N/A'}</div>
-            <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择主题'}</h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cyan-200">
+                SIP
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">#{selected?.id || 'N/A'}</span>
+            </div>
+            <h2 className="mt-2.5 text-xl font-semibold leading-tight tracking-tight text-slate-50">{selected?.name || '未选择主题'}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{selected?.description || '请选择一个思政节点查看详情。'}</p>
           </div>
           {selected && (
             <div className="space-y-4 p-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+                <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
                   <div className="font-mono text-lg text-slate-50">L{selected.level}</div>
                   <div className="text-xs text-slate-500">节点层级</div>
                 </div>
-                <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+                <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
                   <div className="font-mono text-lg text-slate-50">{selected.relatedChapters.join('/') || '-'}</div>
                   <div className="text-xs text-slate-500">关联章节</div>
                 </div>
@@ -1780,7 +1984,7 @@ function IdeologicalGraphView({
               )}
               <div>
                 <div className="mb-2 text-sm font-semibold text-slate-100">预期成效</div>
-                <p className="rounded-md border border-white/[0.08] bg-black/20 p-3 text-sm leading-6 text-slate-300">{selected.expectedOutcome}</p>
+                <p className="rounded-lg border border-white/[0.06] bg-black/25 p-3 text-sm leading-6 text-slate-300">{selected.expectedOutcome}</p>
               </div>
               {selected.relatedKnowledgePoints.length > 0 && (
                 <div>
@@ -1815,25 +2019,25 @@ function IdeologicalGraphView({
             </div>
           )}
         </div>
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Target className="h-4 w-4 text-cyan-200" />
             思政图谱统计
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+            <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
               <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.totalCategories}</div>
               <div className="text-xs text-slate-500">一级主题</div>
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+            <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
               <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.totalElements}</div>
               <div className="text-xs text-slate-500">二级元素</div>
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+            <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
               <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.totalWeeklyMappings}</div>
               <div className="text-xs text-slate-500">周次映射</div>
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
+            <div className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
               <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.chaptersWithSip.length}</div>
               <div className="text-xs text-slate-500">覆盖章节</div>
             </div>
@@ -1858,7 +2062,19 @@ export function HyperKnowledgeGraphPage() {
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
   const [kaScores, setKaScores] = useState<Record<string, number>>({});
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [listSort, setListSort] = useState<'chapter' | 'mastery'>('chapter');
   const initialUrlAppliedRef = useRef(false);
+
+  // Esc closes the mobile drawer — matches the affordance most users
+  // expect from any modal-style overlay on the web.
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileSidebarOpen]);
 
   useEffect(() => {
     let active = true;
@@ -2026,12 +2242,41 @@ export function HyperKnowledgeGraphPage() {
 
   const filteredList = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return knowledgePoints.filter((point) => {
+    const base = knowledgePoints.filter((point) => {
       const chapterMatch = chapter === 'all' || point.chapter === chapter;
-      const queryMatch = !q || `${point.name} ${point.description || ''}`.toLowerCase().includes(q);
-      return chapterMatch && queryMatch;
+      if (!chapterMatch) return false;
+      if (!q) return true;
+      // Search across name, description, tutor blurbs and resource titles so a
+      // student can find "中断使能" or "EA" via either the section title or
+      // the explanatory copy / video name.
+      const haystack = [
+        point.name,
+        point.description || '',
+        point.tutor?.core || '',
+        point.tutor?.whyImportant || '',
+        point.tutor?.takeaway || '',
+        point.tutor?.commonMistake || '',
+        ...(point.resources?.map((r) => r.title) || []),
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
     });
-  }, [chapter, query]);
+    if (listSort === 'mastery') {
+      // Weak-first sort: nodes with a mastery score below 100 float up,
+      // ties broken by id for stability. Untested nodes sink to the
+      // bottom so the student sees what's actively underperforming first.
+      return [...base].sort((a, b) => {
+        const sa = kaScores[a.id];
+        const sb = kaScores[b.id];
+        const aHas = typeof sa === 'number';
+        const bHas = typeof sb === 'number';
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (aHas && bHas && sa !== sb) return sa - sb;
+        return a.id.localeCompare(b.id, 'en', { numeric: true });
+      });
+    }
+    return base;
+  }, [chapter, query, listSort, kaScores]);
   const visibleKnowledgeIds = useMemo(() => new Set(filteredList.map((point) => point.id)), [filteredList]);
   const chapterNumbers = useMemo(() => Array.from(new Set(knowledgePoints.map((point) => point.chapter))).sort((a, b) => a - b), []);
   const levelCounts = useMemo(() => ({
@@ -2041,59 +2286,104 @@ export function HyperKnowledgeGraphPage() {
   }), []);
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
-      <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
+    <div className="relative -m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
+      {/* Ambient backdrop: a faint cyan dome up-left and a violet wash down-right
+          give the flat black page a subtle sense of depth without competing with
+          the canvas tones. Pointer-events disabled so it never intercepts
+          clicks. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-0"
+        style={{
+          background:
+            'radial-gradient(60% 40% at 18% -8%, rgba(34,211,238,0.10), transparent 70%),' +
+            'radial-gradient(50% 35% at 92% 110%, rgba(168,85,247,0.07), transparent 70%)',
+        }}
+      />
+      <div className="relative z-10">
+      <div className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0c1117]/90 px-4 py-5 backdrop-blur-xl md:px-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-300/80">
               <Network className="h-3.5 w-3.5" />
-              Graph · Mastery · Storyline
+              Knowledge Graph
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">知识图谱</h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-50 md:text-[28px]">知识图谱</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              汇总专业知识图谱、问题图谱和思政图谱，保留原有课程内容、问题域与周次映射。
+              点击任一节点查看本质、前置与配套资源；切换上方三张图，可在专业知识、典型问题与思政映射间穿梭。
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {graphViews.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setView(item.id);
-                    setQuery('');
-                  }}
-                  className={cn(
-                    'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition',
-                    view === item.id
-                      ? 'border-cyan-300/50 bg-cyan-300/[0.12] text-cyan-100'
-                      : 'border-white/[0.08] bg-white/[0.035] text-slate-400 hover:bg-white/[0.07] hover:text-slate-100',
-                  )}
-                >
-                  <span>{item.label}</span>
-                  <span className="font-mono text-[10px] opacity-70">{item.count}</span>
-                </button>
-              ))}
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 self-start xl:self-end">
             <button
               type="button"
               onClick={() => {
+                setView('knowledge');
                 setSelectedId(knowledgePoints[0]?.id || '');
                 setSelectedProblemId(problemGraph[0]?.id || '');
                 setSelectedIdeologicalId(ideologicalNodes[0]?.id || '');
                 setQuery('');
                 setChapter('all');
               }}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 transition hover:bg-white/[0.08]"
+              title="清空筛选、回到专业知识图谱概览"
             >
               <RotateCcw className="h-4 w-4" />
               重置视图
             </button>
-            <Link href="/" className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] hover:bg-cyan-200">
+            <Link
+              href="/"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200"
+            >
               返回课程 <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+        </div>
+        {/* Segmented tab control: a thin underline beneath the active label
+            replaces the previous cluster of pills. Counts sit as muted
+            secondary numerals so the eye lands on the label first. */}
+        <div className="mt-5 -mb-1 flex flex-wrap gap-1 border-b border-white/[0.06]">
+          {graphViews.map((item) => {
+            const active = view === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setView(item.id);
+                  setQuery('');
+                }}
+                aria-pressed={active}
+                className={cn(
+                  'group relative -mb-px inline-flex items-center gap-2 px-3 pb-3 pt-1.5 text-sm transition-colors',
+                  active ? 'text-slate-50' : 'text-slate-400 hover:text-slate-100',
+                )}
+              >
+                <Icon
+                  className="h-4 w-4 transition"
+                  style={active ? { color: item.tone } : undefined}
+                />
+                <span className="font-medium">{item.label}</span>
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+                    active ? 'bg-white/[0.08] text-slate-100' : 'bg-white/[0.04] text-slate-500',
+                  )}
+                  style={active ? { color: item.tone, backgroundColor: `${item.tone}1f` } : undefined}
+                >
+                  {item.count}
+                </span>
+                <span
+                  aria-hidden
+                  className={cn(
+                    'pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full transition-opacity',
+                    active ? 'opacity-100' : 'opacity-0 group-hover:opacity-50',
+                  )}
+                  style={{ background: active ? item.tone : 'rgba(255,255,255,0.25)' }}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -2151,25 +2441,29 @@ export function HyperKnowledgeGraphPage() {
               type="button"
               onClick={() => setChapter('all')}
               className={cn(
-                'rounded-md border px-2 py-2 text-xs transition',
-                chapter === 'all' ? 'border-cyan-300/50 bg-cyan-300/[0.12] text-cyan-100' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.06]',
+                'rounded-md border px-2 py-2 text-xs font-medium transition',
+                chapter === 'all'
+                  ? 'border-cyan-300/40 bg-cyan-300/[0.14] text-cyan-100 shadow-[0_0_0_1px_rgba(103,232,249,0.18)_inset]'
+                  : 'border-white/[0.06] bg-white/[0.02] text-slate-400 hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-slate-100',
               )}
             >
               全部章节
             </button>
-            <div className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-2 text-center font-mono text-xs text-slate-400">
+            <div className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-2 text-center font-mono text-xs text-slate-400">
               {filteredList.length}/{knowledgePoints.length}
             </div>
           </div>
-          <div className="mb-3 grid grid-cols-5 gap-1">
+          <div className="mb-3 grid grid-cols-5 gap-1.5">
             {chapterNumbers.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setChapter(value)}
                 className={cn(
-                  'h-7 rounded border font-mono text-[10px] transition',
-                  chapter === value ? 'border-cyan-300/50 bg-cyan-300/[0.12] text-cyan-100' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200',
+                  'h-7 rounded-md border font-mono text-[10px] transition',
+                  chapter === value
+                    ? 'border-cyan-300/40 bg-cyan-300/[0.14] text-cyan-100 shadow-[0_0_0_1px_rgba(103,232,249,0.18)_inset]'
+                    : 'border-white/[0.06] bg-white/[0.02] text-slate-500 hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-slate-200',
                 )}
               >
                 CH{value}
@@ -2182,13 +2476,61 @@ export function HyperKnowledgeGraphPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索知识点..."
-              className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+              className="h-10 border-white/[0.09] bg-black/25 pl-10 pr-9 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
+            {query && (
+              <button
+                type="button"
+                aria-label="清除搜索"
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">知识点列表 · 270点课程清单</div>
+          <div className="mb-2 flex items-center justify-between gap-2 px-2">
+            <div className="text-[11px] font-semibold text-slate-300">
+              知识点列表 · {knowledgePoints.length}点课程清单
+            </div>
+            <div className="inline-flex items-center overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px]">
+              <button
+                type="button"
+                onClick={() => setListSort('chapter')}
+                aria-pressed={listSort === 'chapter'}
+                className={cn(
+                  'px-2 py-1 transition',
+                  listSort === 'chapter' ? 'bg-cyan-300/[0.16] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200',
+                )}
+                title="按章节顺序"
+              >
+                章节
+              </button>
+              <button
+                type="button"
+                onClick={() => setListSort('mastery')}
+                aria-pressed={listSort === 'mastery'}
+                className={cn(
+                  'px-2 py-1 transition',
+                  listSort === 'mastery' ? 'bg-cyan-300/[0.16] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200',
+                )}
+                title={Object.keys(kaScores).length === 0 ? '尚无测验记录，按 id 兜底' : '弱项优先'}
+              >
+                弱项
+              </button>
+            </div>
+          </div>
           <div className="max-h-[640px] space-y-1 overflow-y-auto pr-1">
             {filteredList.map((point) => {
-              const chapterProgress = progressForChapter(progress, point.chapter);
+              const score = kaScores[point.id];
+              const hasScore = typeof score === 'number';
+              const dotColor = !hasScore
+                ? null
+                : score >= 80
+                  ? '#34d399'
+                  : score >= 60
+                    ? '#fbbf24'
+                    : '#f87171';
               return (
                 <button
                   key={point.id}
@@ -2198,19 +2540,42 @@ export function HyperKnowledgeGraphPage() {
                     setIsMobileSidebarOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
+                    'group flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
                     selectedId === point.id ? 'bg-cyan-300/[0.12] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
                   )}
                 >
-                  {point.level === 1 ? <GitBranch className="h-3.5 w-3.5" /> : <ListTree className="h-3.5 w-3.5" />}
+                  {dotColor ? (
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}88` }}
+                      title={`掌握 ${Math.round(score)}%`}
+                    />
+                  ) : point.level === 1 ? (
+                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ListTree className="h-3.5 w-3.5 shrink-0" />
+                  )}
                   <span className="line-clamp-1">{point.name}</span>
-                  <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] text-slate-500">
-                    {chapterProgress !== null && <span>{chapterProgress}%</span>}
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-slate-500">
+                    {chapter === 'all' && <span>CH{point.chapter}</span>}
                     <span>L{point.level}</span>
                   </span>
                 </button>
               );
             })}
+            {filteredList.length === 0 && (
+              <div className="rounded-md border border-dashed border-white/[0.08] bg-black/20 px-3 py-6 text-center text-xs text-slate-500">
+                没有匹配的知识点。
+                <button
+                  type="button"
+                  onClick={() => { setQuery(''); setChapter('all'); }}
+                  className="ml-1 text-cyan-300 hover:text-cyan-100"
+                >
+                  清除筛选
+                </button>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -2226,27 +2591,36 @@ export function HyperKnowledgeGraphPage() {
                 <Menu className="h-4 w-4" />
               </button>
               <Network className="h-4 w-4 text-cyan-200" />
-              270 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
+              {knowledgePoints.length} 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {Object.keys(kaScores).length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-300">
-                  <span className="text-slate-500">掌握度</span>
-                  <span className="inline-flex items-center gap-1 rounded border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ≥80
+                <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px]">
+                  <span className="px-2 py-1 text-slate-500">掌握度</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.55)]" />
+                    ≥80
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> 60–79
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-amber-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)]" />
+                    60–79
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 text-red-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> &lt;60
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-red-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.55)]" />
+                    &lt;60
                   </span>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {levelCounts.l1}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {levelCounts.l2}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L3 {levelCounts.l3}</span>
+              <div className="inline-flex items-center divide-x divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08] bg-black/30 font-mono text-[10px] text-slate-400">
+                <span className="px-2 py-1">
+                  L1<span className="ml-1 text-slate-200">{levelCounts.l1}</span>
+                </span>
+                <span className="px-2 py-1">
+                  L2<span className="ml-1 text-slate-200">{levelCounts.l2}</span>
+                </span>
+                <span className="px-2 py-1">
+                  L3<span className="ml-1 text-slate-200">{levelCounts.l3}</span>
+                </span>
               </div>
             </div>
           </div>
@@ -2276,8 +2650,9 @@ export function HyperKnowledgeGraphPage() {
             pointById={pointById}
             experimentTitleByRefId={experimentTitleByRefId}
             onSelectId={goToPoint}
+            mastery={selected ? kaScores[selected.id] : undefined}
           />
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <ListTree className="h-4 w-4 text-cyan-200" />
               同章知识点
@@ -2297,25 +2672,25 @@ export function HyperKnowledgeGraphPage() {
               {siblings.length === 0 && <div className="text-xs text-slate-500">暂无同章节点。</div>}
             </div>
           </div>
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
               图谱统计
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="font-mono text-xl text-slate-50">{knowledgePoints.length}</div>
                 <div className="text-xs text-slate-500">总节点</div>
               </div>
-              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="font-mono text-xl text-slate-50">{new Set(knowledgePoints.map((point) => point.chapter)).size}</div>
                 <div className="text-xs text-slate-500">章节</div>
               </div>
-              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="font-mono text-xl text-slate-50">{levelCounts.l2}</div>
                 <div className="text-xs text-slate-500">二级节点</div>
               </div>
-              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="font-mono text-xl text-slate-50">{levelCounts.l3}</div>
                 <div className="text-xs text-slate-500">三级节点</div>
               </div>
@@ -2324,6 +2699,7 @@ export function HyperKnowledgeGraphPage() {
         </div>
       </main>
       )}
+      </div>
     </div>
   );
 }
