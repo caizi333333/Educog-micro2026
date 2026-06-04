@@ -10,12 +10,14 @@ const publicPaths = [
   '/terms', 
   '/clear-auth',
   '/auth-test',
-  '/api/auth/login', 
-  '/api/auth/register', 
-  '/api/health', 
-  '/api/init', 
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/health',
+  '/api/init',
   '/api/auth/validate',
-  '/api/middleware-test'
+  '/api/middleware-test',
+  '/api/experiments',
+  '/api/quiz/questions'
 ];
 
 const publicExactPaths = ['/'];
