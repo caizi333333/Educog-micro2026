@@ -23,6 +23,10 @@ export async function POST(request: Request) {
     const data = await request.json();
     const { quizId, score, totalQuestions, correctAnswers, timeSpent, answers, weakAreas, scoresByKA, moduleId, chapterId } = data;
 
+    if (score === undefined || score === null) {
+      return NextResponse.json({ error: '缺少必填字段: score' }, { status: 400 });
+    }
+
     // 保存测验尝试到数据库
     const quizAttempt = await prisma.quizAttempt.create({
       data: {

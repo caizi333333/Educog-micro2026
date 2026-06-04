@@ -176,6 +176,15 @@ export async function PUT(
       );
     }
 
+    // 检查用户是否存在且未被软删除
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+    if (!existing || existing.status === 'DELETED') {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    }
+
     const body = await request.json();
     const classId = isAdmin && typeof body.classId === 'string' && body.classId.trim()
       ? body.classId.trim()
