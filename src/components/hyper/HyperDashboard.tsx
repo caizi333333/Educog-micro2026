@@ -29,8 +29,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { experiments as experimentCatalog } from '@/lib/experiment-config';
-import { knowledgePoints } from '@/lib/knowledge-points';
+import { experiments as staticExperimentCatalog, type ExperimentConfig } from '@/lib/experiment-config';
+import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 import {
   EMPTY_ACHIEVEMENT_STATS,
   EMPTY_USER_STATS,
@@ -61,8 +61,8 @@ interface HyperDashboardState {
   failures: string[];
 }
 
-const initialExperiments = buildHyperExperiments(experimentCatalog, []);
-const initialKnowledgeSummary = buildKnowledgeSummary(knowledgePoints, []);
+const initialExperiments = buildHyperExperiments(staticExperimentCatalog, []);
+const initialKnowledgeSummary = buildKnowledgeSummary(staticKnowledgePoints, []);
 
 function formatMinutes(value: number): string {
   if (!value) return '0 min';
@@ -291,6 +291,8 @@ function AchievementPanel({ stats }: { stats: HyperAchievementStats }) {
 
 export function HyperDashboard() {
   const { user } = useAuth();
+  const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>(staticKnowledgePoints);
+  const [experimentCatalog, setExperimentCatalog] = useState<ExperimentConfig[]>(staticExperimentCatalog);
   const [state, setState] = useState<HyperDashboardState>({
     loading: true,
     experiments: initialExperiments,
@@ -300,6 +302,35 @@ export function HyperDashboard() {
     teacherDashboard: null,
     failures: [],
   });
+
+  useEffect(() => {
+    let active = true;
+    async function loadKnowledgePoints() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const [kgRes, expRes] = await Promise.all([
+          fetch('/api/knowledge-graph?type=raw', { headers }),
+          fetch('/api/experiments'),
+        ]);
+        if (kgRes.ok) {
+          const json = await kgRes.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setKnowledgePoints(json.data);
+          }
+        }
+        if (expRes.ok) {
+          const json = await expRes.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setExperimentCatalog(json.data);
+          }
+        }
+      } catch { /* fallback */ }
+    }
+    loadKnowledgePoints();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -350,9 +381,9 @@ export function HyperDashboard() {
     return () => {
       active = false;
     };
-  }, [user?.role]);
+  }, [user?.role, experimentCatalog]);
 
-  const knowledgeSummary = useMemo(() => buildKnowledgeSummary(knowledgePoints, state.progress), [state.progress]);
+  const knowledgeSummary = useMemo(() => buildKnowledgeSummary(knowledgePoints, state.progress), [knowledgePoints, state.progress]);
   const continueExperiment = useMemo(() => getContinueExperiment(state.experiments), [state.experiments]);
   const nextExperiment = useMemo(() => getNextExperiment(state.experiments), [state.experiments]);
   const completedCount = state.experiments.filter((item) => item.state === 'completed').length;

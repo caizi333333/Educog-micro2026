@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimulator } from '@/hooks/useSimulator';
-import { experiments } from '@/lib/experiment-config';
+import { experiments as staticExperiments, type ExperimentConfig } from '@/lib/experiment-config';
 
 import ExperimentSelector from '@/components/simulation/ExperimentSelector';
 import CodeEditor from '@/components/simulation/CodeEditor';
@@ -43,6 +43,26 @@ export default function SimulationPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [localSelectedExperiment, setLocalSelectedExperiment] = useState<string | null>(selectedExperiment || null);
   const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide'>('registers');
+  const [experiments, setExperiments] = useState<ExperimentConfig[]>(staticExperiments);
+
+  // Fetch experiments from API on mount
+  useEffect(() => {
+    let active = true;
+    async function fetchExperiments() {
+      try {
+        const res = await fetch('/api/experiments');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (active && json.success && Array.isArray(json.data)) {
+          setExperiments(json.data);
+        }
+      } catch {
+        // Keep static fallback on error
+      }
+    }
+    fetchExperiments();
+    return () => { active = false; };
+  }, []);
 
   // 支持通过 URL 参数直接打开指定实验，例如 /simulation?experiment=exp01
   useEffect(() => {
@@ -225,6 +245,7 @@ export default function SimulationPage() {
             sidebarOpen ? "w-[260px]" : "w-0"
           )}>
             <ExperimentSelector
+              experiments={experiments}
               selectedExperiment={localSelectedExperiment || selectedExperiment}
               onExperimentSelect={(id) => setLocalSelectedExperiment(id)}
               onLoadExperiment={(id) => loadExperiment(id)}

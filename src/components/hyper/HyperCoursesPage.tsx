@@ -26,8 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { experiments as experimentCatalog, getExperimentConfig } from '@/lib/experiment-config';
-import { quizQuestions } from '@/lib/quiz-data';
+import { experiments as staticExperiments, type ExperimentConfig, getExperimentConfig } from '@/lib/experiment-config';
 import {
   buildHyperExperiments,
   fetchHyperJson,
@@ -538,7 +537,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
   const video = resources.find((resource) => resource.type === 'video' && resource.url);
   const visibleResources = resources.slice(0, 10);
   const summary = buildChapterSummary(chapter, childPoints);
-  const quizCount = quizQuestions.filter((q) => q.chapter === chapter.chapter).length;
+  const quizCount = resources.filter((r) => r.type === 'quiz').length;
   const [showTop5, setShowTop5] = useState(false);
   const top5 = childPoints.slice(0, 5);
 
@@ -717,12 +716,32 @@ function CourseChaptersView({ query }: { query: string }) {
 
 export function HyperCoursesPage() {
   const { user } = useAuth();
-  const [labs, setLabs] = useState<HyperExperimentCard[]>(() => buildHyperExperiments(experimentCatalog, []));
+  const [experimentCatalog, setExperimentCatalog] = useState<ExperimentConfig[]>(staticExperiments);
+  const [labs, setLabs] = useState<HyperExperimentCard[]>(() => buildHyperExperiments(staticExperiments, []));
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [section, setSection] = useState<SectionMode>('chapters');
   const [view, setView] = useState('all');
   const [topic, setTopic] = useState('all');
+
+  // Fetch experiments from API on mount
+  useEffect(() => {
+    let active = true;
+    async function fetchExperiments() {
+      try {
+        const res = await fetch('/api/experiments');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (active && json.success && Array.isArray(json.data)) {
+          setExperimentCatalog(json.data);
+        }
+      } catch {
+        // Keep static fallback on error
+      }
+    }
+    fetchExperiments();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -741,7 +760,7 @@ export function HyperCoursesPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [experimentCatalog]);
 
   const topics = useMemo(() => Array.from(new Set(labs.map((lab) => lab.topic))), [labs]);
   const continueLab = useMemo(() => getContinueExperiment(labs), [labs]);

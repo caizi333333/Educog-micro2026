@@ -11,9 +11,10 @@ import {
   FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { experiments, type ExperimentConfig } from '@/lib/experiment-config';
+import { type ExperimentConfig } from '@/lib/experiment-config';
 
 interface ExperimentSelectorProps {
+  experiments: ExperimentConfig[];
   selectedExperiment: string | null;
   onExperimentSelect: (experimentId: string) => void;
   onLoadExperiment: (experimentId: string) => void;
@@ -36,6 +37,7 @@ const difficultyLabel: Record<string, { label: string; dot: string; badge: strin
 };
 
 const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
+  experiments,
   selectedExperiment,
   onExperimentSelect,
   onLoadExperiment,
