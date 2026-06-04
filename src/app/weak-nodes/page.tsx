@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, BookOpen, Cpu, Layers, Loader2, RotateCcw, Target } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
+import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 import { quizQuestions as staticQuizQuestions, type Question } from '@/lib/quiz-data';
 
 type AssessmentSnapshot = {
@@ -15,27 +15,48 @@ type AssessmentSnapshot = {
 };
 
 const HIERARCHICAL_ID = /^\d+(\.\d+)*$/;
-const POINT_BY_ID: Record<string, KnowledgePoint> = (() => {
-  const m: Record<string, KnowledgePoint> = {};
-  for (const p of knowledgePoints) m[p.id] = p;
-  return m;
-})();
 
-const EXP_TITLE_BY_REF: Record<string, string> = (() => {
+function buildPointById(kps: KnowledgePoint[]): Record<string, KnowledgePoint> {
+  const m: Record<string, KnowledgePoint> = {};
+  for (const p of kps) m[p.id] = p;
+  return m;
+}
+
+function buildExpTitleByRef(kps: KnowledgePoint[]): Record<string, string> {
   const m: Record<string, string> = {};
-  for (const p of knowledgePoints) {
+  for (const p of kps) {
     p.resources?.forEach((r) => {
       if (r.type === 'experiment' && r.refId && !m[r.refId]) m[r.refId] = r.title;
     });
   }
   return m;
-})();
+}
 
 export default function WeakNodesPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<AssessmentSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>(staticKnowledgePoints);
+
+  // Fetch knowledge points from API (DB-first) with static fallback
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/knowledge-graph?type=raw');
+        if (res.ok) {
+          const json = await res.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setKnowledgePoints(json.data);
+            return;
+          }
+        }
+      } catch { /* fallback to static */ }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -51,12 +72,15 @@ export default function WeakNodesPage() {
     setLoading(false);
   }, [user]);
 
+  const pointById = useMemo(() => buildPointById(knowledgePoints), [knowledgePoints]);
+  const expTitleByRef = useMemo(() => buildExpTitleByRef(knowledgePoints), [knowledgePoints]);
+
   const weakNodes = useMemo(() => {
     const ids = (snapshot?.weakKAs || []).filter((ka) => HIERARCHICAL_ID.test(ka));
     return ids
-      .map((id) => POINT_BY_ID[id])
+      .map((id) => pointById[id])
       .filter((p): p is KnowledgePoint => Boolean(p));
-  }, [snapshot]);
+  }, [snapshot, pointById]);
 
   const otherWeakKAs = useMemo(() => {
     return (snapshot?.weakKAs || []).filter((ka) => !HIERARCHICAL_ID.test(ka));
@@ -148,7 +172,7 @@ export default function WeakNodesPage() {
 
             <div className="space-y-4">
               {weakNodes.map((node) => (
-                <WeakNodeCard key={node.id} node={node} />
+                <WeakNodeCard key={node.id} node={node} allKnowledgePoints={knowledgePoints} pointById={pointById} expTitleByRef={expTitleByRef} />
               ))}
             </div>
 
@@ -177,16 +201,21 @@ export default function WeakNodesPage() {
   );
 }
 
-function WeakNodeCard({ node }: { node: KnowledgePoint }) {
+function WeakNodeCard({ node, allKnowledgePoints, pointById, expTitleByRef }: {
+  node: KnowledgePoint;
+  allKnowledgePoints: KnowledgePoint[];
+  pointById: Record<string, KnowledgePoint>;
+  expTitleByRef: Record<string, string>;
+}) {
   const [quizQuestions, setQuizQuestions] = useState<Question[]>(staticQuizQuestions);
-  const parent = node.parentId ? POINT_BY_ID[node.parentId] : null;
-  const children = knowledgePoints.filter((p) => p.parentId === node.id);
+  const parent = node.parentId ? pointById[node.parentId] : null;
+  const children = allKnowledgePoints.filter((p) => p.parentId === node.id);
   const prereqs = (node.prerequisites || [])
-    .map((id) => POINT_BY_ID[id])
+    .map((id) => pointById[id])
     .filter((p): p is KnowledgePoint => Boolean(p));
   const applied = (node.appliedIn || []).map((refId) => ({
     refId,
-    title: EXP_TITLE_BY_REF[refId] || refId,
+    title: expTitleByRef[refId] || refId,
   }));
   const matchingQuestions = quizQuestions.filter((q) => q.ka === node.id).slice(0, 3);
   const [showAnswers, setShowAnswers] = useState(false);

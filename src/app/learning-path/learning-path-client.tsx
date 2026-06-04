@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { generateLearningPlan, type LearningPlanOutput } from '@/ai/flows/learning-plan-flow';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
+import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 import { experiments as staticExperiments, type ExperimentConfig } from '@/lib/experiment-config';
 import { cn } from '@/lib/utils';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
@@ -111,10 +111,10 @@ function getAreaTerms(area: string) {
   return Array.from(new Set([area, aliasEntry?.[0] || '', ...(aliasEntry?.[1] || [])].map(compact).filter((item) => item.length > 1)));
 }
 
-function findRelatedPoints(area: string) {
+function findRelatedPoints(area: string, kps: KnowledgePoint[]) {
   const terms = getAreaTerms(area);
   if (terms.length === 0) return [];
-  return knowledgePoints.filter((point) => {
+  return kps.filter((point) => {
     const text = compact(`${point.name} ${point.description || ''}`);
     return terms.some((term) => text.includes(term) || term.includes(compact(point.name)));
   });
@@ -144,11 +144,11 @@ function getChapterProgress(progress: HyperLearningProgressRecord[], chapter: nu
   return Math.round(records.reduce((sum, record) => sum + (record.progress || 0), 0) / records.length);
 }
 
-function buildAreaProfile(area: string, progress: HyperLearningProgressRecord[], experiments: ExperimentConfig[]): AreaProfile {
-  const relatedPoints = findRelatedPoints(area);
+function buildAreaProfile(area: string, progress: HyperLearningProgressRecord[], experiments: ExperimentConfig[], kps: KnowledgePoint[]): AreaProfile {
+  const relatedPoints = findRelatedPoints(area, kps);
   const primaryPoint = relatedPoints.find((point) => point.level === 2) || relatedPoints[0] || null;
   const chapter = primaryPoint?.chapter || 1;
-  const chapterRoot = knowledgePoints.find((point) => point.level === 1 && point.chapter === chapter);
+  const chapterRoot = kps.find((point) => point.level === 1 && point.chapter === chapter);
   const relatedExperiment = findRelatedExperiment(area, experiments);
 
   return {
@@ -162,12 +162,12 @@ function buildAreaProfile(area: string, progress: HyperLearningProgressRecord[],
   };
 }
 
-function buildFallbackPlan(weakAreas: string[], experiments: ExperimentConfig[]): LearningPlanOutput {
+function buildFallbackPlan(weakAreas: string[], experiments: ExperimentConfig[], kps: KnowledgePoint[]): LearningPlanOutput {
   const plan: LearningStep[] = [];
   let step = 1;
 
   weakAreas.slice(0, 4).forEach((area) => {
-    const profile = buildAreaProfile(area, [], experiments);
+    const profile = buildAreaProfile(area, [], experiments, kps);
     plan.push({
       step: step++,
       type: 'read',
@@ -387,23 +387,30 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
   const [isGenerating, setIsGenerating] = useState(false);
   const [query, setQuery] = useState('');
   const [experiments, setExperiments] = useState<ExperimentConfig[]>(staticExperiments);
+  const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>(staticKnowledgePoints);
 
-  // Fetch experiments from API on mount
+  // Fetch experiments and knowledge points from API on mount
   useEffect(() => {
     let active = true;
-    async function fetchExperiments() {
+    async function fetchData() {
       try {
-        const res = await fetch('/api/experiments');
-        if (!res.ok) return;
-        const json = await res.json();
-        if (active && json.success && Array.isArray(json.data)) {
-          setExperiments(json.data);
+        const [expRes, kpRes] = await Promise.all([
+          fetch('/api/experiments'),
+          fetch('/api/knowledge-graph?type=raw'),
+        ]);
+        if (expRes.ok) {
+          const json = await expRes.json();
+          if (active && json.success && Array.isArray(json.data)) setExperiments(json.data);
+        }
+        if (kpRes.ok) {
+          const json = await kpRes.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) setKnowledgePoints(json.data);
         }
       } catch {
         // Keep static fallback on error
       }
     }
-    fetchExperiments();
+    fetchData();
     return () => { active = false; };
   }, []);
 
@@ -489,7 +496,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
           return;
         }
 
-        const fallbackPlan = buildFallbackPlan(weakAreas, experiments);
+        const fallbackPlan = buildFallbackPlan(weakAreas, experiments, knowledgePoints);
         setPlan(fallbackPlan);
         localStorage.setItem(cacheKey, JSON.stringify(fallbackPlan));
         localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
@@ -504,7 +511,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
         }, 120);
       } catch (error) {
         console.error('Failed to generate learning plan:', error);
-        setPlan(buildFallbackPlan(weakAreas, experiments));
+        setPlan(buildFallbackPlan(weakAreas, experiments, knowledgePoints));
       } finally {
         setIsGenerating(false);
       }
@@ -514,7 +521,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
   }, [dataStatus, weakAreas, plan, isGenerating]);
 
   const areaProfiles = useMemo(() => {
-    return (weakAreas || []).map((area) => buildAreaProfile(area, progress, experiments));
+    return (weakAreas || []).map((area) => buildAreaProfile(area, progress, experiments, knowledgePoints));
   }, [progress, weakAreas, experiments]);
 
   const filteredSteps = useMemo(() => {
