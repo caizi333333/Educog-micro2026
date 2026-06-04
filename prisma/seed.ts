@@ -275,11 +275,12 @@ async function main() {
   }
 
   // Demo teacher for competition judges
+  const demoPw = await bcrypt.hash('demo123456', 10);
   const demoTeacher = await prisma.user.create({
     data: {
       email: 'demo_teacher@educog.com',
       username: 'demo_teacher',
-      password: hashedPw,
+      password: demoPw,
       name: '演示教师',
       role: 'TEACHER',
       status: 'ACTIVE',

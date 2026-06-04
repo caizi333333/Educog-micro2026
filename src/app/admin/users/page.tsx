@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Search, Plus, Edit, Trash2, RefreshCw, User } from 'lucide-react';
 
 interface User {
@@ -26,6 +28,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,6 +39,17 @@ export default function UsersPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
+
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] p-6 text-center">
+          <AlertTriangle className="mx-auto h-6 w-6 text-amber-200" />
+          <p className="mt-3 text-sm text-amber-50">仅系统管理员可访问此页面。</p>
+        </div>
+      </div>
+    );
+  }
 
   // 表单状态
   const [formData, setFormData] = useState({

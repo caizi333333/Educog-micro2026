@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle } from 'lucide-react';
 import { Users, BookOpen, BarChart3, Settings, Network } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Stats {
   totalUsers: number;
@@ -12,7 +14,19 @@ interface Stats {
 }
 
 export default function AdminPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, activeUsers: 0, totalExperiments: 0 });
+
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] p-6 text-center">
+          <AlertTriangle className="mx-auto h-6 w-6 text-amber-200" />
+          <p className="mt-3 text-sm text-amber-50">仅系统管理员可访问此页面。</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const fetchStats = async () => {
