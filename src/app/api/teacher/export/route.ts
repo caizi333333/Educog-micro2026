@@ -203,7 +203,7 @@ const EXPORT_TYPES = new Set(['student-summary', 'quiz-detail', 'activity-log', 
 export async function GET(request: NextRequest) {
   try {
     const resolved = await resolveStudents(request);
-    if (!resolved) return NextResponse.json({ error: '未授权或权限不足' }, { status: 401 });
+    if (!resolved) return NextResponse.json({ error: '未授权或权限不足' }, { status: 403 });
 
     const { students, studentIds } = resolved;
     if (studentIds.length === 0) {
