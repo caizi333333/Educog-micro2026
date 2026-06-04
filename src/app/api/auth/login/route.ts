@@ -2,6 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { login } from '@/lib/auth';
 
+// In-memory rate limiter: max 10 attempts per IP per 15 minutes
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 min
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
 type LoginRequestBody = Partial<{
   emailOrUsername: string;
   password: string;
@@ -14,6 +30,17 @@ function setNoStore(response: NextResponse): NextResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Rate limiting
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ?? request.headers.get('x-real-ip')
+      ?? 'unknown';
+    if (isRateLimited(clientIp)) {
+      return setNoStore(NextResponse.json(
+        { error: '登录尝试过于频繁，请15分钟后再试' },
+        { status: 429 },
+      ));
+    }
+
     const body = await request.json() as LoginRequestBody;
     const emailOrUsername = typeof body.emailOrUsername === 'string' ? body.emailOrUsername.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
