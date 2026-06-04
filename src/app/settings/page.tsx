@@ -1,12 +1,14 @@
 
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Moon, Sun, Database, Trash2 } from "lucide-react";
+import { Moon, Sun, Database, Trash2, KeyRound } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,8 +20,57 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [changing, setChanging] = useState(false);
+
+    const handleChangePassword = async () => {
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            toast({ title: '请填写所有密码字段', variant: 'destructive' });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast({ title: '两次输入的新密码不一致', variant: 'destructive' });
+            return;
+        }
+        if (newPassword.length < 6) {
+            toast({ title: '新密码长度至少为6位', variant: 'destructive' });
+            return;
+        }
+        setChanging(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const res = await fetch('/api/auth/password', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ oldPassword, newPassword }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast({ title: data.error || '修改密码失败', variant: 'destructive' });
+                return;
+            }
+            toast({ title: '密码修改成功，请重新登录' });
+            setOldPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch {
+            toast({ title: '网络错误，请稍后重试', variant: 'destructive' });
+        } finally {
+            setChanging(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <Card>
@@ -125,6 +176,53 @@ export default function SettingsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {user && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <KeyRound className="h-5 w-5" />
+                        修改密码
+                    </CardTitle>
+                    <CardDescription>修改您的登录密码。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="old-password">当前密码</Label>
+                        <Input
+                            id="old-password"
+                            type="password"
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                            placeholder="输入当前密码"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="new-password">新密码</Label>
+                        <Input
+                            id="new-password"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="输入新密码（至少6位）"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="confirm-password">确认新密码</Label>
+                        <Input
+                            id="confirm-password"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="再次输入新密码"
+                        />
+                    </div>
+                    <Button onClick={handleChangePassword} disabled={changing}>
+                        {changing ? '修改中...' : '修改密码'}
+                    </Button>
+                </CardContent>
+            </Card>
+            )}
         </div>
     );
 }
