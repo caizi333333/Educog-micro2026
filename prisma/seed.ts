@@ -274,6 +274,36 @@ async function main() {
     });
   }
 
+  // Demo teacher for competition judges
+  const demoTeacher = await prisma.user.create({
+    data: {
+      email: 'demo_teacher@educog.com',
+      username: 'demo_teacher',
+      password: hashedPw,
+      name: '演示教师',
+      role: 'TEACHER',
+      status: 'ACTIVE',
+      teacherId: 'T_DEMO_001',
+      department: '机电工程学院',
+      title: '讲师',
+      totalPoints: 0,
+      createdAt: new Date('2025-08-20T10:00:00+08:00'),
+      updatedAt: new Date('2026-01-15T10:00:00+08:00'),
+      lastLoginAt: new Date('2026-01-15T09:30:00+08:00'),
+    },
+  });
+  for (const classGroup of classGroups) {
+    await prisma.classEnrollment.create({
+      data: {
+        userId: demoTeacher.id,
+        classId: classGroup.id,
+        role: 'TEACHER',
+        status: 'ACTIVE',
+      },
+    });
+  }
+  console.log(`  演示教师: ${demoTeacher.name} (${demoTeacher.username})`);
+
   // ------------------------------------------------------------------
   // 3. Create ~40 students
   // ------------------------------------------------------------------
@@ -325,6 +355,40 @@ async function main() {
   }
 
   console.log(`  创建 ${createdStudents.length} 名学生 (机电2401: 20, 机电2402: 20)`);
+
+  // Demo student for competition judges
+  const demoStudent = await prisma.user.create({
+    data: {
+      email: 'demo_student@educog.com',
+      username: 'demo_student',
+      password: studentPw,
+      name: '演示学生',
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      studentId: '2024990001',
+      class: '机电2401',
+      grade: '2024级',
+      major: '机械电子工程',
+      totalPoints: 0,
+      createdAt: new Date('2025-09-01T08:00:00+08:00'),
+      updatedAt: SEMESTER_END,
+      lastLoginAt: randDate(new Date('2026-01-05T08:00:00+08:00'), SEMESTER_END),
+    },
+  });
+  const demoClassGroup = classByName.get('机电2401')!;
+  await prisma.classEnrollment.create({
+    data: {
+      userId: demoStudent.id,
+      classId: demoClassGroup.id,
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      joinedAt: new Date('2025-09-01T08:00:00+08:00'),
+      createdAt: new Date('2025-09-01T08:00:00+08:00'),
+      updatedAt: new Date('2025-09-01T08:00:00+08:00'),
+    },
+  });
+  createdStudents.push({ id: demoStudent.id, def: { name: '演示学生', cls: '机电2401', studentId: '2024990001', ability: 0.75 }, classId: demoClassGroup.id });
+  console.log(`  演示学生: ${demoStudent.name} (${demoStudent.username})`);
 
   // ------------------------------------------------------------------
   // 4. Learning Progress - students progressing through 9 chapters
@@ -737,6 +801,8 @@ async function main() {
   console.log('  教师 - 用户名: sunyancai, 密码: edu123456');
   console.log('  管理员 - 用户名: admin, 密码: edu123456');
   console.log('  学生 - 用户名: 学号(如 202401001), 密码: stu123456');
+  console.log('  演示教师 - 用户名: demo_teacher, 密码: demo123456');
+  console.log('  演示学生 - 用户名: demo_student, 密码: stu123456');
 }
 
 main()

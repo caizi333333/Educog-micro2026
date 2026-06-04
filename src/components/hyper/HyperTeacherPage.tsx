@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ACHIEVEMENTS_V2, type Achievement } from '@/lib/achievements-v2';
@@ -51,12 +52,20 @@ interface TeacherDashboardData {
     totalTimeSpent?: number;
     avgTimeSpent?: number;
   };
+  classes?: { id: string; name: string; courseName?: string; semester?: string }[];
   students: TeacherStudent[];
   experiments: TeacherExperiment[];
   alertStudents: { name: string; avg: number }[];
 }
 
 type StatItem = [label: string, value: string | number, icon: LucideIcon];
+
+const EXPORT_TYPES = [
+  { value: 'student-summary', label: '学生综合报告' },
+  { value: 'quiz-detail', label: '测验详细记录' },
+  { value: 'activity-log', label: '学习活动日志' },
+  { value: 'experiment-detail', label: '实验详细记录' },
+] as const;
 
 const teacherMedals = ACHIEVEMENTS_V2
   .filter((achievement) => achievement.category === 'social' || achievement.category === 'progress')
@@ -95,6 +104,9 @@ export function HyperTeacherPage() {
   const [selectedMedalId, setSelectedMedalId] = useState(teacherMedals[0]?.id || ACHIEVEMENTS_V2[0]?.id || '');
   const [reason, setReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [exportType, setExportType] = useState('student-summary');
+  const [exportClassId, setExportClassId] = useState('all');
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -252,6 +264,39 @@ export function HyperTeacherPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const params = new URLSearchParams({ type: exportType });
+      if (exportClassId && exportClassId !== 'all') params.set('classId', exportClassId);
+      const response = await fetch(`/api/teacher/export?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || '导出失败');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      anchor.download = match ? decodeURIComponent(match[1].replace(/['"]/g, '')) : `${exportType}_${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      toast({
+        title: '导出失败',
+        description: exportError instanceof Error ? exportError.message : '请稍后重试',
+        variant: 'destructive',
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="-m-6 flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#070a0d] text-slate-100">
@@ -377,6 +422,58 @@ export function HyperTeacherPage() {
               <div className="text-xs text-slate-400">{label}</div>
             </div>
           ))}
+        </section>
+
+        <section className="mb-6 rounded-md border border-white/[0.08] bg-white/[0.035]">
+          <div className="border-b border-white/[0.08] p-4">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
+              <FileDown className="h-5 w-5 text-cyan-200" />
+              数据导出
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">按类型导出学生学习数据为 CSV，可用 Excel 或 SPSS 打开分析。</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3 p-4">
+            <div className="min-w-[180px] flex-1">
+              <label className="mb-1.5 block text-xs text-slate-400">导出类型</label>
+              <Select value={exportType} onValueChange={setExportType}>
+                <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                  {EXPORT_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value} className="focus:bg-cyan-300/10 focus:text-cyan-100">
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[180px] flex-1">
+              <label className="mb-1.5 block text-xs text-slate-400">班级筛选</label>
+              <Select value={exportClassId} onValueChange={setExportClassId}>
+                <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                  <SelectItem value="all" className="focus:bg-cyan-300/10 focus:text-cyan-100">全部班级</SelectItem>
+                  {(data?.classes || []).map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="focus:bg-cyan-300/10 focus:text-cyan-100">
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exportLoading}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-cyan-300 px-5 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50"
+            >
+              {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              导出 CSV
+            </button>
+          </div>
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
