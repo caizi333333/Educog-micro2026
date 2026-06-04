@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, BookOpen, Cpu, Layers, Loader2, RotateCcw, Target } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
-import { quizQuestions } from '@/lib/quiz-data';
+import { quizQuestions as staticQuizQuestions, type Question } from '@/lib/quiz-data';
 
 type AssessmentSnapshot = {
   weakKAs?: string[];
@@ -178,6 +178,7 @@ export default function WeakNodesPage() {
 }
 
 function WeakNodeCard({ node }: { node: KnowledgePoint }) {
+  const [quizQuestions, setQuizQuestions] = useState<Question[]>(staticQuizQuestions);
   const parent = node.parentId ? POINT_BY_ID[node.parentId] : null;
   const children = knowledgePoints.filter((p) => p.parentId === node.id);
   const prereqs = (node.prerequisites || [])
@@ -189,6 +190,25 @@ function WeakNodeCard({ node }: { node: KnowledgePoint }) {
   }));
   const matchingQuestions = quizQuestions.filter((q) => q.ka === node.id).slice(0, 3);
   const [showAnswers, setShowAnswers] = useState(false);
+
+  // Fetch quiz questions from API (DB-first) with static fallback
+  useEffect(() => {
+    let active = true;
+    async function loadQuestions() {
+      try {
+        const res = await fetch('/api/quiz/questions');
+        if (res.ok) {
+          const json = await res.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setQuizQuestions(json.data);
+            return;
+          }
+        }
+      } catch { /* fallback below */ }
+    }
+    loadQuestions();
+    return () => { active = false; };
+  }, []);
 
   return (
     <article className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">

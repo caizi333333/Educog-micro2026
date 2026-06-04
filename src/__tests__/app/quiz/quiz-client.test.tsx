@@ -423,7 +423,17 @@ describe('QuizClient', () => {
     });
 
     mockLocalStorage.getItem.mockReturnValue('mock-access-token');
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    // Reject only the /api/quiz/submit call, not the questions fetch
+    mockFetch.mockImplementation((input: string | Request | URL) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (url.includes('/api/quiz/submit')) {
+        return Promise.reject(new Error('Network error'));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: [] })
+      } as Response);
+    });
 
     render(<QuizClient />);
 

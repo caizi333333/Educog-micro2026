@@ -58,7 +58,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
-import { quizQuestions, type Question } from '@/lib/quiz-data';
+import { quizQuestions as staticQuizQuestions, type Question } from '@/lib/quiz-data';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { problemGraph, problemGraphStats, type ProblemNode } from '@/lib/problem-graph';
 import {
@@ -219,6 +219,27 @@ function DetailPanel({
   onSelectId: (id: string) => void;
   allPoints: KnowledgePoint[];
 }) {
+  const [quizQuestions, setQuizQuestions] = useState<Question[]>(staticQuizQuestions);
+
+  // Fetch quiz questions from API (DB-first) with static fallback
+  useEffect(() => {
+    let active = true;
+    async function loadQuestions() {
+      try {
+        const res = await fetch('/api/quiz/questions');
+        if (res.ok) {
+          const json = await res.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setQuizQuestions(json.data);
+            return;
+          }
+        }
+      } catch { /* fallback below */ }
+    }
+    loadQuestions();
+    return () => { active = false; };
+  }, []);
+
   if (!point) {
     return (
       <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-sm text-slate-400">

@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { quizQuestions, type Question, type CodeCompletionQuestion } from '@/lib/quiz-data';
+import { quizQuestions as staticQuizQuestions, type Question, type CodeCompletionQuestion } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -83,6 +83,7 @@ const shuffleArray = (array: Question[]) => {
 export function QuizClient() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [quizQuestions, setQuizQuestions] = useState<Question[]>(staticQuizQuestions);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswersState>(() => {
@@ -116,8 +117,27 @@ export function QuizClient() {
 
   const sourceQuestions = useMemo(
     () => (chapterFilter !== null ? quizQuestions.filter((q) => q.chapter === chapterFilter) : quizQuestions),
-    [chapterFilter],
+    [chapterFilter, quizQuestions],
   );
+
+  // Fetch quiz questions from API (DB-first) with static fallback
+  useEffect(() => {
+    let active = true;
+    async function loadQuestions() {
+      try {
+        const res = await fetch('/api/quiz/questions');
+        if (res.ok) {
+          const json = await res.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setQuizQuestions(json.data);
+            return;
+          }
+        }
+      } catch { /* fallback below */ }
+    }
+    loadQuestions();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     // Shuffling is done on the client-side to avoid hydration mismatch
