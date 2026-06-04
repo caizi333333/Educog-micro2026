@@ -14,7 +14,8 @@ jest.mock('@/hooks/use-toast', () => ({
   useToast: jest.fn()
 }));
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn()
+  useRouter: jest.fn(),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
 }));
 jest.mock('next/link', () => {
   return function MockLink({ children, href }: { children: React.ReactNode; href: string }) {

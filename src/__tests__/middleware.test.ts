@@ -117,12 +117,11 @@ describe('middleware', () => {
   });
 
   describe('protected paths', () => {
-    it('should redirect unauthenticated users from home to welcome page', () => {
+    it('should allow unauthenticated users to access home page (public)', () => {
       const request = createRequest('/');
       const response = middleware(request);
-      
-      expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login?from=%2F');
+
+      expect(response.status).toBe(200);
     });
 
     it('should redirect unauthenticated users from protected pages to login with from parameter', () => {

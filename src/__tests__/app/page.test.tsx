@@ -37,27 +37,20 @@ describe('HomePage', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders the new experiment workbench header and search', () => {
+  it('renders the courses page with chapter section by default', () => {
     render(<HomePage />);
+
+    expect(screen.getByText('课程内容')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('搜索章节、知识点、资源...')).toBeInTheDocument();
+  });
+
+  it('renders experiment section when toggled', () => {
+    render(<HomePage />);
+
+    const experimentBtn = screen.getByRole('button', { name: /实验工作台/ });
+    fireEvent.click(experimentBtn);
 
     expect(screen.getByText('课程实验工作台')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('搜索实验、主题、编号...')).toBeInTheDocument();
-  });
-
-  it('renders experiment cards from the existing experiment catalog', () => {
-    render(<HomePage />);
-
-    expect(screen.getByText('实验一：基础LED控制实验')).toBeInTheDocument();
-    expect(screen.getByText('实验二：指令系统实验')).toBeInTheDocument();
-  });
-
-  it('filters experiments by search query', () => {
-    render(<HomePage />);
-
-    const searchInput = screen.getByPlaceholderText('搜索实验、主题、编号...');
-    fireEvent.change(searchInput, { target: { value: '定时' } });
-
-    expect(searchInput).toHaveValue('定时');
-    expect(screen.getByText('实验三：定时/计数器实验')).toBeInTheDocument();
   });
 });

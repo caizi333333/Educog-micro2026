@@ -57,7 +57,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { knowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
+import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
 import { quizQuestions, type Question } from '@/lib/quiz-data';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { problemGraph, problemGraphStats, type ProblemNode } from '@/lib/problem-graph';
@@ -75,7 +75,7 @@ import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
 const graphViews: Array<{ id: GraphView; label: string; count: number }> = [
-  { id: 'knowledge', label: '专业知识图谱', count: knowledgePoints.length },
+  { id: 'knowledge', label: '专业知识图谱', count: staticKnowledgePoints.length },
   { id: 'problem', label: '问题图谱', count: problemGraph.length },
   { id: 'ideological', label: '思政图谱', count: ideologicalNodes.length },
 ];
@@ -210,12 +210,14 @@ function DetailPanel({
   pointById,
   experimentTitleByRefId,
   onSelectId,
+  allPoints,
 }: {
   point: KnowledgePoint | null;
   childPoints: KnowledgePoint[];
   pointById: Record<string, KnowledgePoint>;
   experimentTitleByRefId: Record<string, string>;
   onSelectId: (id: string) => void;
+  allPoints: KnowledgePoint[];
 }) {
   if (!point) {
     return (
@@ -237,7 +239,7 @@ function DetailPanel({
     title: experimentTitleByRefId[refId] || refId,
   }));
   const parent = point.parentId ? pointById[point.parentId] : null;
-  const nextPoint = getNextPoint(point, knowledgePoints);
+  const nextPoint = getNextPoint(point, allPoints);
   const matchingQuestions = quizQuestions.filter((q) => q.ka === point.id).slice(0, 4);
 
   return (
@@ -1850,7 +1852,9 @@ export function HyperKnowledgeGraphPage() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [view, setView] = useState<GraphView>('knowledge');
-  const [selectedId, setSelectedId] = useState(knowledgePoints[0]?.id || '');
+  const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
+  const [kgLoading, setKgLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState('');
   const [selectedProblemId, setSelectedProblemId] = useState(problemGraph[0]?.id || '');
   const [selectedIdeologicalId, setSelectedIdeologicalId] = useState(ideologicalNodes[0]?.id || '');
   const [query, setQuery] = useState('');
@@ -1874,6 +1878,36 @@ export function HyperKnowledgeGraphPage() {
       active = false;
     };
   }, []);
+
+  // Fetch knowledge points from API (DB-first) with static fallback
+  useEffect(() => {
+    let active = true;
+    async function loadKnowledgePoints() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/knowledge-graph?type=raw', { headers });
+        if (res.ok) {
+          const json = await res.json();
+          if (active && Array.isArray(json.data) && json.data.length > 0) {
+            setKnowledgePoints(json.data);
+            return;
+          }
+        }
+      } catch { /* fallback below */ }
+      if (active) setKnowledgePoints(staticKnowledgePoints);
+    }
+    loadKnowledgePoints().finally(() => { if (active) setKgLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  // Set default selected node after knowledge points loaded
+  useEffect(() => {
+    if (!selectedId && knowledgePoints.length > 0) {
+      setSelectedId(knowledgePoints[0]?.id || '');
+    }
+  }, [knowledgePoints]);
 
   // Load latest quiz scores from localStorage so the canvas can re-tint the
   // nodes the student is weak / strong on. Re-runs when the user identity
@@ -1921,20 +1955,20 @@ export function HyperKnowledgeGraphPage() {
     } catch {
       setKaScores({});
     }
-  }, [user]);
+  }, [user, knowledgePoints]);
 
   const pointById = useMemo(() => {
     const m: Record<string, KnowledgePoint> = {};
     knowledgePoints.forEach((p) => { m[p.id] = p; });
     return m;
-  }, []);
+  }, [knowledgePoints]);
   const knowledgePointByGraphId = useMemo(() => {
     const map: Record<string, KnowledgePoint> = {};
     knowledgePoints.forEach((point) => {
       if (point.graphNodeId && !map[point.graphNodeId]) map[point.graphNodeId] = point;
     });
     return map;
-  }, []);
+  }, [knowledgePoints]);
   const experimentTitleByRefId = useMemo(() => {
     const m: Record<string, string> = {};
     knowledgePoints.forEach((p) => {
@@ -1943,7 +1977,7 @@ export function HyperKnowledgeGraphPage() {
       });
     });
     return m;
-  }, []);
+  }, [knowledgePoints]);
 
   const selected = pointById[selectedId] || null;
   const childPoints = selected ? knowledgePoints.filter((point) => point.parentId === selected.id) : [];
@@ -2031,14 +2065,22 @@ export function HyperKnowledgeGraphPage() {
       const queryMatch = !q || `${point.name} ${point.description || ''}`.toLowerCase().includes(q);
       return chapterMatch && queryMatch;
     });
-  }, [chapter, query]);
+  }, [chapter, query, knowledgePoints]);
   const visibleKnowledgeIds = useMemo(() => new Set(filteredList.map((point) => point.id)), [filteredList]);
   const chapterNumbers = useMemo(() => Array.from(new Set(knowledgePoints.map((point) => point.chapter))).sort((a, b) => a - b), []);
   const levelCounts = useMemo(() => ({
     l1: knowledgePoints.filter((point) => point.level === 1).length,
     l2: knowledgePoints.filter((point) => point.level === 2).length,
     l3: knowledgePoints.filter((point) => point.level === 3).length,
-  }), []);
+  }), [knowledgePoints]);
+
+  if (kgLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-sm text-muted-foreground">正在加载知识图谱...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
@@ -2276,6 +2318,7 @@ export function HyperKnowledgeGraphPage() {
             pointById={pointById}
             experimentTitleByRefId={experimentTitleByRefId}
             onSelectId={goToPoint}
+            allPoints={knowledgePoints}
           />
           <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">

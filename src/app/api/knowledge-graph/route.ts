@@ -92,7 +92,17 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const userId = searchParams.get('userId');
 
-    // 获取知识图谱节点
+    // 获取知识图谱节点（原始 KnowledgePoint 格式，供前端知识图谱页面使用）
+    if (type === 'raw') {
+      const { points, source } = await fetchKnowledgePoints();
+      return NextResponse.json({
+        success: true,
+        data: points,
+        source,
+      });
+    }
+
+    // 获取知识图谱节点（图表可视化格式）
     if (type === 'nodes') {
       const { points, source } = await fetchKnowledgePoints();
       const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
