@@ -452,17 +452,19 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
         const token = localStorage.getItem('accessToken');
         if (token) {
           try {
-            const res = await fetch('/api/quiz/history', {
+            // Try UserActivity for COMPLETE_QUIZ which stores weakAreas in details
+            const actRes = await fetch('/api/user/activities?action=COMPLETE_QUIZ&limit=1', {
               headers: { Authorization: `Bearer ${token}` },
             });
-            if (res.ok) {
-              const data = await res.json();
-              const attempts = data?.data?.attempts;
-              if (Array.isArray(attempts) && attempts.length > 0) {
-                const latest = attempts[0];
-                const details = JSON.parse(latest.details || '{}');
-                if (Array.isArray(details.weakAreas) && details.weakAreas.length > 0) {
-                  nextAreas = details.weakAreas.filter((item: unknown): item is string => typeof item === 'string');
+            if (actRes.ok) {
+              const actData = await actRes.json();
+              const activities = actData?.activities || actData?.data;
+              if (Array.isArray(activities) && activities.length > 0) {
+                let details: Record<string, unknown> = {};
+                try { details = JSON.parse(activities[0].details || '{}'); } catch { /* ignore */ }
+                const weak = details.weakAreas || details.weakKAs;
+                if (Array.isArray(weak) && weak.length > 0) {
+                  nextAreas = weak.filter((item: unknown): item is string => typeof item === 'string');
                   restoredFromStorage = true;
                 }
               }
