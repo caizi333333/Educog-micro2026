@@ -176,7 +176,11 @@ export class Simulator {
     [0xD0, 'PSW'],
     [0xE0, 'ACC'], [0xF0, 'B'],
   ]);
-  
+
+  private sfrNameToAddr: Map<string, number> = new Map(
+    [...this.sfrMap.entries()].map(([addr, name]) => [name.toUpperCase(), addr])
+  );
+
   public state: SimulatorState;
 
   constructor(code: string = '') {
@@ -465,6 +469,11 @@ export class Simulator {
     const resolved = this.resolveSymbol(operand);
     const upper = resolved.toUpperCase();
     if (/^P[0-3]\.[0-7]$/.test(upper)) return true;
+    const sfrBitMatch = upper.match(/^([A-Z]\w*)\.([0-7])$/);
+    if (sfrBitMatch) {
+      const sfrAddr = this.sfrNameToAddr.get(sfrBitMatch[1]);
+      if (sfrAddr !== undefined && (sfrAddr & 0x07) === 0) return true;
+    }
     if ([
       'CY', 'C', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'P',
       'TI', 'RI', 'TR0', 'TR1', 'TF0', 'TF1',
@@ -1115,6 +1124,17 @@ export class Simulator {
       const bit = parseInt(portMatch[2], 10);
       return (this.state.portValues[port] & (1 << bit)) !== 0;
     }
+    // SFR bit-dot notation (ACC.0, B.7, PSW.5, etc.)
+    const sfrBitMatch = upper.match(/^([A-Z]\w*)\.([0-7])$/);
+    if (sfrBitMatch) {
+      const sfrAddr = this.sfrNameToAddr.get(sfrBitMatch[1]);
+      if (sfrAddr !== undefined && (sfrAddr & 0x07) === 0) {
+        const sfrValue = this.getSfrValueByName(sfrBitMatch[1]);
+        if (sfrValue !== undefined) {
+          return (sfrValue & (1 << parseInt(sfrBitMatch[2], 10))) !== 0;
+        }
+      }
+    }
     // Named bits
     switch (upper) {
       case 'CY': case 'C': return this.state.psw.CY;
@@ -1173,6 +1193,20 @@ export class Simulator {
         this.state.portValues[port] &= ~(1 << bit);
       }
       return;
+    }
+    // SFR bit-dot notation (ACC.0, B.7, PSW.5, etc.)
+    const sfrBitMatch = upper.match(/^([A-Z]\w*)\.([0-7])$/);
+    if (sfrBitMatch) {
+      const sfrAddr = this.sfrNameToAddr.get(sfrBitMatch[1]);
+      if (sfrAddr !== undefined && (sfrAddr & 0x07) === 0) {
+        const sfrValue = this.getSfrValueByName(sfrBitMatch[1]);
+        if (sfrValue !== undefined) {
+          const bitPos = parseInt(sfrBitMatch[2], 10);
+          const nextValue = value ? (sfrValue | (1 << bitPos)) : (sfrValue & ~(1 << bitPos));
+          this.setSfrValueByName(sfrBitMatch[1], nextValue);
+        }
+        return;
+      }
     }
     // Named bits
     switch (upper) {
@@ -1293,7 +1327,7 @@ export class Simulator {
       'TMOD', 'TCON', 'TH0', 'TL0', 'TH1', 'TL1', 'TH2', 'TL2', 'T2CON',
       'SCON', 'SBUF', 'PCON',
       'IE', 'IP',
-      'PSW', 'SP', 'DPL', 'DPH', 'B',
+      'PSW', 'SP', 'DPL', 'DPH', 'B', 'ACC',
     ];
     const u = this.resolveSymbol(op).toUpperCase();
     if (SFR_NAMES.includes(u)) return true;
@@ -1635,7 +1669,7 @@ export class Simulator {
     value = (value - 1) & 0xFF;
     this.setValue(operand, value);
 
-    const instructionLength = (operand.toUpperCase() in this.state.registers) ? 2 : 3; // DJNZ reg, rel is 2 bytes; DJNZ direct, rel is 3 bytes
+    const instructionLength = /^R[0-7]$/i.test(operand) ? 2 : 3; // DJNZ Rn,rel is 2 bytes; DJNZ direct,rel is 3 bytes
 
     if (value !== 0) {
       const targetPC = this.labels.get(targetLabel);
@@ -1953,19 +1987,22 @@ export class Simulator {
 
   private executeJMP(operands: string[]): void {
     if (operands.length !== 1) {
-      this.state.pc += 1; // JMP is a 1-byte instruction
-      return;
-    }
-    const targetLabel = operands[0];
-    if (!targetLabel) {
       this.state.pc += 1;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const target = operands[0].toUpperCase();
+    // JMP @A+DPTR — computed jump
+    if (target === '@A+DPTR') {
+      const a = this.state.registers.A || 0;
+      const dptr = ((this.state.registers.DPH || 0) << 8) | (this.state.registers.DPL || 0);
+      this.state.pc = (a + dptr) & 0xFFFF;
+      return;
+    }
+    const targetPC = this.labels.get(target);
     if (targetPC !== undefined) {
       this.state.pc = targetPC;
     } else {
-      this.state.pc += 1; // Advance if label not found
+      this.state.pc += 1;
     }
   }
 
@@ -2103,10 +2140,21 @@ export class Simulator {
     if (operands.length !== 2) { this.state.pc += 2; return; }
     const dest = operands[0] || '';
     const src = operands[1] || '';
+    const du = dest.toUpperCase();
+    // ANL C, bit / ANL C, /bit
+    if (du === 'C' || du === 'CY') {
+      const complement = src.startsWith('/');
+      const bitSrc = complement ? src.substring(1) : src;
+      let bitVal = this.getBitValue(bitSrc) ? 1 : 0;
+      if (complement) bitVal = bitVal ? 0 : 1;
+      this.state.psw.CY = this.state.psw.CY && bitVal ? true : false;
+      this.state.pc += 2;
+      return;
+    }
     const value1 = this.getValue(dest);
     const value2 = this.getValue(src);
     this.setValue(dest, value1 & value2);
-    if (dest.toUpperCase() === 'A') this.updateParity();
+    if (du === 'A') this.updateParity();
     this.state.pc += this.logicOpLength(dest, src);
   }
 
@@ -2114,10 +2162,21 @@ export class Simulator {
     if (operands.length !== 2) { this.state.pc += 2; return; }
     const dest = operands[0] || '';
     const src = operands[1] || '';
+    const du = dest.toUpperCase();
+    // ORL C, bit / ORL C, /bit
+    if (du === 'C' || du === 'CY') {
+      const complement = src.startsWith('/');
+      const bitSrc = complement ? src.substring(1) : src;
+      let bitVal = this.getBitValue(bitSrc) ? 1 : 0;
+      if (complement) bitVal = bitVal ? 0 : 1;
+      this.state.psw.CY = this.state.psw.CY || bitVal ? true : false;
+      this.state.pc += 2;
+      return;
+    }
     const value1 = this.getValue(dest);
     const value2 = this.getValue(src);
     this.setValue(dest, value1 | value2);
-    if (dest.toUpperCase() === 'A') this.updateParity();
+    if (du === 'A') this.updateParity();
     this.state.pc += this.logicOpLength(dest, src);
   }
 
