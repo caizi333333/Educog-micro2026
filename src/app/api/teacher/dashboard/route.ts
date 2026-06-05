@@ -190,8 +190,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 汇总统计
-    const totalStudents = students.length;
+    // 汇总统计（用去重后的学生数，不是班级注册记录数）
+    const totalStudents = uniqueStudents.length;
     const activeToday = new Set([
       ...activities.map((activity: any) => activity.userId),
       ...learningEvents.map((event: any) => event.userId),

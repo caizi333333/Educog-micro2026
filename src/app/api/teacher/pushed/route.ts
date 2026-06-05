@@ -175,6 +175,7 @@ export async function GET(request: NextRequest) {
       latestStartedAt: string | null;
     };
     const pathBuckets = new Map<string, PathBucket & { progressSum: number; progressCount: number }>();
+    const pathStudentSets = new Map<string, Set<string>>();
 
     for (const p of learningPaths) {
       let bucket = pathBuckets.get(p.name);
@@ -192,8 +193,9 @@ export async function GET(request: NextRequest) {
           progressCount: 0,
         };
         pathBuckets.set(p.name, bucket);
+        pathStudentSets.set(p.name, new Set());
       }
-      bucket.totalStudents++;
+      pathStudentSets.get(p.name)!.add(p.userId);
       const status = (p.status || '').toUpperCase();
       if (status === 'ACTIVE') bucket.active++;
       else if (status === 'PAUSED') bucket.paused++;
@@ -213,7 +215,7 @@ export async function GET(request: NextRequest) {
     const paths = Array.from(pathBuckets.values()).map((b) => ({
       name: b.name,
       description: b.description,
-      totalStudents: b.totalStudents,
+      totalStudents: pathStudentSets.get(b.name)?.size ?? b.totalStudents,
       active: b.active,
       paused: b.paused,
       completed: b.completed,
