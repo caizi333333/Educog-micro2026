@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   Award,
   BarChart3,
   BookOpen,
@@ -11,11 +12,13 @@ import {
   Clock,
   FileDown,
   GitBranch,
+  GraduationCap,
   Loader2,
   Medal,
   Search,
   Send,
   Target,
+  TrendingUp,
   Users,
   X,
   type LucideIcon,
@@ -124,6 +127,41 @@ export function HyperTeacherPage() {
   const [assignExpId, setAssignExpId] = useState(experimentCatalog[0]?.id || 'exp01');
   const [assignScope, setAssignScope] = useState<'ALL' | 'CLASS'>('ALL');
   const [assignClassId, setAssignClassId] = useState('all');
+
+  // Teaching cycle state
+  const [cycleData, setCycleData] = useState<{
+    preClass: {
+      totalAssigned: number; completedAssigned: number; inProgressAssigned: number; notStartedAssigned: number;
+      studentsWithAssigned: number; studentsCompletedAll: number; completionRate: number;
+    };
+    inClass: {
+      totalEvents: number; eventsByType: Record<string, number>; totalDuration: number;
+      avgDurationPerStudent: number; recentActiveStudents: number;
+      dailyActivity: { date: string; events: number; activeStudents: number }[];
+      participationRate: number;
+    };
+    postClass: {
+      totalStudents: number; improvedCount: number; declinedCount: number; stableCount: number;
+      avgFirstHalfScore: number; avgSecondHalfScore: number;
+      chapterMasteryDist: Record<string, { high: number; medium: number; low: number }>;
+      topStudents: { name: string; avgScore: number }[];
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user || (user.role !== 'TEACHER' && user.role !== 'ADMIN')) return;
+    async function fetchCycle() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const res = await fetch('/api/teacher/teaching-cycle', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) setCycleData(await res.json());
+      } catch { /* ignore */ }
+    }
+    fetchCycle();
+  }, [user]);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -458,6 +496,157 @@ export function HyperTeacherPage() {
             </div>
           ))}
         </section>
+
+        {/* Teaching Cycle: Pre-class → In-class → Post-class */}
+        {cycleData && (
+          <section className="mb-6">
+            <div className="mb-4 flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-cyan-200" />
+              <h2 className="text-lg font-semibold text-slate-50">教学周期闭环</h2>
+              <span className="text-xs text-slate-500">课前 → 课中 → 课后</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Pre-class */}
+              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.04]">
+                <div className="border-b border-cyan-300/15 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-cyan-100">
+                    <BookOpen className="h-4 w-4" />
+                    课前 · 预习任务
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <div className="font-mono text-3xl font-semibold text-slate-50">{cycleData.preClass.completionRate}%</div>
+                    <div className="text-xs text-slate-500">完成率</div>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-sm bg-white/[0.08]">
+                    <div className="h-full bg-cyan-300" style={{ width: `${cycleData.preClass.completionRate}%` }} />
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">已布置实验</span>
+                      <span className="font-mono text-cyan-100">{cycleData.preClass.totalAssigned}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">已完成</span>
+                      <span className="font-mono text-emerald-200">{cycleData.preClass.completedAssigned}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">进行中</span>
+                      <span className="font-mono text-amber-200">{cycleData.preClass.inProgressAssigned}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">未开始</span>
+                      <span className="font-mono text-red-200">{cycleData.preClass.notStartedAssigned}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* In-class */}
+              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04]">
+                <div className="border-b border-emerald-300/15 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
+                    <TrendingUp className="h-4 w-4" />
+                    课中 · 学习互动
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <div className="font-mono text-3xl font-semibold text-slate-50">{cycleData.inClass.participationRate}%</div>
+                    <div className="text-xs text-slate-500">近7日参与率</div>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-sm bg-white/[0.08]">
+                    <div className="h-full bg-emerald-300" style={{ width: `${cycleData.inClass.participationRate}%` }} />
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">累计学习事件</span>
+                      <span className="font-mono text-emerald-100">{cycleData.inClass.totalEvents}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">近7日活跃学生</span>
+                      <span className="font-mono text-emerald-100">{cycleData.inClass.recentActiveStudents}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">人均学习时长</span>
+                      <span className="font-mono text-amber-200">{formatSecondsAsHours(cycleData.inClass.avgDurationPerStudent)}</span>
+                    </div>
+                  </div>
+                  {/* Daily activity spark */}
+                  {cycleData.inClass.dailyActivity.length > 0 && (
+                    <div className="mt-3 flex items-end gap-1">
+                      {cycleData.inClass.dailyActivity.map((day) => {
+                        const maxEvents = Math.max(...cycleData.inClass.dailyActivity.map((d) => d.events), 1);
+                        const h = Math.max(4, (day.events / maxEvents) * 32);
+                        return (
+                          <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
+                            <div className="w-full rounded-sm bg-emerald-300/30" style={{ height: `${h}px` }} />
+                            <div className="font-mono text-[9px] text-slate-500">{day.date.slice(5)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Post-class */}
+              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04]">
+                <div className="border-b border-amber-300/15 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
+                    <Award className="h-4 w-4" />
+                    课后 · 测评提升
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div>
+                      <div className="font-mono text-[10px] text-slate-500">前期平均</div>
+                      <div className="font-mono text-lg font-semibold text-slate-300">{cycleData.postClass.avgFirstHalfScore}%</div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-slate-500" />
+                    <div>
+                      <div className="font-mono text-[10px] text-slate-500">后期平均</div>
+                      <div className="font-mono text-lg font-semibold text-amber-200">{cycleData.postClass.avgSecondHalfScore}%</div>
+                    </div>
+                    <div className="ml-auto">
+                      <div className="font-mono text-[10px] text-slate-500">提升</div>
+                      <div className={`font-mono text-lg font-semibold ${cycleData.postClass.avgSecondHalfScore >= cycleData.postClass.avgFirstHalfScore ? 'text-emerald-200' : 'text-red-200'}`}>
+                        {cycleData.postClass.avgSecondHalfScore >= cycleData.postClass.avgFirstHalfScore ? '+' : ''}{cycleData.postClass.avgSecondHalfScore - cycleData.postClass.avgFirstHalfScore}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-emerald-200">成绩提升</span>
+                      <span className="font-mono text-emerald-200">{cycleData.postClass.improvedCount} 人</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">基本稳定</span>
+                      <span className="font-mono text-slate-300">{cycleData.postClass.stableCount} 人</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-red-200">有所下滑</span>
+                      <span className="font-mono text-red-200">{cycleData.postClass.declinedCount} 人</span>
+                    </div>
+                  </div>
+                  {cycleData.postClass.topStudents.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Top Students</div>
+                      {cycleData.postClass.topStudents.map((s, i) => (
+                        <div key={s.name} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300">{i + 1}. {s.name}</span>
+                          <span className="font-mono text-amber-100">{s.avgScore}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 rounded-md border border-white/[0.08] bg-white/[0.035]">
           <div className="border-b border-white/[0.08] p-4">
