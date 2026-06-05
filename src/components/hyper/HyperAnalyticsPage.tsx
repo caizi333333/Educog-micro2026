@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Award,
@@ -12,6 +12,7 @@ import {
   Medal,
   Search,
   Shield,
+  TrendingUp,
   Trophy,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,14 @@ export function HyperAnalyticsPage() {
   const [teacherData, setTeacherData] = useState<TeacherDashboard | null>(null);
   const [teacherError, setTeacherError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [gainsData, setGainsData] = useState<{
+    scoreDistribution: { label: string; count: number }[];
+    scoreSummary: { avg: number; total: number };
+    experimentCorrelation: { experimentsCompleted: number; avgScore: number; studentCount: number }[];
+    timeCorrelation: { timeRange: string; avgScore: number; studentCount: number }[];
+    prePostComparison: { name: string; firstScore: number; latestScore: number; gain: number }[];
+    chapterMasteryAvg: { chapter: string; avgMastery: number }[];
+  } | null>(null);
 
   const knowledgeMastery = calculateKnowledgeMastery();
   const learningStats = calculateLearningStats();
@@ -70,6 +79,21 @@ export function HyperAnalyticsPage() {
 
     fetchTeacherDashboard();
   }, [user]);
+
+  // Fetch learning gains data (teacher/admin only)
+  const fetchGains = useCallback(async () => {
+    if (!user || (user.role !== 'TEACHER' && user.role !== 'ADMIN')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      const res = await fetch('/api/analytics/learning-gains', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setGainsData(await res.json());
+    } catch { /* ignore */ }
+  }, [user]);
+
+  useEffect(() => { fetchGains(); }, [fetchGains]);
 
   const rankedStudents = useMemo(() => {
     const students = teacherData?.students || [];
@@ -223,6 +247,151 @@ export function HyperAnalyticsPage() {
             </div>
           </section>
         </main>
+
+        {/* Teaching Effectiveness Section */}
+        {gainsData && (user?.role === 'TEACHER' || user?.role === 'ADMIN') && (
+          <section className="mt-6 space-y-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-cyan-200" />
+              <h2 className="text-lg font-semibold text-slate-50">教学效果分析</h2>
+              <span className="text-xs text-slate-500">基于 {gainsData.scoreSummary.total} 名学生的真实数据</span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Score Distribution */}
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">成绩分布</h3>
+                <p className="mb-3 text-xs text-slate-500">平均分 {gainsData.scoreSummary.avg}%</p>
+                <div className="space-y-2">
+                  {gainsData.scoreDistribution.map((r) => {
+                    const maxCount = Math.max(...gainsData.scoreDistribution.map((x) => x.count), 1);
+                    const width = (r.count / maxCount) * 100;
+                    return (
+                      <div key={r.label} className="flex items-center gap-2">
+                        <div className="w-12 text-right font-mono text-[11px] text-slate-400">{r.label}</div>
+                        <div className="flex-1">
+                          <div className="h-5 rounded-sm bg-black/30">
+                            <div
+                              className="flex h-full items-center rounded-sm bg-cyan-300/20 px-2 text-[10px] font-mono text-cyan-100"
+                              style={{ width: `${Math.max(width, 8)}%` }}
+                            >
+                              {r.count}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Experiment vs Score Correlation */}
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">实验完成数 vs 成绩</h3>
+                <p className="mb-3 text-xs text-slate-500">完成实验越多，测验成绩越高？</p>
+                {gainsData.experimentCorrelation.length > 0 ? (
+                  <div className="space-y-2">
+                    {gainsData.experimentCorrelation.slice(0, 6).map((item) => {
+                      const maxScore = Math.max(...gainsData.experimentCorrelation.map((x) => x.avgScore), 1);
+                      const width = (item.avgScore / maxScore) * 100;
+                      return (
+                        <div key={item.experimentsCompleted} className="flex items-center gap-2">
+                          <div className="w-16 text-right font-mono text-[11px] text-slate-400">{item.experimentsCompleted}个</div>
+                          <div className="flex-1">
+                            <div className="h-5 rounded-sm bg-black/30">
+                              <div
+                                className="flex h-full items-center rounded-sm bg-emerald-300/20 px-2 text-[10px] font-mono text-emerald-100"
+                                style={{ width: `${Math.max(width, 8)}%` }}
+                              >
+                                {item.avgScore}%
+                              </div>
+                            </div>
+                          </div>
+                          <div className="w-8 text-right font-mono text-[10px] text-slate-500">×{item.studentCount}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">暂无实验关联数据</p>
+                )}
+              </div>
+
+              {/* Time vs Score Correlation */}
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">学习时长 vs 成绩</h3>
+                <p className="mb-3 text-xs text-slate-500">投入时间越多，成绩越好？</p>
+                {gainsData.timeCorrelation.length > 0 ? (
+                  <div className="space-y-2">
+                    {gainsData.timeCorrelation.map((item) => {
+                      const maxScore = Math.max(...gainsData.timeCorrelation.map((x) => x.avgScore), 1);
+                      const width = (item.avgScore / maxScore) * 100;
+                      return (
+                        <div key={item.timeRange} className="flex items-center gap-2">
+                          <div className="w-12 text-right font-mono text-[11px] text-slate-400">{item.timeRange}</div>
+                          <div className="flex-1">
+                            <div className="h-5 rounded-sm bg-black/30">
+                              <div
+                                className="flex h-full items-center rounded-sm bg-amber-300/20 px-2 text-[10px] font-mono text-amber-100"
+                                style={{ width: `${Math.max(width, 8)}%` }}
+                              >
+                                {item.avgScore}%
+                              </div>
+                            </div>
+                          </div>
+                          <div className="w-8 text-right font-mono text-[10px] text-slate-500">×{item.studentCount}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">暂无时长关联数据</p>
+                )}
+              </div>
+            </div>
+
+            {/* Pre/Post Quiz Comparison */}
+            {gainsData.prePostComparison.length > 0 && (
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">前后测验对比</h3>
+                <p className="mb-3 text-xs text-slate-500">多次测验学生的成绩变化（按进步幅度排序）</p>
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  {gainsData.prePostComparison.slice(0, 12).map((item) => (
+                    <div key={item.name} className="flex items-center gap-3 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-semibold text-slate-200">{item.name}</div>
+                        <div className="font-mono text-[10px] text-slate-500">
+                          {item.firstScore}% → {item.latestScore}%
+                        </div>
+                      </div>
+                      <div className={`font-mono text-sm font-semibold ${item.gain > 0 ? 'text-emerald-200' : 'text-red-200'}`}>
+                        {item.gain > 0 ? '+' : ''}{item.gain}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chapter Mastery Overview */}
+            {gainsData.chapterMasteryAvg.length > 0 && (
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">各章平均掌握度</h3>
+                <p className="mb-3 text-xs text-slate-500">全体学生各章节 LearningProgress 均值</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  {gainsData.chapterMasteryAvg.map((item) => (
+                    <div key={item.chapter} className="flex items-center gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
+                      <div className="font-mono text-[11px] text-slate-400">{item.chapter}</div>
+                      <div className={`ml-auto font-mono text-sm font-semibold ${item.avgMastery >= 80 ? 'text-emerald-200' : item.avgMastery >= 60 ? 'text-amber-200' : 'text-red-200'}`}>
+                        {item.avgMastery}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
