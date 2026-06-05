@@ -52,6 +52,8 @@ export async function GET(request: Request) {
         major: true,
         department: true,
         title: true,
+        avatar: true,
+        totalPoints: true,
         createdAt: true,
         updatedAt: true,
       },
