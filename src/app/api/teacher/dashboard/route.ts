@@ -206,10 +206,25 @@ export async function GET(request: NextRequest) {
     const avgExpCompletion = allExpTotal > 0 ? Math.round(allExpCompleted / allExpTotal * 100) : 0;
     const totalTimeSpent = Object.values(studentTimeSpent).reduce((sum, value) => sum + value, 0);
 
-    // 预警学生（平均分 < 60）
+    // 预警学生（平均分 < 60）— 含详细薄弱章节
     const alertStudents = studentList
       .filter((s: any) => s.avgQuizScore > 0 && s.avgQuizScore < 60)
-      .map((s: any) => ({ name: s.name, avg: s.avgQuizScore }));
+      .map((s: any) => {
+        const weakChapters = Object.entries(s.chapterMastery || {})
+          .filter(([, v]: [string, any]) => v < 60)
+          .map(([ch, v]: [string, any]) => ({ chapter: ch, progress: v }))
+          .sort((a: any, b: any) => a.progress - b.progress)
+          .slice(0, 3);
+        return {
+          id: s.id,
+          name: s.name,
+          studentId: s.studentId || null,
+          avg: s.avgQuizScore,
+          experimentsCompleted: s.experimentsCompleted || 0,
+          experimentsTotal: s.experimentsTotal || 0,
+          weakChapters,
+        };
+      });
 
     // Merge catalog experiments with actual DB experiment completion data
     const catalogIds = new Set(experimentCatalog.map((e) => e.id));

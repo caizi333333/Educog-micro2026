@@ -65,7 +65,7 @@ interface TeacherDashboardData {
   classes?: { id: string; name: string; courseName?: string; semester?: string }[];
   students: TeacherStudent[];
   experiments: TeacherExperiment[];
-  alertStudents: { name: string; avg: number }[];
+  alertStudents: { id?: string; name: string; studentId?: string | null; avg: number; experimentsCompleted?: number; experimentsTotal?: number; weakChapters?: { chapter: string; progress: number }[] }[];
 }
 
 type StatItem = [label: string, value: string | number, icon: LucideIcon];
@@ -725,17 +725,89 @@ export function HyperTeacherPage() {
 
           <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-4">
-              <h2 className="text-lg font-semibold text-slate-50">风险学生</h2>
-              <p className="mt-1 text-xs text-slate-500">后端返回 alertStudents 时展示。</p>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
+                <AlertTriangle className="h-5 w-5 text-red-300" />
+                预警学生 · 干预中心
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">平均分低于60的学生，含薄弱章节与一键推送。</p>
             </div>
             <div className="p-4">
-              {(data?.alertStudents || []).length ? data!.alertStudents.map((student) => (
-                <div key={student.name} className="mb-2 flex items-center justify-between rounded-md border border-red-300/20 bg-red-300/[0.08] px-3 py-2 last:mb-0">
-                  <span className="text-sm text-red-50">{student.name}</span>
-                  <span className="font-mono text-sm text-red-100">{Math.round(student.avg)}</span>
+              {(data?.alertStudents || []).length ? (
+                <div className="space-y-3">
+                  {data!.alertStudents.map((student) => (
+                    <div key={student.id || student.name} className="rounded-md border border-red-300/20 bg-red-300/[0.06]">
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-300/20 text-xs font-semibold text-red-100">
+                            {(student.name || 'U').charAt(0)}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-red-50">{student.name}</div>
+                            <div className="font-mono text-[10px] text-slate-500">{student.studentId || '未登记'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="font-mono text-lg font-semibold text-red-100">{Math.round(student.avg)}%</div>
+                            <div className="font-mono text-[10px] text-slate-500">实验 {student.experimentsCompleted ?? 0}/{student.experimentsTotal ?? 0}</div>
+                          </div>
+                          {student.id && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  setActionLoading(true);
+                                  const token = localStorage.getItem('accessToken');
+                                  const res = await fetch('/api/teacher/push-learning-task', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                    },
+                                    body: JSON.stringify({ scope: 'STUDENTS', studentIds: [student.id], pathType: 'BASIC', moduleCount: 5 }),
+                                  });
+                                  if (!res.ok) throw new Error('推送失败');
+                                  const result = await res.json();
+                                  toast({ title: '已推送', description: `已为 ${student.name} 创建基础强化学习路径。` });
+                                } catch (err) {
+                                  toast({ title: '推送失败', description: err instanceof Error ? err.message : '请稍后重试', variant: 'destructive' });
+                                } finally {
+                                  setActionLoading(false);
+                                }
+                              }}
+                              disabled={actionLoading}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-red-300/20 px-3 text-xs font-semibold text-red-100 hover:bg-red-300/30 disabled:opacity-50"
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                              推送基础路径
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {student.weakChapters && student.weakChapters.length > 0 && (
+                        <div className="border-t border-red-300/10 px-3 py-2">
+                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">薄弱章节</div>
+                          <div className="flex flex-wrap gap-2">
+                            {student.weakChapters.map((ch) => (
+                              <div key={ch.chapter} className="flex items-center gap-1.5 rounded-md border border-red-300/15 bg-red-300/[0.08] px-2 py-1">
+                                <span className="text-xs text-red-200">{ch.chapter}</span>
+                                <div className="h-1.5 w-12 overflow-hidden rounded-sm bg-white/[0.08]">
+                                  <div className="h-full bg-red-300" style={{ width: `${ch.progress}%` }} />
+                                </div>
+                                <span className="font-mono text-[10px] text-red-100">{ch.progress}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )) : (
-                <div className="flex min-h-44 items-center justify-center text-sm text-slate-500">暂无风险提醒</div>
+              ) : (
+                <div className="flex min-h-44 items-center justify-center text-sm text-slate-500">
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-300" />
+                  全班成绩良好，暂无预警
+                </div>
               )}
             </div>
           </div>
