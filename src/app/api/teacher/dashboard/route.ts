@@ -211,11 +211,19 @@ export async function GET(request: NextRequest) {
       .filter((s: any) => s.avgQuizScore > 0 && s.avgQuizScore < 60)
       .map((s: any) => ({ name: s.name, avg: s.avgQuizScore }));
 
-    const experimentsForDashboard = experimentCatalog.map((experiment) => ({
-      id: experiment.id,
-      name: experiment.title,
-      completed: experimentCompletion[experiment.id] || 0,
-    }));
+    // Merge catalog experiments with actual DB experiment completion data
+    const catalogIds = new Set(experimentCatalog.map((e) => e.id));
+    const experimentsForDashboard = [
+      ...experimentCatalog.map((experiment) => ({
+        id: experiment.id,
+        name: experiment.title,
+        completed: experimentCompletion[experiment.id] || 0,
+      })),
+      // Include experiments in DB that aren't in the catalog
+      ...Object.entries(experimentCompletion)
+        .filter(([id]) => !catalogIds.has(id))
+        .map(([id, completed]) => ({ id, name: id, completed })),
+    ];
 
     return NextResponse.json({
       overview: {
