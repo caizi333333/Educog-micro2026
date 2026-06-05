@@ -104,6 +104,7 @@ export function QuizClient() {
   const [showResults, setShowResults] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [, setIsSavingResults] = useState(false);
+  const [startedAt] = useState(() => Date.now());
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -243,7 +244,7 @@ export function QuizClient() {
           score: totalScore,
           totalQuestions: shuffledQuestions.length,
           correctAnswers: Object.values(answerStatus).filter(status => status === 'correct').length,
-          timeSpent: 0, // TODO: 实现计时功能
+          timeSpent: Math.round((Date.now() - startedAt) / 1000),
           answers: JSON.stringify(answers),
           weakAreas: weakKAs,
           scoresByKA: scores
@@ -722,6 +723,20 @@ export function QuizClient() {
                 <ChevronsLeft className="h-3 w-3" />
                 返回全部 {quizQuestions.length} 题
               </Link>
+            )}
+            {!chapterFilter && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="self-center text-xs text-slate-500">按章练习：</span>
+                {[...new Set(quizQuestions.map((q) => q.chapter))].sort((a, b) => a - b).map((ch) => (
+                  <Link
+                    key={ch}
+                    href={`/quiz?chapter=${ch}`}
+                    className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.08] hover:text-cyan-100"
+                  >
+                    第{ch}章
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
           <div className="grid min-w-[240px] gap-2">

@@ -415,6 +415,8 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
   }, []);
 
   useEffect(() => {
+    let active = true;
+    async function init() {
     let nextAreas: string[] | null = null;
     let restoredFromStorage = false;
 
@@ -445,6 +447,31 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
       } catch (error) {
         console.warn('Failed to recover assessment results from localStorage:', error);
       }
+      // Fallback: fetch latest quiz attempt from DB
+      if (!nextAreas && user) {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          try {
+            const res = await fetch('/api/quiz/history', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const attempts = data?.data?.attempts;
+              if (Array.isArray(attempts) && attempts.length > 0) {
+                const latest = attempts[0];
+                const details = JSON.parse(latest.details || '{}');
+                if (Array.isArray(details.weakAreas) && details.weakAreas.length > 0) {
+                  nextAreas = details.weakAreas.filter((item: unknown): item is string => typeof item === 'string');
+                  restoredFromStorage = true;
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
     }
 
     setWeakAreas(nextAreas);
@@ -457,6 +484,9 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
         description: '已从本地记录恢复最近一次薄弱点。',
       });
     }
+    }
+    init();
+    return () => { active = false; };
   }, [weakKAsParam, toast, user]);
 
   useEffect(() => {

@@ -64,11 +64,12 @@ interface HyperDashboardState {
 const initialExperiments = buildHyperExperiments(staticExperimentCatalog, []);
 const initialKnowledgeSummary = buildKnowledgeSummary(staticKnowledgePoints, []);
 
-function formatMinutes(value: number): string {
+function formatSecondsAsHours(value: number): string {
   if (!value) return '0 min';
-  if (value < 60) return `${value} min`;
-  const hours = Math.floor(value / 60);
-  const minutes = value % 60;
+  const totalMinutes = Math.round(value / 60);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
 }
 
@@ -251,7 +252,7 @@ function KnowledgePanel({ summary }: { summary: HyperKnowledgeSummary }) {
       <div className="mt-4 space-y-2 text-xs text-slate-400">
         <div className="flex justify-between"><span>一级 / 二级 / 三级</span><span className="text-slate-200">{summary.levelOne} / {summary.levelTwo} / {summary.levelThree}</span></div>
         <div className="flex justify-between"><span>章节覆盖</span><span className="text-slate-200">{summary.completedChapters} / {summary.chapters}</span></div>
-        <div className="flex justify-between"><span>累计学习</span><span className="text-slate-200">{formatMinutes(summary.totalTimeSpent)}</span></div>
+        <div className="flex justify-between"><span>累计学习</span><span className="text-slate-200">{formatSecondsAsHours(summary.totalTimeSpent)}</span></div>
       </div>
     </div>
   );

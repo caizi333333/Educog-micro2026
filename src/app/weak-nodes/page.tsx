@@ -64,9 +64,40 @@ export default function WeakNodesPage() {
       try {
         const key = user ? `assessment-results-${user.id}` : 'assessment-results';
         const raw = localStorage.getItem(key);
-        if (raw) setSnapshot(JSON.parse(raw));
+        if (raw) {
+          setSnapshot(JSON.parse(raw));
+          setLoading(false);
+          return;
+        }
       } catch {
         // ignore
+      }
+      // Fallback: fetch latest quiz attempt from DB to rebuild weak areas
+      if (user) {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          fetch('/api/quiz/history', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              const attempts = data?.data?.attempts;
+              if (Array.isArray(attempts) && attempts.length > 0) {
+                const latest = attempts[0];
+                const details = JSON.parse(latest.details || '{}');
+                if (details.weakAreas?.length || details.scoresByKA) {
+                  setSnapshot({
+                    weakKAs: details.weakAreas || [],
+                    totalScore: latest.score,
+                    timestamp: latest.completedAt,
+                  });
+                }
+              }
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false));
+          return;
+        }
       }
     }
     setLoading(false);
