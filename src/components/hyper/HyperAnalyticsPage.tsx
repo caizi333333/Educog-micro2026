@@ -155,9 +155,9 @@ export function HyperAnalyticsPage() {
   }
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] px-4 py-6 text-slate-100 md:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+      <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
               <BarChart3 className="h-3.5 w-3.5" />
@@ -175,7 +175,9 @@ export function HyperAnalyticsPage() {
             </div>
           )}
         </div>
+      </div>
 
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
         <section className="mb-6 grid gap-3 md:grid-cols-4">
           {[
             ['累计学习', `${Math.round((profile?.stats?.totalLearningTime || 0) / 3600)}h`, BrainCircuit],

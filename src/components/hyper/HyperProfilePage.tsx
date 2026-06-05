@@ -200,8 +200,8 @@ export function HyperProfilePage() {
   }
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] px-4 py-6 text-slate-100 md:px-8">
-      <div className="mx-auto max-w-7xl">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
         {error && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-xs text-amber-100">
             <AlertCircle className="h-4 w-4" />
