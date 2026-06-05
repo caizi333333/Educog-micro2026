@@ -782,7 +782,7 @@ export function HyperCoursesPage() {
     <div
       className={cn(
         'bg-[#070a0d] text-slate-100',
-        isPublicShell ? 'min-h-screen' : '-m-6 min-h-[calc(100vh-3.5rem)]',
+        isPublicShell ? 'min-h-screen' : '-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto',
       )}
     >
       {isPublicShell && (

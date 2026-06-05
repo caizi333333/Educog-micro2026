@@ -237,7 +237,7 @@ function buildAdvancedPlan(): LearningPlanOutput {
 
 function PlanShell({ children }: { children: ReactNode }) {
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
       {children}
     </div>
   );

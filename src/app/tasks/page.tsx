@@ -92,7 +92,7 @@ export default function MyTasksPage() {
   const totalCount = (data?.counts.assignedExperiments ?? 0) + (data?.counts.activePaths ?? 0);
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] px-4 py-6 text-slate-100 md:px-6">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] px-4 py-6 text-slate-100 md:px-6">
       <div className="mx-auto max-w-4xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
