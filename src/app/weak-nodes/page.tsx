@@ -124,15 +124,16 @@ export default function WeakNodesPage() {
   };
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] px-4 py-6 text-slate-100 md:px-8">
-      <div className="mx-auto max-w-5xl space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+      <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-amber-200">
-              Weak Nodes · 我的薄弱节点
+            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-1 text-xs text-amber-100">
+              <Target className="h-3.5 w-3.5" />
+              Weak Nodes · 薄弱节点复习
             </div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-50">一站式复习薄弱知识点</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">一站式复习薄弱知识点</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               基于最近一次测验结果，把薄弱节点的描述、关联实验和自测题目都汇总在这页。
               {snapshot?.timestamp && ` 测验于 ${new Date(snapshot.timestamp).toLocaleString('zh-CN')}。`}
             </p>
@@ -140,7 +141,7 @@ export default function WeakNodesPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/quiz"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]"
             >
               <RotateCcw className="h-4 w-4" />
               重新测验
@@ -157,6 +158,9 @@ export default function WeakNodesPage() {
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 md:px-6">
 
         {loading && (
           <div className="flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-6 text-sm text-slate-400">

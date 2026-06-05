@@ -163,7 +163,7 @@ export function HyperAnalyticsPage() {
               <BarChart3 className="h-3.5 w-3.5" />
               Learning Analytics · 学情分析
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-50">学情分析工作台</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">学情分析工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               汇总真实测评、知识掌握度、成就和教师班级数据；接口暂无数据时只显示空状态。
             </p>

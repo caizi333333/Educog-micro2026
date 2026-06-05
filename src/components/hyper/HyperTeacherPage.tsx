@@ -442,7 +442,7 @@ export function HyperTeacherPage() {
               <Users className="h-3.5 w-3.5" />
               Teacher Console · 教学仪表板
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-50">教师工作台</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">教师工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               接入现有教师仪表板、课前任务和学习任务接口，不使用原型里的演示学生数据。
             </p>

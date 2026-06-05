@@ -92,34 +92,42 @@ export default function MyTasksPage() {
   const totalCount = (data?.counts.assignedExperiments ?? 0) + (data?.counts.activePaths ?? 0);
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] px-4 py-6 text-slate-100 md:px-6">
-      <div className="mx-auto max-w-4xl space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+      <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-200">My Tasks</div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-50">我的学习任务</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
+              <Clock className="h-3.5 w-3.5" />
+              Tasks · 我的任务
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">我的学习任务</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               老师布置给你的实验和学习路径会自动出现在这里。
               {!loading && data && totalCount === 0 && '当前没有待处理的任务。'}
             </p>
           </div>
-          <Link
-            href="/classes/join"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]"
-          >
-            <KeyRound className="h-4 w-4" />
-            加入班级
-          </Link>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08] disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            刷新
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/classes/join"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]"
+            >
+              <KeyRound className="h-4 w-4" />
+              加入班级
+            </Link>
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08] disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              刷新
+            </button>
+          </div>
         </div>
+      </div>
+
+      <div className="mx-auto max-w-4xl space-y-5 px-4 py-5 md:px-6">
 
         {error && (
           <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

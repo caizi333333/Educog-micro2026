@@ -238,7 +238,7 @@ export function HyperProfilePage() {
               <Sparkles className="h-3.5 w-3.5" />
               Medal Profile · 我的主页
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-50">{displayName}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">{displayName}</h1>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[11px] text-slate-500">
               <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" />{profile?.class || profile?.role || user.role}</span>
               {profile?.studentId && <span className="inline-flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" />{profile.studentId}</span>}
