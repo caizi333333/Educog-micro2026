@@ -36,6 +36,13 @@ export interface AchievementsData {
   stats: Record<string, number>;
 }
 
+// Normalize chapterId from various formats: "chapter-1", "1", "ch1" → "ch1"
+function normalizeChapterId(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits) return `ch${digits}`;
+  return raw;
+}
+
 // 章节 → 知识点主题映射（基于 knowledge-points.ts 的 10 章结构）
 const chapterTopicMap: Record<string, { topic: string; details: string[] }[]> = {
   'ch1': [
@@ -195,8 +202,9 @@ export const useAnalytics = () => {
     for (const lp of learningProgress) {
       const ch = lp.chapterId;
       if (!ch) continue;
-      chapterProgress[ch] = (chapterProgress[ch] || 0) + lp.progress;
-      chapterCount[ch] = (chapterCount[ch] || 0) + 1;
+      const norm = normalizeChapterId(ch);
+      chapterProgress[norm] = (chapterProgress[norm] || 0) + lp.progress;
+      chapterCount[norm] = (chapterCount[norm] || 0) + 1;
     }
 
     const result: { topic: string; mastery: number; details: Record<string, number> }[] = [];
