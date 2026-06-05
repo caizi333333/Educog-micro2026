@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { aiStudyAssistant, type AiStudyAssistantInput } from '@/ai/flows/ai-study-assistant';
 
 export const maxDuration = 30; // DeepSeek round-trip can be slow
@@ -25,6 +26,18 @@ export async function POST(request: NextRequest) {
     const history = Array.isArray(body.history) ? body.history : undefined;
 
     const result = await aiStudyAssistant({ question, history });
+
+    // Log AI interaction as a learning event
+    await prisma.learningEvent.create({
+      data: {
+        userId: payload.userId,
+        eventType: 'AI_CHAT',
+        targetType: 'AI_ASSISTANT',
+        targetId: 'ai-tutor',
+        metadata: JSON.stringify({ questionLength: question.length }),
+      },
+    }).catch(() => {});
+
     return NextResponse.json({ success: true, data: result });
   } catch (err) {
     console.error('ai/chat POST error:', err);

@@ -53,6 +53,16 @@ export function HyperAnalyticsPage() {
     prePostComparison: { name: string; firstScore: number; latestScore: number; gain: number }[];
     chapterMasteryAvg: { chapter: string; avgMastery: number }[];
   } | null>(null);
+  const [aiData, setAiData] = useState<{
+    summary: {
+      totalAiUsers: number; totalAiEvents: number; avgAiPerUser: number;
+      avgAiUserScore: number; avgNonAiUserScore: number;
+      aiUsageRate: number; scoreDifference: number;
+    };
+    usageVsScore: { aiUsageCount: number; avgScore: number; studentCount: number }[];
+    weeklyUsage: { week: string; aiEvents: number; activeUsers: number }[];
+    topAiStudents: { name: string; aiCount: number; firstScore: number; latestScore: number; gain: number }[];
+  } | null>(null);
 
   const knowledgeMastery = calculateKnowledgeMastery();
   const learningStats = calculateLearningStats();
@@ -94,6 +104,21 @@ export function HyperAnalyticsPage() {
   }, [user]);
 
   useEffect(() => { fetchGains(); }, [fetchGains]);
+
+  // Fetch AI usage data (teacher/admin only)
+  const fetchAiUsage = useCallback(async () => {
+    if (!user || (user.role !== 'TEACHER' && user.role !== 'ADMIN')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      const res = await fetch('/api/analytics/ai-usage', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setAiData(await res.json());
+    } catch { /* ignore */ }
+  }, [user]);
+
+  useEffect(() => { fetchAiUsage(); }, [fetchAiUsage]);
 
   const rankedStudents = useMemo(() => {
     const students = teacherData?.students || [];
@@ -384,6 +409,92 @@ export function HyperAnalyticsPage() {
                       <div className="font-mono text-[11px] text-slate-400">{item.chapter}</div>
                       <div className={`ml-auto font-mono text-sm font-semibold ${item.avgMastery >= 80 ? 'text-emerald-200' : item.avgMastery >= 60 ? 'text-amber-200' : 'text-red-200'}`}>
                         {item.avgMastery}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* AI Usage Effectiveness */}
+        {aiData && (user?.role === 'TEACHER' || user?.role === 'ADMIN') && (
+          <section className="mt-6 space-y-6">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-cyan-200" />
+              <h2 className="text-lg font-semibold text-slate-50">AI 辅学效果分析</h2>
+              <span className="text-xs text-slate-500">AI 助教使用与成绩提升的量化分析</span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4 text-center">
+                <div className="font-mono text-2xl font-semibold text-cyan-100">{aiData.summary.aiUsageRate}%</div>
+                <div className="text-xs text-slate-400">AI 使用率</div>
+                <div className="mt-1 font-mono text-[10px] text-slate-500">{aiData.summary.totalAiUsers} 人使用 / 共提问 {aiData.summary.totalAiEvents} 次</div>
+              </div>
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4 text-center">
+                <div className="font-mono text-2xl font-semibold text-emerald-200">{aiData.summary.avgAiUserScore}%</div>
+                <div className="text-xs text-slate-400">AI 用户均分</div>
+              </div>
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4 text-center">
+                <div className="font-mono text-2xl font-semibold text-slate-300">{aiData.summary.avgNonAiUserScore}%</div>
+                <div className="text-xs text-slate-400">未使用 AI 均分</div>
+              </div>
+              <div className={`rounded-md border p-4 text-center ${aiData.summary.scoreDifference > 0 ? 'border-emerald-300/25 bg-emerald-300/[0.08]' : 'border-white/[0.08] bg-white/[0.035]'}`}>
+                <div className={`font-mono text-2xl font-semibold ${aiData.summary.scoreDifference > 0 ? 'text-emerald-200' : 'text-slate-300'}`}>
+                  {aiData.summary.scoreDifference > 0 ? '+' : ''}{aiData.summary.scoreDifference}%
+                </div>
+                <div className="text-xs text-slate-400">AI 辅学提升幅度</div>
+              </div>
+            </div>
+
+            {/* Usage vs Score */}
+            {aiData.usageVsScore.length > 0 && (
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">AI 使用次数 vs 平均成绩</h3>
+                <p className="mb-3 text-xs text-slate-500">使用 AI 助教越多，测验成绩是否越高？</p>
+                <div className="space-y-2">
+                  {aiData.usageVsScore.slice(0, 8).map((item) => {
+                    const maxScore = Math.max(...aiData.usageVsScore.map((x) => x.avgScore), 1);
+                    const width = (item.avgScore / maxScore) * 100;
+                    return (
+                      <div key={item.aiUsageCount} className="flex items-center gap-2">
+                        <div className="w-16 text-right font-mono text-[11px] text-slate-400">{item.aiUsageCount}次</div>
+                        <div className="flex-1">
+                          <div className="h-5 rounded-sm bg-black/30">
+                            <div
+                              className="flex h-full items-center rounded-sm bg-cyan-300/20 px-2 text-[10px] font-mono text-cyan-100"
+                              style={{ width: `${Math.max(width, 8)}%` }}
+                            >
+                              {item.avgScore}%
+                            </div>
+                          </div>
+                        </div>
+                        <div className="w-8 text-right font-mono text-[10px] text-slate-500">×{item.studentCount}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Top AI-assisted improvers */}
+            {aiData.topAiStudents.length > 0 && (
+              <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">AI 辅学进步显著学生</h3>
+                <p className="mb-3 text-xs text-slate-500">使用 AI 助教后成绩提升最多的学生</p>
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  {aiData.topAiStudents.slice(0, 9).map((s) => (
+                    <div key={s.name} className="flex items-center gap-3 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-semibold text-slate-200">{s.name}</div>
+                        <div className="font-mono text-[10px] text-slate-500">
+                          {s.firstScore}% → {s.latestScore}% · AI {s.aiCount}次
+                        </div>
+                      </div>
+                      <div className={`font-mono text-sm font-semibold ${s.gain > 0 ? 'text-emerald-200' : 'text-red-200'}`}>
+                        {s.gain > 0 ? '+' : ''}{s.gain}
                       </div>
                     </div>
                   ))}
