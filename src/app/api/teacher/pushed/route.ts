@@ -164,6 +164,16 @@ export async function GET(request: NextRequest) {
       return a.experimentId.localeCompare(b.experimentId);
     });
 
+    // Deduplicate: one record per (path name, userId), keep latest
+    const dedupedPaths = new Map<string, typeof learningPaths[number]>();
+    for (const p of learningPaths) {
+      const key = `${p.name}::${p.userId}`;
+      const existing = dedupedPaths.get(key);
+      if (!existing || (p.startedAt && existing.startedAt && p.startedAt > existing.startedAt)) {
+        dedupedPaths.set(key, p);
+      }
+    }
+
     type PathBucket = {
       name: string;
       description: string | null;
@@ -175,9 +185,8 @@ export async function GET(request: NextRequest) {
       latestStartedAt: string | null;
     };
     const pathBuckets = new Map<string, PathBucket & { progressSum: number; progressCount: number }>();
-    const pathStudentSets = new Map<string, Set<string>>();
 
-    for (const p of learningPaths) {
+    for (const p of dedupedPaths.values()) {
       let bucket = pathBuckets.get(p.name);
       if (!bucket) {
         bucket = {
@@ -193,9 +202,8 @@ export async function GET(request: NextRequest) {
           progressCount: 0,
         };
         pathBuckets.set(p.name, bucket);
-        pathStudentSets.set(p.name, new Set());
       }
-      pathStudentSets.get(p.name)!.add(p.userId);
+      bucket.totalStudents++;
       const status = (p.status || '').toUpperCase();
       if (status === 'ACTIVE') bucket.active++;
       else if (status === 'PAUSED') bucket.paused++;
@@ -215,7 +223,7 @@ export async function GET(request: NextRequest) {
     const paths = Array.from(pathBuckets.values()).map((b) => ({
       name: b.name,
       description: b.description,
-      totalStudents: pathStudentSets.get(b.name)?.size ?? b.totalStudents,
+      totalStudents: b.totalStudents,
       active: b.active,
       paused: b.paused,
       completed: b.completed,
