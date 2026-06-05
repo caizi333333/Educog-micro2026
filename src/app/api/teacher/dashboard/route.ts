@@ -139,6 +139,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filter out test classes (验证测试班, LinkClass_*, DBClass_*)
+    const isTestClass = (name?: string | null) =>
+      !name || /^(验证测试班|LinkClass_|DBClass_|TestClass_)/.test(name);
+
     // Deduplicate by userId — a student enrolled in multiple classes should appear once
     const seenIds = new Set<string>();
     const uniqueStudents = students.filter((s: any) => {
@@ -147,12 +151,12 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
-    // Build per-student list of class affiliations
+    // Build per-student list of class affiliations (exclude test classes)
     const studentClasses: Record<string, { id: string; name: string }[]> = {};
     for (const enrollment of classEnrollments) {
       const uid = (enrollment as any).user?.id;
       const cls = (enrollment as any).classGroup;
-      if (uid && cls) {
+      if (uid && cls && !isTestClass(cls.name)) {
         if (!studentClasses[uid]) studentClasses[uid] = [];
         if (!studentClasses[uid].some((c) => c.id === cls.id)) {
           studentClasses[uid].push({ id: cls.id, name: cls.name });
@@ -227,18 +231,12 @@ export async function GET(request: NextRequest) {
       });
 
     // Merge catalog experiments with actual DB experiment completion data
-    const catalogIds = new Set(experimentCatalog.map((e) => e.id));
-    const experimentsForDashboard = [
-      ...experimentCatalog.map((experiment) => ({
-        id: experiment.id,
-        name: experiment.title,
-        completed: experimentCompletion[experiment.id] || 0,
-      })),
-      // Include experiments in DB that aren't in the catalog
-      ...Object.entries(experimentCompletion)
-        .filter(([id]) => !catalogIds.has(id))
-        .map(([id, completed]) => ({ id, name: id, completed })),
-    ];
+    // Only show experiments from the official catalog — skip test artifacts
+    const experimentsForDashboard = experimentCatalog.map((experiment) => ({
+      id: experiment.id,
+      name: experiment.title,
+      completed: experimentCompletion[experiment.id] || 0,
+    }));
 
     return NextResponse.json({
       overview: {
@@ -252,6 +250,7 @@ export async function GET(request: NextRequest) {
       classes: classEnrollments
         .map((enrollment: any) => enrollment.classGroup)
         .filter(Boolean)
+        .filter((cls: any) => !isTestClass(cls.name))
         .filter((item: any, index: number, self: any[]) => self.findIndex((next) => next.id === item.id) === index),
       students: studentList,
       experiments: experimentsForDashboard,

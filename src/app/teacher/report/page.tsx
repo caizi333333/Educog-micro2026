@@ -74,6 +74,18 @@ export default function TeacherReportPage() {
   const now = new Date();
   const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
 
+  // Dynamic section numbering — only counts visible sections
+  const CN = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  let sectionIdx = 0;
+  const nextNum = () => CN[sectionIdx++] ?? String(sectionIdx);
+
+  const showScoreDistribution = gains && gains.scoreDistribution.length > 0;
+  const showExpCorrelation = gains && gains.experimentCorrelation.length > 0;
+  const showPrePost = gains && gains.prePostComparison.length > 0;
+  const showChapterMastery = gains && gains.chapterMasteryAvg.length > 0;
+  const showAlerts = dashboard && dashboard.alertStudents.length > 0;
+  const showTopStudents = !!dashboard;
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
       {/* Print button - hidden in print */}
@@ -94,7 +106,7 @@ export default function TeacherReportPage() {
 
         {/* 1. Overview */}
         <section className="mb-8">
-          <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">一、班级概览</h2>
+          <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、班级概览</h2>
           <div className="grid grid-cols-5 gap-4">
             {[
               ['学生总数', `${ov?.totalStudents || 0} 人`],
@@ -112,9 +124,9 @@ export default function TeacherReportPage() {
         </section>
 
         {/* 2. Score Distribution */}
-        {gains && (
+        {showScoreDistribution && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">二、成绩分布分析</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、成绩分布分析</h2>
             <p className="mb-3 text-sm text-slate-600">
               共 {gains.scoreSummary.total} 名学生参与测验，全班平均分 {gains.scoreSummary.avg}%。分布如下：
             </p>
@@ -149,9 +161,9 @@ export default function TeacherReportPage() {
         )}
 
         {/* 3. Experiment Correlation */}
-        {gains && gains.experimentCorrelation.length > 0 && (
+        {showExpCorrelation && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">三、实验完成与成绩相关性</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、实验完成与成绩相关性</h2>
             <p className="mb-3 text-sm text-slate-600">完成实验数量与测验平均分的正相关分析：</p>
             <table className="w-full text-sm">
               <thead>
@@ -181,9 +193,9 @@ export default function TeacherReportPage() {
         )}
 
         {/* 4. Pre/Post Comparison */}
-        {gains && gains.prePostComparison.length > 0 && (
+        {showPrePost && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">四、前后测验成绩对比</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、前后测验成绩对比</h2>
             <p className="mb-3 text-sm text-slate-600">多次测验学生的成绩变化（按进步幅度降序）：</p>
             <div className="grid grid-cols-3 gap-x-6 gap-y-1">
               {gains.prePostComparison.slice(0, 15).map((item, i) => (
@@ -200,9 +212,9 @@ export default function TeacherReportPage() {
         )}
 
         {/* 5. Chapter Mastery */}
-        {gains && gains.chapterMasteryAvg.length > 0 && (
+        {showChapterMastery && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">五、各章节平均掌握度</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、各章节平均掌握度</h2>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -232,9 +244,9 @@ export default function TeacherReportPage() {
         )}
 
         {/* 6. Alert Students */}
-        {dashboard && dashboard.alertStudents.length > 0 && (
+        {showAlerts && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">六、预警学生名单</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、预警学生名单</h2>
             <p className="mb-3 text-sm text-slate-600">以下学生平均测验成绩低于60分，建议重点关注：</p>
             <table className="w-full text-sm">
               <thead>
@@ -260,9 +272,9 @@ export default function TeacherReportPage() {
         )}
 
         {/* 7. Top Students */}
-        {dashboard && (
+        {showTopStudents && (
           <section className="mb-8">
-            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">七、优秀学生表彰（Top 10）</h2>
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、优秀学生表彰（Top 10）</h2>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">

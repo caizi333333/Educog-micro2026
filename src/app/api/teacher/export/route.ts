@@ -44,7 +44,7 @@ async function resolveStudents(request: NextRequest) {
     role: 'STUDENT' as const,
     status: 'ACTIVE' as const,
     ...(activeClassIds.length > 0 ? { classId: { in: activeClassIds } } : {}),
-    user: { role: 'STUDENT' as const, status: 'ACTIVE' as const },
+    user: { role: 'STUDENT' as const, status: 'ACTIVE' as const, username: { not: { startsWith: 'demo_' } } },
   };
 
   const classEnrollments = activeClassIds.length === 0
@@ -59,7 +59,7 @@ async function resolveStudents(request: NextRequest) {
 
   const students = payload.role === 'ADMIN' && !requestedClassId && classEnrollments.length === 0
     ? (await prisma.user.findMany({
-      where: { role: 'STUDENT', status: 'ACTIVE' },
+      where: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
       select: { id: true, name: true, studentId: true, class: true, lastLoginAt: true },
     })).map(s => ({ ...s, className: s.class }))
     : classEnrollments.map((e: any) => ({

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           classId: { in: activeClassIds },
           role: 'STUDENT',
           status: 'ACTIVE',
-          user: { role: 'STUDENT', status: 'ACTIVE' },
+          user: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
         },
         select: {
           userId: true,
