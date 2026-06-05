@@ -243,7 +243,7 @@ export function QuizClient() {
           quizId: 'comprehensive-assessment',
           score: totalScore,
           totalQuestions: shuffledQuestions.length,
-          correctAnswers: Object.values(answerStatus).filter(status => status === 'correct').length,
+          correctAnswers: totalCorrect,
           timeSpent: Math.round((Date.now() - startedAt) / 1000),
           answers: JSON.stringify(answers),
           weakAreas: weakKAs,
@@ -359,65 +359,41 @@ export function QuizClient() {
     }
   };
   
-  const { scores, totalScore, weakKAs } = useMemo(() => {
-    // 允许部分完成的测评也能生成学习计划
+  const { scores, totalScore, weakKAs, totalCorrect } = useMemo(() => {
+    const totalQuestions = quizQuestions.length;
     const scoresByKa: { [ka: string]: { correct: number; total: number } } = {};
-    let totalCorrect = 0;
-    let answeredQuestions = 0;
-    
+    let correctCount = 0;
+
     quizQuestions.forEach(q => {
         if (!scoresByKa[q.ka]) {
             scoresByKa[q.ka] = { correct: 0, total: 0 };
         }
-        const kaScore = scoresByKa[q.ka];
-        if (kaScore) {
-            kaScore.total += 1;
-        }
-        
-        // 只计算已回答的题目
-        if (answers[q.id]) {
-            answeredQuestions++;
-            const userAnswer = (answers[q.id] || "").trim().toLowerCase();
-            const correctAnswer = q.correctAnswer.trim().toLowerCase();
+        scoresByKa[q.ka].total += 1;
 
-            if (userAnswer === correctAnswer) {
-                const kaScore = scoresByKa[q.ka];
-                if (kaScore) {
-                    kaScore.correct += 1;
-                }
-                totalCorrect++;
-            }
+        const userAnswer = (answers[q.id] || '').trim().toLowerCase();
+        const correctAnswer = q.correctAnswer.trim().toLowerCase();
+        if (userAnswer && userAnswer === correctAnswer) {
+            scoresByKa[q.ka].correct += 1;
+            correctCount++;
         }
     });
 
     const finalScores: ScorePerKa = {};
     const weakKaList: string[] = [];
 
-    for(const ka in scoresByKa) {
+    for (const ka in scoresByKa) {
         const kaScore = scoresByKa[ka];
         if (!kaScore) continue;
-        
-        // 如果该知识点有题目被回答，则计算得分
-        if (kaScore.correct > 0 || Object.keys(answers).some(answerId => {
-            const questionId = parseInt(answerId);
-            return quizQuestions.find(q => q.id === questionId && q.ka === ka);
-        })) {
-            const score = kaScore.total > 0 ? (kaScore.correct / kaScore.total) * 100 : 0;
-            finalScores[ka] = { ...kaScore, score, correct: kaScore.correct, total: kaScore.total };
-            if (score < 70) {
-                weakKaList.push(ka);
-            }
-        } else {
-            // 未回答的知识点默认为薄弱点
-            finalScores[ka] = { correct: 0, total: kaScore.total, score: 0 };
-            weakKaList.push(ka);
-        }
+        const score = kaScore.total > 0 ? (kaScore.correct / kaScore.total) * 100 : 0;
+        finalScores[ka] = { ...kaScore, score, correct: kaScore.correct, total: kaScore.total };
+        if (score < 70) weakKaList.push(ka);
     }
-    
+
     return {
       scores: finalScores,
-      totalScore: answeredQuestions > 0 ? (totalCorrect / answeredQuestions) * 100 : 0,
+      totalScore: totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0,
       weakKAs: weakKaList,
+      totalCorrect: correctCount,
     };
   }, [answers]);
 

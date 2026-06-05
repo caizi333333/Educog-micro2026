@@ -63,11 +63,15 @@ export async function GET(request: NextRequest) {
 
     // Students with at least one assigned experiment
     const studentsWithAssigned = new Set(assignedExperiments.map((e) => e.userId)).size;
-    const studentsCompletedAll = new Set(
-      assignedExperiments
-        .filter((e) => e.status === 'COMPLETED')
-        .map((e) => e.userId),
-    ).size;
+    // Students who completed ALL their assigned experiments
+    const assignedByStudent = new Map<string, { total: number; completed: number }>();
+    for (const e of assignedExperiments) {
+      const entry = assignedByStudent.get(e.userId) || { total: 0, completed: 0 };
+      entry.total++;
+      if (e.status === 'COMPLETED') entry.completed++;
+      assignedByStudent.set(e.userId, entry);
+    }
+    const studentsCompletedAll = [...assignedByStudent.values()].filter((e) => e.completed >= e.total).length;
 
     // --- In-class: learning events ---
     const eventsByType: Record<string, number> = {};
