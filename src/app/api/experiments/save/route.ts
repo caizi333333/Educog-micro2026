@@ -55,7 +55,7 @@ export async function POST(request: Request) {
           results: results ? JSON.stringify(results) : experiment.results,
           completedAt: status === 'COMPLETED' ? now : experiment.completedAt,
           timeSpent: timeSpent ? (experiment.timeSpent || 0) + timeSpent : experiment.timeSpent,
-          attempts: experiment.attempts + 1,
+          attempts: status === 'COMPLETED' ? experiment.attempts + 1 : experiment.attempts,
           updatedAt: now
         }
       });
@@ -183,10 +183,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      experiments: experiments.map((exp: any) => ({
-        ...exp,
-        results: exp.results ? JSON.parse(exp.results) : null
-      }))
+      experiments: experiments.map((exp: any) => {
+        let parsed = null;
+        if (exp.results) {
+          try { parsed = JSON.parse(exp.results); } catch { parsed = exp.results; }
+        }
+        return { ...exp, results: parsed };
+      })
     });
 
   } catch (error) {

@@ -258,49 +258,47 @@ D2: DJNZ R6, D2
 
   // 记录实验完成
   const recordExperimentCompletion = useCallback(async (experimentId: string) => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
+    const token = localStorage.getItem('accessToken');
+    if (!token) throw new Error('未登录');
 
-      const response = await fetch('/api/experiments/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          experimentId,
-          status: 'COMPLETED',
-          code: code,
-          results: result
-        })
-      });
+    const response = await fetch('/api/experiments/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        experimentId,
+        status: 'COMPLETED',
+        code: code,
+        results: result
+      })
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // 处理成就通知
-        if (data.newAchievements && data.newAchievements.length > 0) {
-          processAchievementResponse({ newAchievements: data.newAchievements });
-        }
-        
-        // 显示积分奖励通知
-        if (data.pointsEarned > 0) {
-          toast({
-            title: '实验完成！',
-            description: `获得 ${data.pointsEarned} 积分`,
-          });
-        }
-        
-        // 更新实验状态
-        setExperimentStatus(prev => ({
-          ...prev,
-          [experimentId]: 'COMPLETED'
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to record experiment completion:', error);
+    if (!response.ok) {
+      throw new Error(`保存失败: HTTP ${response.status}`);
     }
+
+    const data = await response.json();
+
+    // 处理成就通知
+    if (data.newAchievements && data.newAchievements.length > 0) {
+      processAchievementResponse({ newAchievements: data.newAchievements });
+    }
+
+    // 显示积分奖励通知
+    if (data.pointsEarned > 0) {
+      toast({
+        title: '实验完成！',
+        description: `获得 ${data.pointsEarned} 积分`,
+      });
+    }
+
+    // 更新实验状态
+    setExperimentStatus(prev => ({
+      ...prev,
+      [experimentId]: 'COMPLETED'
+    }));
   }, [code, result, toast]);
 
   // 获取诊断信息
