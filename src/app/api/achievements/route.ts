@@ -71,11 +71,11 @@ export async function GET(request: Request) {
         _avg: { score: true },
         _count: { _all: true }
       }),
-      // 实验统计
+      // 实验统计（仅统计完成数）
       prisma.userActivity.aggregate({
         where: {
           userId: payload.userId,
-          action: { in: ['COMPLETE_EXPERIMENT', 'START_EXPERIMENT'] }
+          action: 'COMPLETE_EXPERIMENT'
         },
         _count: { _all: true }
       }),
