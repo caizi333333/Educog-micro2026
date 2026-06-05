@@ -63,6 +63,7 @@ ORG 0000H           ; 程序起始地址
 MAIN:
     MOV P1, #0FEH    ; 立即寻址：初始化P1口，点亮第一个LED (P1.0)
                      ; 0FEH = 11111110B，P1.0为低电平(LED亮)
+    ACALL DELAY      ; 延时，让P1.0 LED可见
     
 LOOP1:               ; 从右到左流水灯循环
     MOV A, P1        ; 直接寻址：读取当前P1状态到累加器A
@@ -122,6 +123,126 @@ END                  ; 程序结束标志`,
       '改变流水灯方向（只向一个方向流动）',
       '实现双向同时流水的效果',
       '添加不同的流水灯模式（如跑马灯、呼吸灯等）'
+    ]
+  },
+  {
+    id: 'exp02',
+    title: '实验二：指令系统实验',
+    description: '学习数据传送、算术运算和逻辑运算指令，理解不同寻址方式的使用。',
+    category: '基础指令',
+    difficulty: 'basic',
+    duration: 60,
+    objectives: [
+      '掌握8051单片机P1口的输出控制',
+      '理解端口寄存器的位操作方法',
+      '学会设计多种LED显示模式',
+      '掌握循环程序设计技巧'
+    ],
+    prerequisites: [
+      '基础指令系统',
+      '二进制数制转换',
+      '位操作概念'
+    ],
+    knowledgePoints: [
+      'P1口结构与特性',
+      '位操作指令 SETB/CLR',
+      'CPL取反指令',
+      '程序循环设计',
+      'LED驱动原理'
+    ],
+    hardwareRequirements: [
+      '8个LED发光二极管',
+      '限流电阻（330Ω）',
+      'P1口连接线'
+    ],
+    code: `; 桂林航天工业学院 - 实验二：P1口LED流水灯控制
+; 功能: 8个LED实现多种流水灯模式，奇偶交替闪烁
+; 知识点: P1口控制, 位操作, 多模式流水灯
+
+ORG 0000H
+LJMP MAIN
+
+MAIN:
+MODE1:  ; 模式1: 单点流水灯
+    MOV P1, #0FEH    ; 11111110B - P1.0亮
+    ACALL DELAY
+    MOV P1, #0FDH    ; 11111101B - P1.1亮  
+    ACALL DELAY
+    MOV P1, #0FBH    ; 11111011B - P1.2亮
+    ACALL DELAY
+    MOV P1, #0F7H    ; 11110111B - P1.3亮
+    ACALL DELAY
+    MOV P1, #0EFH    ; 11101111B - P1.4亮
+    ACALL DELAY
+    MOV P1, #0DFH    ; 11011111B - P1.5亮
+    ACALL DELAY
+    MOV P1, #0BFH    ; 10111111B - P1.6亮
+    ACALL DELAY
+    MOV P1, #7FH     ; 01111111B - P1.7亮
+    ACALL DELAY
+
+MODE2:  ; 模式2: 奇偶交替闪烁
+    MOV P1, #0AAH    ; 10101010B - 奇数位LED亮
+    ACALL DELAY
+    MOV P1, #55H     ; 01010101B - 偶数位LED亮
+    ACALL DELAY
+    MOV P1, #0AAH    ; 重复奇数位
+    ACALL DELAY
+    MOV P1, #55H     ; 重复偶数位
+    ACALL DELAY
+
+MODE3:  ; 模式3: 中心扩散
+    MOV P1, #0E7H    ; 11100111B - 中间两个LED亮
+    ACALL DELAY
+    MOV P1, #0C3H    ; 11000011B - 向外扩散
+    ACALL DELAY
+    MOV P1, #81H     ; 10000001B - 中间6个LED亮（继续向外扩散）
+    ACALL DELAY
+    MOV P1, #00H     ; 00000000B - 全部LED亮
+    ACALL DELAY
+
+    SJMP MAIN        ; 循环所有模式
+
+; 延时子程序
+DELAY:
+    PUSH ACC
+    PUSH B
+    MOV R6, #100     ; 外层循环
+D1:
+    MOV R7, #200     ; 内层循环
+D2:
+    DJNZ R7, D2
+    DJNZ R6, D1
+    POP B
+    POP ACC
+    RET
+
+END`,
+    expectedResults: [
+      '模式1：LED依次点亮，形成流水效果',
+      '模式2：奇偶位LED交替闪烁',
+      '模式3：LED从中心向两边扩散',
+      '所有模式循环执行，节奏平稳'
+    ],
+    troubleshooting: [
+      {
+        issue: 'LED亮度不均匀',
+        solution: '检查限流电阻阻值，确保电阻值相同'
+      },
+      {
+        issue: '某些LED不亮',
+        solution: '检查LED极性和连接，测试LED是否损坏'
+      },
+      {
+        issue: '流水速度太快',
+        solution: '增加DELAY子程序中的循环次数'
+      }
+    ],
+    extensions: [
+      '添加更多流水灯模式（如跑马灯、呼吸灯）',
+      '实现可调速度的流水灯',
+      '添加按键控制模式切换',
+      '设计音乐节拍灯'
     ]
   },
   {
@@ -233,126 +354,6 @@ END`,
     ]
   },
   {
-    id: 'exp02',
-    title: '实验二：指令系统实验',
-    description: '学习数据传送、算术运算和逻辑运算指令，理解不同寻址方式的使用。',
-    category: '基础指令',
-    difficulty: 'basic',
-    duration: 60,
-    objectives: [
-      '掌握8051单片机P1口的输出控制',
-      '理解端口寄存器的位操作方法',
-      '学会设计多种LED显示模式',
-      '掌握循环程序设计技巧'
-    ],
-    prerequisites: [
-      '基础指令系统',
-      '二进制数制转换',
-      '位操作概念'
-    ],
-    knowledgePoints: [
-      'P1口结构与特性',
-      '位操作指令 SETB/CLR',
-      'CPL取反指令',
-      '程序循环设计',
-      'LED驱动原理'
-    ],
-    hardwareRequirements: [
-      '8个LED发光二极管',
-      '限流电阻（330Ω）',
-      'P1口连接线'
-    ],
-    code: `; 桂林航天工业学院 - 实验二：P1口LED流水灯控制
-; 功能: 8个LED实现多种流水灯模式，奇偶交替闪烁
-; 知识点: P1口控制, 位操作, 多模式流水灯
-
-ORG 0000H
-LJMP MAIN
-
-MAIN:
-MODE1:  ; 模式1: 单点流水灯
-    MOV P1, #0FEH    ; 11111110B - P1.0亮
-    ACALL DELAY
-    MOV P1, #0FDH    ; 11111101B - P1.1亮  
-    ACALL DELAY
-    MOV P1, #0FBH    ; 11111011B - P1.2亮
-    ACALL DELAY
-    MOV P1, #0F7H    ; 11110111B - P1.3亮
-    ACALL DELAY
-    MOV P1, #0EFH    ; 11101111B - P1.4亮
-    ACALL DELAY
-    MOV P1, #0DFH    ; 11011111B - P1.5亮
-    ACALL DELAY
-    MOV P1, #0BFH    ; 10111111B - P1.6亮
-    ACALL DELAY
-    MOV P1, #7FH     ; 01111111B - P1.7亮
-    ACALL DELAY
-
-MODE2:  ; 模式2: 奇偶交替闪烁
-    MOV P1, #0AAH    ; 10101010B - 奇数位LED亮
-    ACALL DELAY
-    MOV P1, #55H     ; 01010101B - 偶数位LED亮
-    ACALL DELAY
-    MOV P1, #0AAH    ; 重复奇数位
-    ACALL DELAY
-    MOV P1, #55H     ; 重复偶数位
-    ACALL DELAY
-
-MODE3:  ; 模式3: 中心扩散
-    MOV P1, #0E7H    ; 11100111B - 中间两个LED亮
-    ACALL DELAY
-    MOV P1, #0C3H    ; 11000011B - 向外扩散
-    ACALL DELAY
-    MOV P1, #81H     ; 10000001B - 两端LED亮
-    ACALL DELAY
-    MOV P1, #00H     ; 00000000B - 全部LED亮
-    ACALL DELAY
-
-    SJMP MAIN        ; 循环所有模式
-
-; 延时子程序
-DELAY:
-    PUSH ACC
-    PUSH B
-    MOV R6, #100     ; 外层循环
-D1:
-    MOV R7, #200     ; 内层循环
-D2:
-    DJNZ R7, D2
-    DJNZ R6, D1
-    POP B
-    POP ACC
-    RET
-
-END`,
-    expectedResults: [
-      '模式1：LED依次点亮，形成流水效果',
-      '模式2：奇偶位LED交替闪烁',
-      '模式3：LED从中心向两边扩散',
-      '所有模式循环执行，节奏平稳'
-    ],
-    troubleshooting: [
-      {
-        issue: 'LED亮度不均匀',
-        solution: '检查限流电阻阻值，确保电阻值相同'
-      },
-      {
-        issue: '某些LED不亮',
-        solution: '检查LED极性和连接，测试LED是否损坏'
-      },
-      {
-        issue: '流水速度太快',
-        solution: '增加DELAY子程序中的循环次数'
-      }
-    ],
-    extensions: [
-      '添加更多流水灯模式（如跑马灯、呼吸灯）',
-      '实现可调速度的流水灯',
-      '添加按键控制模式切换',
-      '设计音乐节拍灯'
-    ]
-  },
-  {
     id: 'exp04',
     title: '实验四：数码管显示实验',
     description: '实现七段数码管的静态和动态显示，掌握段选码编码和动态扫描技术。',
@@ -402,8 +403,8 @@ TAB_7SEG:
 MAIN:
     ; 定时器T1初始化，用于动态扫描
     MOV TMOD, #10H   ; T1模式1，16位定时器
-    MOV TH1, #0FEH   ; 定时2ms
-    MOV TL1, #33H
+    MOV TH1, #0F8H   ; 定时2ms (65536-2000=63536)
+    MOV TL1, #30H
     SETB ET1         ; 允许T1中断
     SETB EA          ; 开总中断
     SETB TR1         ; 启动T1
@@ -453,8 +454,8 @@ T1_INT:
     PUSH PSW
     
     ; 重装定时初值
-    MOV TH1, #0FEH
-    MOV TL1, #33H
+    MOV TH1, #0F8H
+    MOV TL1, #30H
     
     ; 关闭所有数码管
     MOV P2, #0F0H    ; 位选全部关闭
@@ -529,7 +530,7 @@ D1S_LOOP:
 ; 50毫秒延时
 DELAY_50MS:
     PUSH ACC
-    MOV R7, #250
+    MOV R7, #125
 D50MS_LOOP:
     MOV R0, #200
     DJNZ R0, $
@@ -914,8 +915,8 @@ T1_INT:
     PUSH PSW
     
     ; 重装定时值
-    MOV TH1, #0FEH
-    MOV TL1, #33H
+    MOV TH1, #0F8H
+    MOV TL1, #30H
     
     ; 关闭所有显示
     MOV P2, #0F0H
@@ -1155,7 +1156,9 @@ MAIN:
     MOV 22H, #0      ; 当前音符
     MOV 23H, #0      ; 当前节拍
     MOV 24H, #0      ; 蜂鸣器状态 (0=关, 1=开)
-    
+    MOV 26H, #0      ; 定时器初值高字节备份
+    MOV 27H, #0      ; 定时器初值低字节备份
+
 PLAY_MUSIC:
     ; 获取音符和节拍
     MOV A, 20H
@@ -1204,6 +1207,10 @@ NO_CARRY:
     MOVC A, @A+DPTR  ; 获取低字节
     MOV TL0, A
     
+    ; 保存定时器初值到备份
+    MOV 26H, TH0
+    MOV 27H, TL0
+
     ; 启动发声
     SETB TR0
     MOV 24H, #1
@@ -1231,13 +1238,9 @@ WAIT_BEAT:
 T0_INT:
     PUSH ACC
     
-    ; 重装定时值
-    MOV A, TL0
-    ADD A, TL0       ; 重装相同初值
-    MOV TL0, A
-    MOV A, TH0
-    ADDC A, TH0
-    MOV TH0, A
+    ; 从备份重装定时值
+    MOV TH0, 26H
+    MOV TL0, 27H
     
     ; 翻转蜂鸣器引脚
     JB 24H.0, BUZZ_ON
@@ -1360,7 +1363,9 @@ MAIN:
     MOV 23H, #5      ; 速度级别 (1-9, 数字越大越快)
     MOV 24H, #0      ; 目标步数 (0=连续运行)
     MOV 25H, #0      ; 当前步数计数器
-    
+    MOV 26H, #0      ; 定时器初值高字节备份
+    MOV 27H, #0      ; 定时器初值低字节备份
+
     ; P口初始化
     MOV P1, #0F0H    ; 高4位控制步进电机，低4位状态指示
     
@@ -1375,7 +1380,8 @@ MAIN_LOOP:
     ; 显示当前状态
     MOV A, 20H       ; 显示当前步序
     ANL A, #07H
-    ORL A, 21H.0     ; 加入方向位
+    MOV C, 21H.0     ; 读取方向位到进位标志
+	    MOV ACC.0, C     ; 将方向位写入A的最低位
     MOV P1, A        ; 低4位显示状态
     
     SJMP MAIN_LOOP
@@ -1447,9 +1453,11 @@ NO_CARRY_SPEED:
     CLR A
     MOVC A, @A+DPTR  ; 获取高字节
     MOV TH0, A
+    MOV 26H, A       ; 备份高字节
     MOV A, #1
     MOVC A, @A+DPTR  ; 获取低字节
     MOV TL0, A
+    MOV 27H, A       ; 备份低字节
     
     JNB 22H.0, UPDATE_SPEED_END
     SETB TR0         ; 重新启动定时器
@@ -1469,13 +1477,9 @@ T0_INT:
     PUSH DPH
     PUSH DPL
     
-    ; 重装定时值
-    MOV A, TL0
-    ADD A, TL0
-    MOV TL0, A
-    MOV A, TH0
-    ADDC A, TH0
-    MOV TH0, A
+    ; 从备份重装定时值
+    MOV TH0, 26H
+    MOV TL0, 27H
     
     ; 检查是否需要步进
     JNB 22H.0, T0_EXIT  ; 未运行
@@ -1675,6 +1679,7 @@ UART_EXIT:
 ; 发送字符串子程序
 SEND_STRING:
     PUSH ACC
+    CLR ES            ; 关闭串口中断，避免TI竞态
 SEND_NEXT:
     CLR A
     MOVC A, @A+DPTR  ; 读取字符串中的字符
@@ -1683,6 +1688,7 @@ SEND_NEXT:
     INC DPTR          ; 指向下一个字符
     SJMP SEND_NEXT
 SEND_DONE:
+    SETB ES           ; 重新开启串口中断
     POP ACC
     RET
 
@@ -1796,11 +1802,12 @@ NUM_LOOP:
 
 ; 延时子程序（约500ms @12MHz）
 DELAY_500MS:
-    MOV R6, #250
+    MOV R5, #10
+D0: MOV R6, #200
 D1: MOV R7, #250
-D2: NOP
-    DJNZ R7, D2
+D2: DJNZ R7, D2
     DJNZ R6, D1
+    DJNZ R5, D0
     RET
 
 ; 共阴数码管段码表（0-9）
@@ -1903,8 +1910,8 @@ MAIN_LOOP:
 
 ; 定时器0中断：PWM输出
 T0_ISR:
-    MOV TH0, #0FFH      ; 100us周期
-    MOV TL0, #9CH
+    MOV TH0, #0FCH      ; 重装1ms定时值
+    MOV TL0, #18H
     INC 31H              ; PWM计数器+1
     MOV A, 31H
     CJNE A, 30H, PWM_CMP
@@ -2105,11 +2112,11 @@ TRACK_MODE:
     CJNE A, #05H, TK1   ; 010=直行
     ACALL FORWARD
     RET
-TK1: CJNE A, #06H, TK2  ; 001=右偏
-    ACALL TURN_RIGHT
-    RET
-TK2: CJNE A, #03H, TK3  ; 100=左偏
+TK1: CJNE A, #06H, TK2  ; 110=左传感器检测到(偏右)，应左转修正
     ACALL TURN_LEFT
+    RET
+TK2: CJNE A, #03H, TK3  ; 011=右传感器检测到(偏左)，应右转修正
+    ACALL TURN_RIGHT
     RET
 TK3: ACALL STOP_CAR
     RET
@@ -2329,14 +2336,14 @@ READ_DHT11:
     MOV HUMI, #65        ; 模拟湿度值65%
     RET
 
-; 检查报警阈值
+; 检查报警阈值（30度 = 01E0H）
 CHECK_ALARM:
-    MOV A, TEMP_H
-    JNZ HIGH_TEMP        ; 温度>255不太可能
-    MOV A, TEMP_L
     CLR C
-    SUBB A, #30          ; 温度>30度报警
-    JNC HIGH_TEMP
+    MOV A, TEMP_L
+    SUBB A, #0E0H       ; 比较低字节
+    MOV A, TEMP_H
+    SUBB A, #01H        ; 比较高字节
+    JNC HIGH_TEMP       ; 结果>=0 表示温度>=30度
     CLR BEEP             ; 温度正常，关闭蜂鸣器
     MOV ALARM, #0
     RET
@@ -2349,7 +2356,15 @@ HIGH_TEMP:
 SEND_DATA:
     MOV DPTR, #JSON_HEAD
     ACALL SEND_STR       ; 发送{"temp":
+    ; 将DS18B20原始值转换为实际温度（除以16）
     MOV A, TEMP_L
+    MOV B, #16
+    DIV AB              ; TEMP_L / 16
+    MOV R0, A           ; 保存商
+    MOV A, TEMP_H
+    MOV B, #16
+    MUL AB              ; TEMP_H * 16
+    ADD A, R0           ; 合并得到整数温度值
     ACALL SEND_NUM       ; 发送温度值
     MOV DPTR, #JSON_MID
     ACALL SEND_STR       ; 发送,"humi":
