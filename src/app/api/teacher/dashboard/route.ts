@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       role: 'STUDENT',
       status: 'ACTIVE',
       ...(activeClassIds.length > 0 ? { classId: { in: activeClassIds } } : {}),
-      user: { role: 'STUDENT', status: 'ACTIVE' },
+      user: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
     };
 
     const classEnrollments = activeClassIds.length === 0
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     // 兼容没有班级归属的旧数据：管理员仍能看全部；教师只看自己班级。
     const students = payload.role === 'ADMIN' && !requestedClassId && classEnrollments.length === 0
       ? await prisma.user.findMany({
-        where: { role: 'STUDENT', status: 'ACTIVE' },
+        where: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
         select: { id: true, name: true, username: true, studentId: true, class: true, lastLoginAt: true },
         orderBy: { name: 'asc' },
       })

@@ -50,6 +50,7 @@ import {
   type HyperUserStats,
 } from '@/lib/hyper-data';
 import { cn } from '@/lib/utils';
+import { WelcomeOnboarding } from '@/components/onboarding/NextStepBanner';
 
 interface HyperDashboardState {
   loading: boolean;
@@ -432,6 +433,8 @@ export function HyperDashboard() {
             <span>以下数据暂未同步：{state.failures.join('、')}。页面已降级为本地课程配置和空状态。</span>
           </div>
         )}
+
+        <WelcomeOnboarding className="mb-4" />
 
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <HeroVisual />
