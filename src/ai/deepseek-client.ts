@@ -87,5 +87,5 @@ export class DeepSeekClient {
 
 // 创建单例实例
 export const deepseekClient = new DeepSeekClient(
-  process.env.DEEPSEEK_API_KEY || 'sk-660f4af29d0049188eae9c8177c90fc2'
+  process.env.DEEPSEEK_API_KEY || ''
 );

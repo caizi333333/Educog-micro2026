@@ -27,6 +27,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '缺少必填字段: score' }, { status: 400 });
     }
 
+    const numScore = Number(score);
+    const numTotal = Number(totalQuestions) || 0;
+    const numCorrect = Number(correctAnswers) || 0;
+    if (numScore < 0 || numScore > 100) {
+      return NextResponse.json({ error: '分数必须在 0-100 之间' }, { status: 400 });
+    }
+    if (numTotal > 0 && numCorrect > numTotal) {
+      return NextResponse.json({ error: '正确题数不能超过总题数' }, { status: 400 });
+    }
+
     const resolvedQuizId = quizId || 'comprehensive-assessment';
 
     // 防重复提交：同用户同 quizId 30 秒内已提交过则拒绝

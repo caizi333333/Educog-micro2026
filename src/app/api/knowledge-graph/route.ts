@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     // 获取用户进度
     if (type === 'progress' && userId) {
       try {
-        const [userProgress, sourceResult] = await Promise.all([
+        const [userProgress, sourceResult, completedRecords] = await Promise.all([
           prisma.userProgress.findUnique({
             where: { userId },
             select: {
@@ -135,11 +135,14 @@ export async function GET(request: NextRequest) {
             },
           }),
           fetchKnowledgePoints(),
+          prisma.learningProgress.findMany({
+            where: { userId, progress: { gte: 100 } },
+            select: { moduleId: true },
+          }),
         ]);
 
         const points = sourceResult.points;
-        const completedNodesCount = userProgress?.modulesCompleted || 0;
-        const completedNodes = points.slice(0, completedNodesCount).map((n) => n.id);
+        const completedNodes = completedRecords.map((r) => r.moduleId);
 
         return NextResponse.json({
           success: true,
@@ -161,21 +164,17 @@ export async function GET(request: NextRequest) {
     // 获取推荐节点
     if (type === 'recommendations' && userId) {
       try {
-        const [userProgress, sourceResult] = await Promise.all([
-          prisma.userProgress.findUnique({
-            where: { userId },
-            select: {
-              modulesCompleted: true,
-              averageScore: true,
-            },
-          }),
+        const [sourceResult, completedRecords] = await Promise.all([
           fetchKnowledgePoints(),
+          prisma.learningProgress.findMany({
+            where: { userId, progress: { gte: 100 } },
+            select: { moduleId: true },
+          }),
         ]);
 
         const points = sourceResult.points;
         const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
-        const completedNodesCount = userProgress?.modulesCompleted || 0;
-        const completedNodes = nodes.slice(0, completedNodesCount).map((n) => n.id);
+        const completedNodes = completedRecords.map((r) => r.moduleId);
 
         const recommendations = nodes
           .filter((node) => {

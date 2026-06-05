@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+function safeParseJSON(raw: string, fallback: unknown = []): unknown {
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
 interface UserProgressData {
   userId: string;
   nodeId: string;
@@ -359,7 +363,7 @@ export async function POST(request: NextRequest) {
         where: { id: progressData.pathId },
       });
       if (path) {
-        const modules: string[] = JSON.parse(path.modules);
+        const modules: string[] = safeParseJSON(path.modules, []) as string[];
         const nodeIndex = modules.indexOf(progressData.nodeId);
         if (nodeIndex >= 0 && nodeIndex >= path.currentModule) {
           await prisma.learningPath.update({

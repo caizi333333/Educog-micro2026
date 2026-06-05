@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+function safeParseJSON(raw: string, fallback: unknown = []): unknown {
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
 interface LearningPathData {
   id: string;
   title: string;
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
 
-      const modules: string[] = JSON.parse(path.modules);
+      const modules: string[] = safeParseJSON(path.modules, []) as string[];
       const completedModules = path.progress.filter(p => p.status === 'COMPLETED').length;
       const completionRate = modules.length > 0
         ? Math.round((completedModules / modules.length) * 100)
@@ -108,7 +112,7 @@ export async function GET(request: NextRequest) {
     });
 
     let result = paths.map(path => {
-      const modules: string[] = JSON.parse(path.modules);
+      const modules: string[] = safeParseJSON(path.modules, []) as string[];
       const completedModules = path.progress.filter(p => p.status === 'COMPLETED').length;
       const completionRate = modules.length > 0
         ? Math.round((completedModules / modules.length) * 100)
