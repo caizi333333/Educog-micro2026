@@ -17,10 +17,12 @@ import {
   Send,
   Target,
   Users,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { experiments as experimentCatalog } from '@/lib/experiment-config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ACHIEVEMENTS_V2, type Achievement } from '@/lib/achievements-v2';
@@ -35,6 +37,11 @@ interface TeacherStudent {
   avgScore?: number;
   avgQuizScore?: number;
   totalTimeSpent?: number;
+  experimentsCompleted?: number;
+  experimentsTotal?: number;
+  activityCount?: number;
+  chapterMastery?: Record<string, number>;
+  classes?: { id: string; name: string }[];
 }
 
 interface TeacherExperiment {
@@ -83,14 +90,13 @@ function achievementColor(achievement?: Achievement) {
   return '#67e8f9';
 }
 
-function formatMinutes(value?: number) {
-  const minutes = Math.max(0, Math.round(value || 0));
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return rest ? `${hours}h ${rest}m` : `${hours}h`;
-  }
-  return `${minutes}m`;
+function formatSecondsAsHours(value?: number): string {
+  if (!value) return '0 min';
+  const totalMinutes = Math.round(value / 60);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
 }
 
 export function HyperTeacherPage() {
@@ -107,6 +113,17 @@ export function HyperTeacherPage() {
   const [exportType, setExportType] = useState('student-summary');
   const [exportClassId, setExportClassId] = useState('all');
   const [exportLoading, setExportLoading] = useState(false);
+  // Push task dialog state
+  const [showPushDialog, setShowPushDialog] = useState(false);
+  const [pushScope, setPushScope] = useState<'ALL' | 'CLASS'>('ALL');
+  const [pushClassId, setPushClassId] = useState('all');
+  const [pushPathType, setPushPathType] = useState<'BASIC' | 'ADVANCED'>('BASIC');
+  const [pushModuleCount, setPushModuleCount] = useState(5);
+  // Assign preclass dialog state
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignExpId, setAssignExpId] = useState(experimentCatalog[0]?.id || 'exp01');
+  const [assignScope, setAssignScope] = useState<'ALL' | 'CLASS'>('ALL');
+  const [assignClassId, setAssignClassId] = useState('all');
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -175,16 +192,27 @@ export function HyperTeacherPage() {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('accessToken');
+      const body: Record<string, unknown> = {
+        scope: pushScope,
+        pathType: pushPathType,
+        moduleCount: pushModuleCount,
+      };
+      if (pushScope === 'CLASS' && pushClassId !== 'all') {
+        const cls = (data?.classes || []).find((c) => c.id === pushClassId);
+        if (cls) body.targetClass = cls.name;
+      }
       const response = await fetch('/api/teacher/push-learning-task', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ scope: 'ALL', pathType: 'BASIC', moduleCount: 5 }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) throw new Error('推送失败');
-      toast({ title: '已推送', description: '学习任务已提交给后端接口。' });
+      const result = await response.json();
+      toast({ title: '已推送', description: `已为 ${result.created || 0} 名学生创建学习路径。` });
+      setShowPushDialog(false);
     } catch (pushError) {
       toast({
         title: '推送失败',
@@ -200,16 +228,23 @@ export function HyperTeacherPage() {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('accessToken');
+      const body: Record<string, unknown> = { experimentId: assignExpId };
+      if (assignScope === 'CLASS' && assignClassId !== 'all') {
+        const cls = (data?.classes || []).find((c) => c.id === assignClassId);
+        if (cls) body.targetClass = cls.name;
+      }
       const response = await fetch('/api/teacher/assign-preclass', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ experimentId: 'exp01', targetClass: selectedStudent?.class || undefined }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) throw new Error('布置失败');
-      toast({ title: '已布置', description: '课前任务已提交给后端接口。' });
+      const result = await response.json();
+      toast({ title: '已布置', description: `已为 ${result.assigned || 0} 名学生分配课前实验。` });
+      setShowAssignDialog(false);
     } catch (assignError) {
       toast({
         title: '布置失败',
@@ -378,12 +413,12 @@ export function HyperTeacherPage() {
               <FileDown className="h-4 w-4" />
               导出
             </button>
-            <button onClick={assignPreclass} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08] disabled:opacity-50">
+            <button onClick={() => setShowAssignDialog(true)} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]">
               <BookOpen className="h-4 w-4" />
               布置课前
             </button>
-            <button onClick={pushLearningTask} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <button onClick={() => setShowPushDialog(true)} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] hover:bg-cyan-200">
+              <Send className="h-4 w-4" />
               推送任务
             </button>
             <Link href="/teacher/classes" className="inline-flex h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]">
@@ -414,7 +449,7 @@ export function HyperTeacherPage() {
             ['今日活跃', data?.overview?.activeToday || 0, CheckCircle2],
             ['平均测验', `${Math.round(data?.overview?.avgQuizScore || 0)}%`, BarChart3],
             ['实验完成', `${Math.round(data?.overview?.avgExpCompletion || 0)}%`, Target],
-            ['平均时长', formatMinutes(data?.overview?.avgTimeSpent), Clock],
+            ['平均时长', formatSecondsAsHours(data?.overview?.avgTimeSpent), Clock],
           ] satisfies StatItem[]).map(([label, value, Icon]) => (
             <div key={label} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
               <Icon className="h-4 w-4 text-cyan-200" />
@@ -516,6 +551,78 @@ export function HyperTeacherPage() {
             </div>
           </div>
         </section>
+
+        {/* Selected Student Detail */}
+        {selectedStudent && (
+          <section className="mt-5 rounded-md border border-white/[0.08] bg-white/[0.035]">
+            <div className="border-b border-white/[0.08] p-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
+                <Users className="h-5 w-5 text-cyan-200" />
+                {selectedStudent.name}
+                <span className="font-mono text-xs text-slate-500">
+                  {selectedStudent.studentId || '未登记学号'}
+                </span>
+              </h2>
+            </div>
+            <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">平均测验</div>
+                <div className="mt-1 font-mono text-xl text-cyan-100">
+                  {Math.round(selectedStudent.avgScore ?? selectedStudent.avgQuizScore ?? 0)}%
+                </div>
+              </div>
+              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">实验完成</div>
+                <div className="mt-1 font-mono text-xl text-emerald-100">
+                  {selectedStudent.experimentsCompleted ?? 0}/{selectedStudent.experimentsTotal ?? 0}
+                </div>
+              </div>
+              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">学习时长</div>
+                <div className="mt-1 font-mono text-xl text-amber-100">
+                  {formatSecondsAsHours(selectedStudent.totalTimeSpent)}
+                </div>
+              </div>
+              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">今日活动</div>
+                <div className="mt-1 font-mono text-xl text-slate-100">
+                  {(selectedStudent as any).activityCount ?? 0} 次
+                </div>
+              </div>
+            </div>
+            {Object.keys((selectedStudent as any).chapterMastery || {}).length > 0 && (
+              <div className="border-t border-white/[0.06] p-4">
+                <div className="mb-2 text-xs font-semibold text-slate-400">章节掌握度</div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  {Object.entries((selectedStudent as any).chapterMastery as Record<string, number>).map(([ch, progress]) => (
+                    <div key={ch} className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
+                      <div className="text-[10px] text-slate-500">{ch}</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-white/[0.08]">
+                          <div
+                            className={`h-full ${progress >= 80 ? 'bg-emerald-400' : progress >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-300">{Math.round(progress)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {((selectedStudent as any).classes || []).length > 0 && (
+              <div className="border-t border-white/[0.06] p-4">
+                <div className="mb-1 text-xs text-slate-500">所属班级</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {((selectedStudent as any).classes as { id: string; name: string }[]).map((c) => (
+                    <span key={c.id} className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-0.5 text-xs text-slate-300">{c.name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
       <aside className="border-t border-white/[0.08] bg-[#0c1117] p-5 xl:border-l xl:border-t-0">
@@ -585,6 +692,122 @@ export function HyperTeacherPage() {
           )}
         </div>
       </aside>
+
+      {/* Push Task Dialog */}
+      {showPushDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowPushDialog(false)}>
+          <div className="w-full max-w-md rounded-lg border border-white/[0.12] bg-[#161b22] p-6 text-slate-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">推送学习任务</h2>
+              <button type="button" onClick={() => setShowPushDialog(false)} className="text-slate-400 hover:text-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">推送范围</label>
+                <Select value={pushScope} onValueChange={(v) => setPushScope(v as 'ALL' | 'CLASS')}>
+                  <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                    <SelectItem value="ALL">全部学生</SelectItem>
+                    <SelectItem value="CLASS">指定班级</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {pushScope === 'CLASS' && (
+                <div>
+                  <label className="mb-1.5 block text-xs text-slate-400">目标班级</label>
+                  <Select value={pushClassId} onValueChange={setPushClassId}>
+                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                      {(data?.classes || []).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">任务类型</label>
+                <Select value={pushPathType} onValueChange={(v) => setPushPathType(v as 'BASIC' | 'ADVANCED')}>
+                  <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                    <SelectItem value="BASIC">基础强化 — 面向基础薄弱学生</SelectItem>
+                    <SelectItem value="ADVANCED">进阶提升 — 面向能力较强学生</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">模块数量（1-10 章）</label>
+                <input type="range" min={1} max={10} value={pushModuleCount} onChange={(e) => setPushModuleCount(Number(e.target.value))} className="w-full accent-cyan-400" />
+                <div className="text-center font-mono text-sm text-cyan-200">{pushModuleCount} 章</div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowPushDialog(false)} className="h-9 rounded-md border border-white/[0.1] px-4 text-sm text-slate-300 hover:bg-white/[0.06]">取消</button>
+              <button type="button" onClick={pushLearningTask} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                确认推送
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Preclass Dialog */}
+      {showAssignDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowAssignDialog(false)}>
+          <div className="w-full max-w-md rounded-lg border border-white/[0.12] bg-[#161b22] p-6 text-slate-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">布置课前实验</h2>
+              <button type="button" onClick={() => setShowAssignDialog(false)} className="text-slate-400 hover:text-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">选择实验</label>
+                <Select value={assignExpId} onValueChange={setAssignExpId}>
+                  <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100 max-h-[240px]">
+                    {experimentCatalog.map((exp) => (
+                      <SelectItem key={exp.id} value={exp.id}>
+                        <span className="font-mono text-xs text-slate-500">{exp.id}</span> {exp.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">分配范围</label>
+                <Select value={assignScope} onValueChange={(v) => setAssignScope(v as 'ALL' | 'CLASS')}>
+                  <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                    <SelectItem value="ALL">全部学生</SelectItem>
+                    <SelectItem value="CLASS">指定班级</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {assignScope === 'CLASS' && (
+                <div>
+                  <label className="mb-1.5 block text-xs text-slate-400">目标班级</label>
+                  <Select value={assignClassId} onValueChange={setAssignClassId}>
+                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                    <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
+                      {(data?.classes || []).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowAssignDialog(false)} className="h-9 rounded-md border border-white/[0.1] px-4 text-sm text-slate-300 hover:bg-white/[0.06]">取消</button>
+              <button type="button" onClick={assignPreclass} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                确认布置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

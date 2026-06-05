@@ -139,8 +139,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Deduplicate by userId — a student enrolled in multiple classes should appear once
+    const seenIds = new Set<string>();
+    const uniqueStudents = students.filter((s: any) => {
+      if (seenIds.has(s.id)) return false;
+      seenIds.add(s.id);
+      return true;
+    });
+
+    // Build per-student list of class affiliations
+    const studentClasses: Record<string, { id: string; name: string }[]> = {};
+    for (const enrollment of classEnrollments) {
+      const uid = (enrollment as any).user?.id;
+      const cls = (enrollment as any).classGroup;
+      if (uid && cls) {
+        if (!studentClasses[uid]) studentClasses[uid] = [];
+        if (!studentClasses[uid].some((c) => c.id === cls.id)) {
+          studentClasses[uid].push({ id: cls.id, name: cls.name });
+        }
+      }
+    }
+
     // 构建学生列表
-    const studentList = students.map((s: any) => {
+    const studentList = uniqueStudents.map((s: any) => {
       const quizScores = studentQuizScores[s.id] || {};
       const quizValues = Object.values(quizScores);
       const avgQuiz = quizValues.length > 0
@@ -158,6 +179,7 @@ export async function GET(request: NextRequest) {
         class: s.class,
         classId: (s as any).classId || null,
         classGroup: (s as any).classGroup || null,
+        classes: studentClasses[s.id] || [],
         avgQuizScore: avgQuiz,
         experimentsCompleted: expData.completed,
         experimentsTotal: expData.total,
