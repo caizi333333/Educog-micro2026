@@ -15,21 +15,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '令牌无效' }, { status: 401 });
     }
 
-    if (!canManageTeachingData(payload)) {
-      return NextResponse.json({ error: '权限不足' }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'ACTIVE';
-    const where = payload.role === 'ADMIN'
-      ? { status }
-      : {
+    let where: any;
+    if (payload.role === 'ADMIN') {
+      where = { status };
+    } else if (payload.role === 'TEACHER') {
+      where = {
         status,
         OR: [
           { teacherId: payload.userId },
           { enrollments: { some: { userId: payload.userId, role: 'TEACHER', status: 'ACTIVE' } } },
         ],
       };
+    } else {
+      // STUDENT: show enrolled classes
+      where = {
+        status,
+        enrollments: { some: { userId: payload.userId, status: 'ACTIVE' } },
+      };
+    }
 
     const classes = await prisma.classGroup.findMany({
       where,

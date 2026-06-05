@@ -65,7 +65,7 @@ describe('Quiz System API Tests', () => {
     
     mockCalculateQuizPoints.mockReturnValue(65);
     mockCheckAchievementsForQuiz.mockResolvedValue([]);
-    mockPrisma.quizAttempt.findFirst.mockResolvedValue(null);
+    (mockPrisma.quizAttempt.findFirst as jest.Mock).mockResolvedValue(null);
   });
 
   describe('POST /api/quiz/submit', () => {
