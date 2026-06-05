@@ -14,8 +14,10 @@ import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
 jest.mock('@/lib/auth');
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: jest.fn((fn) => fn(prisma)),
     quizAttempt: {
       create: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn()
@@ -63,6 +65,7 @@ describe('Quiz System API Tests', () => {
     
     mockCalculateQuizPoints.mockReturnValue(65);
     mockCheckAchievementsForQuiz.mockResolvedValue([]);
+    mockPrisma.quizAttempt.findFirst.mockResolvedValue(null);
   });
 
   describe('POST /api/quiz/submit', () => {
