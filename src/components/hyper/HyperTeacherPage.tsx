@@ -107,6 +107,10 @@ export function HyperTeacherPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState<TeacherDashboardData | null>(null);
+  const [interventionData, setInterventionData] = useState<{
+    interventions: { studentId: string; name: string; studentCode: string | null; interventionDate: string; preAvg: number; postAvg: number; gain: number; preCount: number; postCount: number }[];
+    summary: { totalStudents: number; withBothScores: number; improved: number; improvementRate: number; avgGain: number };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -189,6 +193,22 @@ export function HyperTeacherPage() {
     }
 
     fetchDashboard();
+
+    // Fetch intervention effect data
+    async function fetchInterventions() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const res = await fetch('/api/teacher/intervention-effect', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setInterventionData(json);
+        }
+      } catch { /* non-critical */ }
+    }
+    fetchInterventions();
   }, [user]);
 
   const students = useMemo(() => {
@@ -816,6 +836,59 @@ export function HyperTeacherPage() {
               )}
             </div>
           </div>
+
+          {/* Intervention Effect Tracking */}
+          {interventionData && interventionData.summary.totalStudents > 0 && (
+            <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+              <div className="border-b border-white/[0.08] p-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
+                  <TrendingUp className="h-5 w-5 text-emerald-300" />
+                  干预效果追踪
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">推送学习任务后，学生测验成绩变化对比。</p>
+              </div>
+              <div className="p-4">
+                {/* Summary cards */}
+                <div className="mb-4 grid grid-cols-4 gap-3">
+                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                    <div className="font-mono text-2xl font-semibold text-slate-50">{interventionData.summary.totalStudents}</div>
+                    <div className="text-[10px] text-slate-500">干预学生</div>
+                  </div>
+                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                    <div className="font-mono text-2xl font-semibold text-emerald-200">{interventionData.summary.improvementRate}%</div>
+                    <div className="text-[10px] text-slate-500">改善率</div>
+                  </div>
+                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                    <div className="font-mono text-2xl font-semibold text-cyan-200">{interventionData.summary.avgGain > 0 ? '+' : ''}{interventionData.summary.avgGain}</div>
+                    <div className="text-[10px] text-slate-500">平均提升</div>
+                  </div>
+                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                    <div className="font-mono text-2xl font-semibold text-amber-200">{interventionData.summary.improved}/{interventionData.summary.withBothScores}</div>
+                    <div className="text-[10px] text-slate-500">提升人数</div>
+                  </div>
+                </div>
+                {/* Per-student comparison */}
+                {interventionData.interventions.length > 0 && (
+                  <div className="space-y-2">
+                    {interventionData.interventions.slice(0, 10).map((iv) => (
+                      <div key={iv.studentId} className="flex items-center gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                        <div className="w-20 truncate text-sm font-medium text-slate-200">{iv.name}</div>
+                        <div className="flex flex-1 items-center gap-2">
+                          <span className="font-mono text-xs text-red-200">{iv.preAvg}%</span>
+                          <span className="text-slate-600">→</span>
+                          <span className={cn('font-mono text-xs', iv.gain > 0 ? 'text-emerald-200' : iv.gain < 0 ? 'text-red-200' : 'text-slate-400')}>{iv.postAvg}%</span>
+                          <span className={cn('ml-1 inline-flex h-5 items-center rounded px-1.5 font-mono text-[10px] font-semibold', iv.gain > 0 ? 'bg-emerald-300/15 text-emerald-200' : iv.gain < 0 ? 'bg-red-300/15 text-red-200' : 'bg-white/[0.06] text-slate-400')}>
+                            {iv.gain > 0 ? '+' : ''}{iv.gain}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-600">前 {iv.preCount} 次 / 后 {iv.postCount} 次</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Selected Student Detail */}
