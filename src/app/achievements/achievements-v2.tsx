@@ -158,26 +158,20 @@ export default function AchievementsV2Page() {
   // Apply search filter and lazy loading
   const filteredAchievements = useMemo(() => {
     let filtered = allFilteredAchievements;
-    
-    console.log('AchievementsV2Page - allFilteredAchievements:', allFilteredAchievements);
-    console.log('AchievementsV2Page - debouncedSearchTerm:', debouncedSearchTerm);
-    console.log('AchievementsV2Page - selectedTier:', selectedTier);
-    
+
     // Apply search filter
     if (debouncedSearchTerm) {
-      filtered = filtered.filter(achievement => 
+      filtered = filtered.filter(achievement =>
         achievement.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         achievement.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     }
-    
+
     // Apply tier filter
     if (selectedTier !== 'all') {
       filtered = filtered.filter(achievement => achievement.tier === selectedTier);
     }
-    
-    console.log('AchievementsV2Page - filteredAchievements:', filtered.slice(0, visibleAchievements));
-    
+
     return filtered.slice(0, visibleAchievements);
   }, [allFilteredAchievements, debouncedSearchTerm, selectedTier, visibleAchievements]);
   
@@ -602,13 +596,6 @@ export default function AchievementsV2Page() {
               <AnimatePresence>
                 {filteredAchievements.map((achievement, index) => {
                   const progress = userProgress.find(p => p.achievementId === achievement.id);
-                  console.log('🎮 Rendering achievement card:', {
-                    index,
-                    achievementId: achievement.id,
-                    title: achievement.title,
-                    progress: progress?.progress || 0,
-                    unlocked: progress?.unlocked || false
-                  });
                   return (
                     <motion.div 
                       key={achievement.id}

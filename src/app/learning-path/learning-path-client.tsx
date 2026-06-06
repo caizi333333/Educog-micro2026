@@ -537,8 +537,8 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
           try {
             const result = await generateLearningPlan({ weakKnowledgeAreas: weakAreas });
             localStorage.setItem(`${cacheKey}_ai`, JSON.stringify(result));
-          } catch (error) {
-            console.log('后台AI计划生成失败，继续使用本地路径:', error);
+          } catch {
+            // Non-critical: AI plan generation failed, local path already loaded
           }
         }, 120);
       } catch (error) {

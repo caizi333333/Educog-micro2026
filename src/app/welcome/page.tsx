@@ -10,33 +10,17 @@ export default function WelcomePage() {
   const router = useRouter();
 
   const handleLogin = () => {
-    console.log('登录按钮被点击，准备跳转到 /login');
-    console.log('当前路径:', window.location.pathname);
-    console.log('Router对象:', router);
-    
-    // 尝试多种跳转方式
     try {
       router.push('/login');
-      console.log('router.push 调用成功');
-    } catch (error) {
-      console.error('router.push 失败:', error);
-      // 备用方案：直接使用 window.location
+    } catch {
       window.location.href = '/login';
     }
   };
 
   const handleRegister = () => {
-    console.log('注册按钮被点击，准备跳转到 /register');
-    console.log('当前路径:', window.location.pathname);
-    console.log('Router对象:', router);
-    
-    // 尝试多种跳转方式
     try {
       router.push('/register');
-      console.log('router.push 调用成功');
-    } catch (error) {
-      console.error('router.push 失败:', error);
-      // 备用方案：直接使用 window.location
+    } catch {
       window.location.href = '/register';
     }
   };
