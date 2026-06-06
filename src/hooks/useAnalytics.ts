@@ -214,10 +214,8 @@ export const useAnalytics = () => {
         : 0;
 
       for (const { topic, details } of topics) {
-        const detailEntries = details.reduce((acc, d, i) => {
-          // 在章节平均进度基础上，每个子项做小幅偏移（基于进度值本身，非随机）
-          const offset = ((i * 7 + details.length * 3) % 11) - 5;
-          acc[d] = Math.max(0, Math.min(100, avgProgress + offset));
+        const detailEntries = details.reduce((acc, d) => {
+          acc[d] = avgProgress;
           return acc;
         }, {} as Record<string, number>);
 
