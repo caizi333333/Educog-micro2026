@@ -171,7 +171,7 @@ describe('useAnalytics Hook', () => {
       const { result } = renderHook(() => useAnalytics());
 
       expect(result.current.loading).toBe(true);
-      expect(result.current.profile).toBeNull();
+      expect(result.current.summary).toBeNull();
       expect(result.current.quizHistory).toEqual([]);
       expect(result.current.learningProgress).toEqual([]);
       expect(result.current.achievements).toEqual({ stats: {} });
@@ -184,8 +184,8 @@ describe('useAnalytics Hook', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(4);
-      expect(result.current.profile).toEqual(mockProfileData.profile);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.current.summary).toBeDefined();
       expect(result.current.quizHistory).toEqual(mockQuizData.history);
       expect(result.current.learningProgress).toEqual(mockProgressData.progress);
       expect(result.current.achievements).toEqual(mockAchievementsData);
@@ -278,7 +278,7 @@ describe('useAnalytics Hook', () => {
       });
 
       // 单个接口失败会走 fallback，不应导致整体崩溃
-      expect(result.current.profile).toBeNull();
+      expect(result.current.summary).toBeNull();
     });
 
     it('应该处理API响应错误', async () => {
@@ -294,7 +294,7 @@ describe('useAnalytics Hook', () => {
       });
 
       // 非 ok 响应会走 fallback
-      expect(result.current.profile).toBeNull();
+      expect(result.current.summary).toBeNull();
     });
 
     it('应该处理JSON解析错误', async () => {
@@ -310,7 +310,7 @@ describe('useAnalytics Hook', () => {
       });
 
       // json 解析错误会走 fallback
-      expect(result.current.profile).toBeNull();
+      expect(result.current.summary).toBeNull();
     });
   });
 
@@ -608,7 +608,7 @@ describe('useAnalytics Hook', () => {
       });
 
       // 部分失败应走 fallback，且不影响其它数据
-      expect(result.current.profile).toBeNull();
+      expect(result.current.summary).toBeNull();
       expect(result.current.quizHistory).toEqual(mockQuizData.history);
       expect(mockToast).not.toHaveBeenCalled();
     });

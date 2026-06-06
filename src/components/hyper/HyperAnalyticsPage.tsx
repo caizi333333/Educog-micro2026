@@ -41,7 +41,7 @@ function heatColor(value: number) {
 
 export function HyperAnalyticsPage() {
   const { user, loading: authLoading } = useAuth();
-  const { loading, profile, achievements, calculateKnowledgeMastery, calculateLearningStats } = useAnalytics();
+  const { loading, summary, achievements, calculateKnowledgeMastery, calculateLearningStats } = useAnalytics();
   const [teacherData, setTeacherData] = useState<TeacherDashboard | null>(null);
   const [teacherError, setTeacherError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -180,10 +180,10 @@ export function HyperAnalyticsPage() {
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
         <section className="mb-6 grid gap-3 md:grid-cols-4">
           {[
-            ['累计学习', `${Math.round((profile?.stats?.totalLearningTime || 0) / 3600)}h`, BrainCircuit],
+            ['累计学习', `${summary?.totalTimeSpent ? Math.round(summary.totalTimeSpent / 60) : 0}h`, BrainCircuit],
             ['平均测验', `${Math.round(learningStats.averageScore || 0)}%`, ClipboardCheck],
             ['知识掌握', `${avgMastery}%`, BarChart3],
-            ['获得成就', `${achievements.stats?.unlockedAchievements || 0}/${achievements.stats?.totalAchievements || 0}`, Trophy],
+            ['获得成就', `${summary?.totalAchievements || 0}`, Trophy],
           ].map(([label, value, Icon]) => (
             <div key={label as string} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
               <Icon className="h-4 w-4 text-cyan-200" />

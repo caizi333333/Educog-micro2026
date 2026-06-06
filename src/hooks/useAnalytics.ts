@@ -84,12 +84,16 @@ const chapterTopicMap: Record<string, { topic: string; details: string[] }[]> = 
 export const useAnalytics = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  
+
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryItem[]>([]);
   const [learningProgress, setLearningProgress] = useState<LearningProgressItem[]>([]);
   const [achievements, setAchievements] = useState<AchievementsData>({ stats: {} });
+  const [summary, setSummary] = useState<{
+    totalPoints: number; totalExperiments: number; totalQuizzes: number;
+    totalAchievements: number; completedExperiments: number; completedModules: number;
+    totalTimeSpent: number; avgQuizScore: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -97,83 +101,61 @@ export const useAnalytics = () => {
     }
   }, [user, authLoading]);
 
+  const invalidateCache = () => {
+    const cacheKey = `analytics_${user?.id || 'anonymous'}`;
+    localStorage.removeItem(cacheKey);
+    localStorage.removeItem(`${cacheKey}_time`);
+  };
+
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        console.warn('No access token found');
-        return;
-      }
-      
-      // 检查缓存
+      if (!token) return;
+
+      // Check cache (5 min)
       const cacheKey = `analytics_${user?.id || 'anonymous'}`;
       const cachedData = localStorage.getItem(cacheKey);
       const cacheTime = localStorage.getItem(`${cacheKey}_time`);
-      
-      if (cachedData && cacheTime) {
-        const isRecentCache = (Date.now() - parseInt(cacheTime)) < 5 * 60 * 1000; // 5分钟缓存
-        if (isRecentCache) {
+      if (cachedData && cacheTime && (Date.now() - parseInt(cacheTime)) < 5 * 60 * 1000) {
+        try {
           const parsed = JSON.parse(cachedData);
-          setProfile(parsed.profile);
-          setQuizHistory(parsed.quizHistory);
-          setLearningProgress(parsed.learningProgress);
-          setAchievements(parsed.achievements);
+          setQuizHistory(parsed.quizHistory || []);
+          setLearningProgress(parsed.learningProgress || []);
+          setAchievements(parsed.achievements || { stats: {} });
+          setSummary(parsed.summary || null);
           setLoading(false);
           return;
-        }
+        } catch { /* cache corrupted, re-fetch */ }
       }
-      
-      // 分别获取数据，允许部分失败，添加超时控制
-      const fetchWithFallback = async (url: string, fallbackData: any, timeout = 10000) => {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-          
-          const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            return await response.json();
-          } else {
-            console.warn(`Failed to fetch ${url}:`, response.status);
-            return fallbackData;
-          }
-        } catch (error) {
-          console.warn(`Error fetching ${url}:`, error);
-          return fallbackData;
-        }
-      };
 
-      // 并行获取所有数据，但允许部分失败，添加超时控制
-      const [profileData, quizData, progressData, achievementsData] = await Promise.all([
-        fetchWithFallback('/api/user/profile', { profile: null }, 5000),
-        fetchWithFallback('/api/quiz/history', { history: [] }, 8000),
-        fetchWithFallback('/api/learning-progress', { progress: [] }, 5000),
-        fetchWithFallback('/api/achievements', { stats: {} }, 5000)
-      ]);
+      // Single consolidated API call
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch('/api/analytics/overview', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const { data } = await response.json();
       const analyticsData = {
-        profile: profileData.profile,
-        quizHistory: quizData.history || [],
-        learningProgress: progressData.progress || [],
-        achievements: achievementsData || { stats: {} }
+        quizHistory: data.quizHistory || [],
+        learningProgress: data.learningProgress || [],
+        achievements: { stats: {} },
+        summary: data.summary || null,
+        teacherData: data.teacherData || null,
       };
-      
-      // 保存到缓存
+
       localStorage.setItem(cacheKey, JSON.stringify(analyticsData));
       localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
-      
-      setProfile(analyticsData.profile);
+
       setQuizHistory(analyticsData.quizHistory);
       setLearningProgress(analyticsData.learningProgress);
       setAchievements(analyticsData.achievements);
-      
+      setSummary(analyticsData.summary);
     } catch (error: unknown) {
       console.error('Failed to fetch analytics data:', error);
       toast({
@@ -277,13 +259,14 @@ export const useAnalytics = () => {
 
   return {
     loading,
-    profile,
     quizHistory,
     learningProgress,
     achievements,
+    summary,
     calculateKnowledgeMastery,
     calculateLearningStats,
     generateLearningAdvice,
-    fetchAnalyticsData
+    fetchAnalyticsData,
+    invalidateCache,
   };
 };
