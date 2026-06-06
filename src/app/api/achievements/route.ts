@@ -274,7 +274,7 @@ export async function GET(request: Request) {
       const isUnlocked = userAch ? true : (currentValue >= targetValue);
       
       // 计算进度
-      const progress = userAch ? userAch.progress : Math.min((currentValue / targetValue) * 100, 100);
+      const progress = userAch ? userAch.progress : (targetValue > 0 ? Math.min((currentValue / targetValue) * 100, 100) : 0);
         
         const achievementEntry = {
           id: achievement.id,
@@ -308,7 +308,7 @@ export async function GET(request: Request) {
     const stats = {
       totalAchievements: totalPossibleAchievements,
       unlockedAchievements: unlockedCount,
-      completionRate: Math.round((unlockedCount / totalPossibleAchievements) * 100),
+      completionRate: totalPossibleAchievements > 0 ? Math.round((unlockedCount / totalPossibleAchievements) * 100) : 0,
       latestAchievement: latestUnlocked ? {
         name: latestUnlocked.name,
         unlockedAt: latestUnlocked.unlockedAt

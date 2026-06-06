@@ -139,10 +139,13 @@ export async function GET(request: Request) {
       success: true,
       totalPoints: user?.totalPoints || 0,
       dailyPoints: dailyPoints._sum.points || 0,
-      transactions: transactions.map(t => ({
-        ...t,
-        metadata: t.metadata ? JSON.parse(t.metadata) : null
-      })),
+      transactions: transactions.map(t => {
+        let metadata = null;
+        if (t.metadata) {
+          try { metadata = JSON.parse(t.metadata); } catch { metadata = t.metadata; }
+        }
+        return { ...t, metadata };
+      }),
       stats: stats.map(s => ({
         type: s.type,
         totalPoints: s._sum.points || 0,

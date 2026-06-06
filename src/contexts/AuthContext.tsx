@@ -184,8 +184,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // 检查 token 是否过期
           if (decoded.exp && decoded.exp > now) {
             if (userStr) {
-              const userData = JSON.parse(userStr);
-              setUser(userData);
+              try {
+                const userData = JSON.parse(userStr);
+                setUser(userData);
+              } catch {
+                localStorage.removeItem('user');
+              }
             }
             
             // 尝试刷新用户信息

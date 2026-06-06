@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
 
-      const modules: string[] = JSON.parse(path.modules);
+      const modules: string[] = safeParseJSON(path.modules, []) as string[];
       const nodeProgressList = path.progress.map(p => ({
         nodeId: p.moduleId,
         progress: p.progress,
@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
     });
 
     const activePathData = activePaths.map(path => {
-      const modules: string[] = JSON.parse(path.modules);
+      const modules: string[] = safeParseJSON(path.modules, []) as string[];
       const completed = path.progress.filter(p => p.status === 'COMPLETED').length;
       return {
         pathId: path.id,
