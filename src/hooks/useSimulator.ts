@@ -281,6 +281,15 @@ D2: DJNZ R6, D2
 
     const data = await response.json();
 
+    // Invalidate analytics cache so dashboard refreshes
+    try {
+      const uid = typeof window !== 'undefined' ? JSON.parse(atob((localStorage.getItem('accessToken') || '').split('.')[1] || '')).userId : null;
+      if (uid) {
+        localStorage.removeItem(`analytics_${uid}`);
+        localStorage.removeItem(`analytics_${uid}_time`);
+      }
+    } catch { /* non-critical */ }
+
     // 处理成就通知
     if (data.newAchievements && data.newAchievements.length > 0) {
       processAchievementResponse({ newAchievements: data.newAchievements });

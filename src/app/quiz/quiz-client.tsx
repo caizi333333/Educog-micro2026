@@ -261,7 +261,16 @@ export function QuizClient() {
         
         if (response.ok) {
           const data = await response.json();
-          
+
+          // Invalidate analytics cache so dashboard refreshes
+          try {
+            const uid = user?.id;
+            if (uid) {
+              localStorage.removeItem(`analytics_${uid}`);
+              localStorage.removeItem(`analytics_${uid}_time`);
+            }
+          } catch { /* non-critical */ }
+
           // Process achievement notifications
           processAchievementResponse(data);
           
