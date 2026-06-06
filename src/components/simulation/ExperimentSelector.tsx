@@ -150,7 +150,7 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
                 {catExps.map((exp) => {
                   const isSelected = selectedExperiment === exp.id;
                   const status = experimentStatus[exp.id];
-                  const isCompleted = status === 'COMPLETED' || status?.completed;
+                  const isCompleted = status === 'COMPLETED';
                   const diff = difficultyLabel[exp.difficulty] || difficultyLabel.basic;
 
                   return (

@@ -111,16 +111,7 @@ export default function AchievementsV2Page() {
     calculateStats,
     getFilteredAchievements
   } = useAchievements();
-  
-  // Debug logging
-  console.log('🔍 AchievementsV2Page Debug:', {
-    user: user ? { id: user.id, email: user.email } : null,
-    authLoading,
-    loading,
-    userProgressLength: userProgress?.length || 0,
-    error,
-    hasToken: typeof window !== 'undefined' ? !!localStorage.getItem('accessToken') : false
-  });
+
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');

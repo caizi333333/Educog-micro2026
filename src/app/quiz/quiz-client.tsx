@@ -360,11 +360,11 @@ export function QuizClient() {
   };
   
   const { scores, totalScore, weakKAs, totalCorrect } = useMemo(() => {
-    const totalQuestions = quizQuestions.length;
+    const totalQuestions = shuffledQuestions.length;
     const scoresByKa: { [ka: string]: { correct: number; total: number } } = {};
     let correctCount = 0;
 
-    quizQuestions.forEach(q => {
+    shuffledQuestions.forEach(q => {
         if (!scoresByKa[q.ka]) {
             scoresByKa[q.ka] = { correct: 0, total: 0 };
         }
@@ -395,7 +395,7 @@ export function QuizClient() {
       weakKAs: weakKaList,
       totalCorrect: correctCount,
     };
-  }, [answers]);
+  }, [answers, shuffledQuestions]);
 
   if (shuffledQuestions.length === 0) {
     return (

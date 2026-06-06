@@ -274,9 +274,9 @@ export function checkAchievementUnlock(
   const criteriaType = achievement.criteria.type as string;
   const criteriaTarget = achievement.criteria.target as number;
   const current = userStats[criteriaType] || 0;
-  const progress = Math.min(100, (current / criteriaTarget) * 100);
-  const unlocked = current >= criteriaTarget;
-  
+  const progress = criteriaTarget > 0 ? Math.min(100, (current / criteriaTarget) * 100) : 0;
+  const unlocked = criteriaTarget > 0 && current >= criteriaTarget;
+
   return { unlocked, progress };
 }
 
@@ -516,7 +516,7 @@ export function formatAchievementDisplay(achievement: Achievement, userProgress?
     const criteriaType = achievement.criteria.type as string;
     const criteriaTarget = achievement.criteria.target as number;
     const current = userProgress[criteriaType] || 0;
-    progressPercentage = Math.min((current / criteriaTarget) * 100, 100);
+    progressPercentage = criteriaTarget > 0 ? Math.min((current / criteriaTarget) * 100, 100) : 0;
     progressText = `${current} / ${criteriaTarget}`;
   }
   
