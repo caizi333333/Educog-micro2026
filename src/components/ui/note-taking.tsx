@@ -43,11 +43,11 @@ export function NoteTaking({ moduleId, chapterId, onNotesUpdate, className }: No
     const savedBookmarks = localStorage.getItem(bookmarkKey);
     
     if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
+      try { setNotes(JSON.parse(savedNotes)); } catch { /* ignore malformed data */ }
     }
-    
+
     if (savedBookmarks) {
-      setBookmarks(JSON.parse(savedBookmarks));
+      try { setBookmarks(JSON.parse(savedBookmarks)); } catch { /* ignore malformed data */ }
     }
   }, [moduleId, chapterId]);
 
