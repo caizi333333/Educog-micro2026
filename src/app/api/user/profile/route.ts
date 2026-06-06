@@ -61,13 +61,18 @@ export async function GET(request: Request) {
       take: 10
     });
 
-    // 获取学习统计
-    const learningStats = await prisma.learningProgress.aggregate({
-      where: { userId: payload.userId },
-      _sum: { timeSpent: true },
-      _avg: { progress: true },
-      _count: true
-    });
+    // 获取学习统计（含已完成模块数）
+    const [learningStats, completedModuleCount] = await Promise.all([
+      prisma.learningProgress.aggregate({
+        where: { userId: payload.userId },
+        _sum: { timeSpent: true },
+        _avg: { progress: true },
+        _count: true
+      }),
+      prisma.learningProgress.count({
+        where: { userId: payload.userId, progress: { gte: 100 } }
+      })
+    ]);
 
     // 获取测验统计
     const quizStats = await prisma.quizAttempt.aggregate({
@@ -116,7 +121,7 @@ export async function GET(request: Request) {
         // 学习统计
         totalLearningTime: learningStats._sum.timeSpent || 0,
         averageProgress: Math.round(learningStats._avg.progress || 0),
-        completedModules: learningStats._count || 0,
+        completedModules: completedModuleCount || 0,
         
         // 测验统计
         averageQuizScore: Math.round(quizStats._avg.score || 0),
@@ -125,11 +130,13 @@ export async function GET(request: Request) {
       },
       
       // 最近活动
-      recentActivity: recentActivity.map((activity: any) => ({
-        action: activity.action,
-        details: activity.details ? JSON.parse(activity.details) : null,
-        createdAt: activity.createdAt
-      }))
+      recentActivity: recentActivity.map((activity: any) => {
+        let details = null;
+        if (activity.details) {
+          try { details = JSON.parse(activity.details); } catch { details = activity.details; }
+        }
+        return { action: activity.action, details, createdAt: activity.createdAt };
+      })
     };
 
     return NextResponse.json({
