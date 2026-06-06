@@ -23,14 +23,18 @@ export async function POST(request: Request) {
       code, 
       results, 
       timeSpent,
-      status = 'COMPLETED'
+      status = 'IN_PROGRESS'
     } = data;
 
     // 验证必要参数
     if (!experimentId) {
-      return NextResponse.json({ 
-        error: '缺少实验ID' 
+      return NextResponse.json({
+        error: '缺少实验ID'
       }, { status: 400 });
+    }
+
+    if (!['IN_PROGRESS', 'COMPLETED'].includes(status)) {
+      return NextResponse.json({ error: '无效的状态值' }, { status: 400 });
     }
 
     // 查找或创建实验记录
