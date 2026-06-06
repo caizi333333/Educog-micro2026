@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
       learningProgress,
       quizHistory,
       experiments,
-      userProfile
+      userProfile,
+      runCodeCount,
+      debugSuccessCount,
     ] = await Promise.all([
       // Learning progress
       prisma.learningProgress.findMany({
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
           completedAt: true,
         }
       }),
-      
+
       // Quiz history
       prisma.quizAttempt.findMany({
         where: { userId },
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
           completedAt: true,
         }
       }),
-      
+
       // Experiments (simulations)
       prisma.userExperiment.findMany({
         where: { userId },
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
           completedAt: true,
         }
       }),
-      
+
       // User profile for streak data
       prisma.user.findUnique({
         where: { id: userId },
@@ -62,7 +64,17 @@ export async function GET(request: NextRequest) {
           lastLoginAt: true,
           createdAt: true,
         }
-      })
+      }),
+
+      // Real code run count
+      prisma.userActivity.count({
+        where: { userId, action: 'RUN_CODE' },
+      }),
+
+      // Real debug success count
+      prisma.userActivity.count({
+        where: { userId, action: 'DEBUG_SUCCESS' },
+      }),
     ]);
 
     // Calculate statistics
@@ -70,9 +82,9 @@ export async function GET(request: NextRequest) {
       // Learning achievements
       modules_completed: learningProgress.filter(p => p.progress >= 100).length,
       
-      // Practice achievements
-      code_runs: experiments.length, // Simplified: count experiments as code runs
-      debug_success: Math.floor(experiments.length * 0.8), // Estimate
+      // Practice achievements (real activity counts)
+      code_runs: runCodeCount,
+      debug_success: debugSuccessCount,
       experiments_completed: new Set(experiments.map(e => e.experimentId)).size,
       
       // Continuous achievements
