@@ -722,6 +722,45 @@ export function HyperTeacherPage() {
               {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               导出 CSV
             </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  setExportLoading(true);
+                  const { generateTeachingReport } = await import('@/lib/pdf-report');
+                  const className = exportClassId === 'all' ? undefined : data?.classes?.find(c => c.id === exportClassId)?.name;
+                  const topStudents = [...(data?.students || [])]
+                    .sort((a, b) => (b.avgQuizScore || 0) - (a.avgQuizScore || 0))
+                    .slice(0, 5)
+                    .map(s => ({ name: s.name, avgScore: s.avgQuizScore || 0 }));
+                  await generateTeachingReport({
+                    className,
+                    totalStudents: data?.overview?.totalStudents || 0,
+                    avgQuizScore: data?.overview?.avgQuizScore || 0,
+                    avgExpCompletion: data?.overview?.avgExpCompletion || 0,
+                    avgTimeSpent: data?.overview?.avgTimeSpent || 0,
+                    alertStudents: (data?.alertStudents || []).map(s => ({
+                      name: s.name,
+                      avg: s.avg,
+                      weakChapters: (s.weakChapters || []).map(c => c.chapter),
+                    })),
+                    experimentCompletion: (data?.experiments || []).map(e => ({ name: e.name, completed: e.completed })),
+                    topStudents,
+                    interventionSummary: interventionData?.summary,
+                  });
+                  toast({ title: 'PDF 报告已生成', description: '文件已下载到本地。' });
+                } catch (err) {
+                  toast({ title: 'PDF 生成失败', description: err instanceof Error ? err.message : '请稍后重试', variant: 'destructive' });
+                } finally {
+                  setExportLoading(false);
+                }
+              }}
+              disabled={exportLoading}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-300 px-5 text-sm font-semibold text-[#001014] hover:bg-emerald-200 disabled:opacity-50"
+            >
+              {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              导出 PDF 报告
+            </button>
           </div>
         </section>
 
