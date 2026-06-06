@@ -227,8 +227,8 @@ export async function PUT(
     if (isAdmin) {
       if (body.email !== undefined) updateData.email = body.email;
       if (body.username !== undefined) updateData.username = body.username;
-      if (body.role !== undefined) updateData.role = body.role;
-      if (body.status !== undefined) updateData.status = body.status;
+      if (body.role !== undefined && ['STUDENT', 'TEACHER', 'ADMIN'].includes(body.role)) updateData.role = body.role;
+      if (body.status !== undefined && ['ACTIVE', 'INACTIVE', 'DELETED'].includes(body.status)) updateData.status = body.status;
       if (body.studentId !== undefined) updateData.studentId = body.studentId;
       if (body.teacherId !== undefined) updateData.teacherId = body.teacherId;
       if (body.grade !== undefined) updateData.grade = body.grade;
