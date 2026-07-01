@@ -7,6 +7,7 @@ import { ArrowRight, BookOpen, Cpu, Layers, Loader2, RotateCcw, Target } from 'l
 import { useAuth } from '@/contexts/AuthContext';
 import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 import { quizQuestions as staticQuizQuestions, type Question } from '@/lib/quiz-data';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 type AssessmentSnapshot = {
   weakKAs?: string[];
@@ -170,20 +171,13 @@ export default function WeakNodesPage() {
         )}
 
         {!loading && (!snapshot || !snapshot.weakKAs?.length) && (
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-center">
-            <Target className="mx-auto h-8 w-8 text-cyan-200" />
-            <h2 className="mt-3 text-base font-semibold text-slate-100">还没有测验记录</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              先去做一次综合测验（或某章测验）。系统会自动识别得分低于 60% 的知识原子，作为薄弱节点出现在这里。
-            </p>
-            <Link
-              href="/quiz"
-              className="mt-4 inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200"
-            >
-              开始测验
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <EmptyState
+            centered
+            icon={Target}
+            title="还没有测验记录"
+            description="先去做一次综合测验（或某章测验）。系统会自动识别得分低于 60% 的知识原子，作为薄弱节点出现在这里。"
+            action={{ label: '开始测验', href: '/quiz' }}
+          />
         )}
 
         {!loading && snapshot?.weakKAs?.length ? (
