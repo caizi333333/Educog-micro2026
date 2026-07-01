@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Bot, Loader2, BookOpen, MonitorPlay } from 'lucide-react';
 import Link from 'next/link';
@@ -86,7 +86,6 @@ export const MessageList: React.FC<MessageListProps> = ({
             </div>
             {message.role === 'user' && (
               <Avatar className="h-9 w-9">
-                {user?.avatar ? <AvatarImage src={user.avatar} /> : null}
                 <AvatarFallback>{userInitial}</AvatarFallback>
               </Avatar>
             )}
