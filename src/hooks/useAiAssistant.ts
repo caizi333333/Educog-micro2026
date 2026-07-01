@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { aiStudyAssistant, type AiStudyAssistantInput, type AiStudyAssistantOutput } from '@/ai/flows/ai-study-assistant';
-import { studentData } from '@/lib/mock-data';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type Message = {
   role: 'user' | 'model';
@@ -10,19 +10,28 @@ export type Message = {
   videos?: AiStudyAssistantOutput['relevantVideos'];
 };
 
-const initialMessages: Message[] = [
-  {
-    role: 'model',
-    content: `你好，${studentData.profile.name}同学！我是你的AI学习伙伴"芯智育才"。关于8051微控制器，有什么可以帮你的吗？你可以问我关于课程概念、代码示例或学习建议的问题。`,
-  }
-];
+const greetingFor = (name?: string | null): string =>
+  `你好，${name || '同学'}！我是你的AI学习伙伴"芯智育才"。关于8051微控制器，有什么可以帮你的吗？你可以问我关于课程概念、代码示例或学习建议的问题。`;
 
 export const useAiAssistant = () => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>(() => [
+    { role: 'model', content: greetingFor(user?.name) },
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // 用户信息异步加载完成后，个性化开场白（仅在对话尚未开始时替换）
+  useEffect(() => {
+    if (!user?.name) return;
+    setMessages((prev) =>
+      prev.length === 1 && prev[0].role === 'model'
+        ? [{ role: 'model', content: greetingFor(user.name) }]
+        : prev,
+    );
+  }, [user?.name]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {

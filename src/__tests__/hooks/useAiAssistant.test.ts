@@ -1,7 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAiAssistant } from '@/hooks/useAiAssistant';
 import { aiStudyAssistant } from '@/ai/flows/ai-study-assistant';
-import { studentData } from '@/lib/mock-data';
 
 // Mock dependencies
 const mockToast = jest.fn();
@@ -18,12 +17,8 @@ jest.mock('@/ai/flows/ai-study-assistant', () => ({
   aiStudyAssistant: jest.fn(),
 }));
 
-jest.mock('@/lib/mock-data', () => ({
-  studentData: {
-    profile: {
-      name: '测试学生',
-    },
-  },
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { name: '测试学生' } }),
 }));
 
 const mockAiStudyAssistant = aiStudyAssistant as jest.MockedFunction<typeof aiStudyAssistant>;
@@ -69,7 +64,7 @@ describe('useAiAssistant Hook', () => {
       expect(result.current.messages).toHaveLength(1);
       expect(result.current.messages[0]).toEqual({
         role: 'model',
-        content: `你好，${studentData.profile.name}同学！我是你的AI学习伙伴"芯智育才"。关于8051微控制器，有什么可以帮你的吗？你可以问我关于课程概念、代码示例或学习建议的问题。`,
+        content: `你好，测试学生！我是你的AI学习伙伴"芯智育才"。关于8051微控制器，有什么可以帮你的吗？你可以问我关于课程概念、代码示例或学习建议的问题。`,
       });
       expect(result.current.input).toBe('');
       expect(result.current.isLoading).toBe(false);
@@ -215,7 +210,7 @@ describe('useAiAssistant Hook', () => {
         history: [
           {
             role: 'model',
-            content: [{ text: expect.stringContaining('你好，测试学生同学') }],
+            content: [{ text: expect.stringContaining('你好，测试学生') }],
           },
         ],
       });
@@ -437,7 +432,7 @@ describe('useAiAssistant Hook', () => {
         history: [
           {
             role: 'model',
-            content: [{ text: expect.stringContaining('你好，测试学生同学') }],
+            content: [{ text: expect.stringContaining('你好，测试学生') }],
           },
           {
             role: 'user',

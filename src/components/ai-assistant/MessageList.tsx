@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Bot, Loader2, BookOpen, MonitorPlay } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { studentData } from '@/lib/mock-data';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Message } from '@/hooks/useAiAssistant';
 
 // 去除Markdown格式的函数
@@ -38,6 +38,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   isLoading,
   scrollAreaRef
 }) => {
+  const { user } = useAuth();
+  const userInitial = user?.name?.charAt(0) || '我';
   return (
     <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
       <div className="space-y-6">
@@ -84,8 +86,8 @@ export const MessageList: React.FC<MessageListProps> = ({
             </div>
             {message.role === 'user' && (
               <Avatar className="h-9 w-9">
-                <AvatarImage src={studentData.profile.avatarUrl} data-ai-hint="man portrait"/>
-                <AvatarFallback>{studentData.profile.initial}</AvatarFallback>
+                {user?.avatar ? <AvatarImage src={user.avatar} /> : null}
+                <AvatarFallback>{userInitial}</AvatarFallback>
               </Avatar>
             )}
           </div>
