@@ -112,6 +112,9 @@ function getAreaTerms(area: string) {
 }
 
 function findRelatedPoints(area: string, kps: KnowledgePoint[]) {
+  // 测评薄弱点以知识原子 id 形式存储（如 "3.5"），优先按 id 精确匹配到知识点
+  const byId = kps.filter((point) => point.id === area);
+  if (byId.length > 0) return byId;
   const terms = getAreaTerms(area);
   if (terms.length === 0) return [];
   return kps.filter((point) => {
@@ -343,7 +346,7 @@ function PlanStepCard({ step }: { step: LearningStep }) {
   const Icon = meta.Icon;
 
   return (
-    <article className="group relative rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.045]">
+    <article className="group relative rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.045] glass-hover">
       <div className="absolute -left-[35px] top-5 hidden h-4 w-4 rounded-full border border-cyan-300/45 bg-[#071116] shadow-[0_0_18px_rgba(34,211,238,0.28)] lg:block" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
@@ -646,7 +649,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
                   { label: '预计用时', value: `${estimatedMinutes || 90} 分钟`, Icon: Timer },
                   { label: '路径步骤', value: `${plan?.plan.length || 0} 步`, Icon: Layers3 },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 rounded-md border border-white/[0.08] bg-black/20 p-3">
+                  <div key={item.label} className="flex items-center gap-3 rounded-md border border-white/[0.08] bg-black/20 p-3 glass-hover">
                     <item.Icon className="h-4 w-4 text-cyan-200" />
                     <div className="min-w-0">
                       <div className="font-mono text-sm text-slate-100">{item.value}</div>
@@ -678,7 +681,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
                       ['quiz', '回测'],
                     ] as Array<[StepType, string]>).map(([type, label]) => (
                       <div key={type} className="rounded-md border border-white/[0.08] bg-black/20 px-3 py-2 text-center">
-                        <div className="font-mono text-lg text-slate-50">{stepCounts[type]}</div>
+                        <div className="font-mono text-lg text-slate-50 stat-glow">{stepCounts[type]}</div>
                         <div className="text-[10px] text-slate-500">{label}</div>
                       </div>
                     ))}
