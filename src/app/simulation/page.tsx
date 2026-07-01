@@ -19,6 +19,7 @@ import {
   Sparkles,
   X,
   Lightbulb,
+  Waypoints,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimulator } from '@/hooks/useSimulator';
@@ -45,7 +46,11 @@ export default function SimulationPage() {
   } = useSimulator();
 
   const breakpointLines = React.useMemo(() => Array.from(breakpoints), [breakpoints]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // 窄视口默认收起实验列表侧栏，腾出空间给编辑器/右侧面板（含全局左侧导航约256px在内，
+  // 1440px以下窗口/投影演示时展开三栏很容易挤压溢出）；用户仍可随时手动展开
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth >= 1440,
+  );
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [localSelectedExperiment, setLocalSelectedExperiment] = useState<string | null>(selectedExperiment || null);
   const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide' | 'ai'>('registers');
@@ -289,7 +294,9 @@ export default function SimulationPage() {
         )}
 
         {/* ── Main content: 3-panel layout ── */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* overflow-x-auto（而非 hidden）：窄视口/投影分辨率不足时右侧面板改为横向滚动可达，
+            而不是被静默裁切到评委完全看不见、够不到 */}
+        <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
           {/* Left: Experiment selector */}
           <div className={cn(
             "flex-shrink-0 overflow-hidden border-r border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_-1px_0_0_rgba(255,255,255,0.025)] transition-all duration-300",
@@ -307,7 +314,9 @@ export default function SimulationPage() {
           </div>
 
           {/* Center: Code editor */}
-          <div className="flex-1 min-w-0 flex flex-col">
+          {/* min-w-[320px]（而非0）：容器可横向滚动后，编辑器压到此宽度即停止收缩、改为触发滚动，
+              保证代码始终可读，不会被压成一条缝 */}
+          <div className="min-w-[320px] flex-1 flex flex-col">
             <CodeEditor
               code={code}
               onCodeChange={setCode}
@@ -325,8 +334,14 @@ export default function SimulationPage() {
 
           <HyperExperimentCanvas simulatorState={simulatorState} isRunning={isRunning} />
 
+          {/* 窄屏提示：画布因屏幕宽度不足被隐藏，避免误以为功能缺失 */}
+          <div className="hidden w-8 flex-shrink-0 flex-col items-center justify-center gap-2 border-l border-white/[0.08] bg-[#0c1014]/70 py-3 min-[1024px]:flex xl:hidden">
+            <Waypoints className="h-3.5 w-3.5 rotate-90 text-[#4a6266]" />
+            <span className="[writing-mode:vertical-rl] text-[9px] tracking-wide text-[#4a6266]">加宽窗口查看接线画布</span>
+          </div>
+
           {/* Right: Status panel */}
-          <div className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)]">
+          <div className="flex w-[260px] flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)] xl:w-[300px]">
             {/* Tab bar */}
             <div className="flex flex-shrink-0 border-b border-white/[0.08] bg-[#0e1317]">
               {([
