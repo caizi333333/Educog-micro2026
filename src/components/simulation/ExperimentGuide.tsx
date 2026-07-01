@@ -86,6 +86,11 @@ export default function ExperimentGuide({ experiment }: Props) {
   const visualAssets = getExperimentVisualAssets(experiment.id);
   const [quizPassed, setQuizPassed] = useState(false);
 
+  // 三维教学目标：知识/能力优先取结构化字段，否则由知识点/学习目标自动派生；思政取自思政卡主题
+  const knowledgeGoals = tc.objectives3D?.knowledge ?? experiment.knowledgePoints.slice(0, 3).map((k) => `理解并掌握${k}`);
+  const abilityGoals = tc.objectives3D?.ability ?? experiment.objectives;
+  const ideologicalGoal = tc.ideological?.theme;
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-1 py-2">
@@ -168,17 +173,46 @@ export default function ExperimentGuide({ experiment }: Props) {
               <p className="text-[11px] text-[#a6adc8] leading-relaxed">{experiment.description}</p>
             )}
 
-            {experiment.objectives.length > 0 && (
+            {(knowledgeGoals.length > 0 || abilityGoals.length > 0) && (
               <div>
-                <div className="text-[10px] font-semibold text-[#89b4fa] mb-1">学习目标</div>
-                <ul className="space-y-0.5">
-                  {experiment.objectives.map((o, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
-                      <span className="text-[#89b4fa] mt-0.5">•</span>
-                      {o}
-                    </li>
-                  ))}
-                </ul>
+                <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold text-[#cdd6f4]">
+                  <GraduationCap className="h-3 w-3 text-[#89b4fa]" /> 三维教学目标
+                </div>
+                <div className="space-y-1.5">
+                  {knowledgeGoals.length > 0 && (
+                    <div>
+                      <div className="mb-0.5 text-[9px] font-semibold text-[#89b4fa]">知识目标</div>
+                      <ul className="space-y-0.5">
+                        {knowledgeGoals.map((g, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
+                            <span className="mt-0.5 text-[#89b4fa]">•</span><span>{g}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {abilityGoals.length > 0 && (
+                    <div>
+                      <div className="mb-0.5 text-[9px] font-semibold text-[#a6e3a1]">能力目标</div>
+                      <ul className="space-y-0.5">
+                        {abilityGoals.map((g, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
+                            <span className="mt-0.5 text-[#a6e3a1]">•</span><span>{g}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {ideologicalGoal && (
+                    <div>
+                      <div className="mb-0.5 text-[9px] font-semibold text-[#f38ba8]">思政目标</div>
+                      <div className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
+                        <span className="mt-0.5 text-[#f38ba8]">•</span>
+                        <span>{ideologicalGoal}（详见下方课程思政）</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

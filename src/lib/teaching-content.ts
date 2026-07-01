@@ -55,9 +55,17 @@ export interface IdeologicalContent {
   goldenQuote?: string;
 }
 
+/** 三维教学目标（知识/能力；思政维度取自 ideological） */
+export interface Objectives3D {
+  knowledge: string[];
+  ability: string[];
+}
+
 export interface TeachingContent {
   /** 课程大纲映射 — 对应《微控制器应用技术》教学大纲 */
   syllabusMapping?: SyllabusMapping;
+  /** 三维教学目标（知识/能力），未填则由 objectives/knowledgePoints 自动派生 */
+  objectives3D?: Objectives3D;
   /** 寻址方式星级对比（仅指令系统类实验，如 exp02） */
   addressingComparison?: AddressingMode[];
   /** 结构化课程思政（优先于 syllabusMapping.ideologicalPoint 渲染） */
@@ -96,6 +104,10 @@ export const teachingContents: Record<string, TeachingContent> = {
       textbookRef: '《单片机原理及应用技术》第1章：89C51系列单片机概述',
       knowledgeMap: '一级知识点"单片机概述"，含约20个三级知识点',
       ideologicalPoint: '国产芯片发展历程（爱国主义教育）',
+    },
+    objectives3D: {
+      knowledge: ['理解单片机 I/O 口结构与准双向端口特性', '掌握 LED 低电平点亮原理与延时程序的构成'],
+      ability: ['能用汇编编写 P1 口控制程序实现流水灯', '学会通过仿真观察端口电平的变化'],
     },
     ideological: {
       theme: '科技报国 · 国产自主可控',
@@ -273,6 +285,10 @@ RRC A — 带进位循环右移 (9 位移位)
       { name: '相对寻址', example: 'SJMP LOOP', speed: 4, flexibility: 3, note: '用于跳转，偏移量相对当前 PC，程序可整体搬移。' },
       { name: '位寻址', example: 'SETB P1.0', speed: 4, flexibility: 4, note: '直接操作单个位，是 MCS-51 的特色功能——很多单片机没有。' },
     ],
+    objectives3D: {
+      knowledge: ['理解 8051 的 7 种寻址方式及其区别', '掌握数据传送、算术与逻辑运算指令的用法'],
+      ability: ['能根据场景选择合适的寻址方式编写程序', '学会用单步调试观察寄存器与内存的变化'],
+    },
     ideological: {
       theme: '工匠精神 · 辩证工程思维 · 自主可控',
       insights: [
@@ -391,6 +407,10 @@ MOV DPTR, #data16 ; 16位立即数→DPTR (3字节)
       textbookRef: '《单片机原理及应用技术》第5章：定时器/计数器工作模式与应用',
       knowledgeMap: '一级知识点"定时器/计数器"，含约20个三级知识点',
       ideologicalPoint: '精确测量与中国计量技术发展（科技创新）',
+    },
+    objectives3D: {
+      knowledge: ['理解定时器/计数器工作方式与 TMOD/TCON 寄存器', '掌握定时初值的计算方法'],
+      ability: ['能配置定时器产生精确的方波与定时信号', '学会用中断方式处理定时事件'],
     },
     ideological: {
       theme: '精益求精 · 精确的力量',
@@ -553,6 +573,10 @@ IE 寄存器 (A8H, 可位寻址):
       textbookRef: '《单片机原理及应用技术》第3章：指令系统——算术运算与逻辑运算指令',
       knowledgeMap: '一级知识点"软件编程"，含约35个三级知识点',
       ideologicalPoint: '严谨的工程思维（工匠精神）',
+    },
+    objectives3D: {
+      knowledge: ['理解七段数码管段码编码与共阴/共阳区别', '掌握动态扫描显示与查表（MOVC）程序设计'],
+      ability: ['能编写多位数码管动态显示程序', '学会用定时器中断驱动稳定的扫描刷新'],
     },
     ideological: {
       theme: '工匠精神 · 严谨细致',
