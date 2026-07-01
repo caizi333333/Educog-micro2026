@@ -31,9 +31,37 @@ export interface SyllabusMapping {
   ideologicalPoint?: string;
 }
 
+/** 寻址方式对比（星级量化：速度/灵活性，用于"7种寻址方式"教学锚点） */
+export interface AddressingMode {
+  /** 寻址方式名称，如 "立即寻址" */
+  name: string;
+  /** 典型指令示例，如 "MOV A, #30H" */
+  example: string;
+  /** 速度评级 1–5 */
+  speed: number;
+  /** 灵活性评级 1–5 */
+  flexibility: number;
+  /** 一句话说明其特点/适用场合 */
+  note: string;
+}
+
+/** 结构化课程思政（金句 + 融入点，用于说课"说思政"采分） */
+export interface IdeologicalContent {
+  /** 思政主题，如 "工匠精神 · 自主可控" */
+  theme: string;
+  /** 融入点（专业知识如何自然带出价值引导），2–4 条 */
+  insights: string[];
+  /** 点睛金句（源自课堂原话，可作视频字幕） */
+  goldenQuote?: string;
+}
+
 export interface TeachingContent {
   /** 课程大纲映射 — 对应《微控制器应用技术》教学大纲 */
   syllabusMapping?: SyllabusMapping;
+  /** 寻址方式星级对比（仅指令系统类实验，如 exp02） */
+  addressingComparison?: AddressingMode[];
+  /** 结构化课程思政（优先于 syllabusMapping.ideologicalPoint 渲染） */
+  ideological?: IdeologicalContent;
   /** 理论背景 */
   theory: TeachingSection[];
   /** 硬件电路说明（文字描述，用 ASCII 示意） */
@@ -68,6 +96,14 @@ export const teachingContents: Record<string, TeachingContent> = {
       textbookRef: '《单片机原理及应用技术》第1章：89C51系列单片机概述',
       knowledgeMap: '一级知识点"单片机概述"，含约20个三级知识点',
       ideologicalPoint: '国产芯片发展历程（爱国主义教育）',
+    },
+    ideological: {
+      theme: '科技报国 · 国产自主可控',
+      insights: [
+        '从依赖进口到国产 MCU 崛起：兆易创新、华大、复旦微等国产单片机已广泛用于家电、汽车、工业控制——一颗小小的控制芯片，背后是一条要靠自己掌握的产业链。',
+        '越是基础的原理越要学扎实：点亮一个 LED 看似简单，却是理解 I/O 口、时序、程序控制的第一步；底层能力扎实，才谈得上向上创新。',
+      ],
+      goldenQuote: '芯片不能只会用，更要懂原理、能自己做。',
     },
     theory: [
       {
@@ -228,6 +264,24 @@ RRC A — 带进位循环右移 (9 位移位)
       knowledgeMap: '一级知识点"硬件结构"，含约40个三级知识点',
       ideologicalPoint: '航天嵌入式系统可靠性设计（航天品质/工匠精神）',
     },
+    addressingComparison: [
+      { name: '立即寻址', example: 'MOV A, #30H', speed: 5, flexibility: 2, note: '操作数就在指令里，最快；但值固定写死，不能运行时改。' },
+      { name: '寄存器寻址', example: 'MOV A, R3', speed: 5, flexibility: 3, note: 'R0~R7 就在 CPU 内部，访问最快，是循环里的首选。' },
+      { name: '直接寻址', example: 'MOV A, 30H', speed: 4, flexibility: 3, note: '直接给出 RAM/SFR 地址，访问端口和特殊寄存器常用。' },
+      { name: '寄存器间接寻址', example: 'MOV A, @R0', speed: 3, flexibility: 4, note: '地址放在 R0/R1 里，可在运行时变化——批量处理数据的关键。' },
+      { name: '变址寻址', example: 'MOVC A, @A+DPTR', speed: 2, flexibility: 5, note: '基址+变址，查表最灵活；数码管段码、正弦表都靠它。' },
+      { name: '相对寻址', example: 'SJMP LOOP', speed: 4, flexibility: 3, note: '用于跳转，偏移量相对当前 PC，程序可整体搬移。' },
+      { name: '位寻址', example: 'SETB P1.0', speed: 4, flexibility: 4, note: '直接操作单个位，是 MCS-51 的特色功能——很多单片机没有。' },
+    ],
+    ideological: {
+      theme: '工匠精神 · 辩证工程思维 · 自主可控',
+      insights: [
+        '严谨：立即寻址 MOV A,#30H 与直接寻址 MOV A,30H 就差一个"#"号，一个取的是数据、一个取的是地址，结果天差地别——写代码容不得半点马虎。',
+        '辩证：七种寻址方式各有速度与灵活性的取舍，没有哪一种"最好"，只有针对场景"最合适"——这正是工程思维的核心。',
+        '自主可控：位寻址是 MCS-51 单片机的特色功能，掌握底层机制，才谈得上把芯片技术真正握在自己手里。',
+      ],
+      goldenQuote: '没有最好的寻址方式，只有最合适的寻址方式。',
+    },
     theory: [
       {
         title: '8051 寻址方式',
@@ -337,6 +391,14 @@ MOV DPTR, #data16 ; 16位立即数→DPTR (3字节)
       textbookRef: '《单片机原理及应用技术》第5章：定时器/计数器工作模式与应用',
       knowledgeMap: '一级知识点"定时器/计数器"，含约20个三级知识点',
       ideologicalPoint: '精确测量与中国计量技术发展（科技创新）',
+    },
+    ideological: {
+      theme: '精益求精 · 精确的力量',
+      insights: [
+        '定时初值差一个数，方波周期就偏一截——精确定时是工业控制、通信、数字计量的共同基础。',
+        '从北斗授时到高铁调度，越是关键的系统越依赖"准"；把一个 50ms 定时做到分毫不差，就是在练这份严谨。',
+      ],
+      goldenQuote: '差之毫厘，谬以千里——定时的精度，就是产品的底气。',
     },
     theory: [
       {
@@ -491,6 +553,14 @@ IE 寄存器 (A8H, 可位寻址):
       textbookRef: '《单片机原理及应用技术》第3章：指令系统——算术运算与逻辑运算指令',
       knowledgeMap: '一级知识点"软件编程"，含约35个三级知识点',
       ideologicalPoint: '严谨的工程思维（工匠精神）',
+    },
+    ideological: {
+      theme: '工匠精神 · 严谨细致',
+      insights: [
+        '段码表错一位，屏上就显示一个错字；动态扫描靠的是几毫秒级的精确时间配合——细节决定成败。',
+        '查表法用一张段码表换来又快又稳的显示，是"用空间换时间"的工程智慧，也是权衡取舍的日常。',
+      ],
+      goldenQuote: '一个 bit 的错位，屏上就是一个错字——工程师的严谨，藏在每一位里。',
     },
     theory: [
       {

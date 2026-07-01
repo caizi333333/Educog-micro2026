@@ -16,6 +16,7 @@ import {
   Terminal,
   MemoryStick,
   ScrollText,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimulator } from '@/hooks/useSimulator';
@@ -28,6 +29,7 @@ import StatusMonitor from '@/components/simulation/StatusMonitor';
 import MemoryViewer from '@/components/simulation/MemoryViewer';
 import ExecutionTrace from '@/components/simulation/ExecutionTrace';
 import ExperimentGuide from '@/components/simulation/ExperimentGuide';
+import AiDiagnostics from '@/components/simulation/AiDiagnostics';
 import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
 
 export default function SimulationPage() {
@@ -44,7 +46,7 @@ export default function SimulationPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [localSelectedExperiment, setLocalSelectedExperiment] = useState<string | null>(selectedExperiment || null);
-  const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide'>('registers');
+  const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide' | 'ai'>('registers');
   const [experiments, setExperiments] = useState<ExperimentConfig[]>(staticExperiments);
 
   // Fetch experiments from API on mount
@@ -305,6 +307,7 @@ export default function SimulationPage() {
                 { key: 'memory' as const, label: '内存', icon: MemoryStick },
                 { key: 'trace' as const, label: '追踪', icon: ScrollText },
                 { key: 'guide' as const, label: '教程', icon: Cpu },
+                { key: 'ai' as const, label: 'AI助教', icon: Sparkles },
                 { key: 'console' as const, label: '控制台', icon: Terminal },
               ]).map(tab => (
                 <button
@@ -338,6 +341,8 @@ export default function SimulationPage() {
                 <ExecutionTrace traceLog={traceLog} />
               ) : activeRightTab === 'guide' ? (
                 <ExperimentGuide experiment={currentExp || null} />
+              ) : activeRightTab === 'ai' ? (
+                <AiDiagnostics code={code} fault={fault} experimentTitle={currentExp?.title} />
               ) : (
                 <ControlPanel
                   error={error}

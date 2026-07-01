@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   ChevronDown, BookOpen, Cpu, ListChecks, Zap, AlertTriangle,
   Lightbulb, Globe, CircuitBoard, HelpCircle, GraduationCap, Clock, MapPin,
+  Flag, Gauge, Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTeachingContent, type TeachingContent } from '@/lib/teaching-content';
@@ -16,6 +17,24 @@ import PreClassQuiz from './PreClassQuiz';
 
 interface Props {
   experiment: ExperimentConfig | null;
+}
+
+// 星级评分（速度/灵活性量化）
+function StarRating({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[9px] text-[#6c7086]">{label}</span>
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Star
+            key={n}
+            className="w-2.5 h-2.5"
+            style={{ color: n <= value ? color : '#313244', fill: n <= value ? color : 'transparent' }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Collapsible section wrapper
@@ -110,9 +129,33 @@ export default function ExperimentGuide({ experiment }: Props) {
                 <span className="text-[#cba6f7]">🗺️</span> {tc.syllabusMapping.knowledgeMap}
               </div>
             )}
-            {tc.syllabusMapping.ideologicalPoint && (
+            {!tc.ideological && tc.syllabusMapping.ideologicalPoint && (
               <div className="mt-1 text-[9px] text-[#6c7086]">
                 <span className="text-[#f38ba8]">🎯</span> 课程思政：{tc.syllabusMapping.ideologicalPoint}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 课程思政（结构化卡片：金句 + 融入点） ── */}
+        {tc.ideological && (
+          <div className="mx-3 mb-2 rounded-lg border border-[#f38ba8]/25 bg-gradient-to-r from-[#f38ba8]/10 to-[#fab387]/10 p-2.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Flag className="w-3.5 h-3.5 text-[#f38ba8]" />
+              <span className="text-[10px] font-bold text-[#cdd6f4]">课程思政</span>
+              <span className="text-[9px] text-[#f38ba8] font-medium ml-auto">{tc.ideological.theme}</span>
+            </div>
+            <ul className="space-y-1">
+              {tc.ideological.insights.map((s, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8] leading-relaxed">
+                  <span className="text-[#f38ba8] mt-0.5 flex-shrink-0">·</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+            {tc.ideological.goldenQuote && (
+              <div className="mt-2 rounded-md border-l-2 border-[#f38ba8] bg-[#f38ba8]/10 px-2 py-1 text-[10px] italic text-[#f9c6d3]">
+                “{tc.ideological.goldenQuote}”
               </div>
             )}
           </div>
@@ -150,6 +193,30 @@ export default function ExperimentGuide({ experiment }: Props) {
             )}
           </div>
         </Section>
+
+        {/* ── 寻址方式星级对比（教学锚点） ── */}
+        {tc.addressingComparison && tc.addressingComparison.length > 0 && (
+          <Section title="寻址方式对比" icon={Gauge} accent="amber">
+            <div className="space-y-1.5">
+              {tc.addressingComparison.map((m, i) => (
+                <div key={i} className="rounded-md border border-[#313244] bg-[#181825] p-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold text-[#f9e2af]">{m.name}</span>
+                    <code className="text-[9px] font-mono text-[#a6e3a1]">{m.example}</code>
+                  </div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <StarRating label="速度" value={m.speed} color="#89dceb" />
+                    <StarRating label="灵活" value={m.flexibility} color="#cba6f7" />
+                  </div>
+                  <p className="text-[9px] leading-relaxed text-[#6c7086]">{m.note}</p>
+                </div>
+              ))}
+              <p className="pt-1 text-[9px] italic leading-relaxed text-[#585b70]">
+                ★ 越多越强 · 速度与灵活性常此消彼长——没有最好的寻址方式，只有最合适的。
+              </p>
+            </div>
+          </Section>
+        )}
 
         {/* ── 动画演示 ── */}
         {tc.animations && tc.animations.length > 0 && (
