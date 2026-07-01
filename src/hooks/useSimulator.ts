@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { processAchievementResponse } from '@/hooks/use-achievement-notifications';
 import { Simulator, type SimulatorState, type ExecutionTraceEntry } from '@/lib/simulator';
@@ -51,6 +51,7 @@ D2: DJNZ R6, D2
     END`);
   const [simulatorState, setSimulatorState] = useState<SimulatorState | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [paused, setPaused] = useState(false); // 停在断点/单步处（"运行"→"继续"）
   const [fault, setFault] = useState('');
   const [result, setResult] = useState<DiagnosticResult | null>(null);
   const [selectedExperiment, setSelectedExperiment] = useState<string>('');
@@ -60,6 +61,54 @@ D2: DJNZ R6, D2
   const [traceLog, setTraceLog] = useState<ExecutionTraceEntry[]>([]);
   const MAX_TRACE_ENTRIES = 200;
   const [breakpoints, setBreakpoints] = useState<Set<number>>(new Set());
+
+  // ── 实时动画运行 ──
+  // 运行速度 = 每一帧连续执行多少条指令。学生写的 DELAY 延时循环因此产生真实的
+  // 时间感：LED 会真的以肉眼可见的节奏闪烁，而不是一次性跑到终点只显示定格状态。
+  const SPEED_PRESETS = [600, 2000, 6000, 16000]; // 慢 / 中 / 快 / 极速
+  const [speed, setSpeed] = useState<number>(SPEED_PRESETS[1]);
+  const speedRef = useRef<number>(SPEED_PRESETS[1]);
+  useEffect(() => { speedRef.current = speed; }, [speed]);
+
+  const runningRef = useRef(false); // 动画循环是否在跑（真·停止的开关）
+  const rafRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  // 卸载时确保动画循环停止，避免离开页面后仍在后台步进
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      runningRef.current = false;
+      if (rafRef.current != null && typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(rafRef.current);
+      }
+      rafRef.current = null;
+    };
+  }, []);
+
+  const cancelLoop = useCallback(() => {
+    runningRef.current = false;
+    if (rafRef.current != null && typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(rafRef.current);
+    }
+    rafRef.current = null;
+  }, []);
+
+  // ── 断点（运行到断点暂停）──
+  // 用 ref 镜像断点集合，让动画循环每帧读取到最新断点（运行中增删断点即时生效）
+  const breakpointsRef = useRef<Set<number>>(new Set());
+  useEffect(() => { breakpointsRef.current = breakpoints; }, [breakpoints]);
+  const resumableRef = useRef(false); // 仿真器是否停在可继续的中间态（断点暂停/单步后）→ 决定"运行"是继续还是重开
+  const loadedCodeRef = useRef<string>(''); // 当前已编译进仿真器的代码
+
+  const toggleBreakpoint = useCallback((line: number) => {
+    setBreakpoints(prev => {
+      const next = new Set(prev);
+      if (next.has(line)) next.delete(line); else next.add(line);
+      return next;
+    });
+  }, []);
 
   // 在hook初始化时就创建Simulator实例（用于兼容测试）
   if (!simulatorRef.current) {
@@ -74,8 +123,36 @@ D2: DJNZ R6, D2
     return simulatorRef.current;
   };
 
-  // 运行仿真
-  const runSimulation = async () => {
+  const portValuesHex = (s: SimulatorState) => ({
+    P0: '0x' + s.portValues.P0.toString(16).toUpperCase().padStart(2, '0'),
+    P1: '0x' + s.portValues.P1.toString(16).toUpperCase().padStart(2, '0'),
+    P2: '0x' + s.portValues.P2.toString(16).toUpperCase().padStart(2, '0'),
+    P3: '0x' + s.portValues.P3.toString(16).toUpperCase().padStart(2, '0'),
+  });
+
+  // 程序自然终止（遇到 END / PC 越界）时收尾
+  const finalizeRun = useCallback((finalState: SimulatorState) => {
+    setPaused(false);
+    setResult({
+      success: true,
+      output: '仿真执行成功',
+      registers: { ...finalState.registers },
+      portValues: portValuesHex(finalState),
+      leds: Array.from({ length: 8 }, (_, i) => ((finalState.portValues.P1 >> i) & 1) === 0),
+      psw: { ...finalState.psw },
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('simulatorRun', { detail: finalState }));
+    }
+    if (selectedExperiment) {
+      recordExperimentCompletion(selectedExperiment).catch(() => { /* 已在内部处理 */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExperiment]);
+
+  // 运行仿真 —— 逐帧批量步进的真实动画执行
+  // 支持：运行到断点暂停；断点/单步暂停后再点"运行"从当前位置继续
+  const runSimulation = () => {
     if (!code.trim()) {
       toast({
         title: '代码为空',
@@ -85,67 +162,77 @@ D2: DJNZ R6, D2
       return;
     }
 
-    setIsRunning(true);
-    setFault('');
-    setPreviousState(simulatorState);
-    // 完整运行会使单步会话失效
-    stepInitializedRef.current = false;
-    stepCodeRef.current = '';
+    const simulator = initializeSimulator();
 
-    try {
-      const simulator = initializeSimulator();
-      
-      // 运行程序并获取最终状态
-      const finalState = await simulator.run(code);
-      
-      // 获取执行结果（包含LED状态等）
-      const executionResult = {
-        registers: { ...finalState.registers },
-        portValues: {
-          P0: '0x' + finalState.portValues.P0.toString(16).toUpperCase().padStart(2, '0'),
-          P1: '0x' + finalState.portValues.P1.toString(16).toUpperCase().padStart(2, '0'),
-          P2: '0x' + finalState.portValues.P2.toString(16).toUpperCase().padStart(2, '0'),
-          P3: '0x' + finalState.portValues.P3.toString(16).toUpperCase().padStart(2, '0'),
-        },
-        leds: Array.from({ length: 8 }, (_, i) => ((finalState.portValues.P1 >> i) & 1) === 0),
-        psw: { ...finalState.psw },
+    const isTerminated = typeof simulator.getState === 'function' ? simulator.getState().terminated : false;
+    // 停在断点/单步处、代码未变、且未终止 → 从当前位置继续；否则从头干净运行
+    const resume = resumableRef.current && loadedCodeRef.current === code && !isTerminated;
+
+    if (!resume) {
+      setFault('');
+      setResult(null);
+      setPreviousState(null);
+      setTraceLog([]);
+      try {
+        simulator.reset();
+        simulator.updateCode(code);
+        loadedCodeRef.current = code;
+        if (typeof simulator.getState === 'function') {
+          setSimulatorState(simulator.getState());
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '代码解析失败';
+        setFault(errorMessage);
+        setResult({ success: false, error: errorMessage });
+        toast({ title: '仿真执行失败', description: errorMessage, variant: 'destructive' });
+        return;
       }
-      
-      setSimulatorState(finalState);
-      setResult({ 
-        success: true, 
-        output: '仿真执行成功',
-        ...executionResult
-      });
-      
-      // 触发状态更新事件
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('simulatorRun', { detail: finalState }));
-      }
-      
-      // 记录实验完成状态
-      if (selectedExperiment) {
-        await recordExperimentCompletion(selectedExperiment);
-      }
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '仿真执行失败';
-      setFault(errorMessage);
-      setResult({ success: false, error: errorMessage });
-      
-      toast({
-        title: '仿真执行失败',
-        description: errorMessage,
-        variant: 'destructive'
-      });
-    } finally {
-      setIsRunning(false);
     }
-  };
 
-  // 跟踪是否已为当前代码初始化单步会话
-  const stepInitializedRef = useRef(false);
-  const stepCodeRef = useRef('');
+    resumableRef.current = false;
+    runningRef.current = true;
+    setIsRunning(true);
+    setPaused(false);
+
+    // 测试环境（无 requestAnimationFrame）下只需保持 isRunning 状态即可
+    if (typeof requestAnimationFrame === 'undefined' || typeof simulator.stepBatch !== 'function') {
+      return;
+    }
+
+    const tick = () => {
+      if (!runningRef.current || !mountedRef.current) return;
+      try {
+        const { terminated, hitBreakpoint } = simulator.stepBatch(speedRef.current, breakpointsRef.current);
+        const state = simulator.getState();
+        setSimulatorState(state);
+        if (hitBreakpoint) {
+          cancelLoop();
+          resumableRef.current = true;
+          setIsRunning(false);
+          setPaused(true);
+          setResult(prev => prev ?? { success: true, output: '已在断点暂停' });
+          toast({ title: '已在断点暂停', description: `第 ${state.currentLine + 1} 行 · 可单步或继续运行` });
+          return;
+        }
+        if (terminated) {
+          cancelLoop();
+          setIsRunning(false);
+          finalizeRun(state);
+          return;
+        }
+      } catch (error) {
+        cancelLoop();
+        setIsRunning(false);
+        const errorMessage = error instanceof Error ? error.message : '仿真执行失败';
+        setFault(errorMessage);
+        setResult({ success: false, error: errorMessage });
+        toast({ title: '仿真执行失败', description: errorMessage, variant: 'destructive' });
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
 
   // 单步执行
   const stepSimulation = () => {
@@ -160,23 +247,23 @@ D2: DJNZ R6, D2
 
     try {
       const simulator = initializeSimulator();
+      cancelLoop(); // 防御：若处于动画运行中先停（正常 UI 下运行时单步已禁用）
 
-      // 首次单步 或 代码已更改 或 上次完整运行后 → 重新加载代码
-      const needsInit = !stepInitializedRef.current
-        || stepCodeRef.current !== code
-        || simulatorState?.terminated;
+      const isTerminated = typeof simulator.getState === 'function' ? simulator.getState().terminated : false;
+      // 首次单步 / 代码已改 / 已终止 → 重新加载；停在断点或上次单步处 → 从当前位置继续
+      const needsInit = loadedCodeRef.current !== code || isTerminated;
 
       if (needsInit) {
         simulator.reset();
         simulator.updateCode(code);
-        stepInitializedRef.current = true;
-        stepCodeRef.current = code;
+        loadedCodeRef.current = code;
         setFault('');
         setResult(null);
 
         // 显示初始状态（PC=0, 未执行任何指令）
-        const initialState = simulator.getState();
-        setSimulatorState(initialState);
+        if (typeof simulator.getState === 'function') {
+          setSimulatorState(simulator.getState());
+        }
       }
 
       setPreviousState(simulatorState);
@@ -186,6 +273,9 @@ D2: DJNZ R6, D2
       setTraceLog(prev => [...prev.slice(-(MAX_TRACE_ENTRIES - 1)), trace]);
 
       setSimulatorState(newState);
+      // 单步后仿真器处于可继续的中间态 → "运行"应从此处继续
+      resumableRef.current = !newState.terminated;
+      setPaused(!newState.terminated);
 
       // 如果程序已终止，通知用户
       if (newState.terminated) {
@@ -228,11 +318,13 @@ D2: DJNZ R6, D2
 
   // 重置仿真器
   const resetSimulation = () => {
+    cancelLoop();
     if (simulatorRef.current) {
       simulatorRef.current.reset();
     }
-    stepInitializedRef.current = false;
-    stepCodeRef.current = '';
+    loadedCodeRef.current = '';
+    resumableRef.current = false;
+    setPaused(false);
     setSimulatorState(null);
     setPreviousState(null);
     setTraceLog([]);
@@ -441,20 +533,22 @@ D2: DJNZ R6, D2
   };
 
   // 运行程序（别名，用于兼容测试）
-  const run = () => {
-    setIsRunning(true);
-    return runSimulation();
-  };
+  const run = () => runSimulation();
 
   // 单步执行（别名，用于兼容测试）
   const step = () => {
     return stepSimulation();
   };
 
-  // 停止执行（用于兼容测试）
+  // 停止执行 —— 真正终止动画循环，画面停在当前帧便于观察
+  // 停止=结束本次会话（下次点"运行"从头开始，而非继续）
   const stop = () => {
+    cancelLoop();
+    resumableRef.current = false;
+    setPaused(false);
     setIsRunning(false);
-    // 停止功能通过重置实现
+    // 补一个结果，让"完成实验"按钮在停止后可用（闪烁类程序不会自然终止）
+    setResult(prev => prev ?? { success: true, output: '已停止' });
   };
 
   // 重置（别名，用于兼容测试）
@@ -548,6 +642,10 @@ D2: DJNZ R6, D2
     experimentStatus,
     isLoadingStatus,
     breakpoints,
+    paused,
+    speed,
+    setSpeed,
+    speedPresets: SPEED_PRESETS,
     setExperimentStatus,
     runSimulation,
     stepSimulation,
@@ -558,6 +656,7 @@ D2: DJNZ R6, D2
     getDiagnostics,
     setBreakpoint,
     removeBreakpoint,
+    toggleBreakpoint,
     updateCode,
     run,
     step,

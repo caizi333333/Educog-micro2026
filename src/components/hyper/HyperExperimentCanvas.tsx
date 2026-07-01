@@ -1,18 +1,50 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Camera, Maximize2, Waypoints, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Activity, Camera, Cpu, Maximize2, Waypoints, ZoomIn, ZoomOut } from 'lucide-react';
 import type { SimulatorState } from '@/lib/simulator';
 import { cn } from '@/lib/utils';
 
+// ── 共阴数码管段码 → 字符 ──
+const SEGMENT_MAP: Record<number, string> = {
+  0x3f: '0', 0x06: '1', 0x5b: '2', 0x4f: '3', 0x66: '4', 0x6d: '5', 0x7d: '6',
+  0x07: '7', 0x7f: '8', 0x6f: '9', 0x77: 'A', 0x7c: 'b', 0x39: 'C', 0x5e: 'd',
+  0x79: 'E', 0x71: 'F',
+};
+const VALID_SEGMENT_CODES = Object.keys(SEGMENT_MAP).map(Number);
+const STEPPER_PATTERNS = [0xf1, 0xf3, 0xf2, 0xf6, 0xf4, 0xfc, 0xf8, 0xf9];
+
+type Peripheral = 'led' | 'segment' | 'stepper' | 'buzzer';
+
 function ledBitsFromState(state: SimulatorState | null): number[] {
   const value = state?.portValues?.P1 ?? 0xff;
+  // 8051 LED 低电平点亮
   return Array.from({ length: 8 }, (_, index) => ((value >> (7 - index)) & 1) === 0 ? 1 : 0);
 }
 
+// 依据端口状态自动判断当前活跃外设，避免定时器/数码管类实验画布上"什么都没有"
+function detectPeripheral(state: SimulatorState | null): Peripheral {
+  if (!state) return 'led';
+  const p0 = state.portValues?.P0 ?? 0xff;
+  const p1 = state.portValues?.P1 ?? 0xff;
+  const p2 = state.portValues?.P2 ?? 0xff;
+  if (p0 !== 0xff && VALID_SEGMENT_CODES.includes(p0)) return 'segment';
+  if (STEPPER_PATTERNS.includes(p1)) return 'stepper';
+  if (p2 !== 0xff && p2 !== 0x00) return 'buzzer';
+  return 'led';
+}
+
+const PERIPHERAL_LABEL: Record<Peripheral, string> = {
+  led: 'P1 · LED 阵列',
+  segment: 'P0 · 数码管',
+  stepper: 'P1 · 步进电机',
+  buzzer: 'P2 · 蜂鸣器',
+};
+
+// ─────────────────────────── LED 板：真实实验图 ───────────────────────────
 function RealisticBoard({ bits }: { bits: number[] }) {
   return (
-    <svg viewBox="0 0 620 420" className="h-full w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg viewBox="0 0 620 420" className="h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <defs>
         <linearGradient id="desk-bg" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#221a12" />
@@ -57,9 +89,10 @@ function RealisticBoard({ bits }: { bits: number[] }) {
   );
 }
 
+// ─────────────────────────── LED 板：准确接线图 ───────────────────────────
 function SchematicBoard({ bits }: { bits: number[] }) {
   return (
-    <svg viewBox="0 0 620 420" className="h-full w-full" aria-hidden="true">
+    <svg viewBox="0 0 620 420" className="h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <rect width="620" height="420" fill="#111820" />
       <g transform="translate(195 58)">
         <rect width="230" height="238" rx="5" fill="#080b0f" stroke="#334155" />
@@ -96,9 +129,180 @@ function SchematicBoard({ bits }: { bits: number[] }) {
   );
 }
 
-export function HyperExperimentCanvas({ simulatorState }: { simulatorState: SimulatorState | null }) {
+// ─────────────────────────── 数码管（深色霓虹）───────────────────────────
+// 段顺序：a b c d e f g（bit0..bit6）
+const SEG_PATHS: Record<string, string> = {
+  a: 'M18 10 L62 10 L54 18 L26 18 Z',
+  b: 'M64 12 L70 18 L70 46 L62 52 L58 46 L58 20 Z',
+  c: 'M64 56 L70 62 L70 90 L64 96 L58 90 L58 62 Z',
+  d: 'M26 90 L54 90 L62 98 L18 98 Z',
+  e: 'M16 56 L22 62 L22 90 L16 96 L10 90 L10 62 Z',
+  f: 'M16 12 L22 20 L22 46 L16 52 L10 46 L10 18 Z',
+  g: 'M18 54 L26 48 L54 48 L62 54 L54 60 L26 60 Z',
+};
+const DIGIT_SEGMENTS: Record<string, string[]> = {
+  '0': ['a', 'b', 'c', 'd', 'e', 'f'], '1': ['b', 'c'], '2': ['a', 'b', 'g', 'e', 'd'],
+  '3': ['a', 'b', 'g', 'c', 'd'], '4': ['f', 'g', 'b', 'c'], '5': ['a', 'f', 'g', 'c', 'd'],
+  '6': ['a', 'f', 'g', 'e', 'd', 'c'], '7': ['a', 'b', 'c'], '8': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+  '9': ['a', 'b', 'c', 'd', 'f', 'g'], 'A': ['a', 'b', 'c', 'e', 'f', 'g'], 'b': ['f', 'g', 'e', 'c', 'd'],
+  'C': ['a', 'f', 'e', 'd'], 'd': ['b', 'c', 'd', 'e', 'g'], 'E': ['a', 'f', 'g', 'e', 'd'], 'F': ['a', 'f', 'g', 'e'],
+};
+
+function SegmentDisplay({ digit }: { digit: string }) {
+  const lit = new Set(DIGIT_SEGMENTS[digit] ?? []);
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="rounded-xl border border-white/[0.08] bg-[#05080a] p-6 shadow-[inset_0_2px_18px_rgba(0,0,0,0.6)]">
+        <svg viewBox="0 0 80 108" className="h-40 w-28" aria-hidden="true">
+          {Object.entries(SEG_PATHS).map(([seg, d]) => (
+            <path
+              key={seg}
+              d={d}
+              fill={lit.has(seg) ? '#ff4d4d' : '#2a1414'}
+              style={lit.has(seg) ? { filter: 'drop-shadow(0 0 6px #ff4d4d)' } : undefined}
+            />
+          ))}
+        </svg>
+      </div>
+      <span className="font-mono text-[11px] text-slate-400">字符 “{digit === ' ' ? '空' : digit}” · P0</span>
+    </div>
+  );
+}
+
+// ─────────────────────────── 步进电机（四相）───────────────────────────
+function StepperDisplay({ p1 }: { p1: number }) {
+  // 高 4 位驱动 A/B/C/D 相，低电平有效
+  const phases = ['A', 'B', 'C', 'D'].map((name, i) => ({ name, active: ((p1 >> (7 - i)) & 1) === 0 }));
+  const activeIdx = phases.findIndex(p => p.active);
+  const angle = activeIdx >= 0 ? activeIdx * 90 : 0;
+  const pos = [{ x: 90, y: 24 }, { x: 156, y: 90 }, { x: 90, y: 156 }, { x: 24, y: 90 }];
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <svg viewBox="0 0 180 180" className="h-44 w-44" aria-hidden="true">
+        <circle cx="90" cy="90" r="70" fill="none" stroke="#1e2b30" strokeWidth="2" />
+        {phases.map((p, i) => (
+          <g key={p.name}>
+            <circle cx={pos[i].x} cy={pos[i].y} r="16" fill={p.active ? '#22d3ee' : '#12242a'} stroke={p.active ? '#67e8f9' : '#28414a'} strokeWidth="2" style={p.active ? { filter: 'drop-shadow(0 0 8px rgba(34,211,238,0.6))' } : undefined} />
+            <text x={pos[i].x} y={pos[i].y + 4} textAnchor="middle" fill={p.active ? '#001014' : '#5a7278'} fontFamily="monospace" fontSize="13" fontWeight="700">{p.name}</text>
+          </g>
+        ))}
+        <g transform={`rotate(${angle} 90 90)`} style={{ transition: 'transform 0.15s ease-out' }}>
+          <line x1="90" y1="90" x2="90" y2="40" stroke="#22d3ee" strokeWidth="4" strokeLinecap="round" />
+          <circle cx="90" cy="90" r="7" fill="#22d3ee" />
+        </g>
+      </svg>
+      <span className="font-mono text-[11px] text-slate-400">当前相：{activeIdx >= 0 ? `${phases[activeIdx].name} 相` : '—'} · P1[7:4]</span>
+    </div>
+  );
+}
+
+// ─────────────────────────── 蜂鸣器 ───────────────────────────
+function BuzzerDisplay({ p2, active }: { p2: number; active: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className={cn(
+        'flex h-28 w-28 items-center justify-center rounded-full border-4 transition-all',
+        active
+          ? 'animate-pulse border-amber-400 bg-amber-400/10 shadow-[0_0_28px_rgba(251,191,36,0.4)]'
+          : 'border-[#28414a] bg-[#0e1a1e]',
+      )}>
+        <span className={cn('text-4xl', active ? 'text-amber-300' : 'text-slate-600')}>{active ? '♪' : '○'}</span>
+      </div>
+      <span className="font-mono text-[11px] text-slate-400">
+        {active ? `发声中 · P2 = 0x${p2.toString(16).toUpperCase().padStart(2, '0')}` : '静音'}
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────── 逻辑分析仪波形条 ───────────────────────────
+function formatLaneLabel(bits: number[]): string {
+  const sorted = [...bits].sort((a, b) => a - b);
+  if (sorted.length === 8) return 'P1[7:0]';
+  return 'P1.' + sorted.join('/');
+}
+
+function WaveStrip({ history }: { history: number[] }) {
+  const lanes = useMemo(() => {
+    if (history.length < 2) return [];
+    // 找出在这段历史里发生过跳变的位
+    const active: number[] = [];
+    for (let bit = 0; bit < 8; bit++) {
+      let seen0 = false, seen1 = false;
+      for (const v of history) { if ((v >> bit) & 1) seen1 = true; else seen0 = true; }
+      if (seen0 && seen1) active.push(bit);
+    }
+    const target = active.length ? active : [0]; // 无跳变则默认展示 P1.0 电平
+    // 把波形完全相同的位合并为同一条（如闪烁时 8 位同步 → 合并成一条）
+    const byWave = new Map<string, number[]>();
+    for (const bit of target) {
+      const key = history.map(v => (v >> bit) & 1).join('');
+      const arr = byWave.get(key);
+      if (arr) arr.push(bit); else byWave.set(key, [bit]);
+    }
+    return Array.from(byWave.entries()).slice(0, 4).map(([wave, bits]) => ({ wave, label: formatLaneLabel(bits) }));
+  }, [history]);
+
+  const W = 300, laneH = 26, pad = 4;
+  return (
+    <div className="border-t border-white/[0.08] bg-[#0a0f12] px-3 py-2">
+      <div className="mb-1 flex items-center gap-1.5">
+        <Activity className="h-3 w-3 text-cyan-300" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">逻辑分析仪 · P1 时序</span>
+      </div>
+      {lanes.length === 0 ? (
+        <div className="py-3 text-center text-[11px] text-slate-600">运行程序后显示引脚电平波形</div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${lanes.length * laneH}`} className="w-full" style={{ height: lanes.length * laneH }} preserveAspectRatio="none">
+          {lanes.map((lane, li) => {
+            const y0 = li * laneH + pad;
+            const hi = y0 + 2, lo = y0 + laneH - pad - 6;
+            const n = lane.wave.length;
+            const step = W / Math.max(n - 1, 1);
+            let d = '';
+            for (let i = 0; i < n; i++) {
+              const x = i * step;
+              const y = lane.wave[i] === '1' ? hi : lo;
+              if (i === 0) d += `M ${x} ${y}`;
+              else d += ` L ${x} ${lane.wave[i - 1] === '1' ? hi : lo} L ${x} ${y}`;
+            }
+            return (
+              <g key={li}>
+                <text x="2" y={y0 + 11} fill="#5a7278" fontFamily="monospace" fontSize="9">{lane.label}</text>
+                <path d={d} fill="none" stroke="#22d3ee" strokeWidth="1.6" style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }} />
+              </g>
+            );
+          })}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────── 主组件 ───────────────────────────
+export function HyperExperimentCanvas({ simulatorState, isRunning = false }: { simulatorState: SimulatorState | null; isRunning?: boolean }) {
   const [mode, setMode] = useState<'schematic' | 'real'>('schematic');
+  const [zoom, setZoom] = useState(1);
+  const [history, setHistory] = useState<number[]>([]);
+
   const bits = useMemo(() => ledBitsFromState(simulatorState), [simulatorState]);
+  const peripheral = useMemo(() => detectPeripheral(simulatorState), [simulatorState]);
+
+  // 采样 P1 电平，驱动逻辑分析仪波形（每帧一个样本，保留最近 200 个）
+  useEffect(() => {
+    if (!simulatorState) { setHistory([]); return; }
+    const sample = simulatorState.portValues?.P1 ?? 0xff;
+    setHistory(prev => {
+      const next = prev.length >= 200 ? prev.slice(prev.length - 199) : prev.slice();
+      next.push(sample);
+      return next;
+    });
+  }, [simulatorState]);
+
+  const p0 = simulatorState?.portValues?.P0 ?? 0xff;
+  const p1 = simulatorState?.portValues?.P1 ?? 0xff;
+  const p2 = simulatorState?.portValues?.P2 ?? 0xff;
+  const isLed = peripheral === 'led';
 
   return (
     <section className="hidden min-w-[360px] flex-[1.05] flex-col overflow-hidden border-l border-white/[0.08] bg-[#0b1014] xl:flex">
@@ -110,47 +314,90 @@ export function HyperExperimentCanvas({ simulatorState }: { simulatorState: Simu
             <div className="text-[10px] text-slate-500">实验画布 · 接线与运行状态</div>
           </div>
         </div>
-        <div className="flex rounded-md border border-white/[0.1] bg-white/[0.04] p-0.5">
-          {[
-            ['real', Camera, '真实实验图'],
-            ['schematic', Waypoints, '准确接线图'],
-          ].map(([key, Icon, label]) => (
-            <button
-              key={key as string}
-              type="button"
-              onClick={() => setMode(key as 'real' | 'schematic')}
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded px-2 text-[11px]',
-                mode === key ? 'bg-cyan-300 text-[#001014]' : 'text-slate-400 hover:text-slate-100',
-              )}
-            >
-              <Icon className="h-3 w-3" />
-              {label as string}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {isRunning && (
+            <span className="flex items-center gap-1 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-2 py-1 text-[10px] font-medium text-cyan-200">
+              <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+              运行中
+            </span>
+          )}
+          {isLed && (
+            <div className="flex rounded-md border border-white/[0.1] bg-white/[0.04] p-0.5">
+              {[
+                ['real', Camera, '真实图'],
+                ['schematic', Waypoints, '接线图'],
+              ].map(([key, Icon, label]) => (
+                <button
+                  key={key as string}
+                  type="button"
+                  onClick={() => setMode(key as 'real' | 'schematic')}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1.5 rounded px-2 text-[11px]',
+                    mode === key ? 'bg-cyan-300 text-[#001014]' : 'text-slate-400 hover:text-slate-100',
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label as string}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
       <div className="relative flex-1 overflow-hidden">
-        <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'real' ? 'opacity-100' : 'opacity-0')}>
-          <RealisticBoard bits={bits} />
-        </div>
-        <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'schematic' ? 'opacity-100' : 'opacity-0')}>
-          <SchematicBoard bits={bits} />
-        </div>
+        {isLed ? (
+          <div
+            className="absolute inset-0"
+            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}
+          >
+            <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'real' ? 'opacity-100' : 'opacity-0')}>
+              <RealisticBoard bits={bits} />
+            </div>
+            <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'schematic' ? 'opacity-100' : 'opacity-0')}>
+              <SchematicBoard bits={bits} />
+            </div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}>
+            {peripheral === 'segment' && <SegmentDisplay digit={SEGMENT_MAP[p0] ?? ' '} />}
+            {peripheral === 'stepper' && <StepperDisplay p1={p1} />}
+            {peripheral === 'buzzer' && <BuzzerDisplay p2={p2} active={p2 !== 0xff && p2 !== 0x00} />}
+          </div>
+        )}
+
         <div className="absolute bottom-3 left-3 flex gap-2">
-          <span className="rounded-md border border-white/[0.08] bg-black/45 px-2 py-1 text-[11px] text-slate-300">
-            {mode === 'real' ? '实验台视图' : '原理/接线图'}
+          <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[11px] text-cyan-100">
+            <Cpu className="mr-1 inline h-3 w-3" />
+            {PERIPHERAL_LABEL[peripheral]}
           </span>
-          <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[11px] text-cyan-100">P1 LED</span>
         </div>
         <div className="absolute bottom-3 right-3 flex gap-1">
-          {[ZoomIn, ZoomOut, Maximize2].map((Icon, index) => (
-            <button key={index} className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100">
-              <Icon className="h-3.5 w-3.5" />
-            </button>
-          ))}
+          <button
+            onClick={() => setZoom(z => Math.min(2, +(z + 0.2).toFixed(2)))}
+            title="放大"
+            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))}
+            title="缩小"
+            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            title="重置视图"
+            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
+
+      <WaveStrip history={history} />
     </section>
   );
 }

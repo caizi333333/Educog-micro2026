@@ -71,6 +71,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // F9：在光标所在行切换断点
+    if (e.key === 'F9') {
+      e.preventDefault();
+      onBreakpointToggle(cursorLine);
+      return;
+    }
     // Tab insertion
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -83,7 +89,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         ta.selectionStart = ta.selectionEnd = start + 4;
       });
     }
-  }, [code, onCodeChange]);
+  }, [code, onCodeChange, onBreakpointToggle, cursorLine]);
 
   const lines = code.split('\n');
   const errorLines = new Set(validation.errors.map(e => e.line));

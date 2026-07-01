@@ -808,8 +808,17 @@ export class Simulator {
   }
 
   public step(): SimulatorState {
+    this.stepRaw();
+    return this.getState();
+  }
+
+  /**
+   * 执行单条指令，不做状态深拷贝（getState 的 JSON 深拷贝很贵）。
+   * 供 step() 与 stepBatch() 复用，是实时动画运行的性能关键路径。
+   */
+  private stepRaw(): void {
     if (this.state.terminated) {
-      return this.getState();
+      return;
     }
 
     // 单步模式不做自动循环检测 — 让用户自行控制
@@ -823,10 +832,9 @@ export class Simulator {
         const maxAddress = Math.max(...Array.from(this.instructionMap.keys()));
         if (this.state.pc > maxAddress) {
           this.state.terminated = true;
-          console.log(`程序执行完成，PC: ${this.state.pc.toString(16).toUpperCase()}H`);
-          return this.getState();
+          return;
         }
-        
+
         // 尝试查找最近的有效指令
         let nearestPC = this.state.pc;
         for (let offset = 1; offset <= 10; offset++) {
@@ -839,24 +847,47 @@ export class Simulator {
             break;
           }
         }
-        
+
         if (nearestPC !== this.state.pc && this.instructionMap.has(nearestPC)) {
-          console.warn(`PC地址${this.state.pc.toString(16).toUpperCase()}H无指令，跳转到${nearestPC.toString(16).toUpperCase()}H`);
           this.state.pc = nearestPC;
           const nearestInstr = this.instructionMap.get(nearestPC);
           if (nearestInstr) {
             this.execute(nearestInstr);
-            return this.getState();
+            return;
           }
         }
-        
+
         this.state.terminated = true;
-        console.error(`No instruction found at PC: ${this.state.pc.toString(16).toUpperCase()}H`);
-        return this.getState();
+        return;
     }
 
     this.execute(instr);
-    return this.getState();
+  }
+
+  /**
+   * 批量连续执行至多 count 条指令，或直到程序终止。
+   * 不做深拷贝、不做 simulate() 里那种"检测到重复周期即终止"的判定——
+   * 因为对 LED 闪烁 / 方波这类稳态循环，我们要它持续运行以驱动实时动画，
+   * 由前端每帧调用一次、并在其后取一次 getState() 刷新 UI。
+   */
+  public stepBatch(count: number, breakpointLines?: Set<number>): { terminated: boolean; executed: number; hitBreakpoint: boolean } {
+    const cap = Math.max(1, Math.min(Math.floor(count) || 1, 200000));
+    const checkBp = !!breakpointLines && breakpointLines.size > 0;
+    let executed = 0;
+    for (let i = 0; i < cap; i++) {
+      if (this.state.terminated) break;
+      this.stepRaw();
+      executed++;
+      if (this.state.terminated) break;
+      if (checkBp) {
+        // 即将执行的下一条指令是否落在断点行（instruction.line 为 0 基，断点行为 1 基）
+        const next = this.instructionMap.get(this.state.pc);
+        if (next && breakpointLines!.has(next.line + 1)) {
+          return { terminated: false, executed, hitBreakpoint: true };
+        }
+      }
+    }
+    return { terminated: this.state.terminated, executed, hitBreakpoint: false };
   }
 
   /** Step with full diff trace for execution visualization */
