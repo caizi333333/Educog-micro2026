@@ -72,24 +72,24 @@ export default function WeakNodesPage() {
       } catch {
         // ignore
       }
-      // Fallback: fetch latest quiz attempt from DB to rebuild weak areas
+      // 兜底：从最近一次测验行为（UserActivity.details 存有 weakAreas）跨会话恢复薄弱点
       if (user) {
         const token = localStorage.getItem('accessToken');
         if (token) {
-          fetch('/api/quiz/history', {
+          fetch('/api/user/activities?action=COMPLETE_QUIZ&limit=1', {
             headers: { Authorization: `Bearer ${token}` },
           })
             .then((res) => res.json())
             .then((data) => {
-              const attempts = data?.data?.attempts;
-              if (Array.isArray(attempts) && attempts.length > 0) {
-                const latest = attempts[0];
-                const details = JSON.parse(latest.details || '{}');
+              const activities = data?.activities || data?.data;
+              if (Array.isArray(activities) && activities.length > 0) {
+                let details: { weakAreas?: string[]; scoresByKA?: unknown; score?: number } = {};
+                try { details = JSON.parse(activities[0].details || '{}'); } catch { /* ignore */ }
                 if (details.weakAreas?.length || details.scoresByKA) {
                   setSnapshot({
                     weakKAs: details.weakAreas || [],
-                    totalScore: latest.score,
-                    timestamp: latest.completedAt,
+                    totalScore: details.score,
+                    timestamp: activities[0].createdAt,
                   });
                 }
               }
