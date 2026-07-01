@@ -61,11 +61,21 @@ export interface Objectives3D {
   ability: string[];
 }
 
+/** 教学重点与难点（说课"说重难点"） */
+export interface KeyPoints {
+  /** 教学重点 */
+  focus: string[];
+  /** 教学难点 */
+  difficulty: string[];
+}
+
 export interface TeachingContent {
   /** 课程大纲映射 — 对应《微控制器应用技术》教学大纲 */
   syllabusMapping?: SyllabusMapping;
   /** 三维教学目标（知识/能力），未填则由 objectives/knowledgePoints 自动派生 */
   objectives3D?: Objectives3D;
+  /** 教学重点与难点，未填则由 knowledgePoints/commonMistakes 自动派生 */
+  keyPoints?: KeyPoints;
   /** 寻址方式星级对比（仅指令系统类实验，如 exp02） */
   addressingComparison?: AddressingMode[];
   /** 结构化课程思政（优先于 syllabusMapping.ideologicalPoint 渲染） */
@@ -108,6 +118,10 @@ export const teachingContents: Record<string, TeachingContent> = {
     objectives3D: {
       knowledge: ['理解单片机 I/O 口结构与准双向端口特性', '掌握 LED 低电平点亮原理与延时程序的构成'],
       ability: ['能用汇编编写 P1 口控制程序实现流水灯', '学会通过仿真观察端口电平的变化'],
+    },
+    keyPoints: {
+      focus: ['P1 口的输出控制与准双向端口的使用', '延时子程序的构成与调用'],
+      difficulty: ['理解 LED"低电平点亮"与端口电平的对应关系', '延时时间与循环次数的换算'],
     },
     ideological: {
       theme: '科技报国 · 国产自主可控',
@@ -289,6 +303,10 @@ RRC A — 带进位循环右移 (9 位移位)
       knowledge: ['理解 8051 的 7 种寻址方式及其区别', '掌握数据传送、算术与逻辑运算指令的用法'],
       ability: ['能根据场景选择合适的寻址方式编写程序', '学会用单步调试观察寄存器与内存的变化'],
     },
+    keyPoints: {
+      focus: ['7 种寻址方式的识别与选用', '立即寻址与直接寻址的区别（有无 # 号）'],
+      difficulty: ['寄存器间接寻址 @Ri 与变址寻址 @A+DPTR 的理解', '按场景权衡速度与灵活性'],
+    },
     ideological: {
       theme: '工匠精神 · 辩证工程思维 · 自主可控',
       insights: [
@@ -411,6 +429,10 @@ MOV DPTR, #data16 ; 16位立即数→DPTR (3字节)
     objectives3D: {
       knowledge: ['理解定时器/计数器工作方式与 TMOD/TCON 寄存器', '掌握定时初值的计算方法'],
       ability: ['能配置定时器产生精确的方波与定时信号', '学会用中断方式处理定时事件'],
+    },
+    keyPoints: {
+      focus: ['TMOD/TCON 的配置与定时初值计算', '定时器中断的响应流程'],
+      difficulty: ['方式1 溢出后需软件重装初值', '中断向量与中断服务程序的对应'],
     },
     ideological: {
       theme: '精益求精 · 精确的力量',
@@ -577,6 +599,10 @@ IE 寄存器 (A8H, 可位寻址):
     objectives3D: {
       knowledge: ['理解七段数码管段码编码与共阴/共阳区别', '掌握动态扫描显示与查表（MOVC）程序设计'],
       ability: ['能编写多位数码管动态显示程序', '学会用定时器中断驱动稳定的扫描刷新'],
+    },
+    keyPoints: {
+      focus: ['段码编码与查表（MOVC）程序设计', '动态扫描的位选与段选配合'],
+      difficulty: ['动态扫描的刷新时序（消隐与残影）', '共阴/共阳段码的区别'],
     },
     ideological: {
       theme: '工匠精神 · 严谨细致',

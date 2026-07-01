@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   ChevronDown, BookOpen, Cpu, ListChecks, Zap, AlertTriangle,
   Lightbulb, Globe, CircuitBoard, HelpCircle, GraduationCap, Clock, MapPin,
-  Flag, Gauge, Star,
+  Flag, Gauge, Star, Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTeachingContent, type TeachingContent } from '@/lib/teaching-content';
@@ -90,6 +90,10 @@ export default function ExperimentGuide({ experiment }: Props) {
   const knowledgeGoals = tc.objectives3D?.knowledge ?? experiment.knowledgePoints.slice(0, 3).map((k) => `理解并掌握${k}`);
   const abilityGoals = tc.objectives3D?.ability ?? experiment.objectives;
   const ideologicalGoal = tc.ideological?.theme;
+
+  // 教学重点/难点：优先结构化字段，否则由知识点/常见错误派生
+  const focusPoints = tc.keyPoints?.focus ?? experiment.knowledgePoints.slice(0, 2);
+  const difficultyPoints = tc.keyPoints?.difficulty ?? tc.commonMistakes.slice(0, 2).map((m) => m.mistake);
 
   return (
     <ScrollArea className="h-full">
@@ -210,6 +214,40 @@ export default function ExperimentGuide({ experiment }: Props) {
                         <span className="mt-0.5 text-[#f38ba8]">•</span>
                         <span>{ideologicalGoal}（详见下方课程思政）</span>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(focusPoints.length > 0 || difficultyPoints.length > 0) && (
+              <div>
+                <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold text-[#cdd6f4]">
+                  <Target className="h-3 w-3 text-[#f9e2af]" /> 教学重点与难点
+                </div>
+                <div className="space-y-1.5">
+                  {focusPoints.length > 0 && (
+                    <div className="rounded-md border border-[#f9e2af]/15 bg-[#f9e2af]/5 p-2">
+                      <div className="mb-0.5 text-[9px] font-semibold text-[#f9e2af]">重点</div>
+                      <ul className="space-y-0.5">
+                        {focusPoints.map((g, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
+                            <span className="mt-0.5 text-[#f9e2af]">•</span><span>{g}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {difficultyPoints.length > 0 && (
+                    <div className="rounded-md border border-[#f38ba8]/15 bg-[#f38ba8]/5 p-2">
+                      <div className="mb-0.5 text-[9px] font-semibold text-[#f38ba8]">难点</div>
+                      <ul className="space-y-0.5">
+                        {difficultyPoints.map((g, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[10px] text-[#a6adc8]">
+                            <span className="mt-0.5 text-[#f38ba8]">•</span><span>{g}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>
