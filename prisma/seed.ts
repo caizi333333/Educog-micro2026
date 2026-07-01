@@ -143,6 +143,12 @@ const QUIZ_IDS = [
   'quiz-ch6', 'quiz-ch7', 'quiz-ch8', 'quiz-ch9',
 ];
 
+// 各章知识原子(KA)数量，对应 src/lib/quiz-data.ts 里每章的 subpoint 编号范围
+// (chapter N 的 KA 记作 "N.1".."N.k")，用于生成 COMPLETE_QUIZ 活动日志里的 weakAreas/scoresByKA
+const KA_COUNT_BY_CHAPTER: Record<number, number> = {
+  1: 5, 2: 6, 3: 6, 4: 6, 5: 6, 6: 4, 7: 4, 8: 5, 9: 4,
+};
+
 // Experiment IDs
 const EXPERIMENT_IDS = [
   'proj01', 'proj02', 'proj03', 'proj04', 'proj05',
@@ -499,6 +505,30 @@ async function main() {
           },
         });
         quizCount++;
+
+        // 同步生成一条 COMPLETE_QUIZ 活动日志，供 /weak-nodes、/learning-path 读取
+        // weakAreas/scoresByKA —— 与 /api/quiz/submit 真实提交路径写入的字段结构保持一致，
+        // 否则种子学生在这两个页面上会一直显示"还没有测验记录"的空状态。
+        // 阈值 <70 分记为薄弱知识点，与 src/app/quiz/quiz-client.tsx 前端判定口径一致。
+        const chapterNum = ci + 1;
+        const kaCount = KA_COUNT_BY_CHAPTER[chapterNum] ?? 5;
+        const weakAreas: string[] = [];
+        const scoresByKA: Record<string, { correct: number; total: number; score: number }> = {};
+        for (let k = 1; k <= kaCount; k++) {
+          const ka = `${chapterNum}.${k}`;
+          const kaScore = randNormal(score, 15, 0, 100);
+          scoresByKA[ka] = { correct: kaScore >= 50 ? 1 : 0, total: 1, score: kaScore };
+          if (kaScore < 70) weakAreas.push(ka);
+        }
+
+        await prisma.userActivity.create({
+          data: {
+            userId: stu.id,
+            action: 'COMPLETE_QUIZ',
+            details: JSON.stringify({ quizId, score, weakAreas, scoresByKA }),
+            createdAt: completedAt,
+          },
+        });
       }
     }
   }
