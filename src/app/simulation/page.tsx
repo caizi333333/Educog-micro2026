@@ -17,6 +17,8 @@ import {
   MemoryStick,
   ScrollText,
   Sparkles,
+  X,
+  Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimulator } from '@/hooks/useSimulator';
@@ -48,6 +50,13 @@ export default function SimulationPage() {
   const [localSelectedExperiment, setLocalSelectedExperiment] = useState<string | null>(selectedExperiment || null);
   const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide' | 'ai'>('registers');
   const [experiments, setExperiments] = useState<ExperimentConfig[]>(staticExperiments);
+  const [guideDismissed, setGuideDismissed] = useState<boolean>(
+    () => typeof window !== 'undefined' && localStorage.getItem('sim_guide_dismissed') === '1',
+  );
+  const dismissGuide = () => {
+    setGuideDismissed(true);
+    try { localStorage.setItem('sim_guide_dismissed', '1'); } catch { /* ignore */ }
+  };
 
   // Fetch experiments from API on mount
   useEffect(() => {
@@ -260,6 +269,24 @@ export default function SimulationPage() {
             )}
           </div>
         </div>
+
+        {/* ── 评委速览（首次显示·可关闭） ── */}
+        {!guideDismissed && (
+          <div className="flex flex-shrink-0 items-center gap-2 border-b border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-1.5 text-[11px] text-[#a6c8ca]">
+            <Lightbulb className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">
+              <span className="font-medium text-cyan-200">评委速览：</span>
+              点 <b className="text-[#d8f3f2]">运行</b> 看实时动画（速度可调）· 点代码行号或 <b className="text-[#d8f3f2]">F9</b> 设断点、支持运行到断点 · <b className="text-[#d8f3f2]">教程</b> 页含完整教学设计（三维目标·重难点·课程思政）· <b className="text-[#d8f3f2]">AI助教</b> 诊断代码
+            </div>
+            <button
+              onClick={dismissGuide}
+              title="不再显示"
+              className="flex-shrink-0 rounded p-1 text-[#7f9698] transition-colors hover:bg-white/[0.07] hover:text-[#d8f3f2]"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ── Main content: 3-panel layout ── */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
