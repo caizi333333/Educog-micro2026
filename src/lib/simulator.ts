@@ -162,6 +162,7 @@ export class Simulator {
   private codeMemory: Uint8Array = new Uint8Array(65536); // Code memory for DB/DW/MOVC
   private pcHistory: number[] = []; // PC历史记录用于循环检测
   private stepCount: number = 0;
+  private inInterrupt: boolean = false; // 是否正处于中断服务程序内（阻止重入，RETI 清除）
   // Standard 8051 SFR address map (no duplicates, correct addresses per datasheet)
   private sfrMap: Map<number, string> = new Map([
     [0x80, 'P0'], [0x81, 'SP'], [0x82, 'DPL'], [0x83, 'DPH'],
@@ -193,6 +194,7 @@ export class Simulator {
     this.state = this.getInitialState();
     this.pcHistory = [];
     this.stepCount = 0;
+    this.inInterrupt = false;
   }
 
   public updateCode(code: string): void {
@@ -203,6 +205,7 @@ export class Simulator {
     this.symbols.clear();
     this.codeMemory.fill(0);
     this.pcHistory = []; // 重置PC历史记录
+    this.inInterrupt = false;
     this.state = this.getInitialState();
     this.parseCode();
   }
@@ -853,6 +856,7 @@ export class Simulator {
           const nearestInstr = this.instructionMap.get(nearestPC);
           if (nearestInstr) {
             this.execute(nearestInstr);
+            this.afterInstruction();
             return;
           }
         }
@@ -862,6 +866,7 @@ export class Simulator {
     }
 
     this.execute(instr);
+    this.afterInstruction();
   }
 
   /**
@@ -888,6 +893,80 @@ export class Simulator {
       }
     }
     return { terminated: this.state.terminated, executed, hitBreakpoint: false };
+  }
+
+  /**
+   * 每执行完一条指令后调用：推进定时器、按需派发中断。
+   * 让定时器/中断类实验（方波、数码管动态扫描、定时中断）真正产生可观察的行为。
+   */
+  private afterInstruction(): void {
+    this.tickTimers();
+    this.dispatchInterrupts();
+  }
+
+  /**
+   * 定时器按"每条指令 1 个计数"近似推进（教学用简化模型，非周期精确）。
+   * 支持方式1（16位）与方式2（8位自动重装）；溢出置 TFx，供轮询或中断使用。
+   */
+  private tickTimers(): void {
+    const t = this.state.timers;
+    if (t.TR0) this.tickTimer(0, t.TMOD & 0x03);
+    if (t.TR1) this.tickTimer(1, (t.TMOD >> 4) & 0x03);
+  }
+
+  private tickTimer(n: 0 | 1, mode: number): void {
+    const t = this.state.timers;
+    const THk = n === 0 ? 'TH0' : 'TH1';
+    const TLk = n === 0 ? 'TL0' : 'TL1';
+    if (mode === 2) {
+      // 方式2：8位自动重装，TL 溢出后从 TH 重装
+      const next = t[TLk] + 1;
+      if (next > 0xff) {
+        t[TLk] = t[THk] & 0xff;
+        this.setTimerOverflow(n);
+      } else {
+        t[TLk] = next & 0xff;
+      }
+    } else {
+      // 方式0/1：按16位计数（方式0的13位在教学里按16位近似处理）
+      let val = ((t[THk] << 8) | t[TLk]) & 0xffff;
+      val += 1;
+      if (val > 0xffff) {
+        t[THk] = 0;
+        t[TLk] = 0;
+        this.setTimerOverflow(n);
+      } else {
+        t[THk] = (val >> 8) & 0xff;
+        t[TLk] = val & 0xff;
+      }
+    }
+  }
+
+  private setTimerOverflow(n: 0 | 1): void {
+    const t = this.state.timers;
+    if (n === 0) { t.TF0 = true; t.overflowCount0++; }
+    else { t.TF1 = true; t.overflowCount1++; }
+  }
+
+  /**
+   * 中断派发：在指令边界检查已使能且已挂起的中断，压入 PC 并跳转到中断向量。
+   * 简化模型：不支持中断嵌套（inInterrupt 阻止重入），优先级按固定自然顺序。
+   * 定时器中断被响应时自动清除对应 TFx（与硬件一致）。
+   */
+  private dispatchInterrupts(): void {
+    const it = this.state.interrupts;
+    const t = this.state.timers;
+    if (!it.EA || this.inInterrupt) return;
+
+    // 自然优先级：外部0 → 定时器0 → 外部1 → 定时器1 → 串口
+    if (it.ET0 && t.TF0) { t.TF0 = false; this.enterInterrupt(0x000b); return; }
+    if (it.ET1 && t.TF1) { t.TF1 = false; this.enterInterrupt(0x001b); return; }
+  }
+
+  private enterInterrupt(vector: number): void {
+    this.pushToStack16(this.state.pc); // 压入返回地址（当前 PC）
+    this.inInterrupt = true;
+    this.state.pc = vector & 0xffff;
   }
 
   /** Step with full diff trace for execution visualization */
@@ -2411,10 +2490,10 @@ export class Simulator {
     this.state.terminated = true;
   }
 
-  /** RETI — return from interrupt (same as RET for simulator, 1 byte) */
+  /** RETI — return from interrupt: pop PC 并解除中断态，允许后续中断再次派发 */
   private executeRETI(): void {
+    this.inInterrupt = false; // 重新允许中断响应（本简化模型不支持嵌套）
     this.executeRET(); // Pop PC from stack, same behavior as RET
-    // In real hardware, RETI also re-enables the interrupt system
   }
 
   /** JBC bit, rel — jump if bit set AND clear bit (3 bytes) */

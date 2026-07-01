@@ -216,31 +216,43 @@ function BuzzerDisplay({ p2, active }: { p2: number; active: boolean }) {
 }
 
 // ─────────────────────────── 逻辑分析仪波形条 ───────────────────────────
-function formatLaneLabel(bits: number[]): string {
-  const sorted = [...bits].sort((a, b) => a - b);
-  if (sorted.length === 8) return 'P1[7:0]';
-  return 'P1.' + sorted.join('/');
+const PORT_NAMES = ['P0', 'P1', 'P2', 'P3'] as const;
+
+function formatLaneLabel(pins: { port: number; bit: number }[]): string {
+  // 同端口的连续 8 位 → 紧凑写成 Pn[7:0]
+  const byPort = new Map<number, number[]>();
+  for (const p of pins) { (byPort.get(p.port) ?? byPort.set(p.port, []).get(p.port)!).push(p.bit); }
+  const parts: string[] = [];
+  for (const [port, bits] of byPort) {
+    const sorted = [...bits].sort((a, b) => a - b);
+    if (sorted.length === 8) parts.push(`${PORT_NAMES[port]}[7:0]`);
+    else parts.push(`${PORT_NAMES[port]}.${sorted.join('/')}`);
+  }
+  return parts.join(' ');
 }
 
-function WaveStrip({ history }: { history: number[] }) {
+// history: 每个样本为 [P0,P1,P2,P3]，扫描全部端口所有位，取发生过跳变的引脚
+function WaveStrip({ history }: { history: number[][] }) {
   const lanes = useMemo(() => {
     if (history.length < 2) return [];
-    // 找出在这段历史里发生过跳变的位
-    const active: number[] = [];
-    for (let bit = 0; bit < 8; bit++) {
-      let seen0 = false, seen1 = false;
-      for (const v of history) { if ((v >> bit) & 1) seen1 = true; else seen0 = true; }
-      if (seen0 && seen1) active.push(bit);
+    const active: { port: number; bit: number }[] = [];
+    for (let port = 0; port < 4; port++) {
+      for (let bit = 0; bit < 8; bit++) {
+        let seen0 = false, seen1 = false;
+        for (const sample of history) { if ((sample[port] >> bit) & 1) seen1 = true; else seen0 = true; }
+        if (seen0 && seen1) active.push({ port, bit });
+      }
     }
-    const target = active.length ? active : [0]; // 无跳变则默认展示 P1.0 电平
-    // 把波形完全相同的位合并为同一条（如闪烁时 8 位同步 → 合并成一条）
-    const byWave = new Map<string, number[]>();
-    for (const bit of target) {
-      const key = history.map(v => (v >> bit) & 1).join('');
+    // 无任何跳变时，默认展示 P1.0 电平（保持一条基线）
+    const target = active.length ? active : [{ port: 1, bit: 0 }];
+    // 波形完全相同的引脚合并为一条（如闪烁时 P1 八位同步）
+    const byWave = new Map<string, { port: number; bit: number }[]>();
+    for (const pin of target) {
+      const key = history.map(s => (s[pin.port] >> pin.bit) & 1).join('');
       const arr = byWave.get(key);
-      if (arr) arr.push(bit); else byWave.set(key, [bit]);
+      if (arr) arr.push(pin); else byWave.set(key, [pin]);
     }
-    return Array.from(byWave.entries()).slice(0, 4).map(([wave, bits]) => ({ wave, label: formatLaneLabel(bits) }));
+    return Array.from(byWave.entries()).slice(0, 4).map(([wave, pins]) => ({ wave, label: formatLaneLabel(pins) }));
   }, [history]);
 
   const W = 300, laneH = 26, pad = 4;
@@ -248,7 +260,7 @@ function WaveStrip({ history }: { history: number[] }) {
     <div className="border-t border-white/[0.08] bg-[#0a0f12] px-3 py-2">
       <div className="mb-1 flex items-center gap-1.5">
         <Activity className="h-3 w-3 text-cyan-300" />
-        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">逻辑分析仪 · P1 时序</span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">逻辑分析仪 · 端口时序</span>
       </div>
       {lanes.length === 0 ? (
         <div className="py-3 text-center text-[11px] text-slate-600">运行程序后显示引脚电平波形</div>
@@ -283,15 +295,16 @@ function WaveStrip({ history }: { history: number[] }) {
 export function HyperExperimentCanvas({ simulatorState, isRunning = false }: { simulatorState: SimulatorState | null; isRunning?: boolean }) {
   const [mode, setMode] = useState<'schematic' | 'real'>('schematic');
   const [zoom, setZoom] = useState(1);
-  const [history, setHistory] = useState<number[]>([]);
+  const [history, setHistory] = useState<number[][]>([]);
 
   const bits = useMemo(() => ledBitsFromState(simulatorState), [simulatorState]);
   const peripheral = useMemo(() => detectPeripheral(simulatorState), [simulatorState]);
 
-  // 采样 P1 电平，驱动逻辑分析仪波形（每帧一个样本，保留最近 200 个）
+  // 采样 P0–P3 全部端口电平，驱动逻辑分析仪波形（每帧一个样本，保留最近 200 个）
   useEffect(() => {
     if (!simulatorState) { setHistory([]); return; }
-    const sample = simulatorState.portValues?.P1 ?? 0xff;
+    const pv = simulatorState.portValues;
+    const sample = [pv?.P0 ?? 0xff, pv?.P1 ?? 0xff, pv?.P2 ?? 0xff, pv?.P3 ?? 0xff];
     setHistory(prev => {
       const next = prev.length >= 200 ? prev.slice(prev.length - 199) : prev.slice();
       next.push(sample);
