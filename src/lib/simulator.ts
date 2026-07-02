@@ -163,6 +163,11 @@ export class Simulator {
   private pcHistory: number[] = []; // PC历史记录用于循环检测
   private stepCount: number = 0;
   private inInterrupt: boolean = false; // 是否正处于中断服务程序内（阻止重入，RETI 清除）
+  private instrCount: number = 0; // 累计已执行指令数（教学模型：1条指令≈1个机器周期≈1µs @12MHz）
+  private lastBuzzerToggleAt: number = -1; // 蜂鸣器引脚上一次电平翻转时的指令计数
+  private buzzerPin: string | null = null; // 实验声明的蜂鸣器输出引脚（如 P2.0），跨 reset 保持
+  // 瞬时按键的待恢复队列：拉低若干条指令（模型时间）后自动回高
+  private pendingPulses: { port: 'P0' | 'P1' | 'P2' | 'P3'; bit: number; remaining: number }[] = [];
   // Standard 8051 SFR address map (no duplicates, correct addresses per datasheet)
   private sfrMap: Map<number, string> = new Map([
     [0x80, 'P0'], [0x81, 'SP'], [0x82, 'DPL'], [0x83, 'DPH'],
@@ -195,6 +200,10 @@ export class Simulator {
     this.pcHistory = [];
     this.stepCount = 0;
     this.inInterrupt = false;
+    this.instrCount = 0;
+    this.lastBuzzerToggleAt = -1;
+    this.pendingPulses = [];
+    if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
   }
 
   public updateCode(code: string): void {
@@ -206,7 +215,11 @@ export class Simulator {
     this.codeMemory.fill(0);
     this.pcHistory = []; // 重置PC历史记录
     this.inInterrupt = false;
+    this.instrCount = 0;
+    this.lastBuzzerToggleAt = -1;
+    this.pendingPulses = [];
     this.state = this.getInitialState();
+    if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
     this.parseCode();
   }
 
@@ -439,7 +452,7 @@ export class Simulator {
         this.state.uart.TI = (byteValue & 0x02) !== 0;
         this.state.uart.RI = (byteValue & 0x01) !== 0;
         return true;
-      case 'SBUF': this.state.uart.SBUF = byteValue; return true;
+      case 'SBUF': this.transmitSbuf(byteValue); return true;
       case 'IE':
         this.state.interrupts.IE = byteValue;
         this.state.interrupts.EA = (byteValue & 0x80) !== 0;
@@ -477,6 +490,7 @@ export class Simulator {
       const sfrAddr = this.sfrNameToAddr.get(sfrBitMatch[1]);
       if (sfrAddr !== undefined && (sfrAddr & 0x07) === 0) return true;
     }
+    if (this.parseRamBitOperand(upper)) return true; // RAM 位寻址区 dot 写法（如 24H.0）
     if ([
       'CY', 'C', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'P',
       'TI', 'RI', 'TR0', 'TR1', 'TF0', 'TF1',
@@ -489,6 +503,19 @@ export class Simulator {
     const bitNum = this.parseNumber(upper);
     if (Number.isNaN(bitNum) || bitNum < 0 || bitNum > 0xFF) return false;
     return bitNum <= 0x7F || this.sfrMap.has(bitNum & 0xF8);
+  }
+
+  /**
+   * 解析 "NNH.b" 形式的内部 RAM 位操作数（仅 0x20-0x2F 位寻址区），如 24H.0、22H.0。
+   * 实验代码大量使用这种写法（JB 24H.0 / CPL 22H.0 / MOV C,21H.0），
+   * 此前会被静默忽略，导致蜂鸣器开关、电机运行标志等位操作全部失效。
+   */
+  private parseRamBitOperand(upper: string): { addr: number; bit: number } | null {
+    const m = upper.match(/^([0-9A-F]+H|\d+)\.([0-7])$/i);
+    if (!m) return null;
+    const addr = this.parseNumber(m[1]);
+    if (Number.isNaN(addr) || addr < 0x20 || addr > 0x2f) return null;
+    return { addr, bit: parseInt(m[2], 10) };
   }
 
   /** Resolve EQU/BIT/DATA symbols in an operand string */
@@ -900,8 +927,89 @@ export class Simulator {
    * 让定时器/中断类实验（方波、数码管动态扫描、定时中断）真正产生可观察的行为。
    */
   private afterInstruction(): void {
+    this.instrCount++;
+    // 蜂鸣器停振判定：超过 50ms（模型时间，50000 条指令）无翻转即视为静音
+    if (this.state.buzzer.active && this.instrCount - this.lastBuzzerToggleAt > 50000) {
+      this.state.buzzer.active = false;
+      this.state.buzzer.frequency = 0;
+    }
+    // 瞬时按键计时：到时自动回高
+    if (this.pendingPulses.length > 0) {
+      for (const p of this.pendingPulses) p.remaining--;
+      const expired = this.pendingPulses.filter(p => p.remaining <= 0);
+      if (expired.length > 0) {
+        for (const p of expired) this.setPortBit(p.port, p.bit, true);
+        this.pendingPulses = this.pendingPulses.filter(p => p.remaining > 0);
+      }
+    }
     this.tickTimers();
     this.dispatchInterrupts();
+  }
+
+  /**
+   * 外部输入：改写某端口位的锁存电平（幂等），供画布按键"按下拉低、松开回高"。
+   * 只动 portValues，不触碰执行引擎——程序里的 MOV A,P3 / JNB P3.x 会读到新电平。
+   */
+  public setPortBit(port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean): void {
+    if (bit < 0 || bit > 7) return;
+    if (level) {
+      this.state.portValues[port] |= (1 << bit);
+    } else {
+      this.state.portValues[port] &= ~(1 << bit);
+    }
+  }
+
+  /**
+   * 模拟一次瞬时按键：把端口位拉低 durationInstr 条指令（模型时间 ≈ 同数值 µs）后自动回高。
+   * 时长按指令数计而非墙钟，保证在任何运行速度下都短于实验代码里的消抖延时循环，
+   * 单击只触发一次（与真实硬件快速点按一致）。
+   */
+  public pulsePortBit(port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, durationInstr: number = 2500): void {
+    if (bit < 0 || bit > 7) return;
+    this.setPortBit(port, bit, false);
+    const existing = this.pendingPulses.find(p => p.port === port && p.bit === bit);
+    if (existing) {
+      existing.remaining = Math.max(existing.remaining, durationInstr);
+    } else {
+      this.pendingPulses.push({ port, bit, remaining: durationInstr });
+    }
+  }
+
+  /** 声明蜂鸣器输出引脚（来自实验配置，如 exp07 的 P2.0），跨 reset/updateCode 保持 */
+  public setBuzzerPin(pin: string | null): void {
+    this.buzzerPin = pin;
+    if (pin) this.state.buzzer.outputPin = pin;
+  }
+
+  /**
+   * 蜂鸣器引脚电平翻转记录：由相邻两次翻转的指令间隔推算方波频率。
+   * 教学模型 1 条指令≈1µs（12MHz、12分频），故 f = 1e6 / (2×间隔)。间隔是真实
+   * 仿真执行的产物（定时器溢出→中断→CPL 引脚），不是预设值。
+   */
+  private recordBuzzerToggle(): void {
+    if (this.lastBuzzerToggleAt >= 0) {
+      const interval = this.instrCount - this.lastBuzzerToggleAt;
+      if (interval > 0) {
+        this.state.buzzer.frequency = Math.round(1e6 / (2 * interval));
+        this.state.buzzer.active = true;
+      }
+    }
+    this.lastBuzzerToggleAt = this.instrCount;
+  }
+
+  /**
+   * 写 SBUF = 启动一次发送：字符进入发送缓冲区、发送完成置 TI（教学简化：立即完成）。
+   * 这让轮询 JNB TI 的发送子程序能正常推进，终端视图直接渲染 transmitBuffer。
+   * 注：只置 TI 标志（JNB/JB TI 走命名位读取），不回写 SCON.1 镜像位，
+   * 保持 MOV SBUF 对 SCON 字节的既有语义（存量用例依赖）。
+   */
+  private transmitSbuf(value: number): void {
+    const u = this.state.uart;
+    u.SBUF = value & 0xFF;
+    u.transmitBuffer += String.fromCharCode(value & 0xFF);
+    if (u.transmitBuffer.length > 4000) u.transmitBuffer = u.transmitBuffer.slice(-4000);
+    u.TI = true;
+    u.dataTransmitting = true;
   }
 
   /**
@@ -1245,6 +1353,11 @@ export class Simulator {
         }
       }
     }
+    // RAM 位寻址区 dot 写法（20H.0~2FH.7，如 JB 24H.0）
+    const ramBit = this.parseRamBitOperand(upper);
+    if (ramBit) {
+      return (this.state.ram[ramBit.addr] & (1 << ramBit.bit)) !== 0;
+    }
     // Named bits
     switch (upper) {
       case 'CY': case 'C': return this.state.psw.CY;
@@ -1297,10 +1410,15 @@ export class Simulator {
     if (portMatch) {
       const port = `P${portMatch[1]}` as keyof typeof this.state.portValues;
       const bit = parseInt(portMatch[2], 10);
+      const before = (this.state.portValues[port] >> bit) & 1;
       if (value) {
         this.state.portValues[port] |= (1 << bit);
       } else {
         this.state.portValues[port] &= ~(1 << bit);
+      }
+      // 蜂鸣器引脚电平真实翻转（CPL/SETB/CLR）→ 记录一次振荡沿
+      if (before !== (value ? 1 : 0) && upper === this.state.buzzer.outputPin.toUpperCase()) {
+        this.recordBuzzerToggle();
       }
       return;
     }
@@ -1317,6 +1435,16 @@ export class Simulator {
         }
         return;
       }
+    }
+    // RAM 位寻址区 dot 写法（20H.0~2FH.7，如 CPL 22H.0 / SETB 24H.0）
+    const ramBit = this.parseRamBitOperand(upper);
+    if (ramBit) {
+      if (value) {
+        this.state.ram[ramBit.addr] |= (1 << ramBit.bit);
+      } else {
+        this.state.ram[ramBit.addr] &= ~(1 << ramBit.bit);
+      }
+      return;
     }
     // Named bits
     switch (upper) {
@@ -1613,8 +1741,8 @@ export class Simulator {
             this.state.uart.TI = (value & 0x02) !== 0;
             this.state.uart.RI = (value & 0x01) !== 0;
             return;
-        case 'SBUF': 
-            this.state.uart.SBUF = value;
+        case 'SBUF':
+            this.transmitSbuf(value);
             return;
         case 'IE': 
             this.state.interrupts.IE = value;

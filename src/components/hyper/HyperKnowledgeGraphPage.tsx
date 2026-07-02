@@ -242,7 +242,7 @@ function DetailPanel({
 
   if (!point) {
     return (
-      <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-sm text-slate-400">
+      <aside className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-6 transition-all text-sm text-slate-400">
         在画布或左侧列表选中一个节点，这里会展示节点说明、前置知识、配套资源、应用实验和下一节点的推荐路径。
       </aside>
     );
@@ -264,7 +264,7 @@ function DetailPanel({
   const matchingQuestions = quizQuestions.filter((q) => q.ka === point.id).slice(0, 4);
 
   return (
-    <aside className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+    <aside className="glass-hover overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition-all">
       <div className="border-b border-white/[0.08] p-5">
         <div className="flex items-center gap-2 font-mono text-[11px] text-cyan-200">
           <span>NODE · CH{point.chapter}</span>
@@ -552,7 +552,9 @@ type VisualEdge = {
   dashed?: boolean;
 };
 
-type GraphTone = 'cyan' | 'emerald' | 'amber' | 'red' | 'violet' | 'slate';
+type GraphTone =
+  | 'cyan' | 'emerald' | 'amber' | 'red' | 'violet' | 'slate'
+  | 'sky' | 'teal' | 'lime' | 'orange' | 'fuchsia' | 'rose';
 type GraphNodeSize = 'core' | 'root' | 'branch' | 'leaf' | 'chapter';
 
 const graphTone: Record<GraphTone, { color: string; bg: string; border: string; text: string; minimap: string }> = {
@@ -562,6 +564,13 @@ const graphTone: Record<GraphTone, { color: string; bg: string; border: string; 
   red: { color: '#f87171', bg: 'rgba(239, 68, 68, 0.14)', border: 'rgba(248, 113, 113, 0.34)', text: '#fee2e2', minimap: '#ef4444' },
   violet: { color: '#c084fc', bg: 'rgba(168, 85, 247, 0.14)', border: 'rgba(192, 132, 252, 0.36)', text: '#f3e8ff', minimap: '#a855f7' },
   slate: { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)', border: 'rgba(148, 163, 184, 0.22)', text: '#cbd5e1', minimap: '#64748b' },
+  // 以下 6 色从原有色系扩展，供 10 个章节各配一个稳定主题色
+  sky: { color: '#7dd3fc', bg: 'rgba(14, 165, 233, 0.14)', border: 'rgba(125, 211, 252, 0.34)', text: '#e0f2fe', minimap: '#0ea5e9' },
+  teal: { color: '#5eead4', bg: 'rgba(20, 184, 166, 0.14)', border: 'rgba(94, 234, 212, 0.34)', text: '#ccfbf1', minimap: '#14b8a6' },
+  lime: { color: '#bef264', bg: 'rgba(132, 204, 22, 0.13)', border: 'rgba(190, 242, 100, 0.32)', text: '#ecfccb', minimap: '#84cc16' },
+  orange: { color: '#fdba74', bg: 'rgba(249, 115, 22, 0.13)', border: 'rgba(253, 186, 116, 0.32)', text: '#ffedd5', minimap: '#f97316' },
+  fuchsia: { color: '#f0abfc', bg: 'rgba(217, 70, 239, 0.13)', border: 'rgba(240, 171, 252, 0.34)', text: '#fae8ff', minimap: '#d946ef' },
+  rose: { color: '#fda4af', bg: 'rgba(244, 63, 94, 0.13)', border: 'rgba(253, 164, 175, 0.32)', text: '#ffe4e6', minimap: '#f43f5e' },
 };
 
 const graphNodeSize: Record<GraphNodeSize, { width: number; height: number }> = {
@@ -771,7 +780,139 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   );
 }
 
-const mapNodeTypes = { mapNode: MapNode, mapGroup: MapGroupNode };
+// —— “全部章节”全景视图的章节卡 ——
+// 卡头：色条 + 章节号徽标 + 章名 + L2/L3 计数（点击聚焦该章）；
+// 卡身：预览该章 L2 节点名（真实数据，超出容量折叠成计数）。
+type ChapterCardRow = {
+  id: string;
+  name: string;
+  l3Count: number;
+  visible: boolean;
+  selected: boolean;
+  mastery?: number;
+};
+
+type ChapterCardData = {
+  chapter: number;
+  title: string;
+  tone: GraphTone;
+  l2Count: number;
+  l3Count: number;
+  progress: number | null;
+  rows: ChapterCardRow[];
+  hiddenCount: number;
+  cardVisible: boolean;
+  cardActive: boolean;
+  onFocusChapter?: (chapter: number) => void;
+  onSelectPoint?: (id: string) => void;
+  [key: string]: unknown;
+};
+
+const chapterCardSize = { width: 250, height: 400 };
+
+function ChapterCardNode({ data }: NodeProps<RFNode<ChapterCardData>>) {
+  const tone = graphTone[data.tone];
+  const ChapterIcon = getChapterIcon(data.chapter);
+  // 八个隐形连接桩：学习主线走左右/上下直连，跨章依赖弧线借顶部/底部绕行
+  const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
+  return (
+    <>
+      <Handle id="tt" type="target" position={Position.Top} className={handleCls} />
+      <Handle id="st" type="source" position={Position.Top} className={handleCls} />
+      <Handle id="tb" type="target" position={Position.Bottom} className={handleCls} />
+      <Handle id="sb" type="source" position={Position.Bottom} className={handleCls} />
+      <Handle id="tl" type="target" position={Position.Left} className={handleCls} />
+      <Handle id="sl" type="source" position={Position.Left} className={handleCls} />
+      <Handle id="tr" type="target" position={Position.Right} className={handleCls} />
+      <Handle id="sr" type="source" position={Position.Right} className={handleCls} />
+      <div
+        className="flex flex-col overflow-hidden rounded-xl border backdrop-blur-sm transition"
+        style={{
+          width: chapterCardSize.width,
+          height: chapterCardSize.height,
+          opacity: data.cardVisible ? 1 : 0.3,
+          borderColor: data.cardActive ? tone.color : tone.border,
+          background: `linear-gradient(168deg, ${tone.bg}, rgba(7, 11, 16, 0.92) 58%)`,
+          boxShadow: data.cardActive
+            ? `0 0 0 1px ${tone.color}66, 0 16px 44px ${tone.color}30`
+            : '0 10px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+        }}
+      >
+        {/* 卡头色条：章主题色渐隐 */}
+        <div className="h-[5px] w-full shrink-0" style={{ background: `linear-gradient(90deg, ${tone.color}, ${tone.color}1f)` }} />
+        <button
+          type="button"
+          onClick={() => data.onFocusChapter?.(data.chapter)}
+          className="group flex w-full shrink-0 items-center gap-3 border-b border-white/[0.07] px-3.5 py-3 text-left transition hover:bg-white/[0.04]"
+        >
+          <span
+            className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg border"
+            style={{ borderColor: tone.border, backgroundColor: 'rgba(0, 0, 0, 0.35)', color: tone.color }}
+          >
+            <ChapterIcon className="h-4 w-4" />
+            <span className="mt-0.5 font-mono text-[9px] leading-none tracking-wider">CH{data.chapter}</span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-lg font-semibold leading-6 text-slate-50">{data.title}</span>
+            <span className="mt-1 flex items-center gap-1.5 font-mono text-[10px]" style={{ color: tone.color }}>
+              <span>L2×{data.l2Count}</span>
+              <span className="opacity-40">·</span>
+              <span>L3×{data.l3Count}</span>
+              {data.progress !== null && (
+                <>
+                  <span className="opacity-40">·</span>
+                  <span>进度{data.progress}%</span>
+                </>
+              )}
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 transition group-hover:translate-x-0.5" style={{ color: tone.color, opacity: 0.7 }} />
+        </button>
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-2.5 py-2.5">
+          {data.rows.map((row) => {
+            const dotTone = masteryTone(row.mastery);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => data.onSelectPoint?.(row.id)}
+                className={cn(
+                  'flex min-h-0 flex-1 items-center gap-2 rounded-md border px-2.5 text-left transition',
+                  !row.selected && 'border-white/[0.05] bg-black/20 hover:bg-white/[0.06]',
+                )}
+                style={row.selected ? { borderColor: tone.color, background: tone.bg } : undefined}
+              >
+                {/* 掌握度圆点：有测验成绩时按 masteryTone 变色，否则用章主题色 */}
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: dotTone ? graphTone[dotTone].color : tone.color, opacity: row.visible ? 0.9 : 0.35 }}
+                />
+                <span className={cn('min-w-0 flex-1 truncate text-[13px] leading-5', row.visible ? 'text-slate-200' : 'text-slate-600')}>
+                  {row.name}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-slate-500">{row.l3Count}</span>
+              </button>
+            );
+          })}
+          {data.hiddenCount > 0 && (
+            <div className="shrink-0 px-2.5 font-mono text-[10px] text-slate-500">…还有 {data.hiddenCount} 个 L2 节点</div>
+          )}
+        </div>
+        {/* 底部学习进度条（真实学习进度记录，无记录不渲染） */}
+        {data.progress !== null && (
+          <div className="h-[3px] w-full shrink-0 bg-black/40">
+            <div
+              className="h-full"
+              style={{ width: `${Math.max(2, Math.min(100, data.progress))}%`, background: tone.color, opacity: 0.85 }}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+const mapNodeTypes = { mapNode: MapNode, mapGroup: MapGroupNode, chapterCard: ChapterCardNode };
 
 type HoverPayload = {
   x: number;
@@ -786,6 +927,8 @@ function GraphMapStage({
   selectedId,
   focusIds,
   heightClassName = 'h-[660px] md:h-[760px]',
+  fitPadding = 0.18,
+  fitMaxZoom = 1.1,
 }: {
   nodes: RFNode[];
   edges: RFEdge[];
@@ -793,6 +936,9 @@ function GraphMapStage({
   selectedId?: string;
   focusIds?: Set<string>;
   heightClassName?: string;
+  // 初始 fitView 的留白与最大缩放：全景视图要贴边填满，径向视图要留呼吸感
+  fitPadding?: number;
+  fitMaxZoom?: number;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
@@ -822,8 +968,27 @@ function GraphMapStage({
   return (
     <div
       ref={stageRef}
-      className={cn('relative overflow-hidden bg-[radial-gradient(ellipse_60%_40%_at_30%_15%,rgba(34,211,238,0.10),transparent_70%),radial-gradient(ellipse_50%_30%_at_80%_85%,rgba(168,85,247,0.06),transparent_70%),#05080d]', heightClassName)}
+      className={cn(
+        'kg-map-stage relative overflow-hidden bg-[radial-gradient(ellipse_60%_40%_at_30%_15%,rgba(34,211,238,0.10),transparent_70%),radial-gradient(ellipse_50%_30%_at_80%_85%,rgba(168,85,247,0.06),transparent_70%),#05080d]',
+        heightClassName,
+      )}
     >
+      {/* ReactFlow Controls 按钮默认白底，在深色画布上很扎眼；
+          Tailwind 任意变体写不进带双下划线的类名，这里用作用域样式压成暗色，
+          三个图谱视图共享同一观感 */}
+      <style>{`
+        .kg-map-stage .react-flow__controls-button {
+          background: #0c1117;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          color: #cbd5e1;
+        }
+        .kg-map-stage .react-flow__controls-button svg {
+          fill: currentColor;
+        }
+        .kg-map-stage .react-flow__controls-button:hover {
+          background: #16202b;
+        }
+      `}</style>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -852,7 +1017,7 @@ function GraphMapStage({
         nodesConnectable={false}
         elementsSelectable
         fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+        fitViewOptions={{ padding: fitPadding, maxZoom: fitMaxZoom }}
         minZoom={0.32}
         maxZoom={2.4}
         proOptions={{ hideAttribution: true }}
@@ -940,9 +1105,13 @@ function graphEdge(
   };
 }
 
+// 每章一个稳定主题色：10 色和谐色板，章号固定取色，
+// 全景卡片与单章树两种视图保持同色，便于评委建立“章=色”的映射。
+// 刻意不用 red——红色留给掌握度 <60 的预警节点，避免语义冲突。
+const chapterTonePalette: GraphTone[] = ['cyan', 'emerald', 'amber', 'violet', 'rose', 'teal', 'orange', 'sky', 'lime', 'fuchsia'];
+
 function knowledgeTone(chapter: number): GraphTone {
-  const tones: GraphTone[] = ['cyan', 'emerald', 'amber', 'violet', 'red'];
-  return tones[(chapter - 1) % tones.length] || 'cyan';
+  return chapterTonePalette[(chapter - 1) % chapterTonePalette.length] || 'cyan';
 }
 
 function problemTone(category: ProblemNode['category']): GraphTone {
@@ -990,6 +1159,7 @@ function FullKnowledgeMap({
   visibleIds,
   progress,
   onSelect,
+  onFocusChapter,
   chapterFilter,
   masteryByKa,
 }: {
@@ -998,9 +1168,20 @@ function FullKnowledgeMap({
   visibleIds: Set<string>;
   progress: HyperLearningProgressRecord[];
   onSelect: (point: KnowledgePoint) => void;
+  // 全景视图点击章节卡头时触发，父组件负责切到单章树视图
+  onFocusChapter?: (chapter: number) => void;
   chapterFilter: number | 'all';
   masteryByKa?: Record<string, number>;
 }) {
+  // 回调经 ref 转发进布局 useMemo，避免父组件每次渲染都因回调身份变化
+  // 触发整图重排（性能红线：布局不随渲染帧重算）。
+  const selectRef = useRef(onSelect);
+  const focusChapterRef = useRef(onFocusChapter);
+  useEffect(() => {
+    selectRef.current = onSelect;
+    focusChapterRef.current = onFocusChapter;
+  });
+
   // Focus mode: when a node is selected we keep its kinship set bright and
   // dim everything else. Kinship = self + every ancestor up to the root +
   // every descendant + every prerequisite (one hop). Empty set means "no
@@ -1040,68 +1221,136 @@ function FullKnowledgeMap({
     const chapterNumbers = Array.from(new Set(points.map((point) => point.chapter))).sort((a, b) => a - b);
 
     if (chapterFilter === 'all') {
-      // Compact 5x2 overview: each chapter is a small card with L1 root and L2 nodes
-      // arrayed below it. L3 leaves are intentionally omitted to keep the canvas
-      // scannable at fit-view zoom. Selecting a chapter from the sidebar drills into
-      // the expanded single-chapter shelf below.
-      const COL_COUNT = 5;
-      const COL_W = 460;
-      const ROW_H = 360;
+      // 十章全景：每章一张章节卡，两行蛇形排布（偶数行左→右、奇数行右→左），
+      // 世界坐标宽高比 ≈1.7，贴近画布视口，fitView 后铺满不留大片空黑。
+      // 卡间画“学习主线”（CH1→CH10 首尾相接）与真实跨章前置依赖（淡虚线）。
+      const COLS = Math.min(5, Math.max(1, Math.ceil(chapterNumbers.length / 2)));
+      const CARD_W = chapterCardSize.width;
+      const CARD_H = chapterCardSize.height;
+      const GAP_X = 92;
+      const GAP_Y = 132;
+      const MAX_ROWS = 6;
+      const cellByChapter = new Map<number, { col: number; row: number }>();
+      const selectedChapter = pointById[selectedId]?.chapter;
 
       chapterNumbers.forEach((chapter, index) => {
-        const col = index % COL_COUNT;
-        const row = Math.floor(index / COL_COUNT);
-        const cellX = 60 + col * COL_W;
-        const cellY = 60 + row * ROW_H;
+        const row = Math.floor(index / COLS);
+        const rawCol = index % COLS;
+        const col = row % 2 === 1 ? COLS - 1 - rawCol : rawCol;
+        cellByChapter.set(chapter, { col, row });
+
         const chapterPoints = points.filter((point) => point.chapter === chapter);
         const root = chapterPoints.find((point) => point.level === 1);
         const levelTwo = chapterPoints.filter((point) => point.level === 2);
+        const levelThreeCount = chapterPoints.filter((point) => point.level === 3).length;
         const tone = knowledgeTone(chapter);
         const chapterProgress = progressForChapter(progress, chapter);
+        const shownRows = levelTwo.slice(0, MAX_ROWS);
 
-        nodes.push(createMapGroup(`kg-card-${chapter}`, cellX, cellY, {
-          label: `CH${chapter} · ${root?.name || '章节'}`,
-          subtitle: chapterProgress === null
-            ? `${chapterPoints.length} 个知识点 · ${levelTwo.length} 个二级`
-            : `${chapterPoints.length} 个知识点 · 进度 ${chapterProgress}%`,
-          tone,
-          width: COL_W - 30,
-          height: ROW_H - 30,
-        }));
-
-        if (root) {
-          nodes.push(createMapNode(root.id, cellX + (COL_W - 30) / 2, cellY + 70, {
-            label: root.name,
-            subtitle: `CH${chapter}${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
-            levelLabel: 'L1',
-            tone: masteryTone(masteryByKa?.[root.id]) ?? tone,
-            size: 'root',
-            selected: root.id === selectedId,
-            visible: visibleIds.has(root.id),
+        nodes.push({
+          id: `kg-ch-card-${chapter}`,
+          type: 'chapterCard',
+          position: { x: 40 + col * (CARD_W + GAP_X), y: 40 + row * (CARD_H + GAP_Y) },
+          draggable: false,
+          selectable: false,
+          style: { zIndex: 10 },
+          data: {
             chapter,
-            mastery: masteryByKa?.[root.id],
-          }));
-        }
+            title: root?.name || `第 ${chapter} 章`,
+            tone,
+            l2Count: levelTwo.length,
+            l3Count: levelThreeCount,
+            progress: chapterProgress,
+            rows: shownRows.map((p) => ({
+              id: p.id,
+              name: p.name,
+              l3Count: points.filter((c) => c.parentId === p.id).length,
+              visible: visibleIds.has(p.id),
+              selected: p.id === selectedId,
+              mastery: masteryByKa?.[p.id],
+            })),
+            hiddenCount: levelTwo.length - shownRows.length,
+            cardVisible: chapterPoints.some((point) => visibleIds.has(point.id)),
+            cardActive: selectedChapter === chapter,
+            onFocusChapter: (ch: number) => focusChapterRef.current?.(ch),
+            onSelectPoint: (id: string) => {
+              const p = pointById[id];
+              if (p) selectRef.current(p);
+            },
+          } satisfies ChapterCardData,
+        });
+      });
 
-        const cols = Math.min(3, Math.max(1, levelTwo.length));
-        levelTwo.forEach((parent, parentIndex) => {
-          const c = parentIndex % cols;
-          const r = Math.floor(parentIndex / cols);
-          const px = cellX + 50 + c * ((COL_W - 130) / Math.max(cols, 1));
-          const py = cellY + 170 + r * 56;
-          nodes.push(createMapNode(parent.id, px, py, {
-            label: parent.name,
-            levelLabel: 'L2',
-            tone: masteryTone(masteryByKa?.[parent.id]) ?? tone,
-            size: 'branch',
-            selected: parent.id === selectedId,
-            visible: visibleIds.has(parent.id),
-            chapter,
-            mastery: masteryByKa?.[parent.id],
-          }));
-          if (root) {
-            edges.push(graphEdge(root.id, parent.id, tone, visibleIds.has(root.id) && visibleIds.has(parent.id), 1.2));
-          }
+      // 学习主线：按章号顺序首尾相接。同行走左右桩，换行走下上桩，
+      // 蛇形排布保证主线不横穿其他章节卡。
+      const mainColor = graphTone.cyan.color;
+      chapterNumbers.forEach((chapter, index) => {
+        const next = chapterNumbers[index + 1];
+        if (next === undefined) return;
+        const a = cellByChapter.get(chapter)!;
+        const b = cellByChapter.get(next)!;
+        const [sourceHandle, targetHandle] = a.row === b.row
+          ? (b.col > a.col ? ['sr', 'tl'] : ['sl', 'tr'])
+          : ['sb', 'tt'];
+        edges.push({
+          id: `kg-mainline-${chapter}-${next}`,
+          source: `kg-ch-card-${chapter}`,
+          target: `kg-ch-card-${next}`,
+          sourceHandle,
+          targetHandle,
+          type: 'default',
+          animated: true,
+          style: { stroke: mainColor, strokeWidth: 2.2, opacity: 0.42, strokeLinecap: 'round' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: mainColor, width: 14, height: 14 },
+        });
+      });
+
+      // 跨章前置依赖：由知识点 prerequisites 字段聚合到章级（真实数据，
+      // 无依赖则不画）。与主线相邻章重合的对不重复画；同行跨越对从
+      // 卡顶/卡底弧线绕行，跨行对穿中缝，线宽随依赖条数微增。
+      const chapterIndex = new Map(chapterNumbers.map((ch, i) => [ch, i]));
+      const prereqPairs = new Map<string, number>();
+      points.forEach((p) => {
+        (p.prerequisites || []).forEach((preId) => {
+          const pre = pointById[preId];
+          if (!pre || pre.chapter === p.chapter) return;
+          const key = `${pre.chapter}->${p.chapter}`;
+          prereqPairs.set(key, (prereqPairs.get(key) || 0) + 1);
+        });
+      });
+      const prereqColor = graphTone.amber.color;
+      // 同行跨越对的绕行弧逐条错开高度，避免多条弧线叠在同一水平线上
+      let sameRowArcCount = 0;
+      prereqPairs.forEach((count, key) => {
+        const [fromCh, toCh] = key.split('->').map(Number);
+        const ia = chapterIndex.get(fromCh);
+        const ib = chapterIndex.get(toCh);
+        if (ia === undefined || ib === undefined || Math.abs(ia - ib) <= 1) return;
+        const a = cellByChapter.get(fromCh)!;
+        const b = cellByChapter.get(toCh)!;
+        const sameRow = a.row === b.row;
+        const [sourceHandle, targetHandle] = sameRow
+          ? (a.row === 0 ? ['st', 'tt'] : ['sb', 'tb'])
+          : ['sb', 'tt'];
+        edges.push({
+          id: `kg-prereq-${fromCh}-${toCh}`,
+          source: `kg-ch-card-${fromCh}`,
+          target: `kg-ch-card-${toCh}`,
+          sourceHandle,
+          targetHandle,
+          // 同行跨越：贝塞尔在同一水平线上会退化成横穿卡片的直线，
+          // 改用 smoothstep 从卡外侧绕行；跨行对走中缝，贝塞尔即可。
+          type: sameRow ? 'smoothstep' : 'default',
+          ...(sameRow ? { pathOptions: { offset: 34 + (sameRowArcCount++ % 3) * 22, borderRadius: 18 } } : {}),
+          animated: false,
+          style: {
+            stroke: prereqColor,
+            strokeWidth: 1 + Math.min(count, 3) * 0.35,
+            opacity: 0.3,
+            strokeDasharray: '7 7',
+            strokeLinecap: 'round',
+          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: prereqColor, width: 10, height: 10 },
         });
       });
     } else {
@@ -1187,50 +1436,37 @@ function FullKnowledgeMap({
       });
     }
 
-    // Cross-chapter prerequisite edges (amber, dashed) — show real semantic links
-    // beyond hierarchy. Only draw when both endpoints are in the rendered node set
-    // (i.e., overview mode where all L1/L2 are present).
-    if (chapterFilter === 'all') {
-      const renderedIds = new Set(nodes.map((n) => n.id));
-      const prereqTone: GraphTone = 'amber';
-      points.forEach((p) => {
-        (p.prerequisites || []).forEach((preId) => {
-          const pre = pointById[preId];
-          if (!pre || pre.chapter === p.chapter) return;
-          if (!renderedIds.has(p.id) || !renderedIds.has(pre.id)) return;
-          const both = visibleIds.has(p.id) && visibleIds.has(pre.id);
-          edges.push(graphEdge(pre.id, p.id, prereqTone, both, 1.2, true));
-        });
-      });
-    }
-
     // Focus pass: when there's a selected node, dim every map-node and edge
     // that isn't part of the selected node's kinship set, and attach the
     // raw description so hover tooltips can read it without re-deriving.
-    if (focusIds.size > 0) {
-      nodes.forEach((node) => {
-        if (node.type !== 'mapNode') return;
-        const data = node.data as MapNodeData;
-        const point = pointById[node.id];
-        if (point && !data.description) data.description = point.description;
-        if (!focusIds.has(node.id)) data.dimmed = true;
-      });
-      edges.forEach((edge) => {
-        if (focusIds.has(edge.source) && focusIds.has(edge.target)) return;
-        edge.style = {
-          ...edge.style,
-          opacity: typeof edge.style?.opacity === 'number' ? edge.style.opacity * 0.18 : 0.08,
-        };
-        edge.animated = false;
-      });
-    } else {
-      // No selection — still attach descriptions so hover tooltips work.
-      nodes.forEach((node) => {
-        if (node.type !== 'mapNode') return;
-        const data = node.data as MapNodeData;
-        const point = pointById[node.id];
-        if (point && !data.description) data.description = point.description;
-      });
+    // 全景视图（'all'）没有 mapNode，卡片自己处理选中态，主线/依赖线
+    // 也不应被亲缘集淡化 —— 整段只对单章视图生效。
+    if (chapterFilter !== 'all') {
+      if (focusIds.size > 0) {
+        nodes.forEach((node) => {
+          if (node.type !== 'mapNode') return;
+          const data = node.data as MapNodeData;
+          const point = pointById[node.id];
+          if (point && !data.description) data.description = point.description;
+          if (!focusIds.has(node.id)) data.dimmed = true;
+        });
+        edges.forEach((edge) => {
+          if (focusIds.has(edge.source) && focusIds.has(edge.target)) return;
+          edge.style = {
+            ...edge.style,
+            opacity: typeof edge.style?.opacity === 'number' ? edge.style.opacity * 0.18 : 0.08,
+          };
+          edge.animated = false;
+        });
+      } else {
+        // No selection — still attach descriptions so hover tooltips work.
+        nodes.forEach((node) => {
+          if (node.type !== 'mapNode') return;
+          const data = node.data as MapNodeData;
+          const point = pointById[node.id];
+          if (point && !data.description) data.description = point.description;
+        });
+      }
     }
 
     return { nodes, edges };
@@ -1246,7 +1482,9 @@ function FullKnowledgeMap({
       }}
       selectedId={selectedId}
       focusIds={focusIds}
-      heightClassName="h-[620px] md:h-[780px]"
+      // 跟随外层容器高度，避免内层画布高于容器把 MiniMap/Controls 裁掉
+      heightClassName="h-full"
+      fitPadding={chapterFilter === 'all' ? 0.06 : 0.18}
     />
   );
 }
@@ -1378,7 +1616,7 @@ function ProblemGraphView({
 
   return (
     <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_340px] md:px-6">
-      <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
+      <aside className="glass-hover order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 transition-all xl:order-none xl:sticky xl:top-20 xl:self-start">
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <Input
@@ -1425,7 +1663,7 @@ function ProblemGraphView({
       </aside>
 
       <section className="order-1 space-y-5 xl:order-none">
-        <div className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="glass-hover overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition-all">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">问题节点网络</h2>
@@ -1440,7 +1678,7 @@ function ProblemGraphView({
           <ProblemGraphCanvas selectedId={selected?.id || ''} visibleIds={visibleProblemIds} onSelect={onSelect} />
         </div>
 
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition-all">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
@@ -1467,7 +1705,7 @@ function ProblemGraphView({
       </section>
 
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] transition-all">
           <div className="border-b border-white/[0.08] p-5">
             <div className="font-mono text-[11px] text-cyan-200">PROBLEM · {selected?.id || 'N/A'}</div>
             <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择问题'}</h2>
@@ -1685,7 +1923,7 @@ function IdeologicalGraphView({
 
   return (
     <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_340px] md:px-6">
-      <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:order-none xl:sticky xl:top-20 xl:self-start">
+      <aside className="glass-hover order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 transition-all xl:order-none xl:sticky xl:top-20 xl:self-start">
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <Input
@@ -1735,7 +1973,7 @@ function IdeologicalGraphView({
       </aside>
 
       <section className="order-1 space-y-5 xl:order-none">
-        <div className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="glass-hover overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition-all">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0c1117] px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-50">思政节点网络</h2>
@@ -1748,7 +1986,7 @@ function IdeologicalGraphView({
           <IdeologicalGraphCanvas selectedId={selected?.id || ''} visibleIds={visibleIdeologicalIds} onSelect={onSelect} />
         </div>
 
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition-all">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <BookOpen className="h-4 w-4 text-cyan-200" />
@@ -1773,7 +2011,7 @@ function IdeologicalGraphView({
       </section>
 
       <aside className="order-3 space-y-4 xl:order-none xl:col-span-2 2xl:col-span-1">
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] transition-all">
           <div className="border-b border-white/[0.08] p-5">
             <div className="font-mono text-[11px] text-cyan-200">SIP · {selected?.id || 'N/A'}</div>
             <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择主题'}</h2>
@@ -1838,7 +2076,7 @@ function IdeologicalGraphView({
             </div>
           )}
         </div>
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition-all">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Target className="h-4 w-4 text-cyan-200" />
             思政图谱统计
@@ -2088,7 +2326,7 @@ export function HyperKnowledgeGraphPage() {
     });
   }, [chapter, query, knowledgePoints]);
   const visibleKnowledgeIds = useMemo(() => new Set(filteredList.map((point) => point.id)), [filteredList]);
-  const chapterNumbers = useMemo(() => Array.from(new Set(knowledgePoints.map((point) => point.chapter))).sort((a, b) => a - b), []);
+  const chapterNumbers = useMemo(() => Array.from(new Set(knowledgePoints.map((point) => point.chapter))).sort((a, b) => a - b), [knowledgePoints]);
   const levelCounts = useMemo(() => ({
     l1: knowledgePoints.filter((point) => point.level === 1).length,
     l2: knowledgePoints.filter((point) => point.level === 2).length,
@@ -2258,6 +2496,9 @@ export function HyperKnowledgeGraphPage() {
                   type="button"
                   onClick={() => {
                     goToPoint(point.id);
+                    // L1 即章节根：点击列表里的章节直接聚焦到该章单章树，
+                    // 而不是只在原地高亮
+                    if (point.level === 1) setChapter(point.chapter);
                     setIsMobileSidebarOpen(false);
                   }}
                   className={cn(
@@ -2289,7 +2530,9 @@ export function HyperKnowledgeGraphPage() {
                 <Menu className="h-4 w-4" />
               </button>
               <Network className="h-4 w-4 text-cyan-200" />
-              270 个知识点 · {chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}
+              <span className="text-[15px]">
+                270 个知识点 · <span className="text-cyan-200">{chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}</span>
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {Object.keys(kaScores).length > 0 && (
@@ -2306,11 +2549,39 @@ export function HyperKnowledgeGraphPage() {
                   </span>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 font-mono text-[10px] text-slate-500">
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L1 {levelCounts.l1}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L2 {levelCounts.l2}</span>
-                <span className="rounded border border-white/[0.08] bg-black/20 px-2 py-1">L3 {levelCounts.l3}</span>
+              {/* 层级图例：三种节点的样式示意 + 计数（数字口径不变） */}
+              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-300">
+                <span className="inline-flex items-center gap-1.5 rounded border border-white/[0.1] bg-black/25 px-2 py-1">
+                  <span className="inline-block h-3 w-3 rounded-[3px] border border-cyan-300/70 bg-cyan-400/25" />
+                  L1 章 {levelCounts.l1}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded border border-white/[0.1] bg-black/25 px-2 py-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-[2px] border border-cyan-300/45 bg-cyan-400/15" />
+                  L2 节 {levelCounts.l2}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded border border-white/[0.1] bg-black/25 px-2 py-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-300/80" />
+                  L3 点 {levelCounts.l3}
+                </span>
               </div>
+              {/* 连线图例：只在全景视图展示主线/依赖两种线型 */}
+              {chapter === 'all' && (
+                <div className="hidden flex-wrap items-center gap-2.5 font-mono text-[10px] text-slate-400 md:flex">
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg width="24" height="6" aria-hidden>
+                      <line x1="1" y1="3" x2="19" y2="3" stroke="#67e8f9" strokeWidth="2" strokeLinecap="round" opacity="0.75" />
+                      <path d="M18 0.5 23 3 18 5.5 Z" fill="#67e8f9" opacity="0.75" />
+                    </svg>
+                    学习主线
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg width="24" height="6" aria-hidden>
+                      <line x1="1" y1="3" x2="23" y2="3" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" opacity="0.75" />
+                    </svg>
+                    跨章依赖
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           {/* Re-keying on chapter change forces React to remount the
@@ -2326,6 +2597,12 @@ export function HyperKnowledgeGraphPage() {
               visibleIds={visibleKnowledgeIds}
               progress={progress}
               onSelect={(point) => goToPoint(point.id)}
+              onFocusChapter={(value) => {
+                // 点击章节卡头：切到该章单章树视图，并选中章根节点
+                setChapter(value);
+                const root = knowledgePoints.find((p) => p.level === 1 && p.chapter === value);
+                if (root) setSelectedId(root.id);
+              }}
               chapterFilter={chapter}
               masteryByKa={kaScores}
             />
@@ -2341,7 +2618,7 @@ export function HyperKnowledgeGraphPage() {
             onSelectId={goToPoint}
             allPoints={knowledgePoints}
           />
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition-all">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <ListTree className="h-4 w-4 text-cyan-200" />
               同章知识点
@@ -2361,7 +2638,7 @@ export function HyperKnowledgeGraphPage() {
               {siblings.length === 0 && <div className="text-xs text-slate-500">暂无同章节点。</div>}
             </div>
           </div>
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035] p-4 transition-all">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
               图谱统计

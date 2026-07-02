@@ -20,6 +20,14 @@ import {
   X,
   Lightbulb,
   Waypoints,
+  Timer,
+  Monitor,
+  Keyboard,
+  Volume2,
+  Cog,
+  Radio,
+  Boxes,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimulator } from '@/hooks/useSimulator';
@@ -35,6 +43,19 @@ import ExperimentGuide from '@/components/simulation/ExperimentGuide';
 import AiDiagnostics from '@/components/simulation/AiDiagnostics';
 import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
 
+// 实验分类 → 顶栏徽章小图标（与实验配置的 category 一一对应）
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  '基础入门': Lightbulb,
+  '基础指令': Cpu,
+  '定时器应用': Timer,
+  '显示控制': Monitor,
+  '输入处理': Keyboard,
+  '音频控制': Volume2,
+  '电机控制': Cog,
+  '通信接口': Radio,
+  '综合项目': Boxes,
+};
+
 export default function SimulationPage() {
   const {
     code, setCode, simulatorState, previousState, traceLog, isRunning, fault, result,
@@ -42,7 +63,7 @@ export default function SimulationPage() {
     runSimulation, stepSimulation, resetSimulation,
     loadExperiment, loadExperimentStatus, completeExperiment, stop,
     speed, setSpeed, speedPresets,
-    breakpoints, toggleBreakpoint, paused,
+    breakpoints, toggleBreakpoint, paused, setPortBit, pulsePortBit,
   } = useSimulator();
 
   const breakpointLines = React.useMemo(() => Array.from(breakpoints), [breakpoints]);
@@ -247,12 +268,16 @@ export default function SimulationPage() {
               </span>
             </div>
 
-            {currentExp && (
-              <Badge variant="outline" className="border-white/[0.10] bg-white/[0.04] text-[10px] font-medium text-[#9db3b5]">
-                <Cpu className="mr-1 h-3 w-3 text-cyan-300" />
-                {currentExp.title}
-              </Badge>
-            )}
+            {currentExp && (() => {
+              // 按实验分类显示对应小图标，找不到分类时回落 Cpu
+              const CategoryIcon = CATEGORY_ICONS[currentExp.category] ?? Cpu;
+              return (
+                <Badge variant="outline" className="border-white/[0.10] bg-white/[0.04] text-[10px] font-medium text-[#9db3b5]">
+                  <CategoryIcon className="mr-1 h-3 w-3 text-cyan-300" />
+                  {currentExp.title}
+                </Badge>
+              );
+            })()}
 
             {stepCount > 0 && (
               <span className="font-mono text-[10px] text-[#65777a]">
@@ -332,7 +357,13 @@ export default function SimulationPage() {
             />
           </div>
 
-          <HyperExperimentCanvas simulatorState={simulatorState} isRunning={isRunning} />
+          <HyperExperimentCanvas
+            simulatorState={simulatorState}
+            isRunning={isRunning}
+            experimentId={selectedExperiment || null}
+            onSetPortBit={setPortBit}
+            onPulsePortBit={pulsePortBit}
+          />
 
           {/* 窄屏提示：画布因屏幕宽度不足被隐藏，避免误以为功能缺失 */}
           <div className="hidden w-8 flex-shrink-0 flex-col items-center justify-center gap-2 border-l border-white/[0.08] bg-[#0c1014]/70 py-3 min-[1024px]:flex xl:hidden">

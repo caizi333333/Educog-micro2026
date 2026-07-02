@@ -3,6 +3,62 @@
  * 桂林航天工业学院 - 微控制器原理与应用课程
  */
 
+// ── 实验画布外设声明（HyperExperimentCanvas 据此渲染对应视图）──
+
+export type PortName = 'P0' | 'P1' | 'P2' | 'P3';
+
+/** 画布外设类型：led=LED阵列 segment=多位数码管 stepper=步进电机 buzzer=蜂鸣器 serial=串口终端 keys=按键面板 bitpanel=位状态面板 */
+export type PeripheralKind = 'led' | 'segment' | 'stepper' | 'buzzer' | 'serial' | 'keys' | 'bitpanel';
+
+/** BitPanel 中的一个状态位（端口位必须与实验代码注释对得上，对不上的宁可不列） */
+export interface BitMapEntry {
+  port: PortName;
+  bit: number;            // 0-7
+  icon: string;           // 图标名（画布内映射到 lucide 图标）
+  label: string;          // 中文标签
+  activeLow?: boolean;    // true=低电平有效，默认高电平有效
+  onText?: string;        // 有效状态文案
+  offText?: string;       // 无效状态文案
+}
+
+/** 可交互按键：映射到真实端口位，按下拉低、松开回高（经 Simulator.setPortBit 只改端口锁存值） */
+export interface KeyMapEntry {
+  port: PortName;
+  bit: number;
+  label: string;
+  /**
+   * true=瞬时键：单击产生固定时长（按指令数计）的低电平脉冲，短于代码消抖延时，
+   * 避免帧粒度的"按住"跨过消抖循环导致重复触发；false/缺省=按住拉低、松开回高
+   */
+  momentary?: boolean;
+}
+
+export interface PeripheralConfig {
+  kind: PeripheralKind;
+  /** 画布底部标签，端口号须与实验代码一致（如 "P0/P2 · 四位数码管"） */
+  label: string;
+  /** led：LED 阵列所在端口（低电平点亮） */
+  ledPort?: PortName;
+  /** segment：段码端口 + 位选端口/位（低电平选通），digitBits 顺序即显示顺序（左→右） */
+  segment?: { segPort: PortName; digitPort: PortName; digitBits: number[]; digitNames?: string[] };
+  /** buzzer：输出引脚（如 'P2.0'），仿真器据此跟踪引脚翻转推算真实方波频率 */
+  buzzerPin?: string;
+  /** keys/stepper：交互按键清单（端口位取自实验代码） */
+  keys?: KeyMapEntry[];
+  /** keys：键值输出端口（exp05 把键值写到 P0 显示） */
+  keyValuePort?: PortName;
+  /** stepper：程序内部变量地址（步序/方向/运行标志，地址与实验代码开头的变量注释一致） */
+  stepper?: { stepAddr: number; dirAddr: number; runAddr: number };
+  /** bitpanel：状态位清单 */
+  bitMap?: BitMapEntry[];
+  /** bitpanel：按字节展示的总线值（如 ADC 数据输入口） */
+  buses?: { port: PortName; label: string }[];
+  /** bitpanel：显示串口上报数据尾部（读 uart.transmitBuffer） */
+  showUartTail?: boolean;
+  /** bitpanel：由 L298N 四路控制位推导小车行驶状态（映射关系=代码 FORWARD/BACKWARD/TURN_* 子程序） */
+  motion?: { lf: [PortName, number]; lr: [PortName, number]; rf: [PortName, number]; rr: [PortName, number] };
+}
+
 export interface ExperimentConfig {
   id: string;
   title: string;
@@ -14,6 +70,8 @@ export interface ExperimentConfig {
   prerequisites: string[];
   knowledgePoints: string[];
   hardwareRequirements: string[];
+  /** 画布外设声明：缺省时画布回落到端口值启发式判断 */
+  peripheral?: PeripheralConfig;
   code: string;
   expectedResults: string[];
   troubleshooting: {
@@ -55,6 +113,8 @@ export const experimentConfigs: ExperimentConfig[] = [
       '限流电阻（330Ω）',
       'P1口连接LED阵列'
     ],
+    // 代码全程写 P1（MOV P1/RL/RR），低电平点亮
+    peripheral: { kind: 'led', label: 'P1 · LED 流水灯', ledPort: 'P1' },
     code: `; 桂林航天工业学院 - 实验一：指令系统实验
 ; 功能: 发光二极管流水灯程序，8个LED逐一闪烁，往复循环
 ; 知识点: 指令系统, 寻址方式, 程序调试
@@ -155,6 +215,8 @@ END                  ; 程序结束标志`,
       '限流电阻（330Ω）',
       'P1口连接线'
     ],
+    // 三种模式均为 MOV P1,#立即数，低电平点亮
+    peripheral: { kind: 'led', label: 'P1 · LED 多模式', ledPort: 'P1' },
     code: `; 桂林航天工业学院 - 实验二：P1口LED流水灯控制
 ; 功能: 8个LED实现多种流水灯模式，奇偶交替闪烁
 ; 知识点: P1口控制, 位操作, 多模式流水灯
@@ -276,6 +338,8 @@ END`,
       'P0.0引脚连接LED或测试点',
       '12MHz晶振'
     ],
+    // 中断服务程序 CPL P0.0 翻转方波，LED 挂在 P0（非 P1）
+    peripheral: { kind: 'led', label: 'P0 · LED（P0.0 方波）', ledPort: 'P0' },
     code: `; 桂林航天工业学院 - 实验三：定时/计数器实验
 ; 功能: 用定时器T0定时，使P0.0引脚输出周期为2s的方波，控制LED闪烁
 ; 知识点: 定时器配置, TMOD寄存器, 中断处理, 计数初值计算
@@ -384,6 +448,12 @@ END`,
       'P0口连接段选',
       'P2口连接位选'
     ],
+    // P0 输出共阴段码；扫描位选 CLR P2.4~P2.7（低电平选通），千/百/十/个位
+    peripheral: {
+      kind: 'segment',
+      label: 'P0/P2 · 四位数码管',
+      segment: { segPort: 'P0', digitPort: 'P2', digitBits: [4, 5, 6, 7], digitNames: ['千位', '百位', '十位', '个位'] },
+    },
     code: `; 桂林航天工业学院 - 实验四：数码管显示实验
 ; 功能: 4位数码管动态显示数字，实现计数器功能
 ; 知识点: 数码管驱动, 动态扫描, 查表程序, BCD译码
@@ -597,6 +667,18 @@ END`,
       'P3口连接列线',
       '上拉电阻'
     ],
+    // 行扫描输出在 P1，列状态从 P3 低4位读回（MOV A,P3 / ANL A,#0FH），键值写 P0 显示
+    peripheral: {
+      kind: 'keys',
+      label: 'P3/P0 · 按键与键值',
+      keys: [
+        { port: 'P3', bit: 0, label: '列0' },
+        { port: 'P3', bit: 1, label: '列1' },
+        { port: 'P3', bit: 2, label: '列2' },
+        { port: 'P3', bit: 3, label: '列3' },
+      ],
+      keyValuePort: 'P0',
+    },
     code: `; 桂林航天工业学院 - 实验五：按键输入与消抖处理
 ; 功能: 4x4矩阵键盘扫描，按键消抖，键值显示
 ; 知识点: 键盘扫描, 软件消抖, 中断处理
@@ -798,6 +880,18 @@ END`,
       '按键设置时间',
       'LED指示灯'
     ],
+    // 时钟显示走 P0 段码 + P2.4~P2.7 位选（与实验四同一套接线）；P1 全程未写，
+    // 故不用 LED 视图；P3.2/3/4 为模式/时/分设置键（JNB 轮询，低电平触发）
+    peripheral: {
+      kind: 'segment',
+      label: 'P0/P2 · 数码管时钟',
+      segment: { segPort: 'P0', digitPort: 'P2', digitBits: [4, 5, 6, 7], digitNames: ['位1', '位2', '位3', '位4'] },
+      keys: [
+        { port: 'P3', bit: 2, label: '模式', momentary: true },
+        { port: 'P3', bit: 3, label: '时+', momentary: true },
+        { port: 'P3', bit: 4, label: '分+', momentary: true },
+      ],
+    },
     code: `; 桂林航天工业学院 - 实验六：定时器中断与计时功能
 ; 功能: 实现数字时钟，显示时分秒，可按键设置时间
 ; 知识点: 定时器中断, 实时时钟, 时间计算
@@ -1113,6 +1207,8 @@ END`,
       '三极管驱动电路',
       'P2.0连接蜂鸣器'
     ],
+    // 中断服务程序 CPL P2.0 产生音频方波，仿真器按 P2.0 翻转间隔推算真实频率
+    peripheral: { kind: 'buzzer', label: 'P2.0 · 蜂鸣器', buzzerPin: 'P2.0' },
     code: `; 桂林航天工业学院 - 实验七：蜂鸣器音频控制
 ; 功能: 蜂鸣器播放音乐，可控制音调、节拍和音量
 ; 知识点: 音频控制, 频率产生, 音乐编程
@@ -1329,6 +1425,19 @@ END`,
       'P1口高4位连接驱动器',
       '按键控制方向和速度'
     ],
+    // 相序输出在 P1；转子/相位取程序自身变量：20H=步序索引 21H.0=方向 22H.0=运行标志
+    // （见代码 MAIN 段变量注释）。P3.2~P3.5 为启停/方向/加速/减速键（JNB 轮询）
+    peripheral: {
+      kind: 'stepper',
+      label: 'P1 · 步进电机',
+      stepper: { stepAddr: 0x20, dirAddr: 0x21, runAddr: 0x22 },
+      keys: [
+        { port: 'P3', bit: 2, label: '启停', momentary: true },
+        { port: 'P3', bit: 3, label: '方向', momentary: true },
+        { port: 'P3', bit: 4, label: '加速', momentary: true },
+        { port: 'P3', bit: 5, label: '减速', momentary: true },
+      ],
+    },
     code: `; 桂林航天工业学院 - 实验八：步进电机控制实验
 ; 功能: 步进电机正反转控制，可调速度，精确定位
 ; 知识点: 步进电机驱动, 相序控制, 定时控制
@@ -1613,6 +1722,8 @@ END`,
       'PC端串口调试软件',
       '定时器T1用于波特率发生器'
     ],
+    // UART 经 P3.0/P3.1（RXD/TXD），发送内容累积在 uart.transmitBuffer，终端直接渲染
+    peripheral: { kind: 'serial', label: 'P3 · 串口终端' },
     code: `; 桂林航天工业学院 - 实验九：串口通信实验
 ; 功能: 串口发送"HELLO WORLD!"字符串，并实现回显功能
 ; 知识点: 串口配置, 波特率设置, 串口中断, 字符收发
@@ -1771,6 +1882,8 @@ END`,
       '74HC245驱动芯片',
       'Proteus仿真环境'
     ],
+    // 任务1流水灯在 P1（低电平点亮）；任务2数码管走 P0，波形区可同时观察
+    peripheral: { kind: 'led', label: 'P1 · LED 流水灯', ledPort: 'P1' },
     code: `; 项目一：走进89C51的世界
 ; 任务1：LED流水灯 + 任务2：数码管显示
 ; 桂林航天工业学院 微控制器应用技术
@@ -1872,6 +1985,17 @@ END`,
       'LCD1602液晶显示屏',
       'Proteus仿真环境'
     ],
+    // 端口位全部对自代码：P2.0=PWM 路灯输出（SETB 亮/CLR 灭），P3.6=ADC0809 启动脉冲，
+    // P0=光照 ADC 数据读入（MOV A,P0）。代码没有独立的"光敏状态/自动模式"输出位，不硬造
+    peripheral: {
+      kind: 'bitpanel',
+      label: 'P2/P3 · 智慧路灯',
+      bitMap: [
+        { port: 'P2', bit: 0, icon: 'lightbulb', label: '路灯 LED（PWM 调光）', onText: '点亮', offText: '熄灭' },
+        { port: 'P3', bit: 6, icon: 'zap', label: 'ADC0809 启动脉冲', onText: '高电平', offText: '低电平' },
+      ],
+      buses: [{ port: 'P0', label: '光照 ADC 数据（输入）' }],
+    },
     code: `; 项目二：智慧路灯系统设计
 ; 功能：光照采集 + PWM调光 + LCD显示
 ; 桂林航天工业学院 微控制器应用技术
@@ -2003,6 +2127,23 @@ END`,
       '小车底盘和轮子',
       'Proteus仿真环境'
     ],
+    // 电机四路对自 FORWARD/BACKWARD/TURN_* 子程序：P2.0/P2.1=左电机正/反转，
+    // P2.2/P2.3=右电机正/反转（SETB 导通）。循迹传感器读 P1 低3位（TRACK_MODE，
+    // 低电平=检测到黑线）。代码没有蜂鸣器输出位，不列
+    peripheral: {
+      kind: 'bitpanel',
+      label: 'P2/P1 · 智能小车',
+      bitMap: [
+        { port: 'P2', bit: 0, icon: 'arrow-up', label: '左电机正转 IN1', onText: '导通', offText: '关断' },
+        { port: 'P2', bit: 1, icon: 'arrow-down', label: '左电机反转 IN2', onText: '导通', offText: '关断' },
+        { port: 'P2', bit: 2, icon: 'arrow-up', label: '右电机正转 IN3', onText: '导通', offText: '关断' },
+        { port: 'P2', bit: 3, icon: 'arrow-down', label: '右电机反转 IN4', onText: '导通', offText: '关断' },
+        { port: 'P1', bit: 0, icon: 'radio', label: '循迹传感器·左', activeLow: true, onText: '检测到黑线', offText: '未检测' },
+        { port: 'P1', bit: 1, icon: 'radio', label: '循迹传感器·中', activeLow: true, onText: '检测到黑线', offText: '未检测' },
+        { port: 'P1', bit: 2, icon: 'radio', label: '循迹传感器·右', activeLow: true, onText: '检测到黑线', offText: '未检测' },
+      ],
+      motion: { lf: ['P2', 0], lr: ['P2', 1], rf: ['P2', 2], rr: ['P2', 3] },
+    },
     code: `; 项目三：智能小车运动控制系统
 ; 功能：遥控模式 + 避障模式 + 循迹模式
 ; 桂林航天工业学院 微控制器应用技术
@@ -2226,6 +2367,17 @@ END`,
       'USB转TTL串口模块',
       'Proteus仿真环境'
     ],
+    // 端口位对自代码 EQU 定义：BEEP=P3.5（SETB=报警），DQ=P3.7（DS18B20 单总线）。
+    // 风机/水泵/补光仅出现在拓展方向、代码中无对应输出位，不硬造；串口 JSON 上报如实显示
+    peripheral: {
+      kind: 'bitpanel',
+      label: 'P3 · 智慧大棚',
+      bitMap: [
+        { port: 'P3', bit: 5, icon: 'alert', label: '蜂鸣器报警 BEEP', onText: '报警中', offText: '静音' },
+        { port: 'P3', bit: 7, icon: 'thermometer', label: 'DS18B20 单总线 DQ', onText: '高电平', offText: '低电平' },
+      ],
+      showUartTail: true,
+    },
     code: `; 项目四：智慧农业大棚监控系统
 ; 功能：温湿度采集 + LCD显示 + 串口上报 + 报警
 ; 桂林航天工业学院 微控制器应用技术

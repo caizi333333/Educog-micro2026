@@ -339,14 +339,41 @@ D2: DJNZ R6, D2
     if (experiment) {
       setCode(experiment.code);
       setSelectedExperiment(experimentId);
+      // 按实验声明配置蜂鸣器输出引脚（如 exp07 的 P2.0），供仿真器跟踪翻转推算频率
+      if (simulatorRef.current?.setBuzzerPin) {
+        simulatorRef.current.setBuzzerPin(
+          experiment.peripheral?.kind === 'buzzer' ? experiment.peripheral.buzzerPin ?? null : null,
+        );
+      }
       resetSimulation();
-      
+
       toast({
         title: '实验加载成功',
         description: `已加载实验: ${experiment.title}`,
       });
     }
   }, [toast]);
+
+  // 外部输入：改写端口位锁存电平（画布按键按下拉低、松开回高），并立即刷新画面
+  const setPortBit = useCallback((port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean) => {
+    const simulator = simulatorRef.current;
+    if (!simulator?.setPortBit) return;
+    simulator.setPortBit(port, bit, level);
+    // 未在运行时也让画布立刻反映电平变化（运行中由动画循环每帧刷新）
+    if (!runningRef.current && typeof simulator.getState === 'function') {
+      setSimulatorState(simulator.getState());
+    }
+  }, []);
+
+  // 瞬时按键：拉低固定指令数后自动回高（时长短于实验代码的消抖延时，单击只触发一次）
+  const pulsePortBit = useCallback((port: 'P0' | 'P1' | 'P2' | 'P3', bit: number) => {
+    const simulator = simulatorRef.current;
+    if (!simulator?.pulsePortBit) return;
+    simulator.pulsePortBit(port, bit);
+    if (!runningRef.current && typeof simulator.getState === 'function') {
+      setSimulatorState(simulator.getState());
+    }
+  }, []);
 
   // 记录实验完成
   const recordExperimentCompletion = useCallback(async (experimentId: string) => {
@@ -657,6 +684,8 @@ D2: DJNZ R6, D2
     setBreakpoint,
     removeBreakpoint,
     toggleBreakpoint,
+    setPortBit,
+    pulsePortBit,
     updateCode,
     run,
     step,
