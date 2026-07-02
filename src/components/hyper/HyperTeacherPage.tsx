@@ -27,10 +27,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { experiments as experimentCatalog } from '@/lib/experiment-config';
+import { getPointsByLevel } from '@/lib/knowledge-points';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ACHIEVEMENTS_V2, type Achievement } from '@/lib/achievements-v2';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { StatusBanner } from '@/components/shared/StatusBanner';
 
 interface TeacherStudent {
   id?: string;
@@ -86,6 +89,16 @@ function initialOf(name?: string | null) {
   return (name || 'U').trim().charAt(0).toUpperCase() || 'U';
 }
 
+// 章节号 → "第N章 名称"；'0' 或未知章节归入"未分类"
+const CHAPTER_NAME_MAP = new Map(
+  getPointsByLevel(1).map((p) => [String(p.chapter), `第${p.chapter}章 ${p.name}`]),
+);
+function chapterLabel(chapterId?: string | null) {
+  if (!chapterId) return '未分类';
+  const key = String(chapterId).trim().replace(/^ch/i, '');
+  return CHAPTER_NAME_MAP.get(key) || '未分类';
+}
+
 function achievementColor(achievement?: Achievement) {
   if (!achievement) return '#67e8f9';
   if (achievement.rarity === 'legendary') return '#fbbf24';
@@ -124,14 +137,14 @@ export function HyperTeacherPage() {
   // Push task dialog state
   const [showPushDialog, setShowPushDialog] = useState(false);
   const [pushScope, setPushScope] = useState<'ALL' | 'CLASS'>('ALL');
-  const [pushClassId, setPushClassId] = useState('all');
+  const [pushClassId, setPushClassId] = useState('');
   const [pushPathType, setPushPathType] = useState<'BASIC' | 'ADVANCED'>('BASIC');
   const [pushModuleCount, setPushModuleCount] = useState(5);
   // Assign preclass dialog state
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [assignExpId, setAssignExpId] = useState(experimentCatalog[0]?.id || 'exp01');
   const [assignScope, setAssignScope] = useState<'ALL' | 'CLASS'>('ALL');
-  const [assignClassId, setAssignClassId] = useState('all');
+  const [assignClassId, setAssignClassId] = useState('');
 
   // Teaching cycle state
   const [cycleData, setCycleData] = useState<{
@@ -162,7 +175,27 @@ export function HyperTeacherPage() {
         const res = await fetch('/api/teacher/teaching-cycle', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) setCycleData(await res.json());
+        if (res.ok) {
+          const json = await res.json();
+          // 空班级/旧接口可能缺字段，统一补默认值防止渲染崩溃
+          setCycleData({
+            preClass: {
+              totalAssigned: 0, completedAssigned: 0, inProgressAssigned: 0, notStartedAssigned: 0,
+              studentsWithAssigned: 0, studentsCompletedAll: 0, completionRate: 0,
+              ...(json?.preClass || {}),
+            },
+            inClass: {
+              totalEvents: 0, eventsByType: {}, totalDuration: 0, avgDurationPerStudent: 0,
+              recentActiveStudents: 0, dailyActivity: [], participationRate: 0,
+              ...(json?.inClass || {}),
+            },
+            postClass: {
+              totalStudents: 0, improvedCount: 0, declinedCount: 0, stableCount: 0,
+              avgFirstHalfScore: 0, avgSecondHalfScore: 0, chapterMasteryDist: {}, topStudents: [],
+              ...(json?.postClass || {}),
+            },
+          });
+        }
       } catch { /* ignore */ }
     }
     fetchCycle();
@@ -219,6 +252,9 @@ export function HyperTeacherPage() {
   }, [data?.students, query]);
 
   const selectedStudent = students.find((student) => (student.id || student.studentId || student.name) === selectedStudentId) || students[0] || null;
+  // 干预明细只列推送前后都有测验数据的学生，其余归入"数据不足"
+  const interventionsWithBoth = (interventionData?.interventions || []).filter((iv) => iv.preCount > 0 && iv.postCount > 0);
+  const interventionsInsufficient = (interventionData?.interventions.length || 0) - interventionsWithBoth.length;
   const selectedMedal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === selectedMedalId) || teacherMedals[0] || ACHIEVEMENTS_V2[0];
   const maxExperimentCompleted = Math.max(...(data?.experiments || []).map((experiment) => experiment.completed), 1);
 
@@ -256,10 +292,8 @@ export function HyperTeacherPage() {
         pathType: pushPathType,
         moduleCount: pushModuleCount,
       };
-      if (pushScope === 'CLASS' && pushClassId !== 'all') {
-        const cls = (data?.classes || []).find((c) => c.id === pushClassId);
-        if (cls) body.targetClass = cls.name;
-      }
+      // 指定班级时按班级 ID 传给后端（走 ClassEnrollment 关系）
+      if (pushScope === 'CLASS') body.targetClassId = pushClassId;
       const response = await fetch('/api/teacher/push-learning-task', {
         method: 'POST',
         headers: {
@@ -287,11 +321,9 @@ export function HyperTeacherPage() {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('accessToken');
-      const body: Record<string, unknown> = { experimentId: assignExpId };
-      if (assignScope === 'CLASS' && assignClassId !== 'all') {
-        const cls = (data?.classes || []).find((c) => c.id === assignClassId);
-        if (cls) body.targetClass = cls.name;
-      }
+      const body: Record<string, unknown> = { experimentId: assignExpId, scope: assignScope };
+      // 指定班级时按班级 ID 传给后端（走 ClassEnrollment 关系）
+      if (assignScope === 'CLASS') body.targetClassId = assignClassId;
       const response = await fetch('/api/teacher/assign-preclass', {
         method: 'POST',
         headers: {
@@ -302,7 +334,11 @@ export function HyperTeacherPage() {
       });
       if (!response.ok) throw new Error('布置失败');
       const result = await response.json();
-      toast({ title: '已布置', description: `已为 ${result.assigned || 0} 名学生分配课前实验。` });
+      const skipped = result.skipped || 0;
+      toast({
+        title: '已布置',
+        description: `新分配 ${result.assigned || 0} 名学生${skipped ? `，${skipped} 名已有该实验进度未重复布置` : ''}。`,
+      });
       setShowAssignDialog(false);
     } catch (assignError) {
       toast({
@@ -411,7 +447,7 @@ export function HyperTeacherPage() {
   }
 
   return (
-    <div className="-m-6 grid min-h-[calc(100vh-3.5rem)] bg-[#070a0d] text-slate-100 xl:grid-cols-[320px_1fr_360px]">
+    <div className="-m-6 grid min-h-[calc(100vh-3.5rem)] animate-fade-in bg-[#070a0d] text-slate-100 xl:grid-cols-[320px_1fr_360px]">
       <aside className="border-b border-white/[0.08] bg-[#0c1117] xl:border-b-0 xl:border-r">
         <div className="border-b border-white/[0.08] p-4">
           <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">学生 · 真实班级数据</div>
@@ -450,7 +486,7 @@ export function HyperTeacherPage() {
               </button>
             );
           }) : (
-            <div className="p-6 text-center text-sm text-slate-500">暂无学生数据</div>
+            <EmptyState title="暂无学生数据" className="text-center" />
           )}
         </div>
       </aside>
@@ -464,7 +500,7 @@ export function HyperTeacherPage() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">教师工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              接入现有教师仪表板、课前任务和学习任务接口，不使用原型里的演示学生数据。
+              汇聚班级学情、预警干预与任务推送，数据实时来自平台学习记录。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -492,7 +528,7 @@ export function HyperTeacherPage() {
               <FileText className="h-4 w-4" />
               教学报告
             </Link>
-            <Link href="/knowledge-graph?view=knowledge" className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]">
+            <Link href="/admin/knowledge-graph" className="inline-flex h-9 items-center gap-2 rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 text-sm text-cyan-100 hover:bg-cyan-300/[0.14]">
               <GitBranch className="h-4 w-4" />
               维护图谱
             </Link>
@@ -500,13 +536,12 @@ export function HyperTeacherPage() {
         </div>
 
         {error && (
-          <div className="mb-5 flex items-center gap-2 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-xs text-amber-100">
-            <AlertTriangle className="h-4 w-4" />
+          <StatusBanner variant="warning" className="mb-5 items-center py-2 text-xs">
             {error}
-          </div>
+          </StatusBanner>
         )}
 
-        <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <section className="stagger-children mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {([
             ['学生总数', data?.overview?.totalStudents || 0, Users],
             ['今日活跃', data?.overview?.activeToday || 0, CheckCircle2],
@@ -514,9 +549,9 @@ export function HyperTeacherPage() {
             ['实验完成', `${Math.round(data?.overview?.avgExpCompletion || 0)}%`, Target],
             ['平均时长', formatSecondsAsHours(data?.overview?.avgTimeSpent), Clock],
           ] satisfies StatItem[]).map(([label, value, Icon]) => (
-            <div key={label} className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
-              <Icon className="h-4 w-4 text-cyan-200" />
-              <div className="mt-3 font-mono text-2xl font-semibold text-slate-50">{value}</div>
+            <div key={label} className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+              <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md"><Icon className="h-4 w-4 text-cyan-100" /></div>
+              <div className="mt-3 font-mono text-2xl font-semibold text-slate-50 stat-glow">{value}</div>
               <div className="text-xs text-slate-400">{label}</div>
             </div>
           ))}
@@ -530,9 +565,17 @@ export function HyperTeacherPage() {
               <h2 className="text-lg font-semibold text-slate-50">教学周期闭环</h2>
               <span className="text-xs text-slate-500">课前 → 课中 → 课后</span>
             </div>
+            {cycleData.postClass.totalStudents === 0 ? (
+              <EmptyState
+                icon={GraduationCap}
+                title="暂无班级学生数据"
+                description="创建班级并邀请学生加入后，这里会展示课前-课中-课后的闭环数据。"
+                action={{ label: '去班级管理', href: '/teacher/classes' }}
+              />
+            ) : (
             <div className="grid gap-4 md:grid-cols-3">
               {/* Pre-class */}
-              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.04]">
+              <div className="glass-hover transition-all rounded-md border border-cyan-300/20 bg-cyan-300/[0.04]">
                 <div className="border-b border-cyan-300/15 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-cyan-100">
                     <BookOpen className="h-4 w-4" />
@@ -544,8 +587,8 @@ export function HyperTeacherPage() {
                     <div className="font-mono text-3xl font-semibold text-slate-50">{cycleData.preClass.completionRate}%</div>
                     <div className="text-xs text-slate-500">完成率</div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-sm bg-white/[0.08]">
-                    <div className="h-full bg-cyan-300" style={{ width: `${cycleData.preClass.completionRate}%` }} />
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${cycleData.preClass.completionRate}%` }} />
                   </div>
                   <div className="mt-3 space-y-1.5">
                     <div className="flex justify-between text-xs">
@@ -569,7 +612,7 @@ export function HyperTeacherPage() {
               </div>
 
               {/* In-class */}
-              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04]">
+              <div className="glass-hover transition-all rounded-md border border-emerald-300/20 bg-emerald-300/[0.04]">
                 <div className="border-b border-emerald-300/15 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
                     <TrendingUp className="h-4 w-4" />
@@ -581,8 +624,8 @@ export function HyperTeacherPage() {
                     <div className="font-mono text-3xl font-semibold text-slate-50">{cycleData.inClass.participationRate}%</div>
                     <div className="text-xs text-slate-500">近7日参与率</div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-sm bg-white/[0.08]">
-                    <div className="h-full bg-emerald-300" style={{ width: `${cycleData.inClass.participationRate}%` }} />
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${cycleData.inClass.participationRate}%` }} />
                   </div>
                   <div className="mt-3 space-y-1.5">
                     <div className="flex justify-between text-xs">
@@ -617,7 +660,7 @@ export function HyperTeacherPage() {
               </div>
 
               {/* Post-class */}
-              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04]">
+              <div className="glass-hover transition-all rounded-md border border-amber-300/20 bg-amber-300/[0.04]">
                 <div className="border-b border-amber-300/15 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
                     <Award className="h-4 w-4" />
@@ -670,10 +713,11 @@ export function HyperTeacherPage() {
                 </div>
               </div>
             </div>
+            )}
           </section>
         )}
 
-        <section className="mb-6 rounded-md border border-white/[0.08] bg-white/[0.035]">
+        <section className="mb-6 glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
           <div className="border-b border-white/[0.08] p-4">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
               <FileDown className="h-5 w-5 text-cyan-200" />
@@ -722,53 +766,23 @@ export function HyperTeacherPage() {
               {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               导出 CSV
             </button>
+            {/* 打开报告页自动唤起浏览器打印，另存为 PDF 中文不乱码 */}
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  setExportLoading(true);
-                  const { generateTeachingReport } = await import('@/lib/pdf-report');
-                  const className = exportClassId === 'all' ? undefined : data?.classes?.find(c => c.id === exportClassId)?.name;
-                  const topStudents = [...(data?.students || [])]
-                    .sort((a, b) => (b.avgQuizScore || 0) - (a.avgQuizScore || 0))
-                    .slice(0, 5)
-                    .map(s => ({ name: s.name, avgScore: s.avgQuizScore || 0 }));
-                  await generateTeachingReport({
-                    className,
-                    totalStudents: data?.overview?.totalStudents || 0,
-                    avgQuizScore: data?.overview?.avgQuizScore || 0,
-                    avgExpCompletion: data?.overview?.avgExpCompletion || 0,
-                    avgTimeSpent: data?.overview?.avgTimeSpent || 0,
-                    alertStudents: (data?.alertStudents || []).map(s => ({
-                      name: s.name,
-                      avg: s.avg,
-                      weakChapters: (s.weakChapters || []).map(c => c.chapter),
-                    })),
-                    experimentCompletion: (data?.experiments || []).map(e => ({ name: e.name, completed: e.completed })),
-                    topStudents,
-                    interventionSummary: interventionData?.summary,
-                  });
-                  toast({ title: 'PDF 报告已生成', description: '文件已下载到本地。' });
-                } catch (err) {
-                  toast({ title: 'PDF 生成失败', description: err instanceof Error ? err.message : '请稍后重试', variant: 'destructive' });
-                } finally {
-                  setExportLoading(false);
-                }
-              }}
-              disabled={exportLoading}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-300 px-5 text-sm font-semibold text-[#001014] hover:bg-emerald-200 disabled:opacity-50"
+              onClick={() => window.open('/teacher/report?print=1', '_blank')}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-300 px-5 text-sm font-semibold text-[#001014] hover:bg-emerald-200"
             >
-              {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              导出 PDF 报告
+              <FileText className="h-4 w-4" />
+              打印 / 导出PDF
             </button>
           </div>
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+          <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-4">
               <h2 className="text-lg font-semibold text-slate-50">实验完成分布</h2>
-              <p className="mt-1 text-xs text-slate-500">来自 `/api/teacher/dashboard` 的 experimentCompletion。</p>
+              <p className="mt-1 text-xs text-slate-500">各实验与项目的班级完成人数分布。</p>
             </div>
             <div className="space-y-3 p-4">
               {(data?.experiments || []).length ? data!.experiments.map((experiment) => (
@@ -777,17 +791,17 @@ export function HyperTeacherPage() {
                     <span className="text-slate-300">{experiment.name}</span>
                     <span className="font-mono text-cyan-100">{experiment.completed}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-sm bg-white/[0.08]">
-                    <div className="h-full bg-cyan-300" style={{ width: `${Math.round((experiment.completed / maxExperimentCompleted) * 100)}%` }} />
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${Math.round((experiment.completed / maxExperimentCompleted) * 100)}%` }} />
                   </div>
                 </div>
               )) : (
-                <div className="flex min-h-44 items-center justify-center text-sm text-slate-500">暂无实验完成数据</div>
+                <EmptyState centered title="暂无实验完成数据" className="min-h-44" />
               )}
             </div>
           </div>
 
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+          <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
                 <AlertTriangle className="h-5 w-5 text-red-300" />
@@ -799,7 +813,7 @@ export function HyperTeacherPage() {
               {(data?.alertStudents || []).length ? (
                 <div className="space-y-3">
                   {data!.alertStudents.map((student) => (
-                    <div key={student.id || student.name} className="rounded-md border border-red-300/20 bg-red-300/[0.06]">
+                    <div key={student.id || student.name} className="hover:bg-white/[0.04] transition-colors rounded-md border border-red-300/20 bg-red-300/[0.06]">
                       <div className="flex items-center justify-between px-3 py-2.5">
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-300/20 text-xs font-semibold text-red-100">
@@ -854,9 +868,9 @@ export function HyperTeacherPage() {
                           <div className="flex flex-wrap gap-2">
                             {student.weakChapters.map((ch) => (
                               <div key={ch.chapter} className="flex items-center gap-1.5 rounded-md border border-red-300/15 bg-red-300/[0.08] px-2 py-1">
-                                <span className="text-xs text-red-200">{ch.chapter}</span>
-                                <div className="h-1.5 w-12 overflow-hidden rounded-sm bg-white/[0.08]">
-                                  <div className="h-full bg-red-300" style={{ width: `${ch.progress}%` }} />
+                                <span className="text-xs text-red-200">{chapterLabel(ch.chapter)}</span>
+                                <div className="h-1.5 w-12 overflow-hidden rounded-full bg-white/[0.08]">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-red-400 to-amber-400" style={{ width: `${ch.progress}%` }} />
                                 </div>
                                 <span className="font-mono text-[10px] text-red-100">{ch.progress}%</span>
                               </div>
@@ -878,7 +892,7 @@ export function HyperTeacherPage() {
 
           {/* Intervention Effect Tracking */}
           {interventionData && interventionData.summary.totalStudents > 0 && (
-            <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
+            <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
               <div className="border-b border-white/[0.08] p-4">
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
                   <TrendingUp className="h-5 w-5 text-emerald-300" />
@@ -889,28 +903,28 @@ export function HyperTeacherPage() {
               <div className="p-4">
                 {/* Summary cards */}
                 <div className="mb-4 grid grid-cols-4 gap-3">
-                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                  <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
                     <div className="font-mono text-2xl font-semibold text-slate-50">{interventionData.summary.totalStudents}</div>
                     <div className="text-[10px] text-slate-500">干预学生</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                  <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
                     <div className="font-mono text-2xl font-semibold text-emerald-200">{interventionData.summary.improvementRate}%</div>
                     <div className="text-[10px] text-slate-500">改善率</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                  <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
                     <div className="font-mono text-2xl font-semibold text-cyan-200">{interventionData.summary.avgGain > 0 ? '+' : ''}{interventionData.summary.avgGain}</div>
                     <div className="text-[10px] text-slate-500">平均提升</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
+                  <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
                     <div className="font-mono text-2xl font-semibold text-amber-200">{interventionData.summary.improved}/{interventionData.summary.withBothScores}</div>
                     <div className="text-[10px] text-slate-500">提升人数</div>
                   </div>
                 </div>
                 {/* Per-student comparison */}
-                {interventionData.interventions.length > 0 && (
+                {interventionsWithBoth.length > 0 && (
                   <div className="space-y-2">
-                    {interventionData.interventions.slice(0, 10).map((iv) => (
-                      <div key={iv.studentId} className="flex items-center gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                    {interventionsWithBoth.slice(0, 10).map((iv) => (
+                      <div key={iv.studentId} className="flex items-center gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2 hover:bg-white/[0.04] transition-colors">
                         <div className="w-20 truncate text-sm font-medium text-slate-200">{iv.name}</div>
                         <div className="flex flex-1 items-center gap-2">
                           <span className="font-mono text-xs text-red-200">{iv.preAvg}%</span>
@@ -925,6 +939,11 @@ export function HyperTeacherPage() {
                     ))}
                   </div>
                 )}
+                {interventionsInsufficient > 0 && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    另有 {interventionsInsufficient} 名学生推送前后测验数据不足，暂未列入对比。
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -932,7 +951,7 @@ export function HyperTeacherPage() {
 
         {/* Selected Student Detail */}
         {selectedStudent && (
-          <section className="mt-5 rounded-md border border-white/[0.08] bg-white/[0.035]">
+          <section className="mt-5 glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
                 <Users className="h-5 w-5 text-cyan-200" />
@@ -943,25 +962,25 @@ export function HyperTeacherPage() {
               </h2>
             </div>
             <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+              <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-black/20 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">平均测验</div>
                 <div className="mt-1 font-mono text-xl text-cyan-100">
                   {Math.round(selectedStudent.avgScore ?? selectedStudent.avgQuizScore ?? 0)}%
                 </div>
               </div>
-              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+              <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-black/20 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">实验完成</div>
                 <div className="mt-1 font-mono text-xl text-emerald-100">
                   {selectedStudent.experimentsCompleted ?? 0}/{selectedStudent.experimentsTotal ?? 0}
                 </div>
               </div>
-              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+              <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-black/20 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">学习时长</div>
                 <div className="mt-1 font-mono text-xl text-amber-100">
                   {formatSecondsAsHours(selectedStudent.totalTimeSpent)}
                 </div>
               </div>
-              <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
+              <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-black/20 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">今日活动</div>
                 <div className="mt-1 font-mono text-xl text-slate-100">
                   {(selectedStudent as any).activityCount ?? 0} 次
@@ -974,11 +993,11 @@ export function HyperTeacherPage() {
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {Object.entries((selectedStudent as any).chapterMastery as Record<string, number>).map(([ch, progress]) => (
                     <div key={ch} className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
-                      <div className="text-[10px] text-slate-500">{ch}</div>
+                      <div className="text-[10px] text-slate-500">{chapterLabel(ch)}</div>
                       <div className="mt-1 flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-white/[0.08]">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
                           <div
-                            className={`h-full ${progress >= 80 ? 'bg-emerald-400' : progress >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                            className={`h-full rounded-full ${progress >= 80 ? 'bg-gradient-to-r from-cyan-400 to-emerald-400' : progress >= 50 ? 'bg-gradient-to-r from-cyan-300 to-amber-300' : 'bg-gradient-to-r from-red-400 to-amber-400'}`}
                             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
                           />
                         </div>
@@ -1005,7 +1024,7 @@ export function HyperTeacherPage() {
 
       <aside className="border-t border-white/[0.08] bg-[#0c1117] p-5 xl:border-l xl:border-t-0">
         <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">课堂表彰 · 写入成就记录</div>
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 to-amber-200 text-lg font-semibold text-[#061014]">
               {initialOf(selectedStudent?.name)}
@@ -1082,7 +1101,16 @@ export function HyperTeacherPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs text-slate-400">推送范围</label>
-                <Select value={pushScope} onValueChange={(v) => setPushScope(v as 'ALL' | 'CLASS')}>
+                <Select
+                  value={pushScope}
+                  onValueChange={(v) => {
+                    setPushScope(v as 'ALL' | 'CLASS');
+                    // 切到指定班级时默认选中第一个真实班级，避免空白选项
+                    if (v === 'CLASS' && !(data?.classes || []).some((c) => c.id === pushClassId)) {
+                      setPushClassId(data?.classes?.[0]?.id || '');
+                    }
+                  }}
+                >
                   <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
                   <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
                     <SelectItem value="ALL">全部学生</SelectItem>
@@ -1094,13 +1122,16 @@ export function HyperTeacherPage() {
                 <div>
                   <label className="mb-1.5 block text-xs text-slate-400">目标班级</label>
                   <Select value={pushClassId} onValueChange={setPushClassId}>
-                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue placeholder="选择班级" /></SelectTrigger>
                     <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
                       {(data?.classes || []).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {(data?.classes || []).length === 0 && (
+                    <p className="mt-1.5 text-xs text-amber-200">还没有可选班级，请先到「班级管理」创建班级。</p>
+                  )}
                 </div>
               )}
               <div>
@@ -1121,7 +1152,7 @@ export function HyperTeacherPage() {
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={() => setShowPushDialog(false)} className="h-9 rounded-md border border-white/[0.1] px-4 text-sm text-slate-300 hover:bg-white/[0.06]">取消</button>
-              <button type="button" onClick={pushLearningTask} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
+              <button type="button" onClick={pushLearningTask} disabled={actionLoading || (pushScope === 'CLASS' && !pushClassId)} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 确认推送
               </button>
@@ -1154,7 +1185,16 @@ export function HyperTeacherPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs text-slate-400">分配范围</label>
-                <Select value={assignScope} onValueChange={(v) => setAssignScope(v as 'ALL' | 'CLASS')}>
+                <Select
+                  value={assignScope}
+                  onValueChange={(v) => {
+                    setAssignScope(v as 'ALL' | 'CLASS');
+                    // 切到指定班级时默认选中第一个真实班级，避免空白选项
+                    if (v === 'CLASS' && !(data?.classes || []).some((c) => c.id === assignClassId)) {
+                      setAssignClassId(data?.classes?.[0]?.id || '');
+                    }
+                  }}
+                >
                   <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
                   <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
                     <SelectItem value="ALL">全部学生</SelectItem>
@@ -1166,19 +1206,22 @@ export function HyperTeacherPage() {
                 <div>
                   <label className="mb-1.5 block text-xs text-slate-400">目标班级</label>
                   <Select value={assignClassId} onValueChange={setAssignClassId}>
-                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-white/[0.09] bg-black/25 text-slate-100"><SelectValue placeholder="选择班级" /></SelectTrigger>
                     <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
                       {(data?.classes || []).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {(data?.classes || []).length === 0 && (
+                    <p className="mt-1.5 text-xs text-amber-200">还没有可选班级，请先到「班级管理」创建班级。</p>
+                  )}
                 </div>
               )}
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={() => setShowAssignDialog(false)} className="h-9 rounded-md border border-white/[0.1] px-4 text-sm text-slate-300 hover:bg-white/[0.06]">取消</button>
-              <button type="button" onClick={assignPreclass} disabled={actionLoading} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
+              <button type="button" onClick={assignPreclass} disabled={actionLoading || (assignScope === 'CLASS' && !assignClassId)} className="inline-flex h-9 items-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] hover:bg-cyan-200 disabled:opacity-50">
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
                 确认布置
               </button>

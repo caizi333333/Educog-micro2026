@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
-  Bookmark,
   CheckCircle2,
   Clock,
   Cpu,
@@ -41,6 +40,7 @@ import {
   type KnowledgePoint,
   type KnowledgePointResource,
 } from '@/lib/knowledge-points';
+import { quizQuestions } from '@/lib/quiz-data';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
@@ -100,12 +100,13 @@ function iconForTopic(topic: string): LucideIcon {
   return topicIcons[topic] || Cpu;
 }
 
-function hrefForResource(resource: KnowledgePointResource): string | null {
+function hrefForResource(resource: KnowledgePointResource, chapter?: number): string | null {
   if (resource.url) return resource.url;
   if (resource.type === 'experiment' && resource.refId) {
     return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
   }
-  if (resource.type === 'quiz') return '/quiz';
+  // 带上章节参数，测评页按章筛题
+  if (resource.type === 'quiz') return chapter ? `/quiz?chapter=${chapter}` : '/quiz';
   return null;
 }
 
@@ -194,7 +195,7 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
   return (
     <article
       className={cn(
-        'group flex flex-col overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.045]',
+        'glass-hover animate-scale-in group flex flex-col overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035] transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.045]',
         expanded ? '' : 'min-h-[264px]',
       )}
     >
@@ -216,8 +217,8 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
           </div>
           {lab.state === 'in-progress' && lab.progress !== null ? (
             <div className="mt-3 flex items-center gap-2 font-mono text-[11px] text-cyan-200">
-              <div className="h-1 flex-1 overflow-hidden rounded-sm bg-white/[0.12]">
-                <div className="h-full bg-cyan-300" style={{ width: `${lab.progress}%` }} />
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.12]">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${lab.progress}%` }} />
               </div>
               {lab.progress}%
             </div>
@@ -294,6 +295,7 @@ function CourseSideNav({
   setView,
   setTopic,
   labs,
+  isTeacher,
 }: {
   topics: string[];
   chapters: KnowledgePoint[];
@@ -304,6 +306,7 @@ function CourseSideNav({
   setView: (value: string) => void;
   setTopic: (value: string) => void;
   labs: HyperExperimentCard[];
+  isTeacher: boolean;
 }) {
   const navClass = (active: boolean) =>
     cn(
@@ -312,7 +315,7 @@ function CourseSideNav({
     );
 
   return (
-    <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-1 lg:sticky lg:top-20 lg:self-start">
+    <aside className="glass-hover transition-all order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-1 lg:sticky lg:top-20 lg:self-start">
       <div className="border-b border-white/[0.08] px-2 pb-3">
         <div className="font-mono text-[11px] text-slate-500">当前课程</div>
         <div className="mt-1 text-sm font-semibold text-slate-100">《微控制器原理及应用技术》</div>
@@ -365,11 +368,6 @@ function CourseSideNav({
         已完成
         <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.filter((lab) => lab.state === 'completed').length}</span>
       </button>
-      <button className={navClass(false)}>
-        <Bookmark className="h-3.5 w-3.5" />
-        已收藏
-      </button>
-
       <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">按主题</div>
       {topics.map((topic) => {
         const Icon = iconForTopic(topic);
@@ -385,24 +383,32 @@ function CourseSideNav({
       )}
 
       <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">其他</div>
-      {[
-        [FileText, '实验报告'],
-        [BarChart3, '成绩与进度'],
-        [Users, '班级与讨论'],
-        [Settings, '设置'],
-      ].map(([Icon, label]) => (
-        <button key={label as string} className={navClass(false)}>
-          <Icon className="h-3.5 w-3.5" />
-          {label as string}
-        </button>
-      ))}
+      {/* 实验报告与顶部材料卡为同一份 PDF */}
+      <a href={labReportMaterial.href} target="_blank" rel="noreferrer" className={navClass(false)}>
+        <FileText className="h-3.5 w-3.5" />
+        实验报告
+      </a>
+      <Link href="/analytics" className={navClass(false)}>
+        <BarChart3 className="h-3.5 w-3.5" />
+        成绩与进度
+      </Link>
+      {isTeacher && (
+        <Link href="/teacher/classes" className={navClass(false)}>
+          <Users className="h-3.5 w-3.5" />
+          班级管理
+        </Link>
+      )}
+      <Link href="/settings" className={navClass(false)}>
+        <Settings className="h-3.5 w-3.5" />
+        设置
+      </Link>
     </aside>
   );
 }
 
 function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource; chapter: number }) {
   const Icon = resourceIcons[resource.type];
-  const href = hrefForResource(resource);
+  const href = hrefForResource(resource, chapter);
 
   // Inline image preview: any type='image' with a real URL gets rendered as
   // a small thumbnail card instead of a text chip, so students see the
@@ -466,7 +472,7 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 function CourseMaterialPanel() {
   const [showLabPdf, setShowLabPdf] = useState(false);
   return (
-    <div className="mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
+    <div className="glass-hover transition-all mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Course Material · 已接入资料</div>
@@ -534,15 +540,18 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
   const childPoints = getChildPoints(chapter.id);
   const chapterPoints = childPoints.length + 1;
   const resources = getResourcesByChapter(chapter.chapter);
+  // 只展示有真实链接的资源，避免出现点不动的条目
+  const linkedResources = resources.filter((r) => hrefForResource(r, chapter.chapter) !== null);
   const video = resources.find((resource) => resource.type === 'video' && resource.url);
-  const visibleResources = resources.slice(0, 10);
+  const visibleResources = linkedResources.slice(0, 10);
   const summary = buildChapterSummary(chapter, childPoints);
-  const quizCount = resources.filter((r) => r.type === 'quiz').length;
+  // 徽章显示题库按章真实题数，而非测验资源条目数
+  const quizCount = quizQuestions.filter((q) => q.chapter === chapter.chapter).length;
   const [showTop5, setShowTop5] = useState(false);
   const top5 = childPoints.slice(0, 5);
 
   return (
-    <article id={`item-${chapter.chapter}`} className="scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+    <article id={`item-${chapter.chapter}`} className="glass-hover transition-all scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
       <span id={`chapter-${chapter.chapter}`} className="sr-only" />
       <div className="border-b border-white/[0.08] bg-[#0c1117] p-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -553,7 +562,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
             {chapterPoints} 个核心条目
           </span>
           <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
-            {resources.length} 项资源
+            {linkedResources.length} 项资源
           </span>
           {quizCount > 0 && (
             <Link
@@ -641,7 +650,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
 
         <div className="min-w-0">
           {video?.url ? (
-            <div className="overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
+            <div className="glass-hover transition-all overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
               <div className="flex items-center gap-2 border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">
                 <PlayCircle className="h-3.5 w-3.5 text-cyan-200" />
                 {video.title}
@@ -657,7 +666,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
           ) : (
             <div className="flex min-h-[180px] flex-col justify-center rounded-md border border-white/[0.08] bg-black/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                <BookOpen className="h-4 w-4 text-cyan-200" />
+                <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></div>
                 章节内容已接入
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
@@ -669,11 +678,11 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.08] px-4 py-3">
-        <Link href={`/knowledge-graph?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08]">
+        <Link href={`/knowledge-graph?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100">
           <Share2 className="h-3.5 w-3.5" />
           知识图谱
         </Link>
-        <Link href="/quiz" className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08]">
+        <Link href={`/quiz?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100">
           <CheckCircle2 className="h-3.5 w-3.5" />
           章节测验
         </Link>
@@ -699,17 +708,23 @@ function CourseChaptersView({ query }: { query: string }) {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-          <BookOpen className="h-4 w-4 text-cyan-200" />
+          <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></div>
           课程章节
         </div>
         <div className="font-mono text-[11px] text-slate-500">{filteredChapters.length} / {courseChapters.length} CHAPTERS</div>
       </div>
 
-      <div className="grid gap-4">
-        {filteredChapters.map((chapter) => (
-          <ChapterCard key={chapter.id} chapter={chapter} />
-        ))}
-      </div>
+      {filteredChapters.length > 0 ? (
+        <div className="grid gap-4">
+          {filteredChapters.map((chapter) => (
+            <ChapterCard key={chapter.id} chapter={chapter} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-10 text-center text-sm text-slate-400">
+          没有匹配的章节或资源，换个关键词试试
+        </div>
+      )}
     </div>
   );
 }
@@ -781,7 +796,7 @@ export function HyperCoursesPage() {
   return (
     <div
       className={cn(
-        'bg-[#070a0d] text-slate-100',
+        'animate-fade-in bg-[#070a0d] text-slate-100',
         isPublicShell ? 'min-h-screen' : '-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto',
       )}
     >
@@ -811,7 +826,7 @@ export function HyperCoursesPage() {
               <Cpu className="h-3.5 w-3.5" />
               8051 · AT89C52 · Intel MCS-51
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">
+            <h1 className="heading-gradient text-2xl font-semibold tracking-tight md:text-3xl">
               {section === 'chapters' ? '课程内容' : '课程实验工作台'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -849,6 +864,7 @@ export function HyperCoursesPage() {
           setView={setView}
           setTopic={setTopic}
           labs={labs}
+          isTeacher={user?.role === 'TEACHER' || user?.role === 'ADMIN'}
         />
 
         {section === 'chapters' ? (
@@ -858,7 +874,7 @@ export function HyperCoursesPage() {
           {continueLab && (
             <Link
               href={continueLab.href}
-              className="mb-5 grid gap-4 overflow-hidden rounded-md border border-cyan-300/25 bg-cyan-300/[0.07] p-4 transition hover:border-cyan-200/50 md:grid-cols-[1fr_auto]"
+              className="glass-hover transition-all mb-5 grid gap-4 overflow-hidden rounded-md border border-cyan-300/25 bg-cyan-300/[0.07] p-4 hover:border-cyan-200/50 md:grid-cols-[1fr_auto]"
             >
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-200">Continue · 继续上次实验</div>
@@ -876,18 +892,24 @@ export function HyperCoursesPage() {
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-              <LayoutGrid className="h-4 w-4 text-cyan-200" />
+              <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><LayoutGrid className="h-4 w-4 text-cyan-200" /></div>
               实验列表
               {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-200" />}
             </div>
             <div className="font-mono text-[11px] text-slate-500">{filteredLabs.length} / {labs.length} ITEMS</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredLabs.map((lab) => (
-              <LabCard key={lab.id} lab={lab} />
-            ))}
-          </div>
+          {filteredLabs.length > 0 ? (
+            <div className="stagger-children grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredLabs.map((lab) => (
+                <LabCard key={lab.id} lab={lab} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-10 text-center text-sm text-slate-400">
+              没有匹配的实验，换个关键词或筛选条件试试
+            </div>
+          )}
           </div>
         )}
       </main>

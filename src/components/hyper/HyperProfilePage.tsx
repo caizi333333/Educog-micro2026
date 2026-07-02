@@ -65,6 +65,28 @@ const categoryLabels: Record<string, { label: string; color: string }> = {
   practice: { label: '代码实践', color: '#fb7185' },
 };
 
+const actionLabels: Record<string, string> = {
+  LOGIN: '登录',
+  LOGOUT: '登出',
+  REGISTER: '注册',
+  UNLOCK_ACHIEVEMENT: '解锁成就',
+  EARN_POINTS: '获得积分',
+  CHANGE_PASSWORD: '修改密码',
+  RESET_PASSWORD: '重置密码',
+  COMPLETE_MODULE: '完成模块',
+  START_EXPERIMENT: '开始实验',
+  COMPLETE_EXPERIMENT: '完成实验',
+  SUBMIT_QUIZ: '提交测验',
+  VIEW_CONTENT: '浏览内容',
+  COMPLETE_QUIZ: '完成测验',
+  QUIZ_COMPLETED: '完成测验',
+  ASK_AI_ASSISTANT: '咨询AI助教',
+  JOIN_CLASS: '加入班级',
+  CREATE_CLASS: '创建班级',
+  CREATE_LEARNING_PATH: '生成学习路径',
+  START_QUIZ: '开始测验',
+};
+
 function initialOf(name?: string | null) {
   return (name || 'U').trim().charAt(0).toUpperCase() || 'U';
 }
@@ -171,7 +193,7 @@ export function HyperProfilePage() {
     const activityEvents = (profile?.recentActivity || []).slice(0, 5).map((activity, index) => ({
       key: `activity-${index}`,
       date: activity.createdAt,
-      title: activity.details?.name || activity.action,
+      title: activity.details?.name || actionLabels[activity.action] || '学习活动',
       desc: activity.details?.score != null ? `得分 ${activity.details.score}` : activity.details?.moduleId || '学习活动',
     }));
     return [...achievementEvents, ...activityEvents].slice(0, 6);

@@ -36,7 +36,7 @@ export class DeepSeekClient {
   async chat(messages: DeepSeekMessage[], model: string = 'deepseek-chat'): Promise<DeepSeekResponse> {
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒超时，真实提问常超过10秒
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -49,7 +49,7 @@ export class DeepSeekClient {
           model,
           messages,
           temperature: 0.7,
-          max_tokens: 2000,
+          max_tokens: 1024, // 精炼回答，降低超时概率
         }),
         signal: controller.signal,
       });

@@ -188,7 +188,7 @@ export default function WeakNodesPage() {
                 <div className="mt-1 font-mono text-2xl text-slate-50">{weakNodes.length}</div>
               </div>
               <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
-                <div className="text-xs text-slate-500">非节点 ka</div>
+                <div className="text-xs text-slate-500">综合薄弱项</div>
                 <div className="mt-1 font-mono text-2xl text-slate-50">{otherWeakKAs.length}</div>
               </div>
               <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
@@ -209,7 +209,7 @@ export default function WeakNodesPage() {
               <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-4">
                 <div className="mb-2 text-xs font-semibold text-amber-200">未对齐到知识图谱节点的薄弱项</div>
                 <p className="text-xs text-slate-400">
-                  下列 ka 还是文本关键词（多为旧题或综合应用），暂时无法直接跳节点。后续题库继续 backfill 后会自动收敛。
+                  以下薄弱项属于跨章节的综合应用类内容，暂不对应单个图谱节点，建议结合相关章节整体复习。
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {otherWeakKAs.map((ka) => (

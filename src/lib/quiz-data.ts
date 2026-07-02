@@ -1071,11 +1071,12 @@ D2: DJNZ R7, D2
 ; 计算键值 = 行号*4 + 列号
 CALC_KEY:
     MOV A, R2       ; A = 行号
+    RL A            ; A = 行号 * 2
     ___             ; A = 行号 * 4
     ADD A, R3       ; A = 行号*4 + 列号
     MOV R4, A       ; 保存键值到R4
     RET`,
-    correctAnswer: 'RL A\nRL A',
+    correctAnswer: 'RL A',
     ka: '8.2',
     chapter: 8,
   },
@@ -1304,13 +1305,13 @@ MOV P1, #___`,
   {
     id: 128,
     type: 'code-completion',
-    questionText: '补全代码，设置定时器1工作在模式2，定时1ms（12MHz晶振）。',
-    code: `; T1模式2，定时1ms
+    questionText: '补全代码，设置定时器1工作在模式2，定时250微秒（12MHz晶振）。',
+    code: `; T1模式2，定时250us
     MOV TMOD, #20H   ; T1模式2
-    MOV TH1, #___    ; 重装载值(256-250=6)
-    MOV TL1, #___    ; 初值
+    MOV TH1, #06H    ; 重装载值(256-250=6)
+    MOV TL1, #___    ; 初值与重装载值相同
     SETB TR1         ; 启动T1`,
-    correctAnswer: '06H\n06H',
+    correctAnswer: '06H',
     ka: '6.2',
     chapter: 6,
   },

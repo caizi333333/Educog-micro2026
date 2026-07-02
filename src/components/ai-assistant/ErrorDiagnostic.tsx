@@ -1,224 +1,321 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Info, 
-  Zap, 
-  Bug, 
-  Wrench, 
-  Lightbulb, 
-  Play, 
-  RotateCcw, 
-  Download,
+import {
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  Bug,
+  Wrench,
+  Sparkles,
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useApiCall, errorHandlerPresets } from '@/lib/api-error-handler';
 
 interface DiagnosticResult {
   id: string;
-  type: 'syntax' | 'logic' | 'runtime' | 'performance';
   severity: 'error' | 'warning' | 'info';
-  line: number;
-  column?: number;
+  line: number; // 1-based；0 表示整体性提示
   message: string;
   description: string;
-  solution: string;
-  codeExample?: string;
-  relatedConcepts: string[];
+  suggestion?: string;
 }
 
-interface SimulationStep {
-  step: number;
-  description: string;
-  registers: Record<string, string>;
-  memory: Record<string, string>;
-  pins: Record<string, boolean>;
-  explanation: string;
+// ---------- 8051 汇编静态检查（与 src/lib/simulator.ts 的解析规则对齐） ----------
+
+// 指令助记符 → 操作数个数（与仿真器支持的指令集一致）
+const MNEMONIC_OPERANDS: Record<string, number> = {
+  NOP: 0, RET: 0, RETI: 0,
+  AJMP: 1, LJMP: 1, SJMP: 1, JMP: 1,
+  ACALL: 1, LCALL: 1,
+  JZ: 1, JNZ: 1, JC: 1, JNC: 1,
+  JB: 2, JNB: 2, JBC: 2,
+  DJNZ: 2, CJNE: 3,
+  MOV: 2, MOVC: 2, MOVX: 2,
+  PUSH: 1, POP: 1,
+  XCH: 2, XCHD: 2, SWAP: 1,
+  ADD: 2, ADDC: 2, SUBB: 2,
+  INC: 1, DEC: 1, MUL: 1, DIV: 1, DA: 1,
+  ANL: 2, ORL: 2, XRL: 2,
+  CLR: 1, CPL: 1,
+  RL: 1, RLC: 1, RR: 1, RRC: 1,
+  SETB: 1,
+};
+
+// 跳转/调用类指令中"标号"所在的操作数下标
+const LABEL_OPERAND_INDEX: Record<string, number> = {
+  AJMP: 0, LJMP: 0, SJMP: 0, JMP: 0, ACALL: 0, LCALL: 0,
+  JZ: 0, JNZ: 0, JC: 0, JNC: 0,
+  JB: 1, JNB: 1, JBC: 1,
+  DJNZ: 1, CJNE: 2,
+};
+
+// 已知寄存器/SFR/位名，作为标号引用时排除
+const KNOWN_NAMES = new Set([
+  'A', 'AB', 'B', 'C', 'DPTR', 'PC', 'ACC', 'PSW', 'SP', 'DPL', 'DPH',
+  'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7',
+  'P0', 'P1', 'P2', 'P3', 'PCON', 'TCON', 'TMOD', 'TL0', 'TL1', 'TH0', 'TH1',
+  'SCON', 'SBUF', 'IE', 'IP', 'T2CON', 'RCAP2L', 'RCAP2H', 'TL2', 'TH2',
+  'CY', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'P',
+  'TI', 'RI', 'TR0', 'TR1', 'TF0', 'TF1',
+  'EA', 'ET0', 'ET1', 'EX0', 'EX1', 'ES', 'IT0', 'IE0', 'IT1', 'IE1',
+]);
+
+function isNumberLiteral(s: string): boolean {
+  const u = s.toUpperCase();
+  return /^[0-9][0-9A-F]*H$/.test(u) // 30H / 0FDH
+    || /^[01]+B$/.test(u)            // 01010101B
+    || /^0X[0-9A-F]+$/.test(u)       // 0x30
+    || /^[0-9]+$/.test(u)            // 十进制
+    || /^'.'$/.test(s);              // 字符字面量
 }
+
+// 判断操作数是否为"标号引用"：普通标识符，且不是寄存器/SFR/数字/间接寻址
+function isLabelReference(op: string): boolean {
+  const u = op.toUpperCase();
+  if (!/^[A-Z_]\w*$/.test(u)) return false;
+  if (KNOWN_NAMES.has(u)) return false;
+  return !isNumberLiteral(u);
+}
+
+// 疑似 C 代码特征
+function looksLikeCCode(code: string): boolean {
+  return /#include|void\s+main|sbit\s+\w+|unsigned\s+(char|int)|while\s*\(|for\s*\([^)]*;|printf\s*\(|\w+\s*\([^)]*\)\s*\{/.test(code)
+    || (code.includes('{') && code.includes('}'));
+}
+
+// 对输入逐行做真实的静态检查，返回带真实行号的诊断结果
+function runStaticCheck(code: string): DiagnosticResult[] {
+  const results: DiagnosticResult[] = [];
+  const lines = code.split('\n');
+  const labels = new Set<string>();
+  const symbols = new Set<string>();
+  // 待复核的标号引用：[行号, 标号]
+  const labelRefs: Array<[number, string]> = [];
+  let instructionCount = 0;
+  let hasEnd = false;
+  let id = 0;
+  const push = (r: Omit<DiagnosticResult, 'id'>) => results.push({ id: String(++id), ...r });
+
+  // 第一遍：收集标号与符号定义
+  lines.forEach((raw, i) => {
+    const cleaned = raw.replace(/;.*$/, '').trim();
+    if (!cleaned) return;
+    const symMatch = cleaned.match(/^([A-Z_]\w*)\s+(?:EQU|BIT|DATA)\s+(.+)$/i);
+    if (symMatch) {
+      symbols.add(symMatch[1].toUpperCase());
+      return;
+    }
+    const labelMatch = cleaned.match(/^(\w+):/);
+    if (labelMatch) {
+      const name = labelMatch[1].toUpperCase();
+      if (labels.has(name)) {
+        push({
+          severity: 'warning',
+          line: i + 1,
+          message: `标号 ${labelMatch[1]} 重复定义`,
+          description: '同名标号出现多次，跳转目标将以最后一次定义为准，容易引起逻辑混乱。',
+          suggestion: '为每个标号使用唯一名称。',
+        });
+      }
+      labels.add(name);
+    }
+  });
+
+  // 第二遍：逐行检查指令
+  lines.forEach((raw, i) => {
+    const lineNo = i + 1;
+    const cleaned = raw.replace(/;.*$/, '').trim();
+    if (!cleaned) return;
+    // 符号定义行
+    if (/^[A-Z_]\w*\s+(?:EQU|BIT|DATA)\s+/i.test(cleaned)) return;
+    // 纯标号行
+    if (/^\w+:$/.test(cleaned)) return;
+
+    const match = cleaned.match(/^(\w+:)?\s*(\w+)\s*(.*)$/);
+    if (!match) {
+      push({
+        severity: 'error',
+        line: lineNo,
+        message: '无法解析该行',
+        description: `"${cleaned}" 不符合 [标号:] 助记符 [操作数] 的汇编格式。`,
+        suggestion: '检查是否有多余的符号或拼写错误。',
+      });
+      return;
+    }
+    const [, , mnemonicRaw, operandsStr] = match;
+    const mnemonic = mnemonicRaw.toUpperCase();
+    const operands = operandsStr ? operandsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    // 汇编伪指令
+    if (mnemonic === 'END') { hasEnd = true; instructionCount++; return; }
+    if (mnemonic === 'ORG') {
+      if (!operands[0] || !isNumberLiteral(operands[0])) {
+        push({
+          severity: 'error',
+          line: lineNo,
+          message: 'ORG 伪指令地址无效',
+          description: `ORG 需要一个数值地址作为操作数，当前为 "${operandsStr || '(空)'}"。`,
+          suggestion: '写成如 ORG 0000H 的形式。',
+        });
+      }
+      return;
+    }
+    if (mnemonic === 'DB' || mnemonic === 'DW' || mnemonic === 'DS') {
+      if (!operandsStr.trim()) {
+        push({
+          severity: 'error',
+          line: lineNo,
+          message: `${mnemonic} 伪指令缺少数据`,
+          description: `${mnemonic} 后面必须跟至少一个数据项。`,
+          suggestion: `例如：TAB: ${mnemonic === 'DB' ? 'DB 3FH,06H,5BH' : mnemonic === 'DW' ? 'DW 1234H' : 'DS 8'}`,
+        });
+      }
+      instructionCount++;
+      return;
+    }
+
+    // 未知助记符
+    if (!(mnemonic in MNEMONIC_OPERANDS)) {
+      push({
+        severity: 'error',
+        line: lineNo,
+        message: `未知助记符 "${mnemonicRaw}"`,
+        description: '不是 8051 指令集中的助记符，也不是 ORG/DB/DW/DS/EQU/END 等伪指令。',
+        suggestion: '检查拼写，例如 MOV / SETB / SJMP / DJNZ。',
+      });
+      return;
+    }
+    instructionCount++;
+
+    // 操作数个数检查
+    const expected = MNEMONIC_OPERANDS[mnemonic];
+    if (operands.length !== expected) {
+      const maybeMissingComma = operands.length < expected && /\S\s+\S/.test(operandsStr.trim());
+      push({
+        severity: 'error',
+        line: lineNo,
+        message: `${mnemonic} 操作数个数不对（需要 ${expected} 个，实际 ${operands.length} 个）`,
+        description: maybeMissingComma
+          ? `操作数 "${operandsStr.trim()}" 中可能缺少逗号分隔。`
+          : `请核对 ${mnemonic} 指令的标准格式。`,
+        suggestion: maybeMissingComma ? '在操作数之间加上英文逗号，例如 MOV A,#30H。' : undefined,
+      });
+      return;
+    }
+
+    // 跳转/调用目标标号登记（第二遍结束后统一复核）
+    const labelIdx = LABEL_OPERAND_INDEX[mnemonic];
+    if (labelIdx !== undefined && operands[labelIdx]) {
+      const target = operands[labelIdx];
+      if (isLabelReference(target)) {
+        labelRefs.push([lineNo, target]);
+      }
+    }
+  });
+
+  // 标号引用复核
+  for (const [lineNo, target] of labelRefs) {
+    const u = target.toUpperCase();
+    if (!labels.has(u) && !symbols.has(u)) {
+      push({
+        severity: 'error',
+        line: lineNo,
+        message: `标号 ${target} 未定义`,
+        description: '跳转/调用目标在程序中找不到对应的标号定义。',
+        suggestion: `在目标位置添加 "${target}:" 标号，或修正拼写。`,
+      });
+    }
+  }
+
+  // 整体性提示
+  if (instructionCount > 0 && !hasEnd) {
+    push({
+      severity: 'info',
+      line: 0,
+      message: '程序末尾缺少 END 伪指令',
+      description: '规范的 8051 汇编程序应以 END 结束。',
+      suggestion: '在最后一行添加 END。',
+    });
+  }
+  if (instructionCount === 0) {
+    push({
+      severity: 'warning',
+      line: 0,
+      message: '未识别到任何指令',
+      description: '输入内容中没有可识别的 8051 汇编指令。',
+      suggestion: '请粘贴 8051 汇编代码，例如 MOV A,#30H。',
+    });
+  }
+
+  return results;
+}
+
+// ---------- 组件 ----------
 
 const ErrorDiagnostic: React.FC = () => {
   const [code, setCode] = useState('');
   const [diagnostics, setDiagnostics] = useState<DiagnosticResult[]>([]);
-  const [simulationSteps, setSimulationSteps] = useState<SimulationStep[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [activeTab, setActiveTab] = useState('diagnostic');
-  
-  // API调用状态管理
-  const diagnosticApi = useApiCall<DiagnosticResult[]>({
-    ...errorHandlerPresets.userAction,
-    onError: (error) => {
-      toast.error(`诊断失败: ${error.message}`);
-    },
-  });
-  
-  const simulationApi = useApiCall<SimulationStep[]>({
-    ...errorHandlerPresets.userAction,
-    onError: (error) => {
-      toast.error(`模拟失败: ${error.message}`);
-    },
-  });
+  const [hasRun, setHasRun] = useState(false);
+  const [isCCode, setIsCCode] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
-  // 模拟代码诊断
-  const runDiagnostic = async () => {
+  // 真实静态检查：本地逐行分析，行号与输入一一对应
+  const runDiagnostic = () => {
     if (!code.trim()) {
       toast.error('请输入要诊断的代码');
       return;
     }
-
-    try {
-      const results = await diagnosticApi.execute(async () => {
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // 模拟诊断结果
-        const mockDiagnostics: DiagnosticResult[] = [
-          {
-            id: '1',
-            type: 'syntax',
-            severity: 'error',
-            line: 5,
-            column: 12,
-            message: '缺少分号',
-            description: '在C语言中，每个语句都必须以分号结尾',
-            solution: '在语句末尾添加分号 ";"',
-            codeExample: 'LED = 0;  // 正确\nLED = 0   // 错误：缺少分号',
-            relatedConcepts: ['C语法', '语句终止符']
-          },
-          {
-            id: '2',
-            type: 'logic',
-            severity: 'warning',
-            line: 8,
-            message: '无限循环可能导致程序无响应',
-            description: 'while(1)循环没有退出条件，可能导致程序无法响应其他事件',
-            solution: '添加适当的退出条件或使用中断处理其他任务',
-            codeExample: 'while(1) {\n    // 添加其他逻辑\n    if(exit_condition) break;\n}',
-            relatedConcepts: ['循环控制', '程序流程']
-          },
-          {
-            id: '3',
-            type: 'performance',
-            severity: 'warning',
-            line: 12,
-            message: '延时函数效率低下',
-            description: '使用空循环进行延时会占用CPU资源，影响系统性能',
-            solution: '使用定时器中断替代软件延时',
-            codeExample: '// 推荐使用定时器\nTMOD = 0x01;\nTH0 = 0x3C;\nTL0 = 0xB0;\nTR0 = 1;',
-            relatedConcepts: ['定时器', '中断', '性能优化']
-          },
-          {
-            id: '4',
-            type: 'runtime',
-            severity: 'info',
-            line: 15,
-            message: '建议添加变量初始化',
-            description: '未初始化的变量可能包含随机值，导致程序行为不可预测',
-            solution: '在声明变量时进行初始化',
-            codeExample: 'unsigned char count = 0;  // 推荐\nunsigned char count;      // 不推荐',
-            relatedConcepts: ['变量初始化', '程序可靠性']
-          }
-        ];
-        
-        return mockDiagnostics;
-      });
-      
-      setDiagnostics(results);
-      toast.success('代码诊断完成！');
-    } catch (error) {
-      // Error is already handled by useApiCall
-      console.error('Diagnostic failed:', error);
-    }
-  };
-
-  // 模拟代码执行
-  const runSimulation = async () => {
-    if (!code.trim()) {
-      toast.error('请输入要模拟的代码');
+    setAiExplanation('');
+    if (looksLikeCCode(code)) {
+      setIsCCode(true);
+      setDiagnostics([]);
+      setHasRun(true);
       return;
     }
-
-    try {
-      const steps = await simulationApi.execute(async () => {
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // 模拟执行步骤
-        const mockSteps: SimulationStep[] = [
-          {
-            step: 1,
-            description: '程序初始化',
-            registers: { 'PC': '0x0000', 'SP': '0x07', 'A': '0x00' },
-            memory: { '0x20': '0x00', '0x21': '0x00' },
-            pins: { 'P1.0': false, 'P1.1': false },
-            explanation: '程序计数器指向起始地址，堆栈指针初始化，累加器清零'
-          },
-          {
-            step: 2,
-            description: '执行 LED = 0',
-            registers: { 'PC': '0x0003', 'SP': '0x07', 'A': '0x00' },
-            memory: { '0x20': '0x00', '0x21': '0x00' },
-            pins: { 'P1.0': true, 'P1.1': false },
-            explanation: 'P1.0引脚输出低电平，LED点亮（假设低电平有效）'
-          },
-          {
-            step: 3,
-            description: '进入延时函数',
-            registers: { 'PC': '0x0010', 'SP': '0x05', 'A': '0x00' },
-            memory: { '0x20': '0x01', '0x21': '0xF4' },
-            pins: { 'P1.0': true, 'P1.1': false },
-            explanation: '调用延时函数，参数500存储在内存中，堆栈保存返回地址'
-          },
-          {
-            step: 4,
-            description: '延时循环执行',
-            registers: { 'PC': '0x0015', 'SP': '0x05', 'A': '0x7B' },
-            memory: { '0x20': '0x01', '0x21': '0xF4' },
-            pins: { 'P1.0': true, 'P1.1': false },
-            explanation: '执行嵌套循环，累加器用作循环计数器'
-          },
-          {
-            step: 5,
-            description: '执行 LED = 1',
-            registers: { 'PC': '0x0006', 'SP': '0x07', 'A': '0x01' },
-            memory: { '0x20': '0x00', '0x21': '0x00' },
-            pins: { 'P1.0': false, 'P1.1': false },
-            explanation: 'P1.0引脚输出高电平，LED熄灭'
-          }
-        ];
-        
-        return mockSteps;
-      });
-      
-      setSimulationSteps(steps);
-      setCurrentStep(0);
-      setActiveTab('simulation');
-      toast.success('代码模拟完成！');
-    } catch (error) {
-      // Error is already handled by useApiCall
-      console.error('Simulation failed:', error);
-    }
+    setIsCCode(false);
+    const results = runStaticCheck(code);
+    setDiagnostics(results);
+    setHasRun(true);
+    toast.success(results.length > 0 ? `检查完成，发现 ${results.length} 个问题` : '检查完成，未发现语法问题');
   };
 
-  // 自动播放模拟步骤
-  useEffect(() => {
-    if (simulationSteps.length > 0 && currentStep < simulationSteps.length - 1) {
-      const timer = setTimeout(() => {
-        setCurrentStep(prev => prev + 1);
-      }, 2000);
-      return () => clearTimeout(timer);
+  // DeepSeek 叠加解释：走既有 /api/ai/chat 通道，失败不影响静态结果
+  const explainWithAI = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (!token) {
+      toast.error('请先登录后再使用 AI 解释');
+      return;
     }
-    return undefined;
-  }, [currentStep, simulationSteps.length]);
+    setAiLoading(true);
+    try {
+      const issueLines = diagnostics
+        .map(d => `- ${d.line > 0 ? `第${d.line}行：` : ''}${d.message}`)
+        .join('\n');
+      const question = `请针对下面的8051汇编代码和静态检查结果，用中文简要解释每个问题的原因，并给出修改建议（不要代写完整程序）：\n\n代码：\n${code.slice(0, 2000)}\n\n静态检查结果：\n${issueLines || '- 未发现语法问题，请从逻辑角度给出改进建议'}`;
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ question }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const answer = json?.data?.answer;
+      if (!answer) throw new Error('empty answer');
+      setAiExplanation(answer);
+    } catch (err) {
+      console.warn('AI explanation failed:', err);
+      toast.error('AI 解释暂不可用，请稍后重试（静态检查结果不受影响）');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -226,26 +323,6 @@ const ErrorDiagnostic: React.FC = () => {
       case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
       case 'info': return <Info className="h-4 w-4 text-blue-500" />;
       default: return <CheckCircle className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'syntax': return <Bug className="h-4 w-4" />;
-      case 'logic': return <Lightbulb className="h-4 w-4" />;
-      case 'runtime': return <Play className="h-4 w-4" />;
-      case 'performance': return <Zap className="h-4 w-4" />;
-      default: return <Wrench className="h-4 w-4" />;
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'syntax': return '语法错误';
-      case 'logic': return '逻辑问题';
-      case 'runtime': return '运行时问题';
-      case 'performance': return '性能问题';
-      default: return '其他问题';
     }
   };
 
@@ -261,8 +338,8 @@ const ErrorDiagnostic: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">智能错误诊断系统</h1>
-        <p className="text-gray-600">AI驱动的代码错误检测、分析和修复建议系统</p>
+        <h1 className="text-3xl font-bold text-gray-900">汇编错误诊断</h1>
+        <p className="text-gray-600">对 8051 汇编代码逐行静态检查，可叠加 AI 解释帮助理解错误原因</p>
       </div>
 
       {/* 代码输入区域 */}
@@ -270,300 +347,142 @@ const ErrorDiagnostic: React.FC = () => {
         <CardHeader>
           <CardTitle>代码输入</CardTitle>
           <CardDescription>
-            请输入您的8051微控制器代码，系统将自动进行错误诊断和执行模拟
+            请输入 8051 汇编代码，系统将进行逐行静态检查（未知助记符、缺逗号、标号未定义等）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder={`请输入您的代码，例如：
+            placeholder={`请输入 8051 汇编代码，例如：
 
-#include <reg51.h>
-sbit LED = P1^0;
-
-void delay(unsigned int ms) {
-    unsigned int i, j;
-    for(i = 0; i < ms; i++)
-        for(j = 0; j < 123; j++);
-}
-
-void main() {
-    while(1) {
-        LED = 0;
-        delay(500);
-        LED = 1;
-        delay(500);
-    }
-}`}
+ORG 0000H
+MAIN:
+    MOV A, #0FEH
+    MOV P1, A
+LOOP:
+    RL A
+    MOV P1, A
+    ACALL DELAY
+    SJMP LOOP
+DELAY:
+    MOV R7, #200
+D1: MOV R6, #250
+D2: DJNZ R6, D2
+    DJNZ R7, D1
+    RET
+END`}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             className="min-h-[300px] font-mono text-sm"
           />
           <div className="flex gap-4">
-            <Button 
-              onClick={runDiagnostic} 
-              disabled={diagnosticApi.loading}
-              className="flex-1"
-            >
-              {diagnosticApi.loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  正在诊断...
-                </>
-              ) : (
-                <>
-                  <Bug className="mr-2 h-4 w-4" />
-                  错误诊断
-                </>
-              )}
+            <Button onClick={runDiagnostic} className="flex-1">
+              <Bug className="mr-2 h-4 w-4" />
+              静态诊断
             </Button>
-            <Button 
-              onClick={runSimulation} 
-              disabled={simulationApi.loading}
-              variant="outline"
-              className="flex-1"
-            >
-              {simulationApi.loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  正在模拟...
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  执行模拟
-                </>
-              )}
-            </Button>
+            {hasRun && !isCCode && (
+              <Button
+                onClick={explainWithAI}
+                disabled={aiLoading}
+                variant="outline"
+                className="flex-1"
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    AI 分析中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    AI 解释诊断结果
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* 结果展示 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="diagnostic" className="flex items-center gap-2">
-            <Bug className="h-4 w-4" />
-            诊断结果
-            {diagnostics.length > 0 && (
-              <Badge variant="secondary">{diagnostics.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="simulation" className="flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            执行模拟
-            {simulationSteps.length > 0 && (
-              <Badge variant="secondary">{simulationSteps.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="diagnostic" className="space-y-4">
-          {diagnostics.length > 0 ? (
-            <>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">诊断结果</h2>
-                <div className="flex gap-2">
-                  <Badge variant="destructive">
-                    {diagnostics.filter(d => d.severity === 'error').length} 错误
-                  </Badge>
-                  <Badge variant="secondary">
-                    {diagnostics.filter(d => d.severity === 'warning').length} 警告
-                  </Badge>
-                  <Badge variant="outline">
-                    {diagnostics.filter(d => d.severity === 'info').length} 信息
-                  </Badge>
-                </div>
+      {hasRun && (
+        isCCode ? (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              检测到输入可能是 C 语言代码。当前仅支持 8051 汇编静态诊断，C 代码问题建议在"智能问答"中描述具体现象提问。
+            </AlertDescription>
+          </Alert>
+        ) : diagnostics.length > 0 ? (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">诊断结果</h2>
+              <div className="flex gap-2">
+                <Badge variant="destructive">
+                  {diagnostics.filter(d => d.severity === 'error').length} 错误
+                </Badge>
+                <Badge variant="secondary">
+                  {diagnostics.filter(d => d.severity === 'warning').length} 警告
+                </Badge>
+                <Badge variant="outline">
+                  {diagnostics.filter(d => d.severity === 'info').length} 提示
+                </Badge>
               </div>
-              
-              <div className="space-y-4">
-                {diagnostics.map((diagnostic) => (
-                  <Card key={diagnostic.id} className={`border-l-4 ${getSeverityColor(diagnostic.severity)}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {getSeverityIcon(diagnostic.severity)}
-                          <CardTitle className="text-lg">
-                            第{diagnostic.line}行：{diagnostic.message}
-                          </CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(diagnostic.type)}
-                          <Badge variant="outline">
-                            {getTypeLabel(diagnostic.type)}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-gray-700">{diagnostic.description}</p>
-                      
+            </div>
+
+            <div className="space-y-4">
+              {diagnostics.map((diagnostic) => (
+                <Card key={diagnostic.id} className={`border-l-4 ${getSeverityColor(diagnostic.severity)}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      {getSeverityIcon(diagnostic.severity)}
+                      <CardTitle className="text-lg">
+                        {diagnostic.line > 0 ? `第${diagnostic.line}行：` : ''}{diagnostic.message}
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-gray-700">{diagnostic.description}</p>
+                    {diagnostic.suggestion && (
                       <Alert>
                         <Wrench className="h-4 w-4" />
                         <AlertDescription>
-                          <strong>解决方案：</strong>{diagnostic.solution}
+                          <strong>修改建议：</strong>{diagnostic.suggestion}
                         </AlertDescription>
                       </Alert>
-                      
-                      {diagnostic.codeExample && (
-                        <div>
-                          <h4 className="font-medium mb-2">代码示例：</h4>
-                          <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg text-sm overflow-x-auto">
-                            <code>{diagnostic.codeExample}</code>
-                          </pre>
-                        </div>
-                      )}
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-sm font-medium">相关概念：</span>
-                        {diagnostic.relatedConcepts.map((concept, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {concept}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Bug className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">暂无诊断结果，请先运行错误诊断</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Card>
+            <CardContent className="text-center py-12">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <p className="text-gray-700 font-medium">静态检查未发现语法问题</p>
+              <p className="text-gray-500 text-sm mt-2">如运行结果不符合预期，可点击"AI 解释诊断结果"获取逻辑层面的建议</p>
+            </CardContent>
+          </Card>
+        )
+      )}
 
-        <TabsContent value="simulation" className="space-y-4">
-          {simulationSteps.length > 0 ? (
-            <>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">执行模拟</h2>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-600">
-                    步骤 {currentStep + 1} / {simulationSteps.length}
-                  </span>
-                  <Progress 
-                    value={(currentStep + 1) / simulationSteps.length * 100} 
-                    className="w-32"
-                  />
-                </div>
-              </div>
-              
-              {simulationSteps[currentStep] && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* 当前步骤信息 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Play className="h-5 w-5" />
-                        步骤 {simulationSteps[currentStep].step}
-                      </CardTitle>
-                      <CardDescription>
-                        {simulationSteps[currentStep].description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                          {simulationSteps[currentStep].explanation}
-                        </AlertDescription>
-                      </Alert>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* 系统状态 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>系统状态</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* 寄存器状态 */}
-                      <div>
-                        <h4 className="font-medium mb-2">寄存器</h4>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          {Object.entries(simulationSteps[currentStep].registers).map(([reg, value]) => (
-                            <div key={reg} className="flex justify-between bg-gray-50 p-2 rounded">
-                              <span className="font-mono">{reg}:</span>
-                              <span className="font-mono text-blue-600">{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* 内存状态 */}
-                      <div>
-                        <h4 className="font-medium mb-2">内存</h4>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {Object.entries(simulationSteps[currentStep].memory).map(([addr, value]) => (
-                            <div key={addr} className="flex justify-between bg-gray-50 p-2 rounded">
-                              <span className="font-mono">{addr}:</span>
-                              <span className="font-mono text-green-600">{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* 引脚状态 */}
-                      <div>
-                        <h4 className="font-medium mb-2">引脚状态</h4>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {Object.entries(simulationSteps[currentStep].pins).map(([pin, state]) => (
-                            <div key={pin} className="flex justify-between bg-gray-50 p-2 rounded">
-                              <span className="font-mono">{pin}:</span>
-                              <span className={`font-mono ${state ? 'text-red-600' : 'text-gray-600'}`}>
-                                {state ? 'HIGH' : 'LOW'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-              
-              {/* 步骤控制 */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-center gap-4">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-                      disabled={currentStep === 0}
-                    >
-                      上一步
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentStep(Math.min(simulationSteps.length - 1, currentStep + 1))}
-                      disabled={currentStep === simulationSteps.length - 1}
-                    >
-                      下一步
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentStep(0)}
-                    >
-                      重新开始
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Play className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">暂无模拟结果，请先运行执行模拟</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* AI 解释（DeepSeek 叠加，可选） */}
+      {aiExplanation && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              AI 解释
+            </CardTitle>
+            <CardDescription>由 DeepSeek 结合课程知识库生成，仅供理解参考</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
+              {aiExplanation}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

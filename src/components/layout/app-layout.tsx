@@ -90,9 +90,10 @@ const getAllMenuItems = (role?: string) => {
   ];
   if (role === 'TEACHER' || role === 'ADMIN') {
     items.push({ href: '/teacher', label: '教学仪表板', icon: LayoutDashboard });
-    items.push({ href: '/admin/users', label: '用户管理', icon: Users });
   }
   if (role === 'ADMIN') {
+    // 用户管理页仅 ADMIN 可进，教师侧栏不展示避免点进拒绝页
+    items.push({ href: '/admin/users', label: '用户管理', icon: Users });
     items.push({ href: '/admin', label: '系统管理', icon: Shield });
   }
   return items;
@@ -347,9 +348,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <SidebarMenu>
                     {adminItems
                       .filter((item) => {
-                        // System admin only for ADMIN role
-                        if (item.href === '/admin') return user.role === 'ADMIN';
-                        // Teacher dashboard & user management for TEACHER/ADMIN
+                        // System admin + user management only for ADMIN role
+                        if (item.href === '/admin' || item.href === '/admin/users') return user.role === 'ADMIN';
+                        // Teacher dashboard for TEACHER/ADMIN
                         return true;
                       })
                       .map((item) => (

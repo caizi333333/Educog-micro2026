@@ -30,7 +30,21 @@ export async function GET(request: NextRequest) {
 
     const studentIds = [...new Set(studentEnrollments.map((e) => e.userId))];
     if (studentIds.length === 0) {
-      return NextResponse.json({ preClass: {}, inClass: {}, postClass: {} });
+      // 空班级也返回完整字段，避免前端解构缺字段崩溃
+      return NextResponse.json({
+        preClass: {
+          totalAssigned: 0, completedAssigned: 0, inProgressAssigned: 0, notStartedAssigned: 0,
+          studentsWithAssigned: 0, studentsCompletedAll: 0, completionRate: 0,
+        },
+        inClass: {
+          totalEvents: 0, eventsByType: {}, totalDuration: 0,
+          avgDurationPerStudent: 0, recentActiveStudents: 0, dailyActivity: [], participationRate: 0,
+        },
+        postClass: {
+          totalStudents: 0, improvedCount: 0, declinedCount: 0, stableCount: 0,
+          avgFirstHalfScore: 0, avgSecondHalfScore: 0, chapterMasteryDist: {}, topStudents: [],
+        },
+      });
     }
 
     const [assignedExperiments, learningEvents, quizAttempts, progress] = await Promise.all([

@@ -28,7 +28,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { generateLearningPlan, type LearningPlanOutput } from '@/ai/flows/learning-plan-flow';
+import { type LearningPlanOutput } from '@/ai/flows/learning-plan-flow';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
@@ -535,15 +535,6 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }) 
         setPlan(fallbackPlan);
         localStorage.setItem(cacheKey, JSON.stringify(fallbackPlan));
         localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
-
-        setTimeout(async () => {
-          try {
-            const result = await generateLearningPlan({ weakKnowledgeAreas: weakAreas });
-            localStorage.setItem(`${cacheKey}_ai`, JSON.stringify(result));
-          } catch {
-            // Non-critical: AI plan generation failed, local path already loaded
-          }
-        }, 120);
       } catch (error) {
         console.error('Failed to generate learning plan:', error);
         setPlan(buildFallbackPlan(weakAreas, experiments, knowledgePoints));

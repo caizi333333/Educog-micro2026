@@ -25,7 +25,6 @@ import {
   Brain,
   HelpCircle,
   Clock,
-  Star,
   Search
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -77,6 +76,43 @@ function renderWithCitations(content: string, relatedNodes?: RelatedNode[]): Rea
   return out;
 }
 
+// 把回答按 ```代码块``` 切分：文本段走引用渲染，代码段渲染为深色代码样式
+function renderAnswerContent(content: string, relatedNodes?: RelatedNode[]): React.ReactNode[] {
+  if (!content) return [];
+  const out: React.ReactNode[] = [];
+  const re = /```([a-zA-Z0-9+-]*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      out.push(
+        <React.Fragment key={`txt${key++}`}>
+          {renderWithCitations(content.slice(lastIndex, match.index), relatedNodes)}
+        </React.Fragment>,
+      );
+    }
+    const lang = match[1] || 'code';
+    out.push(
+      <div key={`code${key++}`} className="my-2 rounded-lg overflow-hidden bg-gray-900">
+        <div className="px-3 py-1 bg-gray-800 text-xs text-gray-300 font-mono">{lang}</div>
+        <pre className="p-3 text-sm text-gray-100 overflow-x-auto">
+          <code>{match[2].replace(/\n$/, '')}</code>
+        </pre>
+      </div>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    out.push(
+      <React.Fragment key={`txt${key++}`}>
+        {renderWithCitations(content.slice(lastIndex), relatedNodes)}
+      </React.Fragment>,
+    );
+  }
+  return out;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'assistant';
@@ -84,7 +120,6 @@ interface Message {
   timestamp: Date;
   codeBlocks?: CodeBlock[];
   relatedTopics?: string[];
-  confidence?: number;
   sources?: string[];
   relatedNodes?: RelatedNode[];
 }
@@ -191,15 +226,20 @@ const IntelligentQA: React.FC = memo(() => {
   ], []);
 
   // 真实 AI 回答：先调 /api/ai/chat（DeepSeek + RAG），失败再回落到下方
-  // 关键词模拟，避免页面在网络/key 异常时白屏。
-  const generateAIResponse = async (question: string): Promise<Message> => {
+  // 本地课程知识库模板，避免页面在网络/key 异常时白屏。
+  const generateAIResponse = async (question: string, history: Message[]): Promise<Message> => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
       if (token) {
+        // 携带最近6条对话作为上下文，支持多轮追问
+        const historyPayload = history.slice(-6).map((m) => ({
+          role: m.type === 'user' ? 'user' : 'model',
+          content: [{ text: m.content }],
+        }));
         const res = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question, history: historyPayload }),
         });
         if (res.ok) {
           const json = await res.json();
@@ -214,12 +254,12 @@ const IntelligentQA: React.FC = memo(() => {
               type: 'assistant',
               content: data.answer,
               timestamp: new Date(),
-              confidence: 90,
               relatedTopics,
               relatedNodes,
+              // 只标注真实的知识库检索命中，不编造来源
               sources: relatedNodes.length > 0
-                ? [`知识库 RAG · 命中 ${relatedNodes.length} 个节点`]
-                : ['DeepSeek + 课程知识库'],
+                ? [`课程知识库检索命中 ${relatedNodes.length} 个知识点`]
+                : undefined,
             };
           }
         }
@@ -260,9 +300,8 @@ const IntelligentQA: React.FC = memo(() => {
 - 全双工串行通信接口
 - 5个中断源，2级中断优先级`,
         timestamp: new Date(),
-        confidence: 95,
         relatedTopics: ['哈佛架构', 'SFR寄存器', 'I/O端口', '存储器映射'],
-        sources: ['8051技术手册', 'Intel官方文档']
+        sources: ['来自本地课程知识库']
       };
     } else if (question.includes('定时器') || question.includes('Timer')) {
       response = {
@@ -299,9 +338,8 @@ TF0 = 0;  // 清除溢出标志`,
             explanation: '这段代码配置定时器0为16位模式，实现50ms定时功能'
           }
         ],
-        confidence: 92,
         relatedTopics: ['TMOD寄存器', 'TCON寄存器', '定时计算', '中断处理'],
-        sources: ['8051编程指南', '定时器应用手册']
+        sources: ['来自本地课程知识库']
       };
     } else if (question.includes('LED') || question.includes('闪烁')) {
       response = {
@@ -369,9 +407,8 @@ void timer0_isr() interrupt 1 {
             explanation: '使用定时器中断实现精确的1秒间隔LED闪烁'
           }
         ],
-        confidence: 98,
         relatedTopics: ['GPIO控制', '延时函数', '定时器中断', 'sbit关键字'],
-        sources: ['8051实例教程', 'GPIO编程指南']
+        sources: ['来自本地课程知识库']
       };
     } else {
       // 通用回答
@@ -394,53 +431,80 @@ void timer0_isr() interrupt 1 {
 - 中断系统如何工作？
 - 串口通信怎么实现？`,
         timestamp: new Date(),
-        confidence: 85,
         relatedTopics: ['基础概念', '编程实践', '硬件应用', '项目开发'],
-        sources: ['8051技术文档']
+        sources: ['来自本地课程知识库']
       };
     }
 
     return response;
   };
 
-  // 缓存发送消息函数
-  const sendMessage = useCallback(async () => {
-    if (!inputValue.trim()) return;
+  // 发送消息：支持直接传入问题文本（快速问题入口），避免依赖尚未更新的输入框状态
+  const sendMessage = useCallback(async (text?: string) => {
+    const question = (text ?? inputValue).trim();
+    if (!question || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputValue,
+      content: question,
       timestamp: new Date()
     };
+
+    // 当前对话作为上下文（不含本条新提问）
+    const history = messages;
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
-      const aiResponse = await generateAIResponse(inputValue);
+      const aiResponse = await generateAIResponse(question, history);
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
+      // 保留用户消息，追加错误提示，不让提问凭空消失
       toast.error('回答生成失败，请重试');
+      setMessages(prev => [...prev, {
+        id: `${Date.now()}-err`,
+        type: 'assistant',
+        content: '抱歉，本次回答生成失败，请稍后重试或换个问法。',
+        timestamp: new Date()
+      }]);
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue]);
+  }, [inputValue, isLoading, messages]);
 
-  // 缓存快速问题点击处理函数
+  // 快速问题：切到对话页并直接发送
   const handleQuickQuestion = useCallback((question: string) => {
-    setInputValue(question);
     setActiveTab('chat');
-    setTimeout(() => {
-      sendMessage();
-    }, 100);
+    sendMessage(question);
   }, [sendMessage]);
 
   // 缓存复制代码函数
   const copyCode = useCallback((code: string) => {
     navigator.clipboard.writeText(code);
     toast.success('代码已复制到剪贴板');
+  }, []);
+
+  // 点赞/点踩反馈：写入既有学习事件接口
+  const sendFeedback = useCallback((messageId: string, vote: 'up' | 'down') => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (token) {
+      fetch('/api/learning-events/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          events: [{
+            eventType: 'AI_FEEDBACK',
+            targetType: 'AI_ASSISTANT',
+            targetId: messageId,
+            metadata: { vote },
+          }],
+        }),
+      }).catch(() => {});
+    }
+    toast.success('感谢您的反馈');
   }, []);
 
   // 自动滚动到底部
@@ -568,7 +632,7 @@ void timer0_isr() interrupt 1 {
                           }`}>
                             <div className="whitespace-pre-wrap">
                               {message.type === 'assistant'
-                                ? renderWithCitations(message.content, message.relatedNodes)
+                                ? renderAnswerContent(message.content, message.relatedNodes)
                                 : message.content}
                             </div>
                             
@@ -600,14 +664,6 @@ void timer0_isr() interrupt 1 {
                             {/* AI回答的额外信息 */}
                             {message.type === 'assistant' && (
                               <div className="mt-4 space-y-3">
-                                {/* 置信度 */}
-                                {message.confidence && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Star className="h-3 w-3 text-yellow-500" />
-                                    <span>置信度: {message.confidence}%</span>
-                                  </div>
-                                )}
-                                
                                 {/* 相关主题 */}
                                 {message.relatedTopics && message.relatedTopics.length > 0 && (
                                   <div>
@@ -661,10 +717,10 @@ void timer0_isr() interrupt 1 {
                                 
                                 {/* 反馈按钮 */}
                                 <div className="flex items-center gap-2 pt-2">
-                                  <Button size="sm" variant="ghost" className="h-6 px-2">
+                                  <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => sendFeedback(message.id, 'up')}>
                                     <ThumbsUp className="h-3 w-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-2">
+                                  <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => sendFeedback(message.id, 'down')}>
                                     <ThumbsDown className="h-3 w-3" />
                                   </Button>
                                 </div>
@@ -711,8 +767,8 @@ void timer0_isr() interrupt 1 {
                   disabled={isLoading}
                   className="flex-1 border-slate-200/60 bg-white/80 focus:border-blue-300 focus:ring-blue-200/50 text-slate-800 placeholder:text-slate-500"
                 />
-                <Button 
-                  onClick={sendMessage} 
+                <Button
+                  onClick={() => sendMessage()}
                   disabled={isLoading || !inputValue.trim()}
                   size="icon"
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200 disabled:from-slate-400 disabled:to-slate-500"
@@ -792,7 +848,12 @@ void timer0_isr() interrupt 1 {
                               {point.category}
                             </Badge>
                           </div>
-                          <Button size="sm" variant="outline" className="border-purple-300/60 text-purple-700 hover:bg-purple-50/80 hover:border-purple-400">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-purple-300/60 text-purple-700 hover:bg-purple-50/80 hover:border-purple-400"
+                            onClick={() => handleQuickQuestion(`请介绍一下${point.title}：${point.description}`)}
+                          >
                             <Search className="h-3 w-3 mr-1" />
                             探索
                           </Button>

@@ -70,6 +70,11 @@ function KaChip({ ka, className }: { ka: string; className?: string }) {
   );
 }
 
+// 判定前归一化：忽略大小写、压缩空白（含换行）为单空格、去掉逗号后的空格，
+// 使 "MOVC A, @A+DPTR" 与 "MOVC A,@A+DPTR" 等价
+const normalizeAnswer = (s: string) =>
+  s.trim().toLowerCase().replace(/\s+/g, ' ').replace(/,\s+/g, ',');
+
 // Fisher-Yates shuffle algorithm
 const shuffleArray = (array: Question[]) => {
   const shuffled = [...array];
@@ -121,6 +126,9 @@ export function QuizClient() {
     [chapterFilter, quizQuestions],
   );
 
+  // 进度键按章节区分，避免章节卷与综合卷互相覆盖
+  const progressKey = chapterFilter !== null ? `quiz-progress-ch${chapterFilter}` : 'quiz-progress';
+
   // Fetch quiz questions from API (DB-first) with static fallback
   useEffect(() => {
     let active = true;
@@ -142,27 +150,33 @@ export function QuizClient() {
 
   useEffect(() => {
     // Shuffling is done on the client-side to avoid hydration mismatch
-    setShuffledQuestions(shuffleArray(sourceQuestions));
-    
+    // 章节参数或题库变化时重建题集，保证按章练习只出该章题目
+    const next = shuffleArray(sourceQuestions);
+    setShuffledQuestions(next);
+    setCurrentQuestionIndex(0);
+    // 报告只在当次交卷后展示，不从存储恢复
+    setShowResults(false);
+
     // 尝试恢复测评进度
     if (typeof window !== 'undefined') {
       try {
-        const savedProgress = localStorage.getItem('quiz-progress');
+        const savedProgress = localStorage.getItem(progressKey);
         if (savedProgress) {
           const progress = JSON.parse(savedProgress);
           // 检查是否在24小时内
           const isRecent = new Date().getTime() - new Date(progress.timestamp).getTime() < 24 * 60 * 60 * 1000;
-          if (isRecent && progress.currentQuestionIndex !== undefined) {
-            setCurrentQuestionIndex(progress.currentQuestionIndex);
+          if (isRecent && typeof progress.currentQuestionIndex === 'number') {
+            // 越界时收敛到合法范围，避免"题目加载错误"死页
+            const clamped = Math.min(Math.max(progress.currentQuestionIndex, 0), Math.max(next.length - 1, 0));
+            setCurrentQuestionIndex(clamped);
             setAnswerStatus(progress.answerStatus || {});
-            setShowResults(progress.showResults || false);
           }
         }
       } catch (error) {
         console.warn('Failed to load quiz progress:', error);
       }
     }
-  }, []);
+  }, [sourceQuestions, progressKey]);
 
   // 保存答案到localStorage
   useEffect(() => {
@@ -176,17 +190,16 @@ export function QuizClient() {
     }
   }, [answers, user]);
 
-  // 保存测评进度
-  const saveQuizProgress = () => {
+  // 保存测评进度，index 传入最新题号避免闭包里的旧值
+  const saveQuizProgress = (index = currentQuestionIndex) => {
     if (typeof window !== 'undefined') {
       try {
         const progress = {
-          currentQuestionIndex,
+          currentQuestionIndex: index,
           answerStatus,
-          showResults,
           timestamp: new Date().toISOString()
         };
-        localStorage.setItem('quiz-progress', JSON.stringify(progress));
+        localStorage.setItem(progressKey, JSON.stringify(progress));
       } catch (error) {
         console.warn('Failed to save quiz progress:', error);
       }
@@ -201,9 +214,9 @@ export function QuizClient() {
     const currentQuestion = shuffledQuestions[currentQuestionIndex];
     if (!currentQuestion || !answers[currentQuestion.id]) return;
 
-    const userAnswer = (answers[currentQuestion.id] || "").trim().toLowerCase();
-    const correctAnswer = currentQuestion.correctAnswer.trim().toLowerCase();
-    
+    const userAnswer = normalizeAnswer(answers[currentQuestion.id] || '');
+    const correctAnswer = normalizeAnswer(currentQuestion.correctAnswer);
+
     setAnswerStatus(prev => ({
         ...prev,
         [currentQuestion.id]: userAnswer === correctAnswer ? 'correct' : 'incorrect'
@@ -212,23 +225,17 @@ export function QuizClient() {
 
   const handleNext = () => {
     if (currentQuestionIndex < shuffledQuestions.length - 1) {
-      setCurrentQuestionIndex((prev) => {
-        const newIndex = prev + 1;
-        // 保存进度
-        setTimeout(saveQuizProgress, 100);
-        return newIndex;
-      });
+      const newIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(newIndex);
+      saveQuizProgress(newIndex);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => {
-        const newIndex = prev - 1;
-        // 保存进度
-        setTimeout(saveQuizProgress, 100);
-        return newIndex;
-      });
+      const newIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(newIndex);
+      saveQuizProgress(newIndex);
     }
   };
   
@@ -278,6 +285,19 @@ export function QuizClient() {
             title: '测评结果已保存',
             description: '您的测评结果已成功保存到系统中。',
           });
+        } else {
+          // 非 ok 响应也要提示，避免静默失败
+          const description =
+            response.status === 401
+              ? '登录已过期，请重新登录后再交卷。'
+              : response.status === 429
+                ? '操作过于频繁，请稍后再试。'
+                : '测评结果保存失败，但您可以继续查看结果。';
+          toast({
+            title: '保存失败',
+            description,
+            variant: 'destructive',
+          });
         }
       } catch (error) {
         console.error('Failed to save quiz results to server:', error);
@@ -309,7 +329,7 @@ export function QuizClient() {
       }
     }
     // 保存最终状态
-    setTimeout(saveQuizProgress, 100);
+    saveQuizProgress();
   }
 
   const handleRestart = () => {
@@ -322,7 +342,7 @@ export function QuizClient() {
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(user ? `quiz-answers-${user.id}` : 'quiz-answers');
-        localStorage.removeItem('quiz-progress');
+        localStorage.removeItem(progressKey);
         localStorage.removeItem(user ? `assessment-results-${user.id}` : 'assessment-results');
       } catch (error) {
         console.warn('Failed to clear quiz data:', error);
@@ -369,19 +389,22 @@ export function QuizClient() {
   };
   
   const { scores, totalScore, weakKAs, totalCorrect } = useMemo(() => {
-    const totalQuestions = shuffledQuestions.length;
     const scoresByKa: { [ka: string]: { correct: number; total: number } } = {};
     let correctCount = 0;
+    let answeredTotal = 0;
 
     shuffledQuestions.forEach(q => {
+        const userAnswer = normalizeAnswer(answers[q.id] || '');
+        // 未作答不参与统计，避免把未答当答错、知识原子全部判薄弱
+        if (!userAnswer) return;
+        answeredTotal++;
+
         if (!scoresByKa[q.ka]) {
             scoresByKa[q.ka] = { correct: 0, total: 0 };
         }
         scoresByKa[q.ka].total += 1;
 
-        const userAnswer = (answers[q.id] || '').trim().toLowerCase();
-        const correctAnswer = q.correctAnswer.trim().toLowerCase();
-        if (userAnswer && userAnswer === correctAnswer) {
+        if (userAnswer === normalizeAnswer(q.correctAnswer)) {
             scoresByKa[q.ka].correct += 1;
             correctCount++;
         }
@@ -400,11 +423,23 @@ export function QuizClient() {
 
     return {
       scores: finalScores,
-      totalScore: totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0,
+      totalScore: answeredTotal > 0 ? (correctCount / answeredTotal) * 100 : 0,
       weakKAs: weakKaList,
       totalCorrect: correctCount,
     };
   }, [answers, shuffledQuestions]);
+
+  // 章节参数没有对应题目时给出返回入口，避免一直停在加载态
+  if (quizQuestions.length > 0 && sourceQuestions.length === 0) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">该章节暂无题目。</p>
+        <Button asChild>
+          <Link href="/quiz">返回全部题目</Link>
+        </Button>
+      </div>
+    );
+  }
 
   if (shuffledQuestions.length === 0) {
     return (
@@ -426,26 +461,27 @@ export function QuizClient() {
   
   const isCurrentQuestionChecked = !!answerStatus[currentQuestion.id];
   const isCurrentAnswerCorrect = answerStatus[currentQuestion.id] === 'correct';
-  const answeredCount = Object.keys(answers).filter(key => answers[parseInt(key)]?.trim() !== '').length;
-  const checkedCount = Object.keys(answerStatus).length;
-  const correctCheckedCount = Object.values(answerStatus).filter(status => status === 'correct').length;
-  const correctAnsweredCount = shuffledQuestions.filter(
-    (question) => (answers[question.id] || '').trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
-  ).length;
+  // 各项计数只在当前题集范围内统计，保证章节卷分母正确
+  const answeredCount = shuffledQuestions.filter((question) => (answers[question.id] || '').trim() !== '').length;
+  const checkedCount = shuffledQuestions.filter((question) => answerStatus[question.id]).length;
+  const correctCheckedCount = shuffledQuestions.filter((question) => answerStatus[question.id] === 'correct').length;
+  const correctAnsweredCount = totalCorrect;
   const answerProgress = shuffledQuestions.length > 0 ? (answeredCount / shuffledQuestions.length) * 100 : 0;
   const checkedProgress = shuffledQuestions.length > 0 ? (checkedCount / shuffledQuestions.length) * 100 : 0;
   const currentAnswer = answers[currentQuestion.id] || '';
   const currentKaScore = scores[currentQuestion.ka]?.score ?? 0;
   const scoreEntries = Object.entries(scores).sort(([, a], [, b]) => a.score - b.score);
-  const missedQuestions = shuffledQuestions.filter(
-    (question) => (answers[question.id] || '').trim().toLowerCase() !== question.correctAnswer.trim().toLowerCase()
-  );
+  // 只列真实答错的题，未作答不算错题
+  const missedQuestions = shuffledQuestions.filter((question) => {
+    const userAnswer = normalizeAnswer(answers[question.id] || '');
+    return userAnswer !== '' && userAnswer !== normalizeAnswer(question.correctAnswer);
+  });
   const chapterQuestionCount = shuffledQuestions.filter(question => question.chapter === currentQuestion.chapter).length;
 
 
   if (showResults) {
     return (
-      <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+      <div className="-m-6 min-h-[calc(100vh-3.5rem)] animate-fade-in overflow-auto bg-[#070a0d] text-slate-100">
         <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -488,32 +524,32 @@ export function QuizClient() {
                 <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] p-5">
                   <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-100">Overall Score</div>
                   <div className="mt-4 flex items-end gap-2">
-                    <span className="font-mono text-6xl font-semibold text-slate-50">{totalScore.toFixed(0)}</span>
+                    <span className="font-mono text-6xl font-semibold text-slate-50 stat-glow">{totalScore.toFixed(0)}</span>
                     <span className="pb-2 font-mono text-xl text-slate-400">%</span>
                   </div>
                   <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/30">
-                    <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, Math.max(0, totalScore))}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-emerald-300 transition-all duration-700" style={{ width: `${Math.min(100, Math.max(0, totalScore))}%` }} />
                   </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-                    <ClipboardCheck className="mb-3 h-4 w-4 text-cyan-200" />
-                    <div className="font-mono text-2xl text-slate-50">{answeredCount}</div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
+                  <div className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
+                    <div className="chip-mark mb-3 flex h-7 w-7 items-center justify-center rounded-md"><ClipboardCheck className="h-3.5 w-3.5 text-cyan-100" /></div>
+                    <div className="font-mono text-2xl text-slate-50 stat-glow">{answeredCount}</div>
                     <div className="text-xs text-slate-500">已答题</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-                    <CheckCircle className="mb-3 h-4 w-4 text-emerald-300" />
-                    <div className="font-mono text-2xl text-slate-50">{correctAnsweredCount}</div>
+                  <div className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
+                    <div className="chip-mark mb-3 flex h-7 w-7 items-center justify-center rounded-md"><CheckCircle className="h-3.5 w-3.5 text-emerald-100" /></div>
+                    <div className="font-mono text-2xl text-slate-50 stat-glow">{correctAnsweredCount}</div>
                     <div className="text-xs text-slate-500">答对题</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-                    <Target className="mb-3 h-4 w-4 text-amber-300" />
-                    <div className="font-mono text-2xl text-slate-50">{weakKAs.length}</div>
+                  <div className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
+                    <div className="chip-mark mb-3 flex h-7 w-7 items-center justify-center rounded-md"><Target className="h-3.5 w-3.5 text-amber-100" /></div>
+                    <div className="font-mono text-2xl text-slate-50 stat-glow">{weakKAs.length}</div>
                     <div className="text-xs text-slate-500">待加强原子</div>
                   </div>
-                  <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-                    <ListChecks className="mb-3 h-4 w-4 text-slate-300" />
-                    <div className="font-mono text-2xl text-slate-50">{shuffledQuestions.length}</div>
+                  <div className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
+                    <div className="chip-mark mb-3 flex h-7 w-7 items-center justify-center rounded-md"><ListChecks className="h-3.5 w-3.5 text-slate-200" /></div>
+                    <div className="font-mono text-2xl text-slate-50 stat-glow">{shuffledQuestions.length}</div>
                     <div className="text-xs text-slate-500">题目总数</div>
                   </div>
                 </div>
@@ -525,7 +561,7 @@ export function QuizClient() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-50">知识原子掌握度</h2>
                   <span className="sr-only">知识原子掌握度分析</span>
-                  <p className="mt-1 text-xs text-slate-500">按得分从低到高排列，优先处理低掌握项。</p>
+                  <p className="mt-1 text-xs text-slate-500">仅统计已作答的题目，按得分从低到高排列；未作答的知识原子视为未测评。</p>
                 </div>
                 <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[10px] text-slate-500">
                   {scoreEntries.length} KA
@@ -533,7 +569,7 @@ export function QuizClient() {
               </div>
               <div className="grid gap-3 p-5 lg:grid-cols-2">
                 {scoreEntries.map(([ka, result]) => (
-                  <div key={ka} className="rounded-md border border-white/[0.08] bg-black/20 p-4">
+                  <div key={ka} className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <span className="min-w-0">
                         <KaChip ka={ka} />
@@ -550,8 +586,8 @@ export function QuizClient() {
                     <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
                       <div
                         className={cn(
-                          'h-full rounded-full',
-                          result.score < 50 ? 'bg-red-400' : result.score < 80 ? 'bg-amber-300' : 'bg-emerald-300'
+                          'h-full rounded-full transition-all duration-500',
+                          result.score < 50 ? 'bg-gradient-to-r from-red-400 to-amber-400' : result.score < 80 ? 'bg-gradient-to-r from-amber-300 to-yellow-300' : 'bg-gradient-to-r from-cyan-300 to-emerald-300'
                         )}
                         style={{ width: `${Math.min(100, Math.max(0, result.score))}%` }}
                       />
@@ -565,8 +601,8 @@ export function QuizClient() {
             <div className="rounded-md border border-white/[0.08] bg-white/[0.035]">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-50">错题与未答题回看</h2>
-                  <p className="mt-1 text-xs text-slate-500">保留正确答案和对应章节入口，便于回到课程实验复习。</p>
+                  <h2 className="text-lg font-semibold text-slate-50">错题回看</h2>
+                  <p className="mt-1 text-xs text-slate-500">只列出已作答且答错的题，保留正确答案和对应章节入口，便于回到课程实验复习。</p>
                 </div>
                 <span className="rounded-md border border-red-300/20 bg-red-300/[0.08] px-2 py-1 font-mono text-[10px] text-red-100">
                   {missedQuestions.length} items
@@ -684,7 +720,7 @@ export function QuizClient() {
   }
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100">
+    <div className="-m-6 min-h-[calc(100vh-3.5rem)] animate-fade-in overflow-auto bg-[#070a0d] text-slate-100">
       <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -955,7 +991,7 @@ export function QuizClient() {
               <Target className="h-4 w-4 text-cyan-200" />
               当前知识原子
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-black/20 p-4">
+            <div className="glass-hover animate-slide-up rounded-md border border-white/[0.08] bg-black/20 p-4 transition-all">
               <div className="text-base font-semibold text-slate-50">
                 <KaChip ka={currentQuestion.ka} />
               </div>

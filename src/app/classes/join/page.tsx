@@ -93,7 +93,7 @@ function JoinForm() {
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-          placeholder="如 EDU-A8C2"
+          placeholder="8位邀请码，如 XK7M2QPT"
           autoComplete="off"
           autoCapitalize="characters"
           className="mt-1 h-10 w-full rounded-md border bg-background px-3 font-mono text-base tracking-widest"

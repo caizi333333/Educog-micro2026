@@ -40,17 +40,6 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
 
-  if (!user || user.role !== 'ADMIN') {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] p-6 text-center">
-          <AlertTriangle className="mx-auto h-6 w-6 text-amber-200" />
-          <p className="mt-3 text-sm text-amber-50">仅系统管理员可访问此页面。</p>
-        </div>
-      </div>
-    );
-  }
-
   // 表单状态
   const [formData, setFormData] = useState({
     email: '',
@@ -101,8 +90,21 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    if (!user || user.role !== 'ADMIN') return; // 非管理员不请求
     fetchUsers();
-  }, [page, roleFilter, statusFilter]);
+  }, [page, roleFilter, statusFilter, user]);
+
+  // 角色守卫必须放在全部 Hook 之后，否则重渲染时 Hook 数量变化会崩溃
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] p-6 text-center">
+          <AlertTriangle className="mx-auto h-6 w-6 text-amber-200" />
+          <p className="mt-3 text-sm text-amber-50">仅系统管理员可访问此页面。</p>
+        </div>
+      </div>
+    );
+  }
 
   // 创建用户
   const handleCreateUser = async () => {

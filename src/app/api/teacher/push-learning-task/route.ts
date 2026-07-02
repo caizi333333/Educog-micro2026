@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { getAccessibleClassIds } from '@/lib/classroom';
 import { getPointsByLevel } from '@/lib/knowledge-points';
 
 type PathType = 'BASIC' | 'ADVANCED';
@@ -45,28 +46,44 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const scope: TargetScope = body.scope || 'ALL';
-    const targetClass: string | undefined = body.targetClass || undefined;
+    const targetClassId: string | undefined = body.targetClassId || undefined;
     const studentIds: string[] = Array.isArray(body.studentIds) ? body.studentIds : [];
     const pathType: PathType = body.pathType || 'BASIC';
     const moduleCount: number = Math.max(1, Math.min(CHAPTER_SCHEDULE.length, Number(body.moduleCount || 5)));
 
-    let students = [];
-    if (scope === 'ALL') {
-      students = await prisma.user.findMany({
-        where: { role: 'STUDENT', status: 'ACTIVE' },
-        select: { id: true, name: true, class: true, studentId: true },
-      });
-    } else if (scope === 'CLASS') {
-      if (!targetClass) return NextResponse.json({ error: '缺少班级' }, { status: 400 });
-      students = await prisma.user.findMany({
-        where: { role: 'STUDENT', status: 'ACTIVE', class: targetClass },
-        select: { id: true, name: true, class: true, studentId: true },
-      });
+    // ALL 只覆盖本教师可管理班级的学生（按 ClassEnrollment 关系，排除 demo 账号）
+    const accessibleClassIds = await getAccessibleClassIds(payload);
+    const enrollmentUserFilter = {
+      role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } },
+    } as const;
+
+    let students: { id: string }[] = [];
+    if (scope === 'ALL' || scope === 'CLASS') {
+      let classIds = accessibleClassIds;
+      if (scope === 'CLASS') {
+        if (!targetClassId) return NextResponse.json({ error: '缺少班级' }, { status: 400 });
+        if (!accessibleClassIds.includes(targetClassId)) {
+          return NextResponse.json({ error: '无权操作该班级' }, { status: 403 });
+        }
+        classIds = [targetClassId];
+      }
+      const enrollments = classIds.length === 0
+        ? []
+        : await prisma.classEnrollment.findMany({
+          where: {
+            classId: { in: classIds },
+            role: 'STUDENT',
+            status: 'ACTIVE',
+            user: enrollmentUserFilter,
+          },
+          select: { userId: true },
+        });
+      students = [...new Set(enrollments.map((e) => e.userId))].map((id) => ({ id }));
     } else {
       if (!studentIds.length) return NextResponse.json({ error: '缺少学生列表' }, { status: 400 });
       students = await prisma.user.findMany({
         where: { role: 'STUDENT', status: 'ACTIVE', id: { in: studentIds } },
-        select: { id: true, name: true, class: true, studentId: true },
+        select: { id: true },
       });
     }
 
@@ -82,53 +99,54 @@ export async function POST(request: NextRequest) {
         ? '面向能力较强的学生，侧重综合应用与项目实践（由教师统一推送）'
         : '面向基础薄弱的学生，强化核心概念理解与基础实验（由教师统一推送）';
 
-    let created = 0;
-    // 为每个学生创建一条新的 ACTIVE 路径，并将原 ACTIVE 置为 PAUSED（若存在）
-    for (const s of students) {
-      await prisma.$transaction(async (tx) => {
-        const existing = await tx.learningPath.findFirst({
-          where: { userId: s.id, status: 'ACTIVE' },
-          select: { id: true },
-        });
-        if (existing) {
-          await tx.learningPath.update({
-            where: { id: existing.id },
-            data: { status: 'PAUSED' },
-          });
-        }
-
-        await tx.learningPath.create({
-          data: {
-            userId: s.id,
-            name,
-            description,
-            modules: JSON.stringify(modules),
-            currentModule: 0,
-            totalModules: modules.length,
-            status: 'ACTIVE',
-          },
-        });
-
-        await tx.userActivity.create({
-          data: {
-            userId: s.id,
-            action: 'TEACHER_PUSH_LEARNING_TASK',
-            details: JSON.stringify({
-              pushedBy: payload.userId,
-              pathName: name,
-              moduleCount: modules.length,
-            }),
-          },
-        });
-      });
-      created++;
+    const ids = students.map(s => s.id);
+    if (ids.length === 0) {
+      return NextResponse.json({ success: true, created: 0, targetScope: scope, targetClassId: targetClassId || null });
     }
+
+    const created = await prisma.$transaction(async (tx) => {
+      // Pause all existing ACTIVE paths for these students in one call
+      await tx.learningPath.updateMany({
+        where: { userId: { in: ids }, status: 'ACTIVE' },
+        data: { status: 'PAUSED' },
+      });
+
+      // Bulk create new learning paths
+      const modulesJson = JSON.stringify(modules);
+      await tx.learningPath.createMany({
+        data: ids.map(userId => ({
+          userId,
+          name,
+          description,
+          modules: modulesJson,
+          currentModule: 0,
+          totalModules: modules.length,
+          status: 'ACTIVE',
+        })),
+      });
+
+      // Bulk create activity records
+      const detailsJson = JSON.stringify({
+        pushedBy: payload.userId,
+        pathName: name,
+        moduleCount: modules.length,
+      });
+      await tx.userActivity.createMany({
+        data: ids.map(userId => ({
+          userId,
+          action: 'TEACHER_PUSH_LEARNING_TASK',
+          details: detailsJson,
+        })),
+      });
+
+      return ids.length;
+    });
 
     return NextResponse.json({
       success: true,
       created,
       targetScope: scope,
-      targetClass: targetClass || null,
+      targetClassId: targetClassId || null,
     });
   } catch (error) {
     console.error('Push learning task error:', error);

@@ -4,6 +4,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPointsByLevel } from '@/lib/knowledge-points';
+
+// 章节号 → "第N章 名称"；'0' 或未知章节归入"未分类"
+const CHAPTER_NAME_MAP = new Map(
+  getPointsByLevel(1).map((p) => [String(p.chapter), `第${p.chapter}章 ${p.name}`]),
+);
+function chapterLabel(chapterId?: string | null) {
+  if (!chapterId) return '未分类';
+  const key = String(chapterId).trim().replace(/^ch/i, '');
+  return CHAPTER_NAME_MAP.get(key) || '未分类';
+}
 
 interface DashboardData {
   overview: {
@@ -62,6 +73,14 @@ export default function TeacherReportPage() {
     fetchData();
   }, [user, authLoading, router]);
 
+  // print=1 时（工作台"打印/导出PDF"入口）数据加载完自动唤起打印
+  useEffect(() => {
+    if (loading || authLoading) return;
+    if (new URLSearchParams(window.location.search).get('print') !== '1') return;
+    const timer = setTimeout(() => window.print(), 500);
+    return () => clearTimeout(timer);
+  }, [loading, authLoading]);
+
   if (loading || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
@@ -88,6 +107,12 @@ export default function TeacherReportPage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      {/* 打印时隐藏应用侧栏与顶栏，只留白底黑字的报告内容 */}
+      <style>{`@media print {
+        header, div[data-variant][data-side] { display: none !important; }
+        main { padding: 0 !important; }
+        body { background: #fff !important; }
+      }`}</style>
       {/* Print button - hidden in print */}
       <div className="print:hidden sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
         <h1 className="text-lg font-semibold">教学报告预览</h1>
@@ -101,7 +126,7 @@ export default function TeacherReportPage() {
         {/* Header */}
         <div className="mb-8 border-b-2 border-slate-900 pb-6 text-center">
           <h1 className="text-2xl font-bold">芯智育才平台教学质量分析报告</h1>
-          <p className="mt-2 text-sm text-slate-500">桂林航天工业学院 · 微控制器原理与应用 · {dateStr}</p>
+          <p className="mt-2 text-sm text-slate-500">桂林航天工业学院 · 微控制器原理及应用技术 · {dateStr}</p>
         </div>
 
         {/* 1. Overview */}
@@ -124,7 +149,12 @@ export default function TeacherReportPage() {
         </section>
 
         {/* 2. Score Distribution */}
-        {showScoreDistribution && (
+        {showScoreDistribution && (gains.scoreSummary.total === 0 ? (
+          <section className="mb-8">
+            <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、成绩分布分析</h2>
+            <p className="text-sm text-slate-500">暂无测验数据，学生完成测验后此处将展示成绩分布。</p>
+          </section>
+        ) : (
           <section className="mb-8">
             <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、成绩分布分析</h2>
             <p className="mb-3 text-sm text-slate-600">
@@ -158,7 +188,7 @@ export default function TeacherReportPage() {
               </tbody>
             </table>
           </section>
-        )}
+        ))}
 
         {/* 3. Experiment Correlation */}
         {showExpCorrelation && (
@@ -226,7 +256,7 @@ export default function TeacherReportPage() {
               <tbody>
                 {gains.chapterMasteryAvg.map((item) => (
                   <tr key={item.chapter} className="border-b border-slate-100">
-                    <td className="py-2">{item.chapter}</td>
+                    <td className="py-2">{chapterLabel(item.chapter)}</td>
                     <td className="py-2 text-right font-mono">{item.avgMastery}%</td>
                     <td className="py-2">
                       <div className="h-3 w-full bg-slate-100">
@@ -262,7 +292,7 @@ export default function TeacherReportPage() {
                     <td className="py-2">{s.name}</td>
                     <td className="py-2 text-right font-mono text-red-600">{Math.round(s.avg)}%</td>
                     <td className="py-2 text-xs text-slate-500">
-                      {s.weakChapters?.map((c) => `${c.chapter}(${c.progress}%)`).join('、') || '—'}
+                      {s.weakChapters?.map((c) => `${chapterLabel(c.chapter)}(${c.progress}%)`).join('、') || '—'}
                     </td>
                   </tr>
                 ))}

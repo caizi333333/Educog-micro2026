@@ -69,8 +69,14 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
     const ctx = retrieveContext(userMessage);
     const courseContext = formatContextForPrompt(ctx);
 
+    // 把最近几轮对话转成 DeepSeek 消息格式，支持多轮追问
+    const history = (input.history ?? []).slice(-6).map((h) => ({
+      role: h.role === 'model' ? ('assistant' as const) : ('user' as const),
+      content: h.content.map((c) => c.text).join('\n'),
+    }));
+
     const aiClient = new SimpleAiClient();
-    const response = await aiClient.chat(userMessage, courseContext);
+    const response = await aiClient.chat(userMessage, courseContext, history);
 
     // relevantChapters now reflects the actual retrieval hit set instead of
     // the previous stale 9-chapter keyword map.

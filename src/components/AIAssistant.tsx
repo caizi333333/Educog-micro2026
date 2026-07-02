@@ -1,36 +1,20 @@
 'use client';
 
-import React, { useState, useRef, memo, useMemo, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Code, Bug, BookOpen, Brain } from 'lucide-react';
-import { MessageList } from '@/components/ai-assistant/MessageList';
-import { MessageInput } from '@/components/ai-assistant/MessageInput';
-import CodeGenerator from '@/components/ai-assistant/CodeGenerator';
+import { Bug, Brain } from 'lucide-react';
 import ErrorDiagnostic from '@/components/ai-assistant/ErrorDiagnostic';
-import LearningPathRecommendation from '@/components/ai-assistant/LearningPathRecommendation';
 import IntelligentQA from '@/components/ai-assistant/IntelligentQA';
-import { useAiAssistant } from '@/hooks/useAiAssistant';
 
+// AI助教只保留"智能问答 + 错误诊断"两个真实功能：
+// 辅助答疑与诊断，设边界、不代替学生写代码/作答。
 const AIAssistant: React.FC = memo(() => {
-  const [activeTab, setActiveTab] = useState('chat');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const {
-    messages,
-    input,
-    setInput,
-    isLoading,
-    handleSubmit,
-    handleKeyDown
-  } = useAiAssistant();
+  const [activeTab, setActiveTab] = useState('qa');
 
   // 缓存标签页配置
   const tabsConfig = useMemo(() => [
-    { value: 'chat', icon: MessageSquare, label: '智能问答' },
-    { value: 'code', icon: Code, label: '代码生成' },
-    { value: 'debug', icon: Bug, label: '错误诊断' },
-    { value: 'learning', icon: BookOpen, label: '学习路径' },
-    { value: 'qa', icon: Brain, label: '智能问答' }
+    { value: 'qa', icon: Brain, label: '智能问答' },
+    { value: 'debug', icon: Bug, label: '错误诊断' }
   ], []);
 
   // 缓存标签页切换处理函数
@@ -49,13 +33,13 @@ const AIAssistant: React.FC = memo(() => {
           </h1>
         </div>
         <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-          您的专属AI学习伙伴，提供智能问答、代码生成、错误诊断和学习路径推荐
+          基于课程知识库的AI辅助答疑与汇编错误诊断，帮助你理解问题，不代替你完成作答
         </p>
       </div>
 
       {/* 功能选项卡 */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2">
           {tabsConfig.map(({ value, icon: Icon, label }) => (
             <TabsTrigger key={value} value={value} className="flex items-center gap-2">
               <Icon className="w-4 h-4" />
@@ -64,48 +48,14 @@ const AIAssistant: React.FC = memo(() => {
           ))}
         </TabsList>
 
-        {/* 智能聊天 */}
-        <TabsContent value="chat" className="space-y-4">
-          <Card className="h-[600px] flex flex-col">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                AI智能对话
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              <div className="flex-1 mb-4">
-                <MessageList messages={messages} isLoading={isLoading} scrollAreaRef={scrollAreaRef} />
-              </div>
-              <MessageInput
-                input={input}
-                setInput={setInput}
-                isLoading={isLoading}
-                onSubmit={handleSubmit}
-                onKeyDown={handleKeyDown}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 代码生成 */}
-        <TabsContent value="code">
-          <CodeGenerator />
+        {/* 智能问答 */}
+        <TabsContent value="qa">
+          <IntelligentQA />
         </TabsContent>
 
         {/* 错误诊断 */}
         <TabsContent value="debug">
           <ErrorDiagnostic />
-        </TabsContent>
-
-        {/* 学习路径推荐 */}
-        <TabsContent value="learning">
-          <LearningPathRecommendation />
-        </TabsContent>
-
-        {/* 智能问答 */}
-        <TabsContent value="qa">
-          <IntelligentQA />
         </TabsContent>
       </Tabs>
     </div>

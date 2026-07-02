@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         teacher: { select: { id: true, name: true, username: true, teacherId: true } },
-        _count: { select: { enrollments: true } },
+        // 学生数只计在读学生，不含教师本人和已移除记录
+        _count: { select: { enrollments: { where: { role: 'STUDENT', status: 'ACTIVE' } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
