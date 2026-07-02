@@ -115,9 +115,9 @@ export const experimentConfigs: ExperimentConfig[] = [
     ],
     // 代码全程写 P1（MOV P1/RL/RR），低电平点亮
     peripheral: { kind: 'led', label: 'P1 · LED 流水灯', ledPort: 'P1' },
-    code: `; 桂林航天工业学院 - 实验一：指令系统实验
+    code: `; 桂林航天工业学院 - 实验一：基础LED控制实验
 ; 功能: 发光二极管流水灯程序，8个LED逐一闪烁，往复循环
-; 知识点: 指令系统, 寻址方式, 程序调试
+; 知识点: P1口输出控制, 循环移位指令, 延时子程序设计
 
 ORG 0000H           ; 程序起始地址
 MAIN:
@@ -188,123 +188,270 @@ END                  ; 程序结束标志`,
   {
     id: 'exp02',
     title: '实验二：指令系统实验',
-    description: '学习数据传送、算术运算和逻辑运算指令，理解不同寻址方式的使用。',
+    description: '三段式教学程序：五种寻址方式的数据传送、算术运算（含BCD修正与乘除法）、逻辑与移位运算。运行时内部RAM 30H-5FH被逐段填充，可在内存面板实时观察。',
     category: '基础指令',
     difficulty: 'basic',
     duration: 60,
     objectives: [
-      '掌握8051单片机P1口的输出控制',
-      '理解端口寄存器的位操作方法',
-      '学会设计多种LED显示模式',
-      '掌握循环程序设计技巧'
+      '掌握立即、直接、寄存器、寄存器间接、变址五种寻址方式',
+      '掌握ADD/ADDC多字节加法与CY/AC/OV标志位的产生规律',
+      '理解DA A十进制调整指令与BCD运算的关系',
+      '掌握MUL AB/DIV AB及ANL/ORL/XRL/移位类指令的用法',
+      '学会用内存面板观察程序对RAM的逐段写入'
     ],
     prerequisites: [
-      '基础指令系统',
-      '二进制数制转换',
-      '位操作概念'
+      '8051存储器组织（内部RAM分区）',
+      '二进制/十六进制/BCD数制转换',
+      '实验一的基本IO与延时程序'
     ],
     knowledgePoints: [
-      'P1口结构与特性',
-      '位操作指令 SETB/CLR',
-      'CPL取反指令',
-      '程序循环设计',
-      'LED驱动原理'
+      '五种寻址方式（立即/直接/寄存器/寄存器间接/变址）',
+      'MOVC A,@A+DPTR查表技术',
+      'ADD/ADDC/SUBB与CY、AC、OV标志',
+      'DA A十进制调整（BCD修正）',
+      'MUL AB/DIV AB乘除指令',
+      'ANL/ORL/XRL/CPL/SWAP/RL/RRC逻辑与移位指令',
+      '校验和的计算方法'
     ],
     hardwareRequirements: [
-      '8个LED发光二极管',
-      '限流电阻（330Ω）',
-      'P1口连接线'
+      '89C51最小系统',
+      'P1口LED×8（阶段指示，低电平点亮）',
+      '仿真器内存观察窗口'
     ],
-    // 三种模式均为 MOV P1,#立即数，低电平点亮
-    peripheral: { kind: 'led', label: 'P1 · LED 多模式', ledPort: 'P1' },
-    code: `; 桂林航天工业学院 - 实验二：P1口LED流水灯控制
-; 功能: 8个LED实现多种流水灯模式，奇偶交替闪烁
-; 知识点: P1口控制, 位操作, 多模式流水灯
+    // P1 低位做阶段指示灯（低电平点亮），核心观察对象是内存面板 30H-5FH
+    peripheral: { kind: 'led', label: 'P1 · 阶段指示灯', ledPort: 'P1' },
+    code: `; 桂林航天工业学院 - 实验二：指令系统实验
+; 功能: 三段式演示——①五种寻址方式搬数(30H-3FH) ②算术运算(40H-4FH) ③逻辑与移位(50H-5FH)
+;       每段开始时 P1 低位阶段灯递进点亮，段间延时，便于在内存面板观察逐段填充；
+;       结尾对 30H-5EH 求校验和，存入 5FH 并输出到 P1，然后清零重来
+; 知识点: 寻址方式, 标志位(CY/AC/OV), DA A, MUL/DIV, 逻辑移位, 查表
 
 ORG 0000H
-LJMP MAIN
+    LJMP MAIN
+
+; 源数据表（12字节，存放在程序存储器，由第一段查表搬入内部RAM）
+SRC_TAB:
+    DB 11H, 22H, 33H, 44H, 55H, 66H
+    DB 77H, 88H, 99H, 0AAH, 0BBH, 0CCH
 
 MAIN:
-MODE1:  ; 模式1: 单点流水灯
-    MOV P1, #0FEH    ; 11111110B - P1.0亮
-    ACALL DELAY
-    MOV P1, #0FDH    ; 11111101B - P1.1亮  
-    ACALL DELAY
-    MOV P1, #0FBH    ; 11111011B - P1.2亮
-    ACALL DELAY
-    MOV P1, #0F7H    ; 11110111B - P1.3亮
-    ACALL DELAY
-    MOV P1, #0EFH    ; 11101111B - P1.4亮
-    ACALL DELAY
-    MOV P1, #0DFH    ; 11011111B - P1.5亮
-    ACALL DELAY
-    MOV P1, #0BFH    ; 10111111B - P1.6亮
-    ACALL DELAY
-    MOV P1, #7FH     ; 01111111B - P1.7亮
+    MOV SP, #60H         ; 栈指针移到60H，避开30H-5FH数据区（复位后默认07H）
+
+    ; 每轮开始先清零用户数据区30H-5FH——寄存器间接寻址的循环应用
+    MOV R0, #30H         ; R0作地址指针（间接寻址）
+    MOV R2, #30H         ; 清零48个单元（30H个）
+    CLR A
+CLR_LOOP:
+    MOV @R0, A           ; 寄存器间接寻址：把0写入R0所指单元
+    INC R0               ; 指针加1
+    DJNZ R2, CLR_LOOP    ; 计数减1不为0则继续
+
+; ═══ 第一段：数据传送与寻址方式（结果写30H-3FH）═══
+STAGE1:
+    MOV P1, #0FEH        ; 阶段1指示：P1.0亮（低电平点亮）
+    ACALL DELAY          ; 段间延时，便于观察"清零后开始填充"
+
+    ; (1) 立即寻址：操作数以#开头直接写在指令中
+    MOV 30H, #5AH        ; 30H ← 立即数5AH
+
+    ; (2) 直接寻址：源操作数是RAM字节地址
+    MOV 31H, 30H         ; 31H ← (30H)，即复制5AH
+
+    ; (3) 寄存器寻址：经工作寄存器R7中转
+    MOV R7, #0A5H        ; R7 ← A5H（立即→寄存器）
+    MOV 32H, R7          ; 32H ← R7（寄存器→直接）
+
+    ; (4) 寄存器间接寻址：@R0以R0的内容为地址
+    MOV R0, #33H         ; R0指向33H
+    MOV A, #3CH
+    MOV @R0, A           ; (R0所指的33H) ← A = 3CH
+
+    ; (5) 变址寻址：MOVC A,@A+DPTR查表，把SRC_TAB12字节搬到34H-3FH
+    MOV DPTR, #SRC_TAB   ; DPTR = 表首地址（基址）
+    MOV R0, #34H         ; R0 = 目的指针
+    MOV R2, #12          ; 12字节
+    MOV R3, #0           ; R3 = 表内偏移（变址）
+COPY_TAB:
+    MOV A, R3
+    MOVC A, @A+DPTR      ; 变址寻址：A ← 程序存储器[DPTR+A]
+    MOV @R0, A           ; 间接寻址写入内部RAM
+    INC R0
+    INC R3
+    DJNZ R2, COPY_TAB
+
+; ═══ 第二段：算术运算（对30H区数据运算，结果写40H-4FH）═══
+STAGE2:
+    MOV P1, #0FCH        ; 阶段2指示：P1.0、P1.1亮
     ACALL DELAY
 
-MODE2:  ; 模式2: 奇偶交替闪烁
-    MOV P1, #0AAH    ; 10101010B - 奇数位LED亮
-    ACALL DELAY
-    MOV P1, #55H     ; 01010101B - 偶数位LED亮
-    ACALL DELAY
-    MOV P1, #0AAH    ; 重复奇数位
-    ACALL DELAY
-    MOV P1, #55H     ; 重复偶数位
+    ; (1) ADD不带进位加：11H+22H=33H（观察CY=0、AC=0）
+    MOV A, 34H           ; A ← (34H)=11H
+    ADD A, 35H           ; A = 11H+22H = 33H
+    MOV 40H, A           ; 40H ← 33H
+
+    ; (2) ADD/ADDC多字节加法：BB99H + CCAAH = 18843H
+    MOV A, 3CH           ; 低字节99H
+    ADD A, 3DH           ; 99H+AAH=143H → A=43H，CY=1（低字节产生进位）
+    MOV 41H, A           ; 41H ← 43H（和的低字节）
+    MOV A, 3EH           ; 高字节BBH
+    ADDC A, 3FH          ; BBH+CCH+CY=188H → A=88H，CY=1（ADDC把低位进位加进来）
+    MOV 42H, A           ; 42H ← 88H（和的高字节）
+    CLR A
+    ADDC A, #0           ; 收集最高进位 → A=01H
+    MOV 43H, A           ; 43H ← 01H（第17位进位）
+
+    ; (3) BCD加法与DA A修正：87+95=182（十进制）
+    MOV A, #87H          ; BCD数87
+    ADD A, #95H          ; 二进制加得1CH，CY=1——不是合法BCD
+    DA A                 ; 十进制调整 → A=82H，CY=1（正确的BCD结果82，百位进1）
+    MOV 44H, A           ; 44H ← 82H
+    CLR A
+    ADDC A, #0
+    MOV 45H, A           ; 45H ← 01H（百位）
+
+    ; (4) MUL AB乘法：11H×22H=0242H（17×34=578）
+    MOV A, 34H
+    MOV B, 35H
+    MUL AB               ; 积低字节在A=42H，高字节在B=02H，OV=1（积>255）
+    MOV 46H, A           ; 46H ← 42H
+    MOV 47H, B           ; 47H ← 02H
+
+    ; (5) DIV AB除法：CCH÷0AH（204÷10=20余4）
+    MOV A, 3FH           ; A ← CCH = 204
+    MOV B, #10
+    DIV AB               ; 商在A=14H(20)，余数在B=04H
+    MOV 48H, A           ; 48H ← 14H
+    MOV 49H, B           ; 49H ← 04H
+
+    ; (6) SUBB带借位减：33H-77H=BCH，借位CY=1
+    CLR C                ; SUBB总是连CY一起减，先清零
+    MOV A, #33H
+    SUBB A, #77H         ; 33H-77H → A=BCH，CY=1（不够减产生借位）
+    MOV 4AH, A           ; 4AH ← BCH
+    CLR A
+    ADDC A, #0
+    MOV 4BH, A           ; 4BH ← 01H（借位标志）
+
+    ; (7) INC/DEC加1减1（不影响CY）
+    MOV A, #0FH
+    INC A                ; A=10H
+    MOV 4CH, A           ; 4CH ← 10H
+    DEC A                ; A=0FH
+    MOV 4DH, A           ; 4DH ← 0FH
+
+; ═══ 第三段：逻辑运算与移位（结果写50H-5FH）═══
+STAGE3:
+    MOV P1, #0F8H        ; 阶段3指示：P1.0-P1.2亮
     ACALL DELAY
 
-MODE3:  ; 模式3: 中心扩散
-    MOV P1, #0E7H    ; 11100111B - 中间两个LED亮
-    ACALL DELAY
-    MOV P1, #0C3H    ; 11000011B - 向外扩散
-    ACALL DELAY
-    MOV P1, #81H     ; 10000001B - 中间6个LED亮（继续向外扩散）
-    ACALL DELAY
-    MOV P1, #00H     ; 00000000B - 全部LED亮
-    ACALL DELAY
+    ; (1) ANL逻辑与：3CH∧66H=24H
+    MOV A, #3CH
+    ANL A, #66H
+    MOV 50H, A           ; 50H ← 24H
 
-    SJMP MAIN        ; 循环所有模式
+    ; (2) ORL逻辑或：3CH∨66H=7EH
+    MOV A, #3CH
+    ORL A, #66H
+    MOV 51H, A           ; 51H ← 7EH
 
-; 延时子程序
+    ; (3) XRL逻辑异或：3CH⊕66H=5AH
+    MOV A, #3CH
+    XRL A, #66H
+    MOV 52H, A           ; 52H ← 5AH
+
+    ; (4) CPL按位取反：3CH → C3H
+    MOV A, #3CH
+    CPL A
+    MOV 53H, A           ; 53H ← C3H
+
+    ; (5) SWAP高低半字节交换：A7H → 7AH
+    MOV A, #0A7H
+    SWAP A
+    MOV 54H, A           ; 54H ← 7AH
+
+    ; (6) RL循环左移（不带CY）：81H → 03H（最高位绕回最低位）
+    MOV A, #81H
+    RL A
+    MOV 55H, A           ; 55H ← 03H
+
+    ; (7) RR循环右移：81H → C0H（最低位绕回最高位）
+    MOV A, #81H
+    RR A
+    MOV 56H, A           ; 56H ← C0H
+
+    ; (8) RLC带进位左移——CY串在移位链里
+    CLR C
+    MOV A, #81H
+    RLC A                ; 第1次：A=02H，最高位1移入CY
+    MOV 57H, A           ; 57H ← 02H
+    RLC A                ; 第2次：CY的1从最低位移回 → A=05H，CY=0
+    MOV 58H, A           ; 58H ← 05H
+
+    ; (9) RRC带进位右移：CY=1、A=02H → A=81H，CY=0
+    SETB C
+    MOV A, #02H
+    RRC A
+    MOV 59H, A           ; 59H ← 81H
+
+    ; (10) 逻辑指令的直接地址形式：ANL direct,#data
+    MOV 5AH, #0FFH
+    ANL 5AH, #0F0H       ; 5AH = FFH∧F0H = F0H
+
+; ═══ 校验和：间接寻址遍历30H-5EH累加，结果存5FH并输出P1 ═══
+CHECKSUM:
+    MOV R0, #30H         ; 从30H开始
+    MOV R2, #2FH         ; 共47个单元（30H-5EH）
+    CLR A
+SUM_LOOP:
+    ADD A, @R0           ; 间接寻址逐字节累加（丢弃进位，取模256）
+    INC R0
+    DJNZ R2, SUM_LOOP
+    MOV 5FH, A           ; 校验和 → 5FH（本程序数据的手算值为F1H）
+    MOV P1, A            ; 校验和按位图样输出到P1全口
+    ACALL DELAY
+    LJMP MAIN            ; 清零后重新逐段填充，循环演示
+
+; 段间延时子程序（约40ms模型时间，1条指令≈1μs）
 DELAY:
-    PUSH ACC
-    PUSH B
-    MOV R6, #100     ; 外层循环
-D1:
-    MOV R7, #200     ; 内层循环
-D2:
-    DJNZ R7, D2
+    PUSH ACC             ; 保护现场
+    MOV R6, #160         ; 外层160次
+D1: MOV R7, #250         ; 内层250次
+D2: DJNZ R7, D2
     DJNZ R6, D1
-    POP B
-    POP ACC
+    POP ACC              ; 恢复现场
     RET
 
 END`,
     expectedResults: [
-      '模式1：LED依次点亮，形成流水效果',
-      '模式2：奇偶位LED交替闪烁',
-      '模式3：LED从中心向两边扩散',
-      '所有模式循环执行，节奏平稳'
+      '第一段结束：30H=31H=5AH、32H=A5H、33H=3CH，34H-3FH依次为11H,22H,...,0CCH（与SRC_TAB一致）',
+      '第二段结束：40H=33H；41H-43H=43H,88H,01H（BB99H+CCAAH=18843H）；44H-45H=82H,01H（87+95=182的BCD结果）；46H-47H=42H,02H（积0242H）；48H-49H=14H,04H（商20余4）',
+      '第三段结束：50H-5AH依次为24H,7EH,5AH,C3H,7AH,03H,C0H,02H,05H,81H,F0H',
+      '每轮末尾5FH=F1H（30H-5EH校验和），P1输出F1H；P1低位阶段灯按1盏→2盏→3盏递进',
+      '内存面板可见30H-5FH三段式逐段填充，循环时先清零再重填'
     ],
     troubleshooting: [
       {
-        issue: 'LED亮度不均匀',
-        solution: '检查限流电阻阻值，确保电阻值相同'
+        issue: '30H-3FH数据与SRC_TAB不一致',
+        solution: '检查DPTR是否指向SRC_TAB、R3偏移是否从0开始，MOVC前A中必须是表内偏移'
       },
       {
-        issue: '某些LED不亮',
-        solution: '检查LED极性和连接，测试LED是否损坏'
+        issue: '多字节加法高字节少1',
+        solution: '高字节必须用ADDC而不是ADD，且两次加法之间不能插入影响CY的指令'
       },
       {
-        issue: '流水速度太快',
-        solution: '增加DELAY子程序中的循环次数'
+        issue: 'DA A结果不是预期BCD值',
+        solution: 'DA A只能跟在ADD/ADDC之后使用，且参与运算的两数必须都是合法BCD码'
+      },
+      {
+        issue: '校验和与F1H不符',
+        solution: '确认累加范围是30H-5EH共47字节（不含5FH自身），且每轮开始已把数据区清零'
       }
     ],
     extensions: [
-      '添加更多流水灯模式（如跑马灯、呼吸灯）',
-      '实现可调速度的流水灯',
-      '添加按键控制模式切换',
-      '设计音乐节拍灯'
+      '把SRC_TAB改成自己的学号后手算三段结果，再与内存面板核对',
+      '用SUBB实现16位减法，观察借位链',
+      '把校验和改为异或校验（XRL），比较两种校验的差异',
+      '用CJNE比较两个内存块是否相同，结果用P1指示'
     ]
   },
   {
@@ -420,7 +567,7 @@ END`,
   {
     id: 'exp04',
     title: '实验四：数码管显示实验',
-    description: '实现七段数码管的静态和动态显示，掌握段选码编码和动态扫描技术。',
+    description: '定时器中断驱动四位数码管动态扫描显示，掌握段选码编码与查表技术，实现0000-9999计数器。',
     category: '显示控制',
     difficulty: 'intermediate',
     duration: 90,
@@ -691,8 +838,8 @@ LJMP EXT0_INT
 
 MAIN:
     ; 初始化P口
-    MOV P1, #0F0H    ; P1高4位输出0，低4位输入
-    MOV P3, #0FH     ; P3低4位输出1
+    MOV P1, #0F0H    ; P1低4位行线先输出0（准备扫描），高4位置1
+    MOV P3, #0FH     ; P3低4位列线置1（输入前先写1，读引脚状态）
     
     ; 外部中断初始化
     SETB IT0         ; 边沿触发
@@ -722,17 +869,18 @@ SCAN_KEYBOARD:
     MOV R0, #0       ; 行计数器
     
 SCAN_ROW:
-    ; 设置扫描行
-    MOV A, #0FEH
-    MOV B, R0
-    
+    ; 生成行扫描码：0FEH循环左移"行号"次
+    ; （注意8051没有CJNE B,#data形式，计数经A中转到R3再用DJNZ）
+    MOV A, R0        ; 行号
+    MOV R3, A        ; R3 = 移位计数
+    MOV A, #0FEH     ; 第0行扫描码 11111110B
+    INC R3           ; 计数加1，配合DJNZ先减后判
+    SJMP ROW_TEST
 ROW_SHIFT:
-    CJNE B, #0, CONTINUE_SHIFT
-    SJMP SCAN_COL
-CONTINUE_SHIFT:
-    RL A
-    DJNZ B, ROW_SHIFT
-    
+    RL A             ; 左移一位 → 下一行扫描码
+ROW_TEST:
+    DJNZ R3, ROW_SHIFT
+
 SCAN_COL:
     MOV P1, A        ; 输出行扫描码
     NOP
@@ -757,8 +905,8 @@ KEY_FOUND:
     MOV R1, #0       ; 列计数器
     
 FIND_COL:
-    RRC A
-    JC COL_FOUND
+    RRC A            ; 当前列电平移入CY
+    JNC COL_FOUND    ; 低电平(CY=0)=该列被按下
     INC R1
     CJNE R1, #4, FIND_COL
     
@@ -852,7 +1000,7 @@ END`,
   {
     id: 'exp06',
     title: '实验六：定时器中断与计时功能',
-    description: '使用定时器中断实现精确计时功能，理解中断优先级和嵌套机制。',
+    description: '双定时器中断协同实现数字时钟：T0负责1秒计时，T1负责数码管动态扫描，支持按键设置时间与显示模式切换。',
     category: '定时器应用',
     difficulty: 'intermediate',
     duration: 100,
@@ -869,10 +1017,10 @@ END`,
     ],
     knowledgePoints: [
       '定时器工作模式分析',
-      '中断优先级设置',
-      '时间精度计算',
-      '实时时钟算法',
-      '闰年判断逻辑'
+      '双定时器分工（T0计时/T1扫描）',
+      '软件计数器分频（50ms×20=1秒）',
+      '实时时钟进位算法（秒→分→时）',
+      '按键查询与消抖处理'
     ],
     hardwareRequirements: [
       '4位数码管显示器',
@@ -913,8 +1061,8 @@ MAIN:
     MOV TL0, #0B0H
     
     ; 初始化定时器T1 - 用于数码管扫描
-    MOV TH1, #0FEH   ; 2ms定时
-    MOV TL1, #33H
+    MOV TH1, #0F8H   ; 2ms定时 (65536-2000=63536=F830H)
+    MOV TL1, #30H    ; 与中断内重装值保持一致
     
     ; 中断设置
     SETB ET0         ; 允许T0中断
@@ -1187,7 +1335,7 @@ END`,
       '掌握蜂鸣器的工作原理和驱动方法',
       '理解音频频率与音调的关系',
       '学会程序控制音乐播放',
-      '掌握PWM波形产生技术'
+      '掌握定时器中断产生方波的技术'
     ],
     prerequisites: [
       '定时器应用',
@@ -1196,9 +1344,9 @@ END`,
     ],
     knowledgePoints: [
       '蜂鸣器驱动原理',
-      '音频频率计算',
+      '音频频率计算（定时器初值=65536-500000/f）',
       '音符编码方法',
-      'PWM脉宽调制',
+      '定时器中断产生方波',
       '节拍控制算法'
     ],
     hardwareRequirements: [
@@ -1210,7 +1358,7 @@ END`,
     // 中断服务程序 CPL P2.0 产生音频方波，仿真器按 P2.0 翻转间隔推算真实频率
     peripheral: { kind: 'buzzer', label: 'P2.0 · 蜂鸣器', buzzerPin: 'P2.0' },
     code: `; 桂林航天工业学院 - 实验七：蜂鸣器音频控制
-; 功能: 蜂鸣器播放音乐，可控制音调、节拍和音量
+; 功能: 蜂鸣器播放音乐，可控制音调和节拍
 ; 知识点: 音频控制, 频率产生, 音乐编程
 
 ORG 0000H
@@ -1219,14 +1367,16 @@ LJMP MAIN
 ORG 000BH        ; T0中断向量
 LJMP T0_INT
 
-; 音符频率表 (定时器初值)
+; 音符频率表 (定时器初值，12MHz晶振)
+; 初值 = 65536 - 500000/f（半周期计数，中断翻转引脚，两次翻转=1个周期）
+; 例：低音1(do)=262Hz → 500000/262≈1908 → 65536-1908=63628=F88CH
 FREQ_TAB:
-    DW 0FEAEH, 0FE96H, 0FE7FH, 0FE69H  ; 低音 1234
-    DW 0FE53H, 0FE3EH, 0FE2AH, 0FE17H  ; 低音 5671
-    DW 0FD57H, 0FD4BH, 0FD3FH, 0FD34H  ; 中音 1234
-    DW 0FD29H, 0FD1FH, 0FD15H, 0FD0BH  ; 中音 5671
-    DW 0FC5AH, 0FC55H, 0FC51H, 0FC4DH  ; 高音 1234
-    DW 0FC49H, 0FC45H, 0FC42H, 0FC3EH  ; 高音 5671
+    DW 0F88CH, 0F95BH, 0FA15H, 0FA67H  ; 低音 1234 (262/294/330/349Hz)
+    DW 0FB04H, 0FB90H, 0FC0CH, 0FC44H  ; 低音 567+中音1 (392/440/494/523Hz)
+    DW 0FC44H, 0FCACH, 0FD09H, 0FD34H  ; 中音 1234 (523/587/659/698Hz)
+    DW 0FD82H, 0FDC8H, 0FE06H, 0FE22H  ; 中音 567+高音1 (784/880/988/1046Hz)
+    DW 0FE22H, 0FE56H, 0FE85H, 0FE9AH  ; 高音 1234 (1046/1175/1319/1397Hz)
+    DW 0FEC1H, 0FEE4H, 0FF03H, 0FF11H  ; 高音 567+倍高1 (1568/1760/1976/2093Hz)
 
 ; 简单音乐：《小星星》
 MUSIC_DATA:
@@ -1314,7 +1464,7 @@ NO_CARRY:
 SET_BEAT:
     ; 设置节拍延时
     MOV A, 23H
-    MOV B, #50       ; 节拍基准 (50ms为单位)
+    MOV B, #25       ; 节拍基准25（最长节拍8×25=200，不超出8位积）
     MUL AB
     MOV 21H, A       ; 节拍计数器
     
@@ -1426,7 +1576,7 @@ END`,
       '按键控制方向和速度'
     ],
     // 相序输出在 P1；转子/相位取程序自身变量：20H=步序索引 21H.0=方向 22H.0=运行标志
-    // （见代码 MAIN 段变量注释）。P3.2~P3.5 为启停/方向/加速/减速键（JNB 轮询）
+    // （见代码 MAIN 段变量注释）。P3.2~P3.6 为启停/方向/加速/减速/步进模式键（JNB 轮询）
     peripheral: {
       kind: 'stepper',
       label: 'P1 · 步进电机',
@@ -1436,6 +1586,7 @@ END`,
         { port: 'P3', bit: 3, label: '方向', momentary: true },
         { port: 'P3', bit: 4, label: '加速', momentary: true },
         { port: 'P3', bit: 5, label: '减速', momentary: true },
+        { port: 'P3', bit: 6, label: '步进100', momentary: true },
       ],
     },
     code: `; 桂林航天工业学院 - 实验八：步进电机控制实验
@@ -1449,13 +1600,15 @@ ORG 000BH        ; T0中断向量
 LJMP T0_INT
 
 ; 四相八拍步进电机相序表
+; 相位输出在P1高4位：A相=P1.4 B相=P1.5 C相=P1.6 D相=P1.7（1=励磁）
+; 低4位留给状态指示，中断里用ANL/ORL只改高4位
 STEP_TAB_CW:     ; 顺时针相序表
-    DB 0F1H, 0F3H, 0F2H, 0F6H  ; A相 -> AB相 -> B相 -> BC相
-    DB 0F4H, 0FCH, 0F8H, 0F9H  ; C相 -> CD相 -> D相 -> DA相
+    DB 10H, 30H, 20H, 60H       ; A相 -> AB相 -> B相 -> BC相
+    DB 40H, 0C0H, 80H, 90H      ; C相 -> CD相 -> D相 -> DA相
 
 STEP_TAB_CCW:    ; 逆时针相序表 (反向)
-    DB 0F9H, 0F8H, 0FCH, 0F4H  ; DA相 -> D相 -> CD相 -> C相
-    DB 0F6H, 0F2H, 0F3H, 0F1H  ; BC相 -> B相 -> AB相 -> A相
+    DB 90H, 80H, 0C0H, 40H      ; DA相 -> D相 -> CD相 -> C相
+    DB 60H, 20H, 30H, 10H       ; BC相 -> B相 -> AB相 -> A相
 
 MAIN:
     ; 定时器T0初始化 - 控制步进速度
@@ -1476,8 +1629,8 @@ MAIN:
     MOV 27H, #0      ; 定时器初值低字节备份
 
     ; P口初始化
-    MOV P1, #0F0H    ; 高4位控制步进电机，低4位状态指示
-    
+    MOV P1, #00H     ; 高4位相线全部关断，低4位状态指示清零
+
 MAIN_LOOP:
     ; 检查控制按键
     JNB P3.2, START_STOP    ; 启动/停止按键
@@ -1485,14 +1638,15 @@ MAIN_LOOP:
     JNB P3.4, SPEED_UP      ; 加速按键
     JNB P3.5, SPEED_DOWN    ; 减速按键
     JNB P3.6, STEP_MODE     ; 步进模式按键
-    
-    ; 显示当前状态
-    MOV A, 20H       ; 显示当前步序
-    ANL A, #07H
+
+    ; 显示当前状态（只刷新P1低4位，高4位相位输出留给中断维护）
+    MOV A, 20H       ; 当前步序
+    ANL A, #07H      ; 取低3位（0-7）
     MOV C, 21H.0     ; 读取方向位到进位标志
-	    MOV ACC.0, C     ; 将方向位写入A的最低位
-    MOV P1, A        ; 低4位显示状态
-    
+    MOV ACC.3, C     ; 方向显示在P1.3，不与步序低3位冲突
+    ANL P1, #0F0H    ; 保留高4位相位
+    ORL P1, A        ; 低4位写入状态指示
+
     SJMP MAIN_LOOP
 
 START_STOP:
@@ -1501,7 +1655,7 @@ START_STOP:
     JB 22H.0, START_MOTOR
     ; 停止电机
     CLR TR0
-    MOV P1, #0F0H    ; 关闭所有相
+    ANL P1, #0FH     ; 高4位清零=关断所有相
     SJMP MAIN_LOOP
     
 START_MOTOR:
@@ -1815,10 +1969,10 @@ WAIT_TX:
 
 END`,
     expectedResults: [
-      '成功发送"HELLO WORLD!"字符串',
-      '接收到的字符能够正确回显',
-      '波特率设置正确，通信稳定',
-      '中断响应及时'
+      '成功发送"HELLO WORLD!"字符串，串口终端实时显示',
+      '发送子程序按"写SBUF→查询TI→清TI"的标准流程工作',
+      '波特率由T1方式2自动重装产生（9600bps配置）',
+      '回显逻辑经RI中断实现（需外部输入触发，代码可结合中断服务程序研读）'
     ],
     troubleshooting: [
       {
@@ -1914,13 +2068,14 @@ NUM_LOOP:
     SJMP MAIN           ; 循环
 
 ; 延时子程序（约500ms @12MHz）
+; 注意用R4作外层计数——R5在主程序里是数码管显示计数器，这里不能占用
 DELAY_500MS:
-    MOV R5, #10
+    MOV R4, #10
 D0: MOV R6, #200
 D1: MOV R7, #250
 D2: DJNZ R7, D2
     DJNZ R6, D1
-    DJNZ R5, D0
+    DJNZ R4, D0
     RET
 
 ; 共阴数码管段码表（0-9）
@@ -1997,7 +2152,7 @@ END`,
       buses: [{ port: 'P0', label: '光照 ADC 数据（输入）' }],
     },
     code: `; 项目二：智慧路灯系统设计
-; 功能：光照采集 + PWM调光 + LCD显示
+; 功能：光照采集 + PWM自动调光（核心控制回路；LCD显示为项目后续任务）
 ; 桂林航天工业学院 微控制器应用技术
 
 ORG 0000H
@@ -2025,8 +2180,8 @@ MAIN_LOOP:
     MOV 32H, A           ; 保存光照值
 
     ; 根据光照自动调节PWM
-    ; 光照越暗(值越大)，LED越亮(PWM越大)
-    CPL A                ; 取反：暗→大PWM
+    ; 光敏分压电路：光照越强ADC值越大；取反后环境越暗占空比越大
+    CPL A                ; 取反：暗(值小)→大PWM，白天(值大)→灯灭
     MOV 30H, A           ; 更新占空比
 
     ACALL DELAY_100MS
@@ -2034,11 +2189,13 @@ MAIN_LOOP:
 
 ; 定时器0中断：PWM输出
 T0_ISR:
+    PUSH ACC             ; 保护现场——主循环的A随时可能被中断打断
+    PUSH PSW
     MOV TH0, #0FCH      ; 重装1ms定时值
     MOV TL0, #18H
     INC 31H              ; PWM计数器+1
     MOV A, 31H
-    CJNE A, 30H, PWM_CMP
+    CJNE A, 30H, PWM_CMP ; 比较只为产生CY标志（CY=1表示计数<占空比）
 PWM_CMP:
     JC PWM_HIGH          ; 计数<占空比，输出高
     CLR P2.0             ; 输出低（LED灭）
@@ -2046,6 +2203,8 @@ PWM_CMP:
 PWM_HIGH:
     SETB P2.0            ; 输出高（LED亮）
 T0_EXIT:
+    POP PSW              ; 恢复现场
+    POP ACC
     RETI
 
 READ_ADC:
@@ -2071,10 +2230,10 @@ DL1: ACALL DELAY_1MS
 
 END`,
     expectedResults: [
-      'ADC正确采集光照强度数据',
-      'LED亮度随光照变化自动调节',
-      'PWM频率稳定，无明显闪烁',
-      'LCD显示当前光照值和PWM占空比'
+      'ADC采集的光照值保存在32H，占空比（取反值）保存在30H，内存面板可实时观察',
+      'LED亮度随光照变化自动调节：环境越暗（ADC值越小）占空比越大',
+      'P2.0输出PWM方波，1ms中断粒度、256级占空比',
+      'LCD1602数据显示属于项目后续任务，本程序聚焦"采集-决策-调光"核心回路'
     ],
     troubleshooting: [
       { issue: 'ADC读数不稳定', solution: '添加滤波算法（取平均值），检查参考电压' },
@@ -2379,7 +2538,7 @@ END`,
       showUartTail: true,
     },
     code: `; 项目四：智慧农业大棚监控系统
-; 功能：温湿度采集 + LCD显示 + 串口上报 + 报警
+; 功能：温湿度采集 + 串口JSON上报 + 阈值报警（LCD驱动为项目后续任务，UPDATE_LCD留出接口）
 ; 桂林航天工业学院 微控制器应用技术
 
 DQ    EQU P3.7           ; DS18B20数据线
@@ -2440,6 +2599,16 @@ READ_DS18B20:
     MOV TEMP_L, A
     ACALL OW_READ        ; 读高字节
     MOV TEMP_H, A
+
+    ; 仿真平台没有DS18B20实体，总线读回全1（FFFFH）；
+    ; 此时代入模拟温度25.0°C（0190H=25×16），保证显示/上报链路可观察。
+    ; 接入真实硬件时删除以下检测段即可
+    MOV A, TEMP_H
+    ANL A, TEMP_L
+    CJNE A, #0FFH, READ_T_DONE
+    MOV TEMP_H, #01H
+    MOV TEMP_L, #90H
+READ_T_DONE:
     RET
 
 ; 单总线复位
@@ -2584,11 +2753,11 @@ JSON_MID:  DB ',"humi":', 0
 
 END`,
     expectedResults: [
-      'DS18B20正确读取环境温度',
-      'LCD实时显示温度和湿度数据',
-      '串口每2秒发送JSON格式数据',
-      '温度超过阈值时蜂鸣器报警',
-      '系统稳定运行无死机'
+      'DS18B20单总线时序完整执行（复位-跳过ROM-启动转换-读暂存器），仿真无实体传感器时代入25.0°C',
+      '温度原始值在40H-41H（0190H=25×16）、湿度65%在42H，内存面板可观察',
+      '串口每2秒发送JSON格式数据：{"temp":25,"humi":65}，串口终端实时显示',
+      '25°C低于30°C阈值，蜂鸣器保持静音（P3.5=0）；修改阈值或模拟温度可触发报警',
+      '系统稳定运行无死机（LCD显示为项目后续任务，UPDATE_LCD留出接口）'
     ],
     troubleshooting: [
       { issue: 'DS18B20读取失败', solution: '检查4.7kΩ上拉电阻，验证单总线时序是否正确' },

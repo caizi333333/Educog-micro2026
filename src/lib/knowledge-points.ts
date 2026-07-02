@@ -2,6 +2,12 @@
 // 微控制器应用技术 - 270个知识点三层级清单
 // 基于89C51系列单片机课程体系构建
 // 10个一级知识点 + ~50个二级知识点 + ~210个三级知识点
+//
+// 除父子层级外，本文件还维护两类真实课程关系（见文件末尾 relationPatches）：
+//   prerequisites —— 前置依赖边，由课程组按课程逻辑编写，每条附一句推导依据，
+//                    可在 /admin/knowledge-graph 编辑器中逐节点调整；
+//   appliedIn    —— 知识点在哪些实验/项目中得到应用，与 experiment-config.ts
+//                    中各实验的 knowledgePoints 清单反向对应，口径保持一致。
 // ============================================================================
 
 export interface KnowledgePointResource {
@@ -698,6 +704,237 @@ export const knowledgePoints: KnowledgePoint[] = [
 ];
 
 // ============================================================================
+// 课程关系表（前置依赖 + 实验应用）
+// ----------------------------------------------------------------------------
+// 依赖边为课程组按课程逻辑编写，可在 /admin/knowledge-graph 编辑器调整。
+// 按章分组，每章前的注释说明本章依赖边的总体推导依据；
+// 每条边行尾的注释是这条边的一句话课程逻辑。
+// appliedIn 与 experiment-config.ts 各实验 knowledgePoints 清单反向对应。
+// ============================================================================
+
+type KnowledgeRelationPatch = {
+  prerequisites?: string[];
+  appliedIn?: string[];
+};
+
+const relationPatches: Record<string, KnowledgeRelationPatch> = {
+  // —— 第1章 单片机概述：章内认知主线是 历史→分类→应用→芯片→工具，
+  //    后续所有章都以 1.4（89C51结构）和 1.5（开发环境）为总入口。——
+  '1.2': { prerequisites: ['1.1'] },                       // 了解发展脉络后才能按字长/系列给单片机分类
+  '1.3': { prerequisites: ['1.2'] },                       // 应用领域的选择建立在分类与选型标准之上
+  '1.4': { prerequisites: ['1.2'], appliedIn: ['proj01'] },// 从"51系列"聚焦到 89C51 具体芯片；项目一即认识89C51
+  '1.5': { prerequisites: ['1.4'], appliedIn: ['proj01'] },// 开发工具围绕 89C51 展开：选型号、建工程、仿真
+  '1.2.2': { prerequisites: ['1.2.1'] },                   // 先有"按字长分类"的维度，再看各具体系列
+  '1.2.3': { prerequisites: ['1.2.2'] },                   // 选型是在已知各系列特点之间做取舍
+  '1.4.2': { prerequisites: ['1.4.1'] },                   // 从外部引脚认识芯片，再进入内部功能框图
+  '1.4.4': { prerequisites: ['1.4.3'], appliedIn: ['proj01'] }, // 最小系统 = 芯片 + 时钟电路 + 复位电路；项目一"最小系统电路设计"
+  '1.5.4': { prerequisites: ['1.5.1'] },                   // 先能在 Keil 编译出 HEX，才谈 STC-ISP 下载
+  '1.4.1': { appliedIn: ['proj01'] },                      // 项目一"89C51芯片引脚功能"
+  '1.4.3': { appliedIn: ['proj01'] },                      // 项目一"最小系统电路设计"（时钟/复位电路）
+  '1.5.1': { appliedIn: ['proj01'] },                      // 项目一"Keil μVision开发环境"
+  '1.5.2': { appliedIn: ['proj01'] },                      // 项目一"Proteus仿真软件"
+
+  // —— 第2章 硬件结构：以 1.4 的引脚/框图为入口逐个部件展开；
+  //    2.2 存储器组织是全课程被依赖最多的枢纽（SFR/位寻址区/地址空间）。——
+  '2': { prerequisites: ['1.4'] },                         // 先认全芯片外观与最小系统，再进内部结构
+  '2.1': { prerequisites: ['1.4'] },                       // 内部功能框图展开到 CPU 各部件
+  '2.2': { prerequisites: ['2.1'] },                       // 存储空间按 CPU 取指/取数的视角组织
+  '2.3': { prerequisites: ['2.2'] },                       // P0-P3 的口锁存器本身就是 SFR，读写端口=读写 SFR
+  '2.4': { prerequisites: ['1.4', '2.1'] },                // 时钟电路在 1.4 出现过；取指-译码-执行需要时序刻度
+  '2.5': { prerequisites: ['1.4', '2.2'] },                // 复位电路是最小系统一部分；复位后各 SFR 回初值
+  '2.6': { prerequisites: ['2.2', '2.4'] },                // 外扩存储器才需要三总线；总线操作要看读写时序
+  '2.2.3': { prerequisites: ['2.2.2'] },                   // SFR 区占用内部 RAM 高 128B 的直接寻址地址空间
+  '2.2.4': { prerequisites: ['2.2.2'] },                   // 位寻址区 20H-2FH 是内部 RAM 的一段
+  '2.2.5': { prerequisites: ['2.2.1', '2.2.2'] },          // 先知道内部 ROM/RAM 容量，才知道何时需要外扩
+  '2.4.2': { prerequisites: ['2.4.1'] },                   // 机器周期 = 12 个振荡周期，先有振荡源
+  '2.5.4': { prerequisites: ['2.2.3'] },                   // 复位后的初始状态就是各 SFR 的复位值
+  '2.6.4': { prerequisites: ['2.4.2'] },                   // 总线读写时序以机器周期为刻度分析
+  '2.3.2': { appliedIn: ['exp01', 'exp02', 'proj01'] },    // 实验一/二"P1口结构与特性"、项目一"P1口输出控制"
+  '2.3.5': { appliedIn: ['exp01', 'exp02', 'exp07', 'proj01'] }, // "LED控制/驱动原理""蜂鸣器驱动"都是灌电流与外加驱动问题
+  '2.5.3': { appliedIn: ['proj04'] },                      // 项目四"看门狗定时器应用"
+
+  // —— 第3章 指令系统：寻址方式是骨架（立即→直接→间接→变址的认知递进），
+  //    指令组是肌肉；运算指令产生标志位，供控制转移使用。——
+  '3': { prerequisites: ['2'] },                           // 指令操作的对象就是第2章的硬件资源
+  '3.1': { prerequisites: ['2.1', '2.2'], appliedIn: ['exp02'] }, // 寻址的对象是寄存器组与 RAM/ROM/SFR 地址空间；实验二第①段用五种寻址方式逐段搬数（30H-3FH）
+  '3.2': { prerequisites: ['3.1'] },                       // 每条传送指令都是某种寻址方式的组合应用
+  '3.3': { prerequisites: ['3.2', '2.1'] },                // 先取到操作数才能运算；结果标志位在 PSW（ALU）
+  '3.4': { prerequisites: ['3.2'] },                       // 逻辑运算同样以"操作数先就位"为前提
+  '3.5': { prerequisites: ['3.3', '2.1'] },                // 条件转移依据运算标志位；转移本质是改写 PC
+  '3.6': { prerequisites: ['3.1', '2.2'] },                // 位操作指令建立在位寻址方式与位寻址区之上
+  '3.1.2': { prerequisites: ['3.1.1'] },                   // 先分清"数"与"地址"：MOV A,#30H 与 MOV A,30H
+  '3.1.4': { prerequisites: ['3.1.2', '3.1.3'] },          // 间接寻址 = 寄存器里存放的是地址，两个前概念缺一不可
+  '3.1.5': { prerequisites: ['3.1.4'] },                   // 变址 = 基址寄存器 + 偏移，在间接寻址上再加一层
+  '3.1.6': { prerequisites: ['2.1.3'] },                   // 相对寻址以 PC 当前值为基准加偏移
+  '3.1.7': { prerequisites: ['2.2.4'] },                   // 位寻址的对象是位地址空间
+  '3.2.2': { prerequisites: ['3.1.4', '2.2.5'] },          // MOVX 经 @DPTR/@Ri 间接寻址访问外扩 RAM
+  '3.2.3': { prerequisites: ['3.1.5'], appliedIn: ['exp02', 'exp04', 'exp07', 'exp08'] }, // MOVC 用 @A+DPTR 变址查表；实验二查表演示、段码表/音符表/相序表全是查表
+  '3.2.5': { appliedIn: ['exp02'] },                       // 实验二"SWAP半字节交换"（逻辑与移位段）
+  '3.2.4': { prerequisites: ['2.2.2'] },                   // SP 指向内部 RAM，栈区就开在通用 RAM 区
+  '3.3.1': { appliedIn: ['exp02'] },                       // 实验二"ADD/ADDC多字节加法与CY/AC标志"、末段校验和累加
+  '3.3.2': { appliedIn: ['exp02'] },                       // 实验二"SUBB带借位减法与OV标志"
+  '3.3.3': { appliedIn: ['exp02'] },                       // 实验二"MUL AB乘法指令"
+  '3.3.4': { appliedIn: ['exp02'] },                       // 实验二"DIV AB除法指令"
+  '3.3.5': { prerequisites: ['3.3.1'], appliedIn: ['exp02'] }, // 十进制调整只跟在 BCD 加法之后使用；实验二"DA A十进制调整（BCD修正）"
+  '3.5.3': { prerequisites: ['3.2.4'] },                   // 调用要压栈保存返回地址，先懂 PUSH/POP
+  '3.5.4': { prerequisites: ['3.5.3'] },                   // 有调用才有返回；RET 与 RETI 的区别在中断章展开
+  '3.6.4': { prerequisites: ['3.1.7'], appliedIn: ['exp01', 'exp02', 'exp03'] }, // SETB/CLR 操作位地址；三个实验的位操作口径一致
+  '3.2.1': { appliedIn: ['exp01'] },                       // 实验一"基本输出指令MOV"
+  '3.4.1': { appliedIn: ['exp02'] },                       // 实验二逻辑段"ANL逻辑与：3CH∧66H"
+  '3.4.2': { appliedIn: ['exp02'] },                       // 实验二逻辑段"ORL逻辑或：3CH∨66H"
+  '3.4.3': { appliedIn: ['exp02'] },                       // 实验二逻辑段"XRL逻辑异或：3CH⊕66H"
+  '3.4.4': { appliedIn: ['exp02'] },                       // 实验二"CPL取反指令"
+  '3.4.5': { appliedIn: ['exp02'] },                       // 实验二"RL/RRC循环移位指令"（逻辑与移位段）
+  '3.5.2': { appliedIn: ['exp02'] },                       // 实验二"程序循环设计"（DJNZ 循环骨架）
+
+  // —— 第4章 C语言编程：C51 的每个扩展关键字都对应第2章一块真实硬件；
+  //    控制结构编译后落到第3章的转移指令；中断函数指向第5章。——
+  '4.1': { prerequisites: ['1.5'], appliedIn: ['proj01'] },// 在工具链总览基础上专攻 Keil 工程操作；项目一实操
+  '4.2': { prerequisites: ['2.2'] },                       // data/idata/xdata/code 逐一对应存储器分区
+  '4.3': { prerequisites: ['4.2'] },                       // 先有变量与类型，再谈流程控制
+  '4.4': { prerequisites: ['4.2', '3.6'] },                // sfr/sbit 本质是给 SFR 与位地址起名；位操作编程对应位指令
+  '4.5': { prerequisites: ['4.3'] },                       // 库函数的使用以函数定义与调用为前提
+  '4.6': { prerequisites: ['4.3'] },                       // 规范约束的对象是已能写出来的程序
+  '4.2.2': { prerequisites: ['2.2.1', '2.2.2'] },          // 每个存储类型关键字都指向一块真实存储区
+  '4.4.1': { prerequisites: ['5.2', '4.3.4'], appliedIn: ['exp03'] }, // interrupt n 的 n 就是中断源编号；实验三写定时器 ISR
+  '4.4.2': { prerequisites: ['2.2.3'] },                   // sfr 关键字访问的就是特殊功能寄存器
+  '4.4.3': { prerequisites: ['3.6.4'] },                   // sbit 变量的置位/清零对应 SETB/CLR
+  '4.5.1': { prerequisites: ['2.4.2', '4.3.3'], appliedIn: ['exp01', 'exp08', 'proj01'] }, // 延时长短按机器周期折算、用循环实现；流水灯/步进调速都靠它
+  '4.5.3': { appliedIn: ['exp09'] },                       // 实验九"字符串处理"
+  '4.3.2': { appliedIn: ['exp05', 'exp06', 'proj03', 'proj04'] }, // 状态机/闰年判断/阈值比较都是选择结构的应用
+  '4.3.3': { appliedIn: ['exp01', 'proj01'] },             // 实验一/项目一"循环程序结构"
+
+  // —— 第5章 中断系统：主链是 请求→响应→服务→返回；
+  //    IE/IP/TCON 都是 SFR（依赖2.2.3），响应/返回靠堆栈与 RETI（依赖第3章）。——
+  '5.1': { prerequisites: ['2.1'] },                       // 先理解 CPU 顺序执行，才能理解"打断-返回"
+  '5.2': { prerequisites: ['5.1', '2.2.3'] },              // 把抽象中断概念落到 89C51 的 5 源两级；IE/IP 是 SFR
+  '5.3': { prerequisites: ['5.2', '2.3.4'] },              // INT0/INT1 复用在 P3.2/P3.3 第二功能上
+  '5.4': { prerequisites: ['5.2', '3.2.4'] },              // 响应=硬件压栈保存断点，返回=出栈，堆栈是前提
+  '5.5': { prerequisites: ['5.4'] },                       // 先走通单中断全流程，再谈嵌套
+  '5.6': { prerequisites: ['5.3', '5.4'] },                // 应用 = 触发方式 + 处理流程的组合
+  '5.4.1': { prerequisites: ['5.2.1'] },                   // 请求来自 5 个中断源的标志位置位
+  '5.4.2': { prerequisites: ['5.4.1', '5.2.2'] },          // 响应的前提是请求已挂起且 EA/使能位开放
+  '5.4.3': { prerequisites: ['5.4.2'], appliedIn: ['exp03'] }, // 被响应后才进入服务程序：保护现场→处理→恢复；实验三实操
+  '5.4.4': { prerequisites: ['5.4.3', '3.5.4'] },          // RETI 恢复断点并解除优先级封锁，区别于 RET
+  '5.4.5': { prerequisites: ['5.4.2', '2.4.2'] },          // 响应时间以机器周期为单位计算
+  '5.5.1': { prerequisites: ['5.2.3'] },                   // 两级优先级由 IP 寄存器配置
+  '5.6.1': { prerequisites: ['5.3.3', '8.2.3'], appliedIn: ['exp05'] }, // 真实按键中断必须配合消抖；实验五"中断与查询处理"
+  '5.6.2': { prerequisites: ['6.1.3', '5.4.3'], appliedIn: ['proj02'] }, // TF 溢出标志就是定时中断的请求源；项目二"定时器中断应用"
+  '5.6.3': { prerequisites: ['7.2.1', '5.4.3'], appliedIn: ['exp09'] }, // TI/RI 在 SCON 中，串口中断按同一流程处理；实验九实操
+  '5.6.4': { prerequisites: ['5.5.1'] },                   // 多中断源并存要靠优先级协调
+  '5.2.3': { appliedIn: ['exp06'] },                       // 实验六"中断优先级设置"
+  '5.2.4': { appliedIn: ['exp03'] },                       // 实验三"中断向量表"
+  '5.3.3': { appliedIn: ['exp05', 'proj03'] },             // 实验五按键中断、项目三"外部中断应用"
+
+  // —— 第6章 定时器/计数器：定时的本质是数机器周期（依赖2.4），
+  //    应用链是 初值→精确延时→方波→PWM，几乎全部以溢出中断组织（依赖第5章）。——
+  '6.1': { prerequisites: ['2.4', '2.2.3'] },              // 定时的本质是数机器周期；TMOD/TCON 是 SFR
+  '6.2': { prerequisites: ['6.1'], appliedIn: ['exp06'] }, // 四种模式都是 TMOD 中 M1M0 的组合；实验六"工作模式分析"
+  '6.3': { prerequisites: ['6.2', '5.4'] },                // 定时器应用几乎都以"溢出中断"方式组织
+  '6.4': { prerequisites: ['6.1', '2.3.4'] },              // C/T=1 改数外部脉冲；T0/T1 引脚是 P3.4/P3.5 第二功能
+  '6.1.4': { prerequisites: ['6.1.1', '2.4.2'], appliedIn: ['exp03', 'exp06'] }, // 初值 = 2^n − 定时时间/机器周期；两实验都要算初值
+  '6.2.1': { prerequisites: ['6.1.2'] },                   // 模式选择由 TMOD 的 M1M0 决定
+  '6.2.2': { prerequisites: ['6.2.1'] },                   // 16 位模式是 13 位模式的自然扩展
+  '6.2.3': { prerequisites: ['6.2.2'], appliedIn: ['exp09'] }, // 自动重装免去手工装初值——正是波特率发生的需求；实验九用 T1 模式2
+  '6.2.4': { prerequisites: ['6.2.2'] },                   // 模式3把 T0 拆成两个 8 位计数器
+  '6.1.2': { appliedIn: ['exp03'] },                       // 实验三"TMOD寄存器配置"
+  '6.3.1': { prerequisites: ['6.1.4'], appliedIn: ['exp07', 'exp08'] }, // 精确延时的第一步是会算初值；节拍/步进调速靠它
+  '6.3.2': { prerequisites: ['6.3.1'], appliedIn: ['exp03', 'exp07'] }, // 半周期定时翻转 I/O 即方波；方波频率=音符音高
+  '6.3.3': { prerequisites: ['6.3.2'], appliedIn: ['exp07', 'proj02', 'proj03'] }, // PWM = 占空比可调的方波；调光/调速/调声全用它
+  '6.3.4': { prerequisites: ['6.4.1'] },                   // 频率测量 = 定时闸门内数外部脉冲
+  '6.3.5': { prerequisites: ['6.3.1'], appliedIn: ['exp06'] }, // 软件计数器扩展 65ms 上限得到秒级定时；实验六"实时时钟算法"
+  '6.4.2': { prerequisites: ['6.4.1', '6.3.1'] },          // 转速 = 单位时间内的脉冲计数，定时与计数配合
+  '6.4.4': { prerequisites: ['6.1.2'] },                   // 门控计数由 TMOD 的 GATE 位控制
+
+  // —— 第7章 串行通信：从并行总线对比引出串行（依赖2.6）；
+  //    波特率由 T1 模式2 产生是最典型的跨章依赖（7.2.3←6.2.3）。——
+  '7.1': { prerequisites: ['2.6'] },                       // 从并行总线的对比引出串行传输的动机
+  '7.2': { prerequisites: ['7.1', '2.2.3'] },              // SCON/SBUF/PCON 都是 SFR
+  '7.3': { prerequisites: ['7.2', '4.3'] },                // 收发程序用 C 的查询/中断框架实现
+  '7.4': { prerequisites: ['7.1'] },                       // 各协议是帧格式/电平/拓扑的不同约定
+  '7.1.3': { prerequisites: ['7.1.2'] },                   // 异步通信没有共享时钟，才需要双方约定波特率
+  '7.1.4': { appliedIn: ['proj04'] },                      // 项目四"UART数据帧格式设计"
+  '7.2.3': { prerequisites: ['6.2.3', '7.1.3'], appliedIn: ['exp09'] }, // T1 模式2 自动重装产生溢出率→波特率，跨章依赖的典型
+  '7.2.4': { prerequisites: ['7.2.1'] },                   // 工作模式由 SCON 的 SM0/SM1 位选择
+  '7.2.1': { appliedIn: ['exp09'] },                       // 实验九"SCON寄存器配置"
+  '7.2.2': { appliedIn: ['exp09'] },                       // 实验九"SBUF缓冲器使用"
+  '7.3.1': { prerequisites: ['7.2.1', '7.2.3'] },          // 初始化 = 配 SCON + 配波特率
+  '7.3.2': { prerequisites: ['7.3.1'], appliedIn: ['exp09'] }, // 写 SBUF、等 TI、清 TI；实验九"TI/RI标志位操作"
+  '7.3.3': { prerequisites: ['7.3.1'], appliedIn: ['exp09'] }, // 等 RI、读 SBUF、清 RI
+  '7.3.4': { prerequisites: ['7.3.2', '5.2.2'], appliedIn: ['exp09'] }, // 中断方式要在 IE 中开 ES；实验九"串口中断处理"
+  '7.4.1': { prerequisites: ['7.1.4'] },                   // RS-232 是对帧格式加电平标准的具体化
+  '7.4.4': { prerequisites: ['7.1.2'], appliedIn: ['proj04'] }, // I2C 是同步串行协议；项目四"AT24C02 I2C读写"
+
+  // —— 第8章 接口技术：所有接口都落在 I/O 口上（依赖2.3），
+  //    显示扫描/单总线时序/电机调速普遍依赖第6章的定时能力。——
+  '8.1': { prerequisites: ['2.3', '6.3'], appliedIn: ['exp04'] }, // 显示器件挂在 I/O 口上；动态扫描靠定时刷新
+  '8.2': { prerequisites: ['2.3', '5.3'], appliedIn: ['exp05'] }, // 行列线是 I/O；按键可用外部中断响应
+  '8.3': { prerequisites: ['2.3', '2.6'] },                // 并行 AD/DA 的数据口是 I/O；典型接法经三总线扩展
+  '8.4': { prerequisites: ['8.3', '6.3'], appliedIn: ['proj03'] }, // 模拟型传感器经 AD 采集；单总线协议靠微秒级延时；项目三红外传感器
+  '8.5': { prerequisites: ['2.3.5', '6.3'] },              // I/O 灌电流不足必须外加驱动；调速本质是 PWM/脉冲频率
+  '8.1.1': { appliedIn: ['exp04', 'proj01'] },             // 实验四"7段数码管结构"、项目一"数码管段选与位选"
+  '8.1.2': { prerequisites: ['8.1.1', '6.3.1'], appliedIn: ['exp04'] }, // 动态扫描 = 逐位点亮 + 每位停留 1-2ms 的定时
+  '8.1.3': { appliedIn: ['proj02', 'proj04'] },            // 项目二/四"LCD1602接口与指令集/多行显示"
+  '8.1.4': { prerequisites: ['8.1.3'] },                   // 12864 在 1602 的指令集思路上扩展图形显示
+  '8.1.5': { prerequisites: ['8.1.2'] },                   // 点阵行列扫描与数码管动态扫描同一思路（叠加原有 2.3.2）
+  '8.2.2': { prerequisites: ['8.2.1'] },                   // 先懂单键的电平检测，再上行列扫描（叠加原有 2.3）
+  '8.2.3': { prerequisites: ['8.2.1', '4.5.1'], appliedIn: ['exp05'] }, // 抖动是机械按键的物理特性；软件消抖=延时再确认
+  '8.3.1': { appliedIn: ['proj02'] },                      // 项目二"ADC0809工作原理与时序"
+  '8.3.3': { prerequisites: ['8.3.1'], appliedIn: ['proj02'] }, // 模拟量采集应用以 ADC 接口为硬件基础；项目二"阈值比较与自动控制"
+  '8.3.4': { prerequisites: ['8.3.1'] },                   // 分辨率/采样率是 ADC 器件的固有指标
+  '8.4.1': { prerequisites: ['6.3.1'], appliedIn: ['proj04'] }, // DS18B20 单总线时序要求微秒级精确延时；项目四实操
+  '8.4.2': { prerequisites: ['8.4.1'], appliedIn: ['proj04'] }, // DHT11 同为单总线时序，读法与 DS18B20 类比
+  '8.4.3': { prerequisites: ['8.3.1'], appliedIn: ['proj02'] }, // 光敏电阻分压后经 AD 采集；项目二"光敏电阻特性与应用"
+  '8.4.4': { prerequisites: ['6.4.4'] },                   // 超声波回波测宽用门控方式测脉冲宽度
+  '8.5.1': { prerequisites: ['6.3.3'], appliedIn: ['proj03'] }, // 直流电机调速靠 PWM；项目三"L298N电机驱动原理"
+  '8.5.2': { prerequisites: ['6.3.1'], appliedIn: ['exp08'] }, // 步进电机转速由相序节拍间隔（延时）决定；实验八实操
+  '8.5.3': { prerequisites: ['6.3.3'] },                   // 舵机角度由 PWM 脉宽决定
+
+  // —— 第9章 系统设计：方法论建立在最小系统与模块化编程之上，
+  //    调试手段来自 Keil（4.1）与硬件仪器；文档沉淀设计与调试结论。——
+  '9.1': { prerequisites: ['1.4', '4.6'] },                // 一切方案从最小系统起步；模块化思想延伸到系统级
+  '9.2': { prerequisites: ['9.1'] },                       // 原理图与方案确定后才进入 PCB 布局布线
+  '9.3': { prerequisites: ['9.1', '4.1'] },                // 调试对照的是设计指标；软件调试手段来自 Keil
+  '9.4': { prerequisites: ['9.3'] },                       // 文档沉淀设计与调试的结论
+  '9.1.2': { prerequisites: ['9.1.1'] },                   // 需求边界决定方案取舍
+  '9.1.3': { prerequisites: ['9.1.2'] },                   // 硬件设计按选定方案展开
+  '9.1.4': { prerequisites: ['9.1.2'] },                   // 软件流程图同样从方案分解而来
+  '9.2.4': { prerequisites: ['9.2.2'] },                   // DRC 检查的对象是布局布线结果
+  '9.3.3': { prerequisites: ['9.3.1', '9.3.2'], appliedIn: ['proj02', 'proj03'] }, // 先分别过硬件/软件关再联调；两项目"系统集成/综合调试"
+  '9.3.4': { appliedIn: ['proj04'] },                      // 项目四"系统可靠性设计"（稳定性测试）
+
+  // —— 第10章 前沿应用：WiFi/蓝牙模块靠串口 AT 指令驱动（依赖第7章），
+  //    传感数据是物联网源头（依赖第8章），架构对比回到第2/3章。——
+  '10.1': { prerequisites: ['7.3', '8.4'] },               // 无线模块靠串口驱动；传感数据是物联网的源头
+  '10.2': { prerequisites: ['10.1'] },                     // 边缘智能建立在联网设备与数据采集之上
+  '10.3': { prerequisites: ['2.1', '3.1'] },               // 对比对象是 8051 的 CPU 架构与指令集
+  '10.4': { prerequisites: ['10.1', '10.2'] },             // AIoT = 物联网与人工智能的交汇
+  '10.1.1': { prerequisites: ['7.3.1'] },                  // ESP8266 的 AT 指令经串口收发
+  '10.1.2': { prerequisites: ['7.3.1'], appliedIn: ['proj03'] }, // HC-05 蓝牙透传同样走串口；项目三"蓝牙串口通信"
+  '10.1.4': { prerequisites: ['10.1.1'] },                 // 先联上网，再谈应用层的发布/订阅协议
+  '10.3.3': { prerequisites: ['10.3.1'] },                 // 对比之前先认识 RISC-V 本身
+};
+
+// 将关系表并入主数组（模块加载时执行一次；与节点上已有的内联关系去重合并）。
+function mergeUnique(base: string[] | undefined, extra: string[] | undefined): string[] | undefined {
+  if (!extra || extra.length === 0) return base;
+  const merged = [...(base || [])];
+  for (const item of extra) {
+    if (!merged.includes(item)) merged.push(item);
+  }
+  return merged;
+}
+
+for (const point of knowledgePoints) {
+  const patch = relationPatches[point.id];
+  if (!patch) continue;
+  const prerequisites = mergeUnique(point.prerequisites, patch.prerequisites);
+  const appliedIn = mergeUnique(point.appliedIn, patch.appliedIn);
+  if (prerequisites) point.prerequisites = prerequisites;
+  if (appliedIn) point.appliedIn = appliedIn;
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -772,3 +1009,24 @@ export const knowledgePointStats = {
   level2: getPointsByLevel(2).length,
   level3: getPointsByLevel(3).length,
 } as const;
+
+// 关系网统计：依赖边总数 / 跨章依赖边数 / 实验关联条数（节点×实验去重后）。
+// 供图谱页统计面板与关系可视化图例展示，口径与上方关系表一致。
+export const knowledgeRelationStats = (() => {
+  const byId = new Map(knowledgePoints.map((p) => [p.id, p]));
+  let prerequisiteEdges = 0;
+  let crossChapterEdges = 0;
+  const experimentLinks = new Set<string>();
+  for (const point of knowledgePoints) {
+    for (const pre of point.prerequisites || []) {
+      const source = byId.get(pre);
+      if (!source) continue;
+      prerequisiteEdges += 1;
+      if (source.chapter !== point.chapter) crossChapterEdges += 1;
+    }
+    for (const refId of point.appliedIn || []) {
+      experimentLinks.add(`${point.id}->${refId}`);
+    }
+  }
+  return { prerequisiteEdges, crossChapterEdges, experimentLinks: experimentLinks.size };
+})();

@@ -160,6 +160,9 @@ export class Simulator {
   private labels: Map<string, number> = new Map();
   private symbols: Map<string, string> = new Map(); // EQU/BIT/DATA symbol table
   private codeMemory: Uint8Array = new Uint8Array(65536); // Code memory for DB/DW/MOVC
+  // 外部数据存储器（MOVX 访问，64KB）。未写过的单元读 0xFF（总线悬空的真实表现）；
+  // 写入后可读回，使 MOVX @DPTR,A ↔ MOVX A,@DPTR 形成真实往返（此前写操作被丢弃）
+  private xram: Uint8Array = new Uint8Array(65536).fill(0xFF);
   private pcHistory: number[] = []; // PC历史记录用于循环检测
   private stepCount: number = 0;
   private inInterrupt: boolean = false; // 是否正处于中断服务程序内（阻止重入，RETI 清除）
@@ -203,6 +206,7 @@ export class Simulator {
     this.instrCount = 0;
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
+    this.xram.fill(0xFF);
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
   }
 
@@ -218,6 +222,7 @@ export class Simulator {
     this.instrCount = 0;
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
+    this.xram.fill(0xFF);
     this.state = this.getInitialState();
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
     this.parseCode();
@@ -684,53 +689,9 @@ export class Simulator {
             instructionLength = 3; // CJNE is 3 bytes (operand, immediate, rel addr)
             break;
           case 'MOV':
-            // MOV instruction length varies based on operands
+            // 与执行期共用同一长度函数，保证地址分配与 PC 推进永远一致
             if (operands.length === 2 && operands[0] && operands[1]) {
-              const destRaw = this.resolveSymbol(operands[0]);
-              const srcRaw = this.resolveSymbol(operands[1]);
-              const dest = destRaw.toUpperCase();
-              const src = srcRaw.toUpperCase();
-
-              if ((dest === 'C' || dest === 'CY') && this.isBitOperand(srcRaw)) {
-                instructionLength = 2; // MOV C, bit
-              } else if (this.isBitOperand(destRaw) && (src === 'C' || src === 'CY')) {
-                instructionLength = 2; // MOV bit, C
-              } else if (src.startsWith('#')) { // MOV dest, #data
-                if (dest === 'DPTR') {
-                  instructionLength = 3; // MOV DPTR, #data16
-                } else if (dest === 'A' || dest.match(/^R[0-7]$/) || dest.match(/^@R[01]$/)) {
-                  instructionLength = 2; // MOV A/Rn/@Ri, #data8
-                } else {
-                  instructionLength = 3; // MOV direct, #data8 (including P0-P3)
-                }
-              } else if (this.isDirectAddress(dest)) {
-                // Destination is direct address (incl. ports, SFRs)
-                if (src === 'A' || src.match(/^R[0-7]$/) || src.match(/^@R[01]$/)) {
-                  instructionLength = 2; // MOV direct, A/Rn/@Ri
-                } else if (this.isDirectAddress(src)) {
-                  instructionLength = 3; // MOV direct, direct
-                } else {
-                  instructionLength = 2; // default for MOV direct, X
-                }
-              } else if (dest === 'A') {
-                // MOV A, Rn = 1 byte; MOV A, direct/port = 2 bytes; MOV A, @Ri = 1 byte
-                if (src.match(/^R[0-7]$/) || src.match(/^@R[01]$/)) {
-                  instructionLength = 1;
-                } else {
-                  // MOV A, direct (including P0-P3, TMOD, TH0, etc.)
-                  instructionLength = 2;
-                }
-              } else if (dest.match(/^R[0-7]$/)) {
-                // MOV Rn, A = 1 byte; MOV Rn, direct = 2 bytes
-                if (src === 'A') {
-                  instructionLength = 1;
-                } else {
-                  instructionLength = 2; // MOV Rn, direct
-                }
-              } else {
-                // Other MOV variants (e.g., MOV direct, direct = 3 bytes)
-                instructionLength = 3;
-              }
+              instructionLength = this.getMovLength(operands[0], operands[1]);
             }
             break;
           case 'SETB':
@@ -1610,6 +1571,8 @@ export class Simulator {
     }
     
     // Indirect addressing (@R0, @R1)
+    // 越界行为定义：本机为经典 8051（内部 RAM 仅 128 字节，无 52 子系列的高 128 字节），
+    // @Ri 地址 >7FH 时读返回 0（Uint8Array 越界读 undefined 归零），与"无此存储器"一致
     if (operand.match(/^@R[01]$/i)) {
         const regName = operand.substring(1).toUpperCase();
         const address = this.getWorkingRegisterValue(regName);
@@ -1682,6 +1645,8 @@ export class Simulator {
     operand = this.resolveSymbol(operand);
 
     // Indirect addressing (@R0, @R1)
+    // 越界行为定义：@Ri 地址 >7FH 的写入静默丢弃（经典 8051 无高 128 字节 RAM），
+    // 有金标准测试固化此语义（simulator-golden.test.ts）
     if (operand.match(/^@R[01]$/i)) {
         const regName = operand.substring(1).toUpperCase();
         const address = this.getWorkingRegisterValue(regName);
@@ -1848,23 +1813,8 @@ export class Simulator {
     this.setValue(dest, value);
     if (destUpper === 'A') this.updateParity();
 
-    // Calculate instruction length using resolved operands
-    let instructionLength = 1;
-    const isDestReg = destUpper === 'A' || dest.match(/^R[0-7]$/i) || dest.match(/^@R[01]$/i);
-
-    if (destUpper === 'DPTR') {
-      instructionLength = 3; // MOV DPTR, #data16 (handled above, but fallback)
-    } else if (src.startsWith('#')) {
-      instructionLength = isDestReg ? 2 : 3;
-    } else if (destUpper === 'A') {
-      // MOV A, Rn/@Ri = 1; MOV A, direct = 2
-      instructionLength = (src.match(/^R[0-7]$/i) || src.match(/^@R[01]$/i)) ? 1 : 2;
-    } else if (dest.match(/^R[0-7]$/i)) {
-      instructionLength = srcUpper === 'A' ? 1 : 2;
-    } else if (this.isDirectAddress(dest)) {
-      instructionLength = this.isDirectAddress(src) ? 3 : 2;
-    }
-    this.state.pc += instructionLength;
+    // 与解析期共用同一长度函数（见 getMovLength 注释）
+    this.state.pc += this.getMovLength(operands[0] || '', operands[1] || '');
   }
 
   private executeACALL(operands: string[]): void {
@@ -2362,6 +2312,34 @@ export class Simulator {
     }
   }
 
+  /**
+   * MOV 指令字节长度的唯一计算入口——解析期（地址分配）与执行期（PC 推进）共用。
+   * 修复：此前两处各写一套判断，`MOV @Ri, A`（真实 1 字节）解析按 3 字节分配地址、
+   * 执行只前进 1 字节，PC 落到指令缝隙里，"就近找指令"回退到同一条 MOV 反复执行，
+   * 程序原地死循环；`MOV @Ri, direct`（真实 2 字节）同病。统一后与 8051 手册一致。
+   */
+  private getMovLength(destRaw: string, srcRaw: string): number {
+    const dest = this.resolveSymbol(destRaw || '');
+    const src = this.resolveSymbol(srcRaw || '');
+    const d = dest.toUpperCase();
+    const s = src.toUpperCase();
+    // 位传送：MOV C,bit / MOV bit,C 均为 2 字节
+    if ((d === 'C' || d === 'CY') && this.isBitOperand(src)) return 2;
+    if (this.isBitOperand(dest) && (s === 'C' || s === 'CY')) return 2;
+    if (d === 'DPTR') return 3; // MOV DPTR, #data16
+    if (s.startsWith('#')) {
+      // MOV A/Rn/@Ri, #data = 2；MOV direct, #data = 3
+      return (d === 'A' || /^R[0-7]$/.test(d) || /^@R[01]$/.test(d)) ? 2 : 3;
+    }
+    if (d === 'A') return (/^R[0-7]$/.test(s) || /^@R[01]$/.test(s)) ? 1 : 2; // MOV A,Rn/@Ri=1；MOV A,direct=2
+    if (/^R[0-7]$/.test(d) || /^@R[01]$/.test(d)) return s === 'A' ? 1 : 2;   // MOV Rn/@Ri,A=1；MOV Rn/@Ri,direct=2
+    if (this.isDirectAddress(dest)) {
+      if (s === 'A' || /^R[0-7]$/.test(s) || /^@R[01]$/.test(s)) return 2;    // MOV direct, A/Rn/@Ri
+      return 3;                                                               // MOV direct, direct
+    }
+    return 2;
+  }
+
   /** Calculate instruction length for ANL/ORL/XRL */
   private logicOpLength(dest: string, src: string): number {
     const d = dest.toUpperCase();
@@ -2639,25 +2617,34 @@ export class Simulator {
     }
   }
 
-  /** MOVX — external memory access (1 byte) */
+  /**
+   * MOVX — 外部数据存储器访问（1 字节指令）。
+   * 修复：此前写外部 RAM 是空操作、读恒返回 0xFF，MOVX 往返（写→读回）不可验证。
+   * 现在 @DPTR 按 16 位地址访问 xram；@Ri 与真实 8051 一致，高 8 位取 P2、低 8 位取 Ri。
+   * 未写过的单元仍读 0xFF（总线悬空），保持既有"未连接"语义与存量用例兼容。
+   */
   private executeMOVX(operands: string[]): void {
     if (operands.length !== 2) { this.state.pc += 1; return; }
-    const dest = (operands[0] || '').toUpperCase();
-    const src = (operands[1] || '').toUpperCase();
-    // MOVX A, @DPTR — read external memory
+    const dest = (operands[0] || '').toUpperCase().replace(/\s+/g, '');
+    const src = (operands[1] || '').toUpperCase().replace(/\s+/g, '');
+    const dptr = (((this.state.registers.DPH || 0) << 8) | (this.state.registers.DPL || 0)) & 0xFFFF;
     if (dest === 'A' && src === '@DPTR') {
-      // Simulate: return 0xFF (external memory not connected)
-      this.state.registers.A = 0xFF;
+      // MOVX A, @DPTR — 读外部 RAM
+      this.state.registers.A = this.xram[dptr];
       this.updateParity();
-    }
-    // MOVX @DPTR, A — write to external memory
-    // MOVX A, @R0 / MOVX A, @R1 — 8-bit external address
-    // (No external memory in simulator, operations are no-ops for data)
-    else if (dest === 'A' && (src === '@R0' || src === '@R1')) {
-      this.state.registers.A = 0xFF;
+    } else if (dest === 'A' && (src === '@R0' || src === '@R1')) {
+      // MOVX A, @Ri — 8 位地址 + P2 页地址
+      const lo = this.getWorkingRegisterValue(src.substring(1));
+      this.state.registers.A = this.xram[((this.state.portValues.P2 << 8) | lo) & 0xFFFF];
       this.updateParity();
+    } else if (dest === '@DPTR' && src === 'A') {
+      // MOVX @DPTR, A — 写外部 RAM
+      this.xram[dptr] = this.state.registers.A & 0xFF;
+    } else if ((dest === '@R0' || dest === '@R1') && src === 'A') {
+      // MOVX @Ri, A — 写外部 RAM（P2 页地址）
+      const lo = this.getWorkingRegisterValue(dest.substring(1));
+      this.xram[((this.state.portValues.P2 << 8) | lo) & 0xFFFF] = this.state.registers.A & 0xFF;
     }
-    // MOVX @DPTR, A or MOVX @R0, A / MOVX @R1, A — write (no-op)
     this.state.pc += 1;
   }
 
@@ -2700,6 +2687,10 @@ export class Simulator {
   public getState(): SimulatorState {
     // 返回当前状态的深拷贝，避免外部直接修改内部状态
     const snapshot = JSON.parse(JSON.stringify(this.state)) as SimulatorState;
+    // 修复：JSON 序列化会把 Uint8Array 退化成普通对象（丢失 length 与数组语义），
+    // 内存面板拿到后 ram.length 为 undefined，所有单元恒读 0——即"内存面板一潭死水"的根源。
+    // 这里必须还原成真正的 Uint8Array。
+    snapshot.ram = Uint8Array.from(this.state.ram);
     // 动态补齐 memory，以免因深拷贝缺失导致 undefined
     snapshot.memory = this.instructions.map(i => `${i.mnemonic} ${i.operands.join(' ')}`.trim());
     // 计算当前 PC 对应的源代码行号
