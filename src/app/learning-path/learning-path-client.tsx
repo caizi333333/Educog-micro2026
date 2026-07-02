@@ -296,7 +296,7 @@ function EmptyAssessmentState() {
           <div className="text-sm font-semibold text-slate-100">可先进入的基础路径</div>
           <div className="mt-3 space-y-2">
             {[
-              { href: '/knowledge-graph', title: '先看知识图谱', desc: '浏览 270 个课程知识点' },
+              { href: '/knowledge-graph', title: '先看知识图谱', desc: '浏览 273 个课程知识点' },
               { href: '/simulation?experiment=exp01', title: '基础 LED 实验', desc: '从 I/O 输出和延时程序开始' },
               { href: '/quiz', title: '完成一次测评', desc: '生成后续个性化路径' },
             ].map((item) => (

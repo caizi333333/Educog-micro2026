@@ -243,7 +243,7 @@ RRC A — 带进位循环右移 (9 位移位)
     ],
     instructionRef: [
       { instr: 'MOV', syntax: 'MOV dest, src', desc: '数据传送', example: 'MOV P1, #0FEH  ; P1 ← 0FEH' },
-      { instr: 'RL', syntax: 'RL A', desc: '累加器循环左移', example: 'RL A  ; A.7→CY, A.6→A.7, ...' },
+      { instr: 'RL', syntax: 'RL A', desc: '累加器循环左移(8位自环,不经CY)', example: 'RL A  ; A.7→A.0, A.6→A.7, ...' },
       { instr: 'RR', syntax: 'RR A', desc: '累加器循环右移', example: 'RR A  ; A.0→A.7, A.7→A.6, ...' },
       { instr: 'ACALL', syntax: 'ACALL addr11', desc: '绝对子程序调用 (2KB范围)', example: 'ACALL DELAY' },
       { instr: 'CJNE', syntax: 'CJNE A, #data, rel', desc: '比较不等转移', example: 'CJNE A, #7FH, LOOP1' },
@@ -304,8 +304,8 @@ RRC A — 带进位循环右移 (9 位移位)
       ability: ['能根据场景选择合适的寻址方式编写程序', '学会用单步调试观察寄存器与内存的变化'],
     },
     keyPoints: {
-      focus: ['7 种寻址方式的识别与选用', '立即寻址与直接寻址的区别（有无 # 号）'],
-      difficulty: ['寄存器间接寻址 @Ri 与变址寻址 @A+DPTR 的理解', '按场景权衡速度与灵活性'],
+      focus: ['7 种寻址方式的识别与选用（立即与直接寻址只差一个#号）', 'ADD/ADDC/SUBB 对 CY、AC、OV 标志位的影响'],
+      difficulty: ['寄存器间接寻址 @Ri 与变址寻址 @A+DPTR 的理解', 'DA A 十进制调整的适用条件与多字节运算的进位链'],
     },
     ideological: {
       theme: '工匠精神 · 辩证工程思维 · 自主可控',
@@ -360,17 +360,68 @@ MOV DPTR, #data16 ; 16位立即数→DPTR (3字节)
 
 注意：MOV 指令不影响任何标志位（PSW 不变）`,
       },
+      {
+        title: '算术运算与标志位（第二段）',
+        content: `算术指令会更新 PSW 中的 CY / AC / OV 标志：
+
+1. 多字节加法 — ADD 打头，ADDC 续接
+   BB99H + CCAAH = 1 8843H：
+   低字节  99H+AAH = 143H → A=43H, CY=1
+   高字节  BBH+CCH+CY = 188H → A=88H, CY=1
+   ADDC A,#0 收集最高进位 → 01H（第17位）
+
+2. DA A 十进制调整 — 只跟在 ADD/ADDC 之后
+   BCD 数 87+95：二进制加得 1CH（非法BCD, CY=1）
+   DA A 按半字节>9 或 AC/CY=1 补 6 → 82H, CY=1
+   即十进制 182（百位进 1）
+
+3. MUL AB — 积低字节→A, 高字节→B
+   11H × 22H = 0242H（17×34=578），积>255 时 OV=1
+
+4. DIV AB — 商→A, 余数→B
+   CCH ÷ 0AH：204÷10 = 20 余 4 → A=14H, B=04H
+
+5. SUBB 带借位减 — 使用前先 CLR C
+   33H − 77H = BCH, CY=1（不够减产生借位）
+   OV=1 表示带符号数运算溢出`,
+      },
+      {
+        title: '逻辑运算与移位（第三段）',
+        content: `逻辑指令按位操作，不产生进位链：
+
+ANL 与:  3CH ∧ 66H = 24H（取公共 1 位/屏蔽）
+ORL 或:  3CH ∨ 66H = 7EH（置位）
+XRL 异或: 3CH ⊕ 66H = 5AH（取反指定位/比较）
+CPL A:   3CH → C3H（按位取反）
+SWAP A:  A7H → 7AH（高低半字节交换）
+
+移位指令 — RL/RR 是 8 位自环，RLC/RRC 把 CY 串进
+移位链构成 9 位循环：
+  RL A:  81H → 03H（bit7 绕回 bit0）
+  RR A:  81H → C0H（bit0 绕回 bit7）
+  RLC A: CY=0, 81H → A=02H, CY=1（bit7 进 CY）
+         再 RLC → A=05H, CY=0（CY 从 bit0 回来）
+  RRC A: CY=1, 02H → A=81H, CY=0
+
+校验和（末段）：
+  用 @R0 间接寻址遍历 30H-5EH 逐字节 ADD 累加，
+  丢弃进位取模 256，结果 F1H 存入 5FH 并输出 P1——
+  这正是串口协议/存储器自检里校验和的标准做法`,
+      },
     ],
     circuitDescription: `
 ┌──────────────┐
-│   AT89C51    │  330Ω    LED (灌电流)
+│   AT89C51    │  330Ω   LED (灌电流,低电平亮)
 │              │
 │  P1.0~P1.7 ─┤├──┤►├── VCC  (×8)
 │              │
-│  模式1: 单点流水    0FEH→0FDH→0FBH→...→7FH
-│  模式2: 奇偶交替    0AAH ↔ 55H
-│  模式3: 中心扩散    0E7H→0C3H→81H→00H
-└──────────────┘`,
+│  阶段指示灯:  │  第一段 P1=0FEH → 1盏亮
+│              │  第二段 P1=0FCH → 2盏亮
+│              │  第三段 P1=0F8H → 3盏亮
+│              │  结 尾  P1=校验和F1H 按位图样点亮
+└──────────────┘
+核心观察对象是内存面板：30H-5FH 三段式逐段填充，
+每轮 LJMP MAIN 先清零再重填`,
     registerReference: [
       {
         name: 'PSW',
@@ -384,33 +435,58 @@ MOV DPTR, #data16 ; 16位立即数→DPTR (3字节)
         bits: ['B.7', 'B.6', 'B.5', 'B.4', 'B.3', 'B.2', 'B.1', 'B.0'],
         description: 'B 寄存器，MUL/DIV 指令的第二操作数',
       },
+      {
+        name: 'SP',
+        address: '81H',
+        bits: ['SP.7', 'SP.6', 'SP.5', 'SP.4', 'SP.3', 'SP.2', 'SP.1', 'SP.0'],
+        description: '堆栈指针，本实验开头 MOV SP,#60H 移出数据区，避免 PUSH 破坏 30H-5FH',
+      },
+      {
+        name: 'DPTR',
+        address: 'DPH:83H DPL:82H',
+        bits: ['DPH[7:0]', 'DPL[7:0]'],
+        description: '16位数据指针，MOVC A,@A+DPTR 查 SRC_TAB 的基址寄存器',
+      },
     ],
     stepByStep: [
-      { step: '1. 理解灯码', detail: '0FEH=11111110B，低电平亮，即只有 P1.0 亮' },
-      { step: '2. 模式1：逐个点亮', detail: '依次输出 0FEH→0FDH→0FBH→...→7FH，每次只亮一个灯' },
-      { step: '3. 模式2：奇偶交替', detail: '0AAH=10101010B，55H=01010101B，交替输出' },
-      { step: '4. 模式3：中心扩散', detail: '从中间两个灯开始，逐步向两侧展开' },
-      { step: '5. 观察延时效果', detail: '调整 DELAY 参数 R6/R7 改变流水速度' },
+      { step: '1. 清零数据区', detail: 'R0 作指针、DJNZ 计数，把 30H-5FH 共48个单元写 0（间接寻址的循环应用）' },
+      { step: '2. 第一段·寻址方式', detail: '看内存面板 30H-33H：立即/直接/寄存器/间接寻址各写一例；34H-3FH 由 MOVC 查表搬入 SRC_TAB 的 12 字节' },
+      { step: '3. 第二段·算术运算', detail: '40H-4DH 依次出现：多字节和 43H/88H/01H、BCD 结果 82H/01H、乘积 42H/02H、商余 14H/04H、SUBB 借位差 BCH/01H、INC/DEC 10H/0FH' },
+      { step: '4. 第三段·逻辑移位', detail: '50H-5AH 依次为 24H,7EH,5AH,C3H,7AH,03H,C0H,02H,05H,81H,F0H，逐条对照 ANL/ORL/XRL/CPL/SWAP/RL/RR/RLC/RRC/ANL direct' },
+      { step: '5. 校验和验证', detail: '程序遍历 30H-5EH 累加，5FH 应为 F1H，同时 P1 全口输出 F1H 位图样' },
+      { step: '6. 对照阶段灯', detail: 'P1 低位 1盏→2盏→3盏递进指示当前段，配合段间延时观察"清零后逐段填充"' },
     ],
     instructionRef: [
-      { instr: 'MOV', syntax: 'MOV P1, #data', desc: '立即数写端口', example: 'MOV P1, #0AAH ; 奇数位亮' },
-      { instr: 'NOP', syntax: 'NOP', desc: '空操作(1机器周期)', example: 'NOP ; 精确微调延时' },
-      { instr: 'PUSH', syntax: 'PUSH direct', desc: 'SP+1, [SP]←data', example: 'PUSH ACC' },
-      { instr: 'POP', syntax: 'POP direct', desc: 'data←[SP], SP-1', example: 'POP B' },
+      { instr: 'MOVC', syntax: 'MOVC A, @A+DPTR', desc: '变址寻址查表(读代码空间)', example: 'MOVC A, @A+DPTR ; A←SRC_TAB[R3]' },
+      { instr: 'ADD', syntax: 'ADD A, src', desc: '加法，影响CY/AC/OV', example: 'ADD A, 35H ; 11H+22H=33H' },
+      { instr: 'ADDC', syntax: 'ADDC A, src', desc: '带进位加，多字节续接', example: 'ADDC A, 3FH ; 高字节+CY' },
+      { instr: 'DA', syntax: 'DA A', desc: '十进制调整(BCD修正)', example: 'DA A ; 1CH,CY=1 → 82H' },
+      { instr: 'MUL', syntax: 'MUL AB', desc: 'A×B，低字节→A 高字节→B', example: 'MUL AB ; 11H×22H=0242H' },
+      { instr: 'DIV', syntax: 'DIV AB', desc: 'A÷B，商→A 余数→B', example: 'DIV AB ; CCH÷0AH=14H余04H' },
+      { instr: 'SUBB', syntax: 'SUBB A, src', desc: '带借位减(先CLR C)', example: 'SUBB A, #77H ; 33H-77H=BCH,CY=1' },
+      { instr: 'ANL', syntax: 'ANL A, #data', desc: '逻辑与(也有 ANL direct,#data)', example: 'ANL A, #66H ; 3CH∧66H=24H' },
+      { instr: 'XRL', syntax: 'XRL A, #data', desc: '逻辑异或', example: 'XRL A, #66H ; 3CH⊕66H=5AH' },
+      { instr: 'SWAP', syntax: 'SWAP A', desc: '高低半字节交换', example: 'SWAP A ; A7H→7AH' },
+      { instr: 'RLC', syntax: 'RLC A', desc: '带CY循环左移(9位)', example: 'RLC A ; CY=0,81H → 02H,CY=1' },
     ],
     realWorldApplications: [
-      '节日彩灯控制器 — 多种花样灯光模式循环',
-      'KTV/舞厅灯光控制 — 音乐节拍与灯光联动',
-      '电路板测试程序 — 用灯光模式验证 IO 口功能',
+      '通信数据帧校验 — 串口/网络协议用校验和验证完整性，与本实验末段算法同源',
+      '电表/水表计费显示 — BCD 运算配合 DA A 修正，保证十进制数字不出错',
+      '传感器数据换算 — MUL/DIV 把 ADC 原始值换算成温度、电压等物理量',
+      '缓冲区批量搬移 — @Ri 间接寻址+DJNZ 是显存刷新、数据包拷贝的基本骨架',
     ],
     commonMistakes: [
-      { mistake: '共阴和共阳数码管搞混', explanation: '共阴数码管高电平亮，共阳数码管低电平亮。LED 阵列同理要确认驱动极性。' },
-      { mistake: '子程序中修改了调用者的寄存器', explanation: 'DELAY 使用 R6/R7，若主程序也用到这些寄存器需先 PUSH 保护。' },
+      { mistake: '立即寻址与直接寻址混淆', explanation: 'MOV A,#30H 取的是数值 30H，MOV A,30H 取的是 30H 单元的内容——一个 # 号之差，结果完全不同。' },
+      { mistake: '多字节加法高字节用了 ADD', explanation: '低字节 ADD 产生的进位保存在 CY 里，高字节必须用 ADDC 才能把它加进来，否则和会少 100H。' },
+      { mistake: 'DA A 用在非 BCD 加法之后', explanation: 'DA A 只能修正 ADD/ADDC 之后的 BCD 结果，不能修正 SUBB，也不能把任意二进制数"变成"BCD。' },
+      { mistake: 'SUBB 前忘记清 CY', explanation: 'SUBB 总是连同 CY 一起减，第一次减法前必须 CLR C，否则结果可能凭空少 1。' },
+      { mistake: 'RL 与 RLC 混用', explanation: 'RL 是 8 位自环，RLC 把 CY 串进移位链构成 9 位循环；第三段 57H/58H 两次 RLC 的结果差异正来自 CY 的参与。' },
     ],
     thinkingQuestions: [
-      '0AAH 和 55H 的二进制分别是什么？为什么交替输出能实现奇偶闪烁？',
-      '如何实现从两端向中心聚拢的效果？需要几个灯码？',
-      '如果用循环+移位指令代替逐个写灯码，程序会有什么优势？',
+      '把 SRC_TAB 换成自己学号的 12 个字节，手算三段结果与 5FH 校验和，再与内存面板核对是否一致。',
+      'BB99H+CCAAH 的第 17 位进位是怎样经 CY 一步步传到 43H 的？若把 ADDC 换成 ADD 会得到什么错误结果？',
+      '87H+95H 直接相加得 1CH 为什么不是合法 BCD？DA A 依据哪些条件决定补 6？',
+      '校验和为什么取模 256（丢弃进位）？如果两个字节互换位置，加法校验和能发现吗？换成 XRL 异或校验呢？',
     ],
   },
 
@@ -555,7 +631,7 @@ IE 寄存器 (A8H, 可位寻址):
     ],
     instructionRef: [
       { instr: 'SETB', syntax: 'SETB bit', desc: '位置1', example: 'SETB TR0  ; 启动T0' },
-      { instr: 'CLR', syntax: 'CLR bit', desc: '位清0', example: 'CLR TF0   ; 清溢出标志' },
+      { instr: 'CLR', syntax: 'CLR bit', desc: '位清0（查询方式需手动清TF0；中断响应时硬件自动清除）', example: 'CLR TR0   ; 停止定时器' },
       { instr: 'CPL', syntax: 'CPL bit', desc: '位取反', example: 'CPL P0.0  ; 翻转输出' },
       { instr: 'LJMP', syntax: 'LJMP addr16', desc: '长跳转(64KB)', example: 'LJMP T0_INT' },
       { instr: 'RETI', syntax: 'RETI', desc: '中断返回', example: 'RETI' },
@@ -744,7 +820,7 @@ DB 伪指令在代码空间定义数据表:
       ability: ['能编写按键扫描与软件消抖程序', '学会用按键控制程序流程（启停、切换）'],
     },
     keyPoints: {
-      focus: ['按键状态的读取与消抖处理', '独立按键与矩阵键盘的扫描方法'],
+      focus: ['按键状态的读取与消抖处理', '矩阵键盘的行扫描与键值计算'],
       difficulty: ['软件延时消抖的时间把握', '矩阵键盘的行列扫描与键值计算'],
     },
     ideological: {
@@ -814,8 +890,8 @@ DB 伪指令在代码空间定义数据表:
 列线需上拉电阻 (10KΩ)`,
     registerReference: [],
     stepByStep: [
-      { step: '1. 初始化端口', detail: 'P1 高4位输出, P3 低4位输入(带上拉)' },
-      { step: '2. 行扫描', detail: '依次将 P1 的一行置0, 其余置1' },
+      { step: '1. 初始化端口', detail: 'P1 低4位行线输出扫描码(高4位置1)，P3 低4位列线先写1再作输入读取' },
+      { step: '2. 行扫描', detail: '依次将 P1 低4位中的一行置0, 其余置1（0FEH 循环左移生成扫描码）' },
       { step: '3. 读列状态', detail: '读 P3 低4位, 如果有0说明对应列有键按下' },
       { step: '4. 计算键值', detail: '键值 = 行号×4 + 列号' },
       { step: '5. 软件消抖', detail: '延时 20ms 后再次确认按键状态' },
@@ -823,8 +899,8 @@ DB 伪指令在代码空间定义数据表:
     instructionRef: [
       { instr: 'ANL', syntax: 'ANL A, #data', desc: '逻辑与', example: 'ANL A, #0FH ; 取低4位' },
       { instr: 'RRC', syntax: 'RRC A', desc: '带进位右移', example: 'RRC A ; 逐位检测' },
-      { instr: 'JC', syntax: 'JC rel', desc: 'CY=1跳转', example: 'JC COL_FOUND' },
-      { instr: 'JNB', syntax: 'JNB bit, rel', desc: '位=0跳转', example: 'JNB P3.2, KEY' },
+      { instr: 'JNC', syntax: 'JNC rel', desc: 'CY=0跳转', example: 'JNC COL_FOUND ; 读到低电平列即按下' },
+      { instr: 'MUL', syntax: 'MUL AB', desc: 'A×B，低字节→A', example: 'MUL AB ; 行号×4 求键值基数' },
     ],
     realWorldApplications: [
       '电梯按钮面板 — 可靠的按键检测和楼层选择',
@@ -891,9 +967,10 @@ T1 — 显示引擎 (2ms × 4位 = 8ms 刷新)
 
 TMOD = 00010001B = 11H (两个定时器都是模式1)
 
-中断优先级：
-  T0 中断 (000BH) — 计时，优先级默认较高
-  T1 中断 (001BH) — 显示，可被 T0 中断打断
+中断关系（本实验未设置 IP）：
+  两个中断同为默认低优先级，互不嵌套
+  同时请求时按自然查询顺序先响应 T0 (000BH)
+  T1 (001BH) 的扫描请求随后得到响应，仅晚几十微秒
 
 注意：两个中断都需要在 ISR 中重装初值(模式1)`,
       },
@@ -931,10 +1008,16 @@ DIV AB 分解十位和个位：
 └──────────────┘`,
     registerReference: [
       {
-        name: 'IP',
-        address: '0B8H',
-        bits: ['—', '—', 'PT2', 'PS', 'PT1', 'PX1', 'PT0', 'PX0'],
-        description: '中断优先级寄存器，1=高优先级',
+        name: 'TMOD',
+        address: '89H',
+        bits: ['GATE₁', 'C/T₁', 'M1₁', 'M0₁', 'GATE₀', 'C/T₀', 'M1₀', 'M0₀'],
+        description: '本实验 TMOD=11H：T0、T1 都工作在模式1（16位定时）',
+      },
+      {
+        name: 'IE',
+        address: '0A8H',
+        bits: ['EA', '—', 'ET2', 'ES', 'ET1', 'EX1', 'ET0', 'EX0'],
+        description: '本实验 SETB ET0/ET1/EA 同时打开双定时器中断',
       },
     ],
     stepByStep: [
@@ -948,7 +1031,7 @@ DIV AB 分解十位和个位：
     instructionRef: [
       { instr: 'RETI', syntax: 'RETI', desc: '中断返回(恢复中断系统)', example: 'RETI' },
       { instr: 'JNB', syntax: 'JNB bit, rel', desc: '位=0时跳转', example: 'JNB P3.2, SET_MODE' },
-      { instr: 'JB', syntax: 'JB bit, rel', desc: '位=1时跳转', example: 'JB 24H.0, SHOW_SEC' },
+      { instr: 'JB', syntax: 'JB bit, rel', desc: '位=1时跳转', example: 'JB 24H.0, DISPLAY_MIN_SEC ; 模式位=1显示分:秒' },
     ],
     realWorldApplications: [
       '电子手表 — 精确计时与多模式显示',
@@ -957,7 +1040,7 @@ DIV AB 分解十位和个位：
       '考试计时系统 — 精确的开考/交卷控制',
     ],
     commonMistakes: [
-      { mistake: 'T0 和 T1 中断中使用相同寄存器冲突', explanation: '两个中断可能嵌套，必须各自 PUSH/POP 保护使用的寄存器，或使用不同的寄存器组 (RS0/RS1)。' },
+      { mistake: '误以为 T0 和 T1 中断会互相嵌套', explanation: 'IP 未设置时两个中断同级，不会互相打断；但都会打断主程序，各 ISR 仍须 PUSH/POP 保护 ACC/PSW（本实验做法）。若确需嵌套，要用 IP 设不同优先级并配合寄存器组切换 (RS0/RS1)。' },
       { mistake: '时间进位逻辑顺序错', explanation: '必须先检查秒→分→时的进位链。如果顺序反了会跳过某些进位。' },
     ],
     thinkingQuestions: [
@@ -979,7 +1062,7 @@ DIV AB 分解十位和个位：
       week: '第13-14周',
       chapter: '定时器/计数器',
       hours: 4,
-      textbookRef: '《单片机原理及应用技术》第5章：定时器/计数器——PWM波形生成与频率控制',
+      textbookRef: '《单片机原理及应用技术》第5章：定时器/计数器——方波频率控制与音频应用',
       knowledgeMap: '一级知识点"定时器/计数器"，含约20个三级知识点',
       ideologicalPoint: '精确测量与中国计量技术发展（科技创新）',
     },
@@ -1025,17 +1108,18 @@ DIV AB 分解十位和个位：
         title: '音乐编码方法',
         content: `简谱编码格式: (音符, 节拍) 成对存储
 
-音符编码:
+音符编码 (音符 n 对应 FREQ_TAB 第 n-1 项):
   0 = 休止符
-  1~7 = 低音 Do~Si
-  8~14 = 中音 Do~Si
-  15~21 = 高音 Do~Si
+  1~7  = 低音 Do~Si (262~494Hz)
+  8    = 中音 Do (523Hz, 频率表衔接处有两个入口)
+  9~15 = 中音 Do~Si (523~988Hz)
+  16   = 高音 Do (1046Hz, 同样双入口)
+  17~23 = 高音 Do~Si，24 = 倍高音 Do (2093Hz)
 
-节拍编码 (以 1/16 音符为单位):
-  4 = 四分音符 (1拍)
-  8 = 二分音符 (2拍)
-  16 = 全音符 (4拍)
-  2 = 八分音符 (半拍)
+节拍编码 (节拍值×基准25 装入8位计数器):
+  2 = 半拍 (50 次中断)
+  4 = 1拍  (100 次中断)
+  8 = 2拍  (200 次中断，最长——8×25=200 不超 8 位)
 
 《小星星》编码:
   1,4, 1,4, 5,4, 5,4  → do do sol sol
@@ -1067,9 +1151,10 @@ DIV AB 分解十位和个位：
       { step: '6. 节拍控制', detail: '延时对应节拍时长后切换到下一个音符' },
     ],
     instructionRef: [
-      { instr: 'DW', syntax: 'DW word1,word2,...', desc: '定义16位字数据', example: 'DW 0FC44H, 0FC6CH' },
+      { instr: 'DW', syntax: 'DW word1,word2,...', desc: '定义16位字数据', example: 'DW 0F88CH, 0F95BH' },
       { instr: 'CPL', syntax: 'CPL bit', desc: '位取反(翻转)', example: 'CPL P2.0 ; 产生方波' },
-      { instr: 'DEC', syntax: 'DEC A', desc: '减1', example: 'DEC A  ; 音符索引-1' },
+      { instr: 'DEC', syntax: 'DEC A', desc: '减1', example: 'DEC A  ; 音符1对应索引0' },
+      { instr: 'MUL', syntax: 'MUL AB', desc: 'A×B，低字节→A 高字节→B', example: 'MUL AB ; 索引×2 定位频率表 / 节拍×25' },
     ],
     realWorldApplications: [
       '门铃 — 播放预设旋律的电子门铃',
@@ -1083,7 +1168,7 @@ DIV AB 分解十位和个位：
       { mistake: '音符间没有间隔', explanation: '连续的相同音符如果没有短暂停顿, 听起来会连成一个长音。需在音符间加 10~30ms 静音。' },
     ],
     thinkingQuestions: [
-      '如何实现音量控制？(提示: PWM占空比)',
+      '把节拍基准从 25 改成 50，整首曲子会发生什么变化？音调会跟着变吗？为什么？',
       '如果要同时发两个音(和弦), 单片机能做到吗？怎么实现？',
       '为什么真实的音乐芯片音质比单片机方波好得多？',
     ],
@@ -1137,11 +1222,12 @@ DIV AB 分解十位和个位：
 3. 八拍 (半步): A→AB→B→BC→C→CD→D→DA
    精度最高, 运行最平滑, 8步/周期
 
-相序表 (P1高4位控制, 低电平有效):
-  A相: 0001 → 0F1H
-  AB:  0011 → 0F3H
-  B相: 0010 → 0F2H
-  ...`,
+相序表 (P1高4位控制, 1=对应相通电):
+  A相:  P1.4=1        → 10H
+  AB相: P1.4+P1.5=1   → 30H
+  B相:  P1.5=1        → 20H
+  完整八拍: 10H,30H,20H,60H,40H,0C0H,80H,90H
+  (低4位留作状态指示, 中断里用ANL/ORL只改高4位)`,
       },
       {
         title: 'ULN2003 驱动芯片',
@@ -1175,6 +1261,7 @@ DIV AB 分解十位和个位：
 │  P3.3 ───────├── 方向按键
 │  P3.4 ───────├── 加速按键
 │  P3.5 ───────├── 减速按键
+│  P3.6 ───────├── 步进100步按键
 │  T0 中断 ────├── 速度控制
 └──────────────┘`,
     registerReference: [],
@@ -1258,8 +1345,10 @@ DIV AB 分解十位和个位：
   模式1波特率 = (2^SMOD / 32) × (T1溢出率)
   T1 模式2: TH1 = 256 - (f_osc / (12 × 32 × 波特率))
 
-  12MHz, 9600bps: TH1 = 256 - 3.255 ≈ 253 = FDH
-  11.0592MHz, 9600bps: TH1 = 256 - 3 = 253 = FDH (精确!)`,
+  12MHz, 9600bps: TH1=256-3.26≈253=FDH
+    （四舍五入后实际约10417bps, 偏差8.5%, 真机会乱码）
+  11.0592MHz, 9600bps: TH1 = 256 - 3 = 253 = FDH (精确!)
+    ——这就是串口应用偏爱 11.0592MHz 晶振的原因`,
       },
       {
         title: 'SCON 寄存器与收发控制',
@@ -1438,7 +1527,7 @@ VCC(40)─┤    AT89C51         │
   12MHz ┤ XTAL1/2           │─ P1.0~P1.7 → [330Ω] → LED → VCC
   30pF×2│                   │
         │ RST ← [10μF]+[8.2K]│─ P0.0~P0.7 → 数码管段选
-        │                    │─ P2.4~P2.7 → 数码管位选
+        │                    │  (静态显示：共阴数码管公共端接地)
  EA=VCC─┤                    │
 GND(20)─┤                    │
         └────────────────────┘`,
@@ -1461,7 +1550,7 @@ GND(20)─┤                    │
       { step: '2. 连接 LED', detail: 'P1.0~P1.7 经 330Ω 电阻接 LED，灌电流驱动' },
       { step: '3. 编写流水灯', detail: 'RL A 循环左移实现 LED 逐个点亮' },
       { step: '4. 设计延时', detail: 'DJNZ 双重循环产生约 500ms 可见延时' },
-      { step: '5. 连接数码管', detail: 'P0 输出段码, MOVC 查表取码' },
+      { step: '5. 连接数码管', detail: 'P0 输出段码静态显示（共阴公共端接地）, MOVC 查表取码' },
       { step: '6. 显示 0~9', detail: '循环查表 SEG_TAB, 每隔 500ms 切换数字' },
     ],
     instructionRef: [
@@ -1647,7 +1736,7 @@ MOSFET 驱动电路：
         name: 'TMOD',
         address: '89H',
         bits: ['GATE1', 'C/T1', 'M1.1', 'M0.1', 'GATE0', 'C/T0', 'M1.0', 'M0.0'],
-        description: '定时器模式寄存器。T0方式1(16位): TMOD=01H; T1方式2(8位自重装): TMOD=20H',
+        description: '定时器模式寄存器。本项目 TMOD=01H：T0方式1(16位)，1ms中断作PWM时基',
       },
       {
         name: 'TCON',
@@ -1665,11 +1754,11 @@ MOSFET 驱动电路：
     stepByStep: [
       { step: '1. 搭建ADC采集电路', detail: '光敏电阻+分压电路连接ADC0809的IN0通道，提供0~5V模拟电压' },
       { step: '2. 编写ADC读取子程序', detail: 'START脉冲启动转换，延时等待EOC，OE使能后读取P0口数据' },
-      { step: '3. 配置定时器生成PWM', detail: 'T0方式1，100μs中断，256级计数产生约39Hz~10kHz可调PWM' },
-      { step: '4. 实现自动调光算法', detail: '光照值取反作为PWM占空比：环境越暗→ADC值越大→取反后PWM越大→LED越亮' },
-      { step: '5. 初始化LCD1602', detail: '发送0x38/0x0C/0x06/0x01指令序列，配置为8位2行显示' },
-      { step: '6. LCD显示数据', detail: '第1行显示光照ADC值，第2行显示PWM占空比百分比' },
-      { step: '7. 系统集成测试', detail: '遮挡光敏电阻观察LED亮度变化和LCD数据更新' },
+      { step: '3. 配置定时器生成PWM', detail: 'T0方式1，1ms中断（初值FC18H），256级计数——PWM周期约256ms便于观察；工程中应缩短中断周期提高PWM频率' },
+      { step: '4. 实现自动调光算法', detail: '光照值CPL取反作为PWM占空比：环境越暗→ADC值越小→取反后占空比越大→LED越亮' },
+      { step: '5. 观察核心回路数据', detail: '内存面板观察32H光照值与30H占空比的取反联动，P2.0输出随占空比变化' },
+      { step: '6. 初始化LCD1602（项目后续任务）', detail: '发送0x38/0x0C/0x06/0x01指令序列，第1行显示光照值、第2行显示占空比——实物阶段完成' },
+      { step: '7. 系统集成测试', detail: '实物联调时遮挡光敏电阻，观察LED亮度自动变化' },
     ],
     instructionRef: [
       { instr: 'CPL', syntax: 'CPL A', desc: '累加器按位取反', example: 'CPL A  ; A=55H→AAH' },
@@ -1778,16 +1867,15 @@ L298N 引脚功能：
 
 红外循迹传感器：
   利用黑色吸收红外光、白色反射红外光的特性
-  黑线上: 无反射 → 输出高电平(1)
-  白底上: 有反射 → 输出低电平(0)
+  黑线上: 无反射 → 输出低电平(0)
+  白底上: 有反射 → 输出高电平(1)
 
-三路循迹传感器编码：
-  左 中 右  |  状态     |  动作
-   0  1  0  |  正中     |  直行
-   1  1  0  |  偏右     |  左转
-   0  1  1  |  偏左     |  右转
-   1  1  1  |  十字路口 |  策略决定
-   0  0  0  |  脱线     |  停车/搜索`,
+三路循迹编码（左=P1.0 中=P1.1 右=P1.2，0=压线；
+程序读入 A = P1 ∧ 07H，按 右中左 位权写出）：
+  中间压线  101B=05H → 车在正中 → 直行
+  左侧压线  110B=06H → 车身偏右 → 左转修正
+  右侧压线  011B=03H → 车身偏左 → 右转修正
+  全1(07H)=脱线、其余组合 → 停车待策略`,
       },
       {
         title: '状态机编程模型',
@@ -1856,8 +1944,8 @@ L298N 引脚功能：
   │ P2.1(IN2)──┼──→ L298N ──→ 左电机 M1     │
   │ P2.2(IN3)──┼──→ L298N ──→ 右电机 M2     │
   │ P2.3(IN4)──┘                             │
-  │ P2.4(ENA)──→ L298N ENA (PWM调速)        │
-  │ P2.5(ENB)──→ L298N ENB (PWM调速)        │
+  │ P2.4(ENA)──→ L298N ENA ┐复位高电平=全速  │
+  │ P2.5(ENB)──→ L298N ENB ┘(PWM调速留作拓展)│
   │                                          │
   │ P3.2(INT0) ←── 左红外避障传感器          │
   │ P3.3(INT1) ←── 右红外避障传感器          │
@@ -1904,7 +1992,7 @@ L298N 引脚功能：
       { step: '2. 编写电机控制子程序', detail: '前进/后退/左转/右转/停止 5个子程序，控制IN1~IN4高低电平' },
       { step: '3. 配置蓝牙串口', detail: 'T1方式2产生9600bps波特率，SCON=50H，开串口中断' },
       { step: '4. 实现遥控模式', detail: '串口中断接收命令(F/B/L/R/S)，CJNE分支调用对应电机子程序' },
-      { step: '5. 配置外部中断', detail: 'INT0/INT1接避障传感器，下降沿触发，中断中执行转向避障' },
+      { step: '5. 配置外部中断', detail: 'INT0/INT1接避障传感器，低电平触发（IT0/IT1保持默认0），中断中执行转向避障' },
       { step: '6. 实现循迹模式', detail: '读P1低3位传感器状态，ANL屏蔽高位，CJNE判断偏向并纠正' },
       { step: '7. 设计模式切换', detail: '串口接收0/1/2切换模式，30H存储当前模式，主循环按模式分发' },
       { step: '8. 综合调试', detail: '先单独测试每种模式，再测试模式切换的无缝衔接' },
@@ -1926,7 +2014,7 @@ L298N 引脚功能：
     ],
     commonMistakes: [
       { mistake: '电机驱动电源不足', explanation: 'L298N内部压降约2V，电机堵转电流可达1A以上。7.4V电池供电，L298N输出仅~5V。电源线要粗，加大容量滤波电容。' },
-      { mistake: '中断服务中调用延时', explanation: '中断ISR中调用DELAY_500MS会导致系统"冻结"500ms，无法响应其他中断。应设置标志位，在主循环中处理延时动作。' },
+      { mistake: '中断服务中长时间延时', explanation: '本演示程序为简化在避障ISR中直接延时500ms完成转向，期间无法响应其他事件；工程实践应设置标志位、由主循环处理延时动作，这是可靠性优化的第一步。' },
       { mistake: '循迹传感器间距不合理', explanation: '三路传感器间距应略大于黑线宽度(通常2~3cm)。间距太大会丢线，太小则灵敏度不足。' },
       { mistake: 'CJNE后忘记处理CY标志', explanation: 'CJNE除了比较跳转外还会设置CY标志。如果后续有JC/JNC指令，可能受到干扰。注意CY的副作用。' },
     ],
@@ -2092,9 +2180,9 @@ I2C 总线基础：
   │            └── DS18B20 (温度)             │
   │                                           │
   │ P3.4 ←── DHT11 DATA (温湿度)             │
-  │           [4.7kΩ上拉]                     │
+  │           [4.7kΩ上拉] (本程序代入模拟值65%)│
   │                                           │
-  │ P1.0~P1.7 ──→ LCD1602 数据口             │
+  │ P1.0~P1.7 ──→ LCD1602 数据口 (后续任务)  │
   │ P2.5=RS P2.6=RW P2.7=E                   │
   │                                           │
   │ P3.0(RXD) ←── USB转TTL TXD              │
@@ -2102,10 +2190,10 @@ I2C 总线基础：
   │                                           │
   │ P3.5 ──→ 蜂鸣器 (有源, 高电平驱动)       │
   │                                           │
-  │ P3.6 ──→ 继电器 → 风扇/加热器            │
+  │ P3.6 ──→ 继电器 → 风扇/加热器 (拓展预留) │
   │                                           │
-  │ P2.0(SCL) ──→ AT24C02 SCL               │
-  │ P2.1(SDA) ←→ AT24C02 SDA               │
+  │ P2.0(SCL) ──→ AT24C02 SCL ┐(项目拓展)   │
+  │ P2.1(SDA) ←→ AT24C02 SDA ┘             │
   │              [4.7kΩ上拉×2]               │
   └──────────────────────────────────────────┘
 
@@ -2148,10 +2236,10 @@ DS18B20 接线 (单总线)：
       { step: '1. 实现单总线驱动', detail: '编写OW_RESET/OW_WRITE/OW_READ三个基础子程序，注意μs级时序' },
       { step: '2. DS18B20温度读取', detail: '复位→跳过ROM(CCH)→启动转换(44H)→等待750ms→复位→读暂存器(BEH)→读2字节' },
       { step: '3. 温度数据处理', detail: '12位数据×0.0625得到实际温度。整数部分右移4位，小数部分取低4位×625' },
-      { step: '4. LCD显示温湿度', detail: '第1行显示"Temp:25.0C"，第2行显示"Humi:65%"。数字→ASCII需DIV AB分离各位' },
-      { step: '5. 串口数据上报', detail: '组装JSON字符串{"temp":xx,"humi":xx}，逐字节通过SBUF发送，等待TI' },
-      { step: '6. 阈值报警设计', detail: 'SUBB A,#30比较温度阈值，JNC跳转控制蜂鸣器。可扩展为上下限双阈值' },
-      { step: '7. EEPROM存储配置', detail: 'I2C写入报警阈值到AT24C02，上电时读取恢复设置' },
+      { step: '4. LCD显示温湿度（项目后续任务）', detail: 'UPDATE_LCD留出接口：第1行显示"Temp:25.0C"，第2行显示"Humi:65%"，实物阶段完成' },
+      { step: '5. 串口数据上报', detail: '组装JSON字符串{"temp":xx,"humi":xx}，逐字节通过SBUF发送，等待TI；串口终端实时可见' },
+      { step: '6. 阈值报警设计', detail: '双字节SUBB比较温度原始值与01E0H（30°C×16），JNC置位蜂鸣器。可扩展为上下限双阈值' },
+      { step: '7. EEPROM存储配置（项目拓展）', detail: 'I2C写入报警阈值到AT24C02，上电时读取恢复设置' },
       { step: '8. 系统可靠性测试', detail: '长时间运行观察数据稳定性，测试传感器异常时的容错处理' },
     ],
     instructionRef: [
@@ -2159,7 +2247,7 @@ DS18B20 接线 (单总线)：
       { instr: 'MOV C,bit', syntax: 'MOV C,bit', desc: '位→进位标志', example: 'MOV C,DQ ; 读单总线数据位' },
       { instr: 'MOV bit,C', syntax: 'MOV bit,C', desc: '进位标志→位', example: 'MOV DQ,C ; 写单总线数据位' },
       { instr: 'DIV', syntax: 'DIV AB', desc: 'A÷B，商→A，余数→B', example: 'DIV AB ; 分离十位个位' },
-      { instr: 'SUBB', syntax: 'SUBB A,#data', desc: '带借位减法，设置CY', example: 'SUBB A,#30 ; 比较30度阈值' },
+      { instr: 'SUBB', syntax: 'SUBB A,#data', desc: '带借位减法，设置CY', example: 'SUBB A,#0E0H ; 16位比较：先减阈值01E0H低字节' },
       { instr: 'JNB', syntax: 'JNB bit,rel', desc: '位=0则跳转', example: 'JNB TI,$ ; 等待发送完成' },
       { instr: 'NOP', syntax: 'NOP', desc: '空操作(1个机器周期)', example: 'NOP ; 精确延时1μs@12MHz' },
     ],

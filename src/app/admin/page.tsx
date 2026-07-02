@@ -63,7 +63,7 @@ export default function AdminPage() {
     },
     {
       title: '知识图谱维护',
-      description: '编辑 270 节点 / 前置 / 实验关联',
+      description: '编辑 273 节点 / 前置 / 实验关联',
       icon: Network,
       href: '/admin/knowledge-graph',
       color: 'text-cyan-500',

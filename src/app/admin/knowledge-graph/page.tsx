@@ -232,7 +232,7 @@ export default function AdminKnowledgeGraphPage() {
 
   const seedFromStatic = async () => {
     if (!token) return;
-    if (!confirm('把静态 270 节点一次性写入数据库？已有节点会被更新（按 id 幂等）。')) return;
+    if (!confirm('把静态 273 节点一次性写入数据库？已有节点会被更新（按 id 幂等）。')) return;
     setSeeding(true);
     setMessage(null);
     try {
@@ -288,7 +288,7 @@ export default function AdminKnowledgeGraphPage() {
             onClick={seedFromStatic}
             disabled={seeding || busy}
             className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm hover:bg-muted disabled:opacity-50"
-            title="把 src/lib/knowledge-points.ts 里的 270 节点一次性 upsert 到数据库；已有节点按 id 更新"
+            title="把 src/lib/knowledge-points.ts 里的 273 节点一次性 upsert 到数据库；已有节点按 id 更新"
           >
             {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
             种子静态数据
@@ -331,7 +331,7 @@ export default function AdminKnowledgeGraphPage() {
           <div>
             <div className="font-medium">数据库还没有 KnowledgeNode 数据</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              当前展示的 270 节点来自静态文件 fallback。点右上「种子静态数据」一键导入数据库后才能编辑生效。
+              当前展示的 273 节点来自静态文件 fallback。点右上「种子静态数据」一键导入数据库后才能编辑生效。
             </p>
           </div>
           <button
@@ -341,7 +341,7 @@ export default function AdminKnowledgeGraphPage() {
             className="inline-flex h-9 items-center gap-2 rounded-md bg-amber-500 px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
             {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-            立即导入 270 节点
+            立即导入 273 节点
           </button>
         </div>
       )}
@@ -441,7 +441,7 @@ export default function AdminKnowledgeGraphPage() {
               <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 p-3 text-xs">
                 <p className="font-medium text-foreground">提示</p>
                 <ul className="mt-2 list-disc space-y-1 pl-4">
-                  <li>第一次使用先点「种子静态数据」把 270 节点写到数据库</li>
+                  <li>第一次使用先点「种子静态数据」把 273 节点写到数据库</li>
                   <li>修改保存后，前台 /knowledge-graph 立即看到更新（缓存自动失效）</li>
                   <li>删除前会校验：被引用为父节点或 prereq 的节点不能直接删</li>
                 </ul>

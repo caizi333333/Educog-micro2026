@@ -74,9 +74,9 @@ const quizBank: PreClassQuizData[] = [
         correctAnswer: 1, explanation: '#30H带#号，表示立即数30H，所以是立即寻址方式。',
       },
       {
-        id: 'exp02-q3', question: '8051共有几组工作寄存器？通过什么来选择？',
-        options: ['2组，通过PSW的RS0选择', '4组，通过PSW的RS1和RS0选择', '8组，通过TMOD选择', '4组，通过IE寄存器选择'],
-        correctAnswer: 1, explanation: '8051有4组工作寄存器（R0-R7），通过PSW中的RS1和RS0两位来选择当前使用哪一组。',
+        id: 'exp02-q3', question: '执行 MOV A,#87H → ADD A,#95H → DA A 之后，A 和 CY 的结果是？',
+        options: ['A=1CH，CY=1', 'A=82H，CY=1', 'A=22H，CY=0', 'A=82H，CY=0'],
+        correctAnswer: 1, explanation: '87H+95H二进制相加得1CH且CY=1，不是合法BCD；DA A按"低半字节>9或AC=1补06H、高半字节>9或CY=1补60H"修正为82H、CY保持1，即十进制87+95=182。',
       },
     ],
   },
@@ -129,13 +129,13 @@ const quizBank: PreClassQuizData[] = [
   {
     experimentId: 'exp05',
     title: '按键输入与消抖 — 课前预习检测',
-    description: '检查端口输入、按键消抖原理',
+    description: '检查矩阵键盘行列扫描、准双向口输入与消抖原理',
     passingScore: 67,
     questions: [
       {
-        id: 'exp05-q1', question: '用P1口读取按键状态前，需要先向P1写入什么值？',
-        options: ['0x00', '0xFF', '0x0F', '0xF0'],
-        correctAnswer: 1, explanation: '准双向口读取前需先写1（0xFF），否则内部锁存器为0会拉低引脚，无法正确读取。',
+        id: 'exp05-q1', question: '本实验矩阵键盘列线接P3低4位，读取列状态前程序先执行 MOV P3,#0FH，目的是什么？',
+        options: ['把列线全部拉低触发扫描', '向准双向口写1，使低4位可作输入读取真实电平', '清除上一次的键值缓存', '关闭P3口的第二功能'],
+        correctAnswer: 1, explanation: '准双向口读引脚前必须先写1：若锁存器为0，引脚被内部钳在低电平，读不到按键真实状态。MOV P3,#0FH 正是让低4位列线处于输入态。',
       },
       {
         id: 'exp05-q2', question: '机械按键的抖动时间通常为多长？',
@@ -143,9 +143,9 @@ const quizBank: PreClassQuizData[] = [
         correctAnswer: 1, explanation: '机械按键抖动时间一般为5-10ms，软件消抖延时通常取10-20ms。',
       },
       {
-        id: 'exp05-q3', question: '指令 "JNB P1.0, TARGET" 的含义是什么？',
-        options: ['P1.0为1时跳转', 'P1.0为0时跳转', '无条件跳转到TARGET', 'P1.0取反后跳转'],
-        correctAnswer: 1, explanation: 'JNB（Jump if Not Bit）当指定位为0时跳转，即P1.0=0时跳转到TARGET。',
+        id: 'exp05-q3', question: 'P1输出行扫描码0FEH（第0行为低）时，读得P3低4位为1011B。按"键值=行号×4+列号"（低电平有效），键值是多少？',
+        options: ['0', '2', '4', '8'],
+        correctAnswer: 1, explanation: '1011B中bit2为0，说明第2列被按下的键拉低；当前扫描的是第0行，键值=0×4+2=2。',
       },
     ],
   },
@@ -175,7 +175,7 @@ const quizBank: PreClassQuizData[] = [
   {
     experimentId: 'exp07',
     title: '蜂鸣器音频控制 — 课前预习检测',
-    description: '检查PWM概念、频率与周期关系',
+    description: '检查方波频率、音调与定时器初值的关系',
     passingScore: 67,
     questions: [
       {
@@ -184,14 +184,14 @@ const quizBank: PreClassQuizData[] = [
         correctAnswer: 0, explanation: '频率f=1kHz，周期T=1/f=1ms，半周期500us（高低各占一半）。',
       },
       {
-        id: 'exp07-q2', question: '指令 "CPL P2.1" 的作用是什么？',
-        options: ['将P2.1置1', '将P2.1清0', '将P2.1取反', '测试P2.1的值'],
-        correctAnswer: 2, explanation: 'CPL（Complement）指令将指定位取反，常用于产生方波信号。',
+        id: 'exp07-q2', question: '指令 "CPL P2.0" 的作用是什么？',
+        options: ['将P2.0置1', '将P2.0清0', '将P2.0取反', '测试P2.0的值'],
+        correctAnswer: 2, explanation: 'CPL（Complement）指令将指定位取反。本实验在T0中断中执行CPL P2.0，两次翻转构成一个方波周期。',
       },
       {
-        id: 'exp07-q3', question: '通过改变延时时间来调节蜂鸣器发出的声音，改变的是声音的什么属性？',
-        options: ['音量', '音调（频率）', '音色', '持续时间'],
-        correctAnswer: 1, explanation: '延时决定方波频率，频率决定音调高低。音量由信号幅值决定。',
+        id: 'exp07-q3', question: '本实验用T0中断翻转P2.0发声，要提高音调（频率），定时器初值应如何变化？',
+        options: ['减小初值，让中断间隔更长', '增大初值，让中断间隔更短', '初值不变，加大节拍基准', '初值与音调无关'],
+        correctAnswer: 1, explanation: '初值=65536−500000/f：频率越高所需半周期越短，装入的初值越大、越接近65536，溢出翻转就越快。节拍基准只影响音长，不影响音调。',
       },
     ],
   },

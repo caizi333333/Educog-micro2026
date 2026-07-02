@@ -4,7 +4,8 @@ import { GET as NodesGET, POST as NodesPOST, PUT as NodesPUT, DELETE as NodesDel
 import { GET as PathsGET, POST as PathsPOST, PUT as PathsPUT } from '@/app/api/knowledge-graph/paths/route';
 import { GET as ProgressGET, POST as ProgressPOST } from '@/app/api/knowledge-graph/progress/route';
 import { verifyToken } from '@/lib/auth';
-import { 
+import { knowledgePoints } from '@/lib/knowledge-points';
+import {
   createMockPrismaClient,
   createMockJWTPayload,
   createMockUserProgress,
@@ -64,7 +65,8 @@ describe('Knowledge Graph API Routes', () => {
         expect(data.success).toBe(true);
         expect(data.data).toBeDefined();
         expect(Array.isArray(data.data)).toBe(true);
-        expect(data.data).toHaveLength(270);
+        // 节点总数跟随静态课程库口径（当前 273 = 10/52/211）
+        expect(data.data).toHaveLength(knowledgePoints.length);
       });
 
       it('应该返回学习路径', async () => {
@@ -85,6 +87,11 @@ describe('Knowledge Graph API Routes', () => {
           averageScore: 85
         });
         setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', mockUserProgressData);
+        // 路由的 completedNodes 现在来自 learningProgress（progress>=100）记录
+        setupPrismaMock(mockPrisma, 'learningProgress', 'findMany', [
+          { moduleId: '1' },
+          { moduleId: '1.1' },
+        ] as any);
 
         const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=progress&userId=user123') as unknown as NextRequest;
         const response = await GET(request);
@@ -93,7 +100,7 @@ describe('Knowledge Graph API Routes', () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.completedNodes).toHaveLength(2);
-        expect(data.data.totalNodes).toBe(270);
+        expect(data.data.totalNodes).toBe(knowledgePoints.length);
         expect(data.data.completionRate).toBeGreaterThan(0);
       });
 

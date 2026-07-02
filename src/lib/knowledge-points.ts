@@ -1,7 +1,7 @@
 // ============================================================================
-// 微控制器应用技术 - 270个知识点三层级清单
+// 微控制器应用技术 - 273个知识点三层级清单
 // 基于89C51系列单片机课程体系构建
-// 10个一级知识点 + ~50个二级知识点 + ~210个三级知识点
+// 10个一级知识点 + 52个二级知识点 + 211个三级知识点
 //
 // 除父子层级外，本文件还维护两类真实课程关系（见文件末尾 relationPatches）：
 //   prerequisites —— 前置依赖边，由课程组按课程逻辑编写，每条附一句推导依据，
@@ -185,6 +185,10 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '2.6.2', name: '数据总线（DB）', level: 3, parentId: '2.6', chapter: 2, description: '8位数据总线的数据传输方式与时序' },
   { id: '2.6.3', name: '控制总线（CB）', level: 3, parentId: '2.6', chapter: 2, description: 'ALE、PSEN、EA、RD、WR等控制信号的功能' },
   { id: '2.6.4', name: '总线时序分析', level: 3, parentId: '2.6', chapter: 2, description: '外部存储器读写总线时序的分析方法' },
+
+  { id: '2.7', name: '低功耗工作方式', level: 2, parentId: '2', chapter: 2, description: '待机（空闲）与掉电两种低功耗模式、PCON电源控制寄存器与唤醒条件', resources: [
+    { type: 'slide', title: '第2章 硬件结构 课件PPT', refId: 'ch02-ppt' },
+  ] },
 
   // ========================================================================
   // 一级知识点3：指令系统（4学时）
@@ -551,7 +555,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '8.1.2', name: '动态显示与静态显示', level: 3, parentId: '8.1', chapter: 8, description: '静态锁存显示和动态扫描显示的原理与比较' },
   { id: '8.1.3', name: 'LCD1602驱动', level: 3, parentId: '8.1', chapter: 8, description: 'LCD1602字符液晶的接口连接与指令集编程' },
   { id: '8.1.4', name: 'LCD12864驱动', level: 3, parentId: '8.1', chapter: 8, description: 'LCD12864图形液晶的初始化与图文显示编程' },
-  { id: '8.1.5', name: 'LED点阵显示', level: 3, parentId: '8.1', chapter: 8, description: '8x8 LED点阵的行列扫描驱动与字符显示', prerequisites: ['2.3.2'], appliedIn: ['exp04'] },
+  { id: '8.1.5', name: 'LED点阵显示', level: 3, parentId: '8.1', chapter: 8, description: '8x8 LED点阵的行列扫描驱动与字符显示', prerequisites: ['2.3.2'] },
 
   { id: '8.2', name: '键盘接口', level: 2, parentId: '8', chapter: 8, description: '按键输入的硬件连接与软件处理', resources: [
     { type: 'slide', title: '8.2 键盘接口 课件', refId: 'ch08-ppt-s2' },
@@ -591,6 +595,12 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '8.5.1', name: '直流电机驱动（L298N）', level: 3, parentId: '8.5', chapter: 8, description: 'L298N H桥驱动直流电机的正反转与调速控制' },
   { id: '8.5.2', name: '步进电机驱动', level: 3, parentId: '8.5', chapter: 8, description: '步进电机的相序控制（全步/半步）与ULN2003驱动' },
   { id: '8.5.3', name: '舵机控制', level: 3, parentId: '8.5', chapter: 8, description: 'PWM控制SG90舵机角度的脉宽与周期关系' },
+
+  { id: '8.6', name: '声音输出接口', level: 2, parentId: '8', chapter: 8, description: '蜂鸣器发声原理与三极管驱动电路，音调（方波频率）与节拍（发声时长）的程序控制', resources: [
+    { type: 'slide', title: '第8章 接口技术 课件PPT', refId: 'ch08-ppt' },
+    { type: 'experiment', title: '实验七：蜂鸣器音频控制', refId: 'exp07', duration: 90 },
+  ] },
+  { id: '8.6.1', name: '有源与无源蜂鸣器驱动', level: 3, parentId: '8.6', chapter: 8, description: '有源蜂鸣器内置振荡源、加电即响；无源蜂鸣器需外部方波激励定音高，两者均经三极管放大驱动' },
 
   // ========================================================================
   // 一级知识点9：系统设计（项目实践）
@@ -749,9 +759,9 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '2.4.2': { prerequisites: ['2.4.1'] },                   // 机器周期 = 12 个振荡周期，先有振荡源
   '2.5.4': { prerequisites: ['2.2.3'] },                   // 复位后的初始状态就是各 SFR 的复位值
   '2.6.4': { prerequisites: ['2.4.2'] },                   // 总线读写时序以机器周期为刻度分析
+  '2.7': { prerequisites: ['2.2.3', '2.4', '2.5'] },       // 低功耗由 PCON（SFR）的 IDL/PD 位控制；待机/掉电的本质是停发时钟；掉电模式需复位退出，先懂复位系统
   '2.3.2': { appliedIn: ['exp01', 'exp02', 'proj01'] },    // 实验一/二"P1口结构与特性"、项目一"P1口输出控制"
   '2.3.5': { appliedIn: ['exp01', 'exp02', 'exp07', 'proj01'] }, // "LED控制/驱动原理""蜂鸣器驱动"都是灌电流与外加驱动问题
-  '2.5.3': { appliedIn: ['proj04'] },                      // 项目四"看门狗定时器应用"
 
   // —— 第3章 指令系统：寻址方式是骨架（立即→直接→间接→变址的认知递进），
   //    指令组是肌肉；运算指令产生标志位，供控制转移使用。——
@@ -778,7 +788,7 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '3.3.5': { prerequisites: ['3.3.1'], appliedIn: ['exp02'] }, // 十进制调整只跟在 BCD 加法之后使用；实验二"DA A十进制调整（BCD修正）"
   '3.5.3': { prerequisites: ['3.2.4'] },                   // 调用要压栈保存返回地址，先懂 PUSH/POP
   '3.5.4': { prerequisites: ['3.5.3'] },                   // 有调用才有返回；RET 与 RETI 的区别在中断章展开
-  '3.6.4': { prerequisites: ['3.1.7'], appliedIn: ['exp01', 'exp02', 'exp03'] }, // SETB/CLR 操作位地址；三个实验的位操作口径一致
+  '3.6.4': { prerequisites: ['3.1.7'], appliedIn: ['exp02', 'exp03'] }, // SETB/CLR 操作位地址；exp01 代码无位操作指令，不挂
   '3.2.1': { appliedIn: ['exp01'] },                       // 实验一"基本输出指令MOV"
   '3.4.1': { appliedIn: ['exp02'] },                       // 实验二逻辑段"ANL逻辑与：3CH∧66H"
   '3.4.2': { appliedIn: ['exp02'] },                       // 实验二逻辑段"ORL逻辑或：3CH∨66H"
@@ -889,6 +899,8 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '8.5.1': { prerequisites: ['6.3.3'], appliedIn: ['proj03'] }, // 直流电机调速靠 PWM；项目三"L298N电机驱动原理"
   '8.5.2': { prerequisites: ['6.3.1'], appliedIn: ['exp08'] }, // 步进电机转速由相序节拍间隔（延时）决定；实验八实操
   '8.5.3': { prerequisites: ['6.3.3'] },                   // 舵机角度由 PWM 脉宽决定
+  '8.6': { prerequisites: ['2.3.5', '6.3'], appliedIn: ['exp07', 'proj04'] }, // 蜂鸣器电流超出 I/O 灌电流须三极管驱动；音调=定时器方波频率、节拍=定时时长；实验七整实验、项目四"阈值比较与蜂鸣器报警"
+  '8.6.1': { prerequisites: ['6.3.2'], appliedIn: ['exp07'] }, // 无源蜂鸣器音高由定时器方波频率决定，有源蜂鸣器只需通断控制；实验七对比两类蜂鸣器
 
   // —— 第9章 系统设计：方法论建立在最小系统与模块化编程之上，
   //    调试手段来自 Keil（4.1）与硬件仪器；文档沉淀设计与调试结论。——

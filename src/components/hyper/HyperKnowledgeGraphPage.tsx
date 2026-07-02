@@ -2708,7 +2708,7 @@ export function HyperKnowledgeGraphPage() {
               className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
           </div>
-          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">知识点列表 · 270点课程清单</div>
+          <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">知识点列表 · {knowledgePoints.length}点课程清单</div>
           <div className="max-h-[640px] space-y-1 overflow-y-auto pr-1">
             {filteredList.map((point) => {
               const chapterProgress = progressForChapter(progress, point.chapter);
@@ -2753,7 +2753,7 @@ export function HyperKnowledgeGraphPage() {
               </button>
               <Network className="h-4 w-4 text-cyan-200" />
               <span className="text-[15px]">
-                270 个知识点 · <span className="text-cyan-200">{chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}</span>
+                {knowledgePoints.length} 个知识点 · <span className="text-cyan-200">{chapter === 'all' ? '全部章节' : `第 ${chapter} 章`}</span>
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
