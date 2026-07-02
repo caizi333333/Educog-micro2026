@@ -315,7 +315,7 @@ function CourseSideNav({
     <aside className="order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-1 lg:sticky lg:top-20 lg:self-start">
       <div className="border-b border-white/[0.08] px-2 pb-3">
         <div className="font-mono text-[11px] text-slate-500">当前课程</div>
-        <div className="mt-1 text-sm font-semibold text-slate-100">《单片机原理与应用》</div>
+        <div className="mt-1 text-sm font-semibold text-slate-100">《微控制器原理及应用技术》</div>
         <div className="mt-1 text-xs text-slate-400">8051 · AT89C52 · 实验工作台</div>
       </div>
 
@@ -661,7 +661,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
                 章节内容已接入
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                本章当前接入知识点、课件位、测验位和实验入口；待补经确认的课程视频后再开放预览。
+                本章已接入知识点、课件、测验与实验入口；课程视频资源持续补充中。
               </p>
             </div>
           )}
@@ -816,7 +816,7 @@ export function HyperCoursesPage() {
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {section === 'chapters'
-                ? '按教学大纲恢复 10 个章节，接入知识图谱、课件位、测验和实验报告；视频位待补真实录课材料。'
+                ? '按教学大纲组织 10 个章节，接入知识图谱、课件、测验和实验报告；课程视频资源持续补充中。'
                 : '以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。'}
             </p>
           </div>

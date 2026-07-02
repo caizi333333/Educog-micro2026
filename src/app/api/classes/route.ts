@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         data: {
           name,
           inviteCode,
-          courseName: typeof body.courseName === 'string' && body.courseName.trim() ? body.courseName.trim() : '8051单片机原理与应用',
+          courseName: typeof body.courseName === 'string' && body.courseName.trim() ? body.courseName.trim() : '微控制器原理及应用技术',
           semester: typeof body.semester === 'string' && body.semester.trim() ? body.semester.trim() : null,
           teacherId,
           status: 'ACTIVE',

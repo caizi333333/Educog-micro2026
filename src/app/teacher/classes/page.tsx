@@ -144,7 +144,7 @@ export default function TeacherClassesPage() {
               <input
                 value={courseName}
                 onChange={(e) => setCourseName(e.target.value)}
-                placeholder="默认：8051单片机原理与应用"
+                placeholder="默认：微控制器原理及应用技术"
                 className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm"
               />
             </label>
