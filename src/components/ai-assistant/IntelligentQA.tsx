@@ -61,7 +61,7 @@ function renderWithCitations(content: string, relatedNodes?: RelatedNode[]): Rea
         href={`/knowledge-graph?node=${encodeURIComponent(id)}`}
         target="_blank"
         rel="noreferrer"
-        className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/[0.08] px-1.5 py-0.5 align-baseline text-[11px] text-cyan-700 hover:bg-cyan-500/[0.14] dark:text-cyan-200"
+        className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-cyan-300/30 bg-cyan-300/[0.10] px-1.5 py-0.5 align-baseline text-[11px] text-cyan-200 hover:bg-cyan-300/[0.16]"
         title={node ? `CH${node.chapter} · L${node.level} · ${node.name}` : `节点 ${id}（未在检索结果中）`}
       >
         <span className="font-mono">#{id}</span>
@@ -534,47 +534,47 @@ void timer0_isr() interrupt 1 {
   // 缓存难度颜色获取函数
   const getDifficultyColor = useCallback((difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'hard': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'easy': return 'bg-emerald-300/[0.12] text-emerald-200 border-emerald-300/25';
+      case 'medium': return 'bg-amber-300/[0.12] text-amber-200 border-amber-300/25';
+      case 'hard': return 'bg-red-400/[0.12] text-red-300 border-red-400/25';
+      default: return 'bg-white/[0.08] text-slate-300 border-white/[0.10]';
     }
   }, []);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">智能问答助手</h1>
-        <p className="text-gray-600">24/7在线的8051微控制器学习伙伴，随时为您答疑解惑</p>
+        <h1 className="text-3xl font-bold text-slate-50">智能问答助手</h1>
+        <p className="text-slate-400">24/7在线的8051微控制器学习伙伴，随时为您答疑解惑</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-slate-100/80 border border-slate-200/60 p-1">
-          <TabsTrigger value="chat" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-blue-200 text-slate-600 hover:text-slate-800 transition-all duration-200">
+        <TabsList className="grid w-full grid-cols-3 bg-white/[0.05] border border-white/[0.08] p-1">
+          <TabsTrigger value="chat" className="flex items-center gap-2 data-[state=active]:bg-cyan-300/[0.14] data-[state=active]:text-cyan-100 text-slate-400 hover:text-slate-200 transition-all duration-200">
             <MessageCircle className="h-4 w-4" />
             智能对话
             {messages.length > 0 && (
               <Badge variant="secondary">{messages.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="quick" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-blue-200 text-slate-600 hover:text-slate-800 transition-all duration-200">
+          <TabsTrigger value="quick" className="flex items-center gap-2 data-[state=active]:bg-cyan-300/[0.14] data-[state=active]:text-cyan-100 text-slate-400 hover:text-slate-200 transition-all duration-200">
             <Zap className="h-4 w-4" />
             快速问答
           </TabsTrigger>
-          <TabsTrigger value="knowledge" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-blue-200 text-slate-600 hover:text-slate-800 transition-all duration-200">
+          <TabsTrigger value="knowledge" className="flex items-center gap-2 data-[state=active]:bg-cyan-300/[0.14] data-[state=active]:text-cyan-100 text-slate-400 hover:text-slate-200 transition-all duration-200">
             <Brain className="h-4 w-4" />
             知识库
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="chat" className="space-y-4 mt-6">
-          <Card className="h-[600px] flex flex-col bg-gradient-to-br from-white to-slate-50/50 border-slate-200/60 shadow-md">
-            <CardHeader className="pb-3 bg-gradient-to-r from-slate-50/80 to-blue-50/40 border-b border-slate-200/40">
-              <CardTitle className="flex items-center gap-2 text-slate-800 font-semibold">
-                <Bot className="h-5 w-5 text-blue-600" />
+          <Card className="h-[600px] flex flex-col border border-white/[0.08] bg-white/[0.035]">
+            <CardHeader className="pb-3 bg-black/20 border-b border-white/[0.08]">
+              <CardTitle className="flex items-center gap-2 text-slate-50 font-semibold">
+                <Bot className="h-5 w-5 text-cyan-300" />
                 AI助手对话
               </CardTitle>
-              <CardDescription className="text-slate-600">
+              <CardDescription className="text-slate-400">
                 我是您的8051学习助手，可以回答技术问题、提供代码示例、解释概念原理
               </CardDescription>
             </CardHeader>
@@ -585,8 +585,8 @@ void timer0_isr() interrupt 1 {
                 <div className="space-y-4">
                   {messages.length === 0 ? (
                     <div className="text-center py-12">
-                      <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 mb-4">开始您的8051学习之旅吧！</p>
+                      <Bot className="h-12 w-12 text-slate-500 mx-auto mb-4" />
+                      <p className="text-slate-400 mb-4">开始您的8051学习之旅吧！</p>
                       <div className="flex flex-wrap gap-2 justify-center">
                         <Button 
                           variant="outline" 
@@ -616,7 +616,7 @@ void timer0_isr() interrupt 1 {
                       <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`flex gap-3 max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-md ${
-                            message.type === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-slate-500 to-slate-600'
+                            message.type === 'user' ? 'bg-cyan-500/90' : 'bg-white/[0.10] border border-white/[0.08]'
                           }`}>
                             {message.type === 'user' ? (
                               <User className="h-4 w-4 text-white" />
@@ -626,9 +626,9 @@ void timer0_isr() interrupt 1 {
                           </div>
                           
                           <div className={`rounded-lg p-4 shadow-sm ${
-                            message.type === 'user' 
-                              ? 'bg-gradient-to-br from-blue-50 to-blue-100/60 text-slate-800 border border-blue-200/60 font-medium' 
-                              : 'bg-gradient-to-br from-slate-50 to-slate-100/60 text-slate-800 border border-slate-200/60'
+                            message.type === 'user'
+                              ? 'bg-cyan-300/[0.12] text-slate-100 border border-cyan-300/25 font-medium'
+                              : 'bg-white/[0.05] text-slate-200 border border-white/[0.08]'
                           }`}>
                             <div className="whitespace-pre-wrap">
                               {message.type === 'assistant'
@@ -657,7 +657,7 @@ void timer0_isr() interrupt 1 {
                                     <code>{block.code}</code>
                                   </pre>
                                 </div>
-                                <p className="text-sm text-gray-600 mt-2">{block.explanation}</p>
+                                <p className="text-sm text-slate-400 mt-2">{block.explanation}</p>
                               </div>
                             ))}
                             
@@ -670,7 +670,7 @@ void timer0_isr() interrupt 1 {
                                     <p className="text-sm font-medium mb-2">相关主题：</p>
                                     <div className="flex flex-wrap gap-1">
                                       {message.relatedTopics.map((topic, idx) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                        <Badge key={idx} variant="secondary" className="text-xs bg-white/[0.08] text-slate-300">
                                           {topic}
                                         </Badge>
                                       ))}
@@ -684,7 +684,7 @@ void timer0_isr() interrupt 1 {
                                     <p className="text-sm font-medium mb-2">参考来源：</p>
                                     <div className="space-y-1">
                                       {message.sources.map((source, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                                        <div key={idx} className="flex items-center gap-2 text-xs text-slate-400">
                                           <ExternalLink className="h-3 w-3" />
                                           {source}
                                         </div>
@@ -704,7 +704,7 @@ void timer0_isr() interrupt 1 {
                                           href={`/knowledge-graph?node=${encodeURIComponent(node.id)}`}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/[0.08] px-2 py-1 text-[11px] text-cyan-700 hover:bg-cyan-500/[0.14] dark:text-cyan-200"
+                                          className="inline-flex items-center gap-1 rounded-md border border-cyan-300/30 bg-cyan-300/[0.10] px-2 py-1 text-[11px] text-cyan-200 hover:bg-cyan-300/[0.16]"
                                           title={`CH${node.chapter} · L${node.level}`}
                                         >
                                           <span className="font-mono opacity-70">#{node.id}</span>
@@ -717,10 +717,10 @@ void timer0_isr() interrupt 1 {
                                 
                                 {/* 反馈按钮 */}
                                 <div className="flex items-center gap-2 pt-2">
-                                  <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => sendFeedback(message.id, 'up')}>
+                                  <Button size="sm" variant="ghost" className="h-6 px-2 text-slate-400 hover:text-slate-100 hover:bg-white/[0.08]" onClick={() => sendFeedback(message.id, 'up')}>
                                     <ThumbsUp className="h-3 w-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => sendFeedback(message.id, 'down')}>
+                                  <Button size="sm" variant="ghost" className="h-6 px-2 text-slate-400 hover:text-slate-100 hover:bg-white/[0.08]" onClick={() => sendFeedback(message.id, 'down')}>
                                     <ThumbsDown className="h-3 w-3" />
                                   </Button>
                                 </div>
@@ -740,13 +740,13 @@ void timer0_isr() interrupt 1 {
                   {/* 加载指示器 */}
                   {isLoading && (
                     <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-white/[0.10] border border-white/[0.08] flex items-center justify-center">
                         <Bot className="h-4 w-4 text-white" />
                       </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="bg-white/[0.05] border border-white/[0.08] rounded-lg p-4">
                         <div className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 animate-pulse text-gray-600" />
-                          <span className="text-gray-900">AI正在思考...</span>
+                          <Sparkles className="h-4 w-4 animate-pulse text-cyan-300" />
+                          <span className="text-slate-300">AI正在思考...</span>
                         </div>
                       </div>
                     </div>
@@ -757,7 +757,7 @@ void timer0_isr() interrupt 1 {
               </ScrollArea>
               
               {/* 输入区域 */}
-              <div className="flex gap-3 pt-4 border-t border-slate-200/60 bg-gradient-to-r from-slate-50/50 to-blue-50/30 p-4 rounded-b-lg">
+              <div className="flex gap-3 pt-4 border-t border-white/[0.08] bg-black/20 p-4 rounded-b-lg">
                 <Input
                   ref={inputRef}
                   value={inputValue}
@@ -765,13 +765,13 @@ void timer0_isr() interrupt 1 {
                   onKeyPress={handleKeyPress}
                   placeholder="请输入您的问题...（支持中文和英文）"
                   disabled={isLoading}
-                  className="flex-1 border-slate-200/60 bg-white/80 focus:border-blue-300 focus:ring-blue-200/50 text-slate-800 placeholder:text-slate-500"
+                  className="flex-1 bg-black/30 border-white/[0.10] focus:border-cyan-300/40 focus:ring-cyan-300/20 text-slate-100 placeholder:text-slate-500"
                 />
                 <Button
                   onClick={() => sendMessage()}
                   disabled={isLoading || !inputValue.trim()}
                   size="icon"
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200 disabled:from-slate-400 disabled:to-slate-500"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md hover:shadow-lg transition-all duration-200 disabled:bg-slate-600 disabled:text-slate-400"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -781,27 +781,27 @@ void timer0_isr() interrupt 1 {
         </TabsContent>
 
         <TabsContent value="quick" className="space-y-6 mt-6">
-          <Card className="bg-gradient-to-br from-white to-slate-50/50 border-slate-200/60 shadow-md">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-blue-50/40 border-b border-slate-200/40">
-              <CardTitle className="flex items-center gap-2 text-slate-800 font-semibold">
-                <Zap className="h-5 w-5 text-amber-600" />
+          <Card className="border border-white/[0.08] bg-white/[0.035]">
+            <CardHeader className="bg-black/20 border-b border-white/[0.08]">
+              <CardTitle className="flex items-center gap-2 text-slate-50 font-semibold">
+                <Zap className="h-5 w-5 text-amber-300" />
                 快速问答
               </CardTitle>
-              <CardDescription className="text-slate-600">
+              <CardDescription className="text-slate-400">
                 点击下方问题快速获取答案，或者作为提问的参考模板
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
                 {quickQuestions.map((q) => (
-                  <Card key={q.id} className="hover:shadow-lg transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-slate-50/30 border-slate-200/60 hover:border-blue-300/60 hover:bg-gradient-to-br hover:from-blue-50/30 hover:to-slate-50/50" onClick={() => handleQuickQuestion(q.question)}>
+                  <Card key={q.id} className="transition-all duration-200 cursor-pointer border border-white/[0.08] bg-white/[0.03] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]" onClick={() => handleQuickQuestion(q.question)}>
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold mb-3 text-slate-800">{q.question}</h3>
-                          <div className="flex items-center gap-2">
+                          <h3 className="font-semibold mb-3 text-slate-100">{q.question}</h3>
+                          <div className="flex items-center gap-2 text-slate-400">
                             {getCategoryIcon(q.category)}
-                            <Badge variant="outline" className="text-xs border-slate-300/60 text-slate-600 bg-slate-50/80">
+                            <Badge variant="outline" className="text-xs border-white/[0.12] text-slate-300 bg-white/[0.04]">
                               {q.category === 'basic' ? '基础概念' :
                                q.category === 'programming' ? '编程实践' :
                                q.category === 'hardware' ? '硬件应用' : '项目开发'}
@@ -812,7 +812,7 @@ void timer0_isr() interrupt 1 {
                             </Badge>
                           </div>
                         </div>
-                        <Button size="sm" variant="ghost" className="text-slate-600 hover:text-blue-600 hover:bg-blue-50/60">
+                        <Button size="sm" variant="ghost" className="text-slate-400 hover:text-cyan-200 hover:bg-cyan-300/[0.10]">
                           <MessageCircle className="h-4 w-4" />
                         </Button>
                       </div>
@@ -825,33 +825,33 @@ void timer0_isr() interrupt 1 {
         </TabsContent>
 
         <TabsContent value="knowledge" className="space-y-6 mt-6">
-          <Card className="bg-gradient-to-br from-white to-slate-50/50 border-slate-200/60 shadow-md">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-blue-50/40 border-b border-slate-200/40">
-              <CardTitle className="flex items-center gap-2 text-slate-800 font-semibold">
-                <Brain className="h-5 w-5 text-purple-600" />
+          <Card className="border border-white/[0.08] bg-white/[0.035]">
+            <CardHeader className="bg-black/20 border-b border-white/[0.08]">
+              <CardTitle className="flex items-center gap-2 text-slate-50 font-semibold">
+                <Brain className="h-5 w-5 text-cyan-300" />
                 知识库导航
               </CardTitle>
-              <CardDescription className="text-slate-600">
+              <CardDescription className="text-slate-400">
                 浏览8051微控制器的核心知识点，深入了解相关概念
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
                 {knowledgePoints.map((point) => (
-                  <Card key={point.id} className="hover:shadow-lg transition-all duration-200 bg-gradient-to-br from-white to-slate-50/30 border-slate-200/60 hover:border-purple-300/60 hover:bg-gradient-to-br hover:from-purple-50/30 hover:to-slate-50/50">
+                  <Card key={point.id} className="transition-all duration-200 border border-white/[0.08] bg-white/[0.03] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]">
                     <CardContent className="pt-4">
                       <div className="space-y-4">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-bold text-lg text-slate-800 mb-2">{point.title}</h3>
-                            <Badge variant="outline" className="mt-1 border-purple-300/60 text-purple-700 bg-purple-50/80">
+                            <h3 className="font-bold text-lg text-slate-100 mb-2">{point.title}</h3>
+                            <Badge variant="outline" className="mt-1 border-cyan-300/30 text-cyan-200 bg-cyan-300/[0.08]">
                               {point.category}
                             </Badge>
                           </div>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-purple-300/60 text-purple-700 hover:bg-purple-50/80 hover:border-purple-400"
+                            className="bg-transparent border-cyan-300/30 text-cyan-200 hover:bg-cyan-300/[0.10] hover:border-cyan-300/50 hover:text-cyan-100"
                             onClick={() => handleQuickQuestion(`请介绍一下${point.title}：${point.description}`)}
                           >
                             <Search className="h-3 w-3 mr-1" />
@@ -859,16 +859,16 @@ void timer0_isr() interrupt 1 {
                           </Button>
                         </div>
                         
-                        <p className="text-slate-600 leading-relaxed">{point.description}</p>
-                        
-                        <div className="bg-gradient-to-r from-slate-50/80 to-purple-50/40 p-3 rounded-lg border border-slate-200/40">
-                          <p className="text-sm font-semibold mb-2 text-slate-700">相关问题：</p>
+                        <p className="text-slate-400 leading-relaxed">{point.description}</p>
+
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/[0.08]">
+                          <p className="text-sm font-semibold mb-2 text-slate-300">相关问题：</p>
                           <div className="space-y-2">
                             {point.relatedQuestions.map((question, idx) => (
                               <button
                                 key={idx}
                                 onClick={() => handleQuickQuestion(question)}
-                                className="block text-sm text-blue-600 hover:text-blue-800 hover:underline text-left transition-colors duration-200 font-medium"
+                                className="block text-sm text-cyan-300 hover:text-cyan-100 hover:underline text-left transition-colors duration-200 font-medium"
                               >
                                 • {question}
                               </button>
