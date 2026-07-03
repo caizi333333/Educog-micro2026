@@ -877,9 +877,12 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
           </span>
         )}
         {/* 常态标签：置于圆外正下方，不再挤进圆盘内部截断成 6-8px。
-            L1/L2 默认可读（10.5-13px 见下方 labelBelow 逻辑），L3 用极短省略,
-            完整名走 hover 卡片。 */}
-        {!isChapterFoot && (
+            L1/L2 默认可读（10.5-13px 见下方 labelBelow 逻辑）。
+            L3 叶子节点数量最多（全景视图达211个）、间距最密，即使标签本身
+            独立渲染在圆下方，密集区域仍会互相重叠糊成一团——默认干脆不显示
+            文字，只留一个可辨色的圆点勾勒整体分布形态，选中态才现出标签；
+            完整名称随时可从 hover 卡片（NodeHoverCard）查看，不丢信息。 */}
+        {!isChapterFoot && (!isLeaf || data.selected) && (
           <div
             className="pointer-events-none absolute left-1/2 top-full mt-1 w-max max-w-[104px] -translate-x-1/2 text-center leading-tight"
             style={{ opacity: Math.max(opacity, data.selected ? 1 : opacity) }}
