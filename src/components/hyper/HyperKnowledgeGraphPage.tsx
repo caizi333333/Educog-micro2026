@@ -1725,7 +1725,13 @@ function FullKnowledgeMap({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="min-h-0 flex-1">
+      {/* relative 定位容器：DepEdgeDetailPanel 以 absolute 浮层叠加在画布内部，
+          不再作为文档流的兄弟块参与高度计算。此前面板是画布下方的普通块级元素，
+          若外层容器高度（继承自更外层 main/body）超出视口，画布会把面板推到
+          document 里很靠下的位置——1280×720 录制分辨率下实测面板 top ≈ 981px，
+          而视口只有 720px 高，评委点击后完全看不到展开内容。浮层化后面板永远
+          锚定在画布可视区域内，不受外层容器实际高度影响。 */}
+      <div className="relative min-h-0 flex-1">
         <GraphMapStage
           nodes={layout.nodes}
           edges={layout.edges}
@@ -1749,18 +1755,22 @@ function FullKnowledgeMap({
           fitPadding={chapterFilter === 'all' ? 0.05 : 0.18}
           onEdgeSelect={(edgeId) => setSelectedEdgeKey((prev) => (prev === edgeId ? null : edgeId))}
         />
+        {selectedEdge && selectedEdge.pairs.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
+            <div className="pointer-events-auto w-full max-w-2xl">
+              <DepEdgeDetailPanel
+                pairs={selectedEdge.pairs}
+                pointById={relationIndex.byId}
+                onClose={() => setSelectedEdgeKey(null)}
+                onSelectPoint={(id) => {
+                  const point = relationIndex.byId[id];
+                  if (point) onSelect(point);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
-      {selectedEdge && selectedEdge.pairs.length > 0 && (
-        <DepEdgeDetailPanel
-          pairs={selectedEdge.pairs}
-          pointById={relationIndex.byId}
-          onClose={() => setSelectedEdgeKey(null)}
-          onSelectPoint={(id) => {
-            const point = relationIndex.byId[id];
-            if (point) onSelect(point);
-          }}
-        />
-      )}
     </div>
   );
 }

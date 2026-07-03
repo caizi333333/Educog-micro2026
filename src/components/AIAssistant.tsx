@@ -27,12 +27,12 @@ const AIAssistant: React.FC = memo(() => {
       {/* 标题区域 */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Brain className="w-8 h-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">
+          <Brain className="w-8 h-8 text-cyan-300" />
+          <h1 className="text-3xl font-bold text-slate-50">
             AI智能助手
           </h1>
         </div>
-        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+        <p className="text-lg text-slate-400 max-w-3xl mx-auto">
           基于课程知识库的AI辅助答疑与汇编错误诊断，帮助你理解问题，不代替你完成作答
         </p>
       </div>
@@ -41,7 +41,11 @@ const AIAssistant: React.FC = memo(() => {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           {tabsConfig.map(({ value, icon: Icon, label }) => (
-            <TabsTrigger key={value} value={value} className="flex items-center gap-2">
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex items-center gap-2 text-slate-300 data-[state=active]:text-cyan-100"
+            >
               <Icon className="w-4 h-4" />
               {label}
             </TabsTrigger>

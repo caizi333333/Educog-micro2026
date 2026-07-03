@@ -447,8 +447,8 @@ export function HyperTeacherPage() {
   }
 
   return (
-    <div className="-m-6 grid min-h-[calc(100vh-3.5rem)] animate-fade-in bg-[#070a0d] text-slate-100 xl:grid-cols-[320px_1fr_360px]">
-      <aside className="border-b border-white/[0.08] bg-[#0c1117] xl:border-b-0 xl:border-r">
+    <div className="-m-6 grid min-h-[calc(100vh-3.5rem)] animate-fade-in bg-[#070a0d] text-slate-100 2xl:grid-cols-[320px_1fr_360px]">
+      <aside className="border-b border-white/[0.08] bg-[#0c1117] 2xl:border-b-0 2xl:border-r">
         <div className="border-b border-white/[0.08] p-4">
           <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">学生 · 真实班级数据</div>
           <div className="relative">
@@ -461,7 +461,7 @@ export function HyperTeacherPage() {
             />
           </div>
         </div>
-        <div className="max-h-[320px] overflow-auto xl:max-h-[calc(100vh-8rem)]">
+        <div className="max-h-[320px] overflow-auto 2xl:max-h-[calc(100vh-8rem)]">
           {students.length ? students.map((student) => {
             const key = student.id || student.studentId || student.name;
             const active = selectedStudent === student;
@@ -778,7 +778,7 @@ export function HyperTeacherPage() {
           </div>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+        <section className="grid gap-5 2xl:grid-cols-[1fr_0.9fr]">
           <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-4">
               <h2 className="text-lg font-semibold text-slate-50">实验完成分布</h2>
@@ -902,7 +902,7 @@ export function HyperTeacherPage() {
               </div>
               <div className="p-4">
                 {/* Summary cards */}
-                <div className="mb-4 grid grid-cols-4 gap-3">
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="glass-hover transition-all rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-center">
                     <div className="font-mono text-2xl font-semibold text-slate-50">{interventionData.summary.totalStudents}</div>
                     <div className="text-[10px] text-slate-500">干预学生</div>
@@ -1022,7 +1022,7 @@ export function HyperTeacherPage() {
         )}
       </main>
 
-      <aside className="border-t border-white/[0.08] bg-[#0c1117] p-5 xl:border-l xl:border-t-0">
+      <aside className="border-t border-white/[0.08] bg-[#0c1117] p-5 2xl:border-l 2xl:border-t-0">
         <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">课堂表彰 · 写入成就记录</div>
         <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="flex items-center gap-3">

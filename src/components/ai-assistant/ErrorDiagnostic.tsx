@@ -319,27 +319,27 @@ const ErrorDiagnostic: React.FC = () => {
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'error': return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'info': return <Info className="h-4 w-4 text-blue-500" />;
-      default: return <CheckCircle className="h-4 w-4 text-gray-500" />;
+      case 'error': return <AlertTriangle className="h-4 w-4 text-red-400" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-amber-300" />;
+      case 'info': return <Info className="h-4 w-4 text-cyan-300" />;
+      default: return <CheckCircle className="h-4 w-4 text-slate-400" />;
     }
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'info': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'error': return 'bg-red-500/10 text-red-300 border-red-500/30';
+      case 'warning': return 'bg-amber-500/10 text-amber-200 border-amber-500/30';
+      case 'info': return 'bg-cyan-500/10 text-cyan-200 border-cyan-500/30';
+      default: return 'bg-white/[0.04] text-slate-300 border-white/[0.1]';
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">汇编错误诊断</h1>
-        <p className="text-gray-600">对 8051 汇编代码逐行静态检查，可叠加 AI 解释帮助理解错误原因</p>
+        <h1 className="text-3xl font-bold text-slate-50">汇编错误诊断</h1>
+        <p className="text-slate-400">对 8051 汇编代码逐行静态检查，可叠加 AI 解释帮助理解错误原因</p>
       </div>
 
       {/* 代码输入区域 */}
@@ -441,7 +441,7 @@ END`}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <p className="text-gray-700">{diagnostic.description}</p>
+                    <p className="text-slate-300">{diagnostic.description}</p>
                     {diagnostic.suggestion && (
                       <Alert>
                         <Wrench className="h-4 w-4" />
@@ -458,9 +458,9 @@ END`}
         ) : (
           <Card>
             <CardContent className="text-center py-12">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <p className="text-gray-700 font-medium">静态检查未发现语法问题</p>
-              <p className="text-gray-500 text-sm mt-2">如运行结果不符合预期，可点击"AI 解释诊断结果"获取逻辑层面的建议</p>
+              <CheckCircle className="h-12 w-12 text-emerald-400 mx-auto mb-4" />
+              <p className="text-slate-200 font-medium">静态检查未发现语法问题</p>
+              <p className="text-slate-500 text-sm mt-2">如运行结果不符合预期，可点击"AI 解释诊断结果"获取逻辑层面的建议</p>
             </CardContent>
           </Card>
         )
@@ -471,13 +471,13 @@ END`}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
+              <Sparkles className="h-5 w-5 text-cyan-300" />
               AI 解释
             </CardTitle>
             <CardDescription>由 DeepSeek 结合课程知识库生成，仅供理解参考</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
+            <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
               {aiExplanation}
             </div>
           </CardContent>
