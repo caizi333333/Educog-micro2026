@@ -507,9 +507,11 @@ void timer0_isr() interrupt 1 {
     toast.success('感谢您的反馈');
   }, []);
 
-  // 自动滚动到底部
+  // 自动滚动到底部（block: 'nearest' 避免牵连页面级滚动；空列表时跳过，避免挂载即滚动）
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [messages]);
 
   // 缓存回车发送处理函数
@@ -579,9 +581,9 @@ void timer0_isr() interrupt 1 {
               </CardDescription>
             </CardHeader>
             
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col min-h-0">
               {/* 消息列表 */}
-              <ScrollArea className="flex-1 pr-4">
+              <ScrollArea className="flex-1 pr-4 min-h-0">
                 <div className="space-y-4">
                   {messages.length === 0 ? (
                     <div className="text-center py-12">
