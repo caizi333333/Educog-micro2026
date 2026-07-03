@@ -973,6 +973,13 @@ function GraphMapStage({
         .kg-map-stage .react-flow__controls-button:hover {
           background: #16202b;
         }
+        /* clusterHalo 内层 div 已 pointer-events-none，但 ReactFlow 给节点外层
+           wrapper 内联了 pointer-events:all（style 属性，优先级高于普通 class 规则），
+           实测该内联样式确实盖住了下方的依赖边(kg-dep-*)，点击展开面板永远弹不出来。
+           光晕纯装饰、无任何交互语义，用 !important 压过内联样式让整个节点穿透点击。 */
+        .kg-map-stage .react-flow__node-clusterHalo {
+          pointer-events: none !important;
+        }
       `}</style>
       {/* 前置依赖边的青→琥珀渐变：userSpaceOnUse 以画布世界坐标取色，
           跨簇长曲线会自然呈现"从前置流向后继"的色彩过渡 */}
