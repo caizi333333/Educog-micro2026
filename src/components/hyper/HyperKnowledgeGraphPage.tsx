@@ -1401,11 +1401,15 @@ function FullKnowledgeMap({
       const l2Pos = new Map<string, { x: number; y: number }>();
       const onScreen = new Set<string>();
 
-      // 环几何按 L2 数量微调：保证相邻簇不贴脸、环上节点不压 hub
+      // 环几何按 L2 数量微调：保证相邻簇不贴脸、环上节点不压 hub。
+      // 实测各章 L2 数量集中在 4-7 个（非个别章节畸多），真正的拥挤根因
+      // 是半径本身偏小——按 CELL_W=300 的横向簇间距，rx 安全上限约 140-150，
+      // 之前 100-118 的取值明显留有余量，故整体上调，让圆周间距真正容得下
+      // 每个 104px 宽的标签，而不是靠隐藏标签硬凑。
       const ringGeometry = (count: number) => {
-        if (count <= 4) return { rx: 118, ry: 128, start: -Math.PI * 0.75 };
-        if (count === 5) return { rx: 100, ry: 160, start: -Math.PI / 2 };
-        return { rx: 104, ry: 138, start: -Math.PI / 2 };
+        if (count <= 4) return { rx: 134, ry: 150, start: -Math.PI * 0.75 };
+        if (count === 5) return { rx: 118, ry: 180, start: -Math.PI / 2 };
+        return { rx: 124, ry: 158, start: -Math.PI / 2 };
       };
 
       chapterNumbers.forEach((chapter, index) => {
