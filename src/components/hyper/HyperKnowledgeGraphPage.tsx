@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ComponentType, CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -968,17 +968,16 @@ type HoverPayload = {
   data: MapNodeData;
 };
 
-function GraphMapStage({
-  nodes,
-  edges,
-  onSelect,
-  selectedId,
-  focusIds,
-  heightClassName = 'h-[660px] md:h-[760px]',
-  fitPadding = 0.18,
-  fitMaxZoom = 1.1,
-  onEdgeSelect,
-}: {
+// 命令式相机控制：点击章节 hub 从全景切到单章视图前，父组件（FullKnowledgeMap）
+// 先调用 flyToNode 让镜头真正"飞"过去，播完动画再切换数据（remount）。此前只靠
+// remount 时的 animate-fade-in 做透明度过渡，但全景→单章是完全不同的节点集合，
+// 位置、大小都变了，单纯淡入盖不住"瞬间换了一张图"的生硬感——要有真正的镜头
+// 运动，才能让人感觉是"点这里→镜头拉近→看到这一章"的连贯过程。
+export type GraphMapStageHandle = {
+  flyToNode: (nodeId: string, opts?: { duration?: number }) => void;
+};
+
+const GraphMapStage = forwardRef<GraphMapStageHandle, {
   nodes: RFNode[];
   edges: RFEdge[];
   onSelect: (id: string) => void;
@@ -990,11 +989,37 @@ function GraphMapStage({
   fitMaxZoom?: number;
   // 聚合依赖边（data.kind === 'dep'）被点击时触发，用于展开"具体节点对+理由"面板
   onEdgeSelect?: (edgeId: string) => void;
-}) {
+}>(function GraphMapStage({
+  nodes,
+  edges,
+  onSelect,
+  selectedId,
+  focusIds,
+  heightClassName = 'h-[660px] md:h-[760px]',
+  fitPadding = 0.18,
+  fitMaxZoom = 1.1,
+  onEdgeSelect,
+}, forwardedRef) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<HoverPayload | null>(null);
   const [edgeHover, setEdgeHover] = useState<{ x: number; y: number; count: number } | null>(null);
+
+  useImperativeHandle(forwardedRef, () => ({
+    flyToNode: (nodeId, opts) => {
+      const instance = instanceRef.current;
+      if (!instance) return;
+      const target = nodes.find((n) => n.id === nodeId);
+      if (!target) return;
+      const size = (target.data as { size?: GraphNodeSize } | undefined)?.size;
+      const dim = size ? getGraphNodeSize(size) : { width: 60, height: 60 };
+      instance.setCenter(
+        target.position.x + dim.width / 2,
+        target.position.y + dim.height / 2,
+        { zoom: 1.35, duration: opts?.duration ?? 420 },
+      );
+    },
+  }), [nodes]);
 
   // When the user picks a node, ease the camera so the node and its
   // immediate kinship fill the viewport. Skipped on first render and
@@ -1134,7 +1159,7 @@ function GraphMapStage({
       )}
     </div>
   );
-}
+});
 
 function NodeHoverCard({ hover }: { hover: HoverPayload }) {
   const { data } = hover;
@@ -1294,6 +1319,16 @@ function FullKnowledgeMap({
   // 切换章节筛选或重选节点时清空，避免面板残留指向不存在的边。
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null);
   useEffect(() => { setSelectedEdgeKey(null); }, [chapterFilter]);
+
+  // 点击章节 hub 切单章视图前，先让镜头真正飞过去再切数据（remount）——
+  // 详见 GraphMapStage 的 flyToNode 注释。pendingFocusTimer 记录待执行的
+  // "动画播完后切数据"定时器，用户连续快速点不同 hub 时清掉上一个，
+  // 避免旧的延时切换在动画途中抢先把 chapter 切到别处。
+  const stageHandleRef = useRef<GraphMapStageHandle>(null);
+  const pendingFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (pendingFocusTimer.current) clearTimeout(pendingFocusTimer.current);
+  }, []);
 
   // 关系索引：byId 正查 + dependents 反查（"谁把我当前置"）。
   const relationIndex = useMemo(() => {
@@ -1810,15 +1845,22 @@ function FullKnowledgeMap({
           锚定在画布可视区域内，不受外层容器实际高度影响。 */}
       <div className="relative min-h-0 flex-1">
         <GraphMapStage
+          ref={stageHandleRef}
           nodes={layout.nodes}
           edges={layout.edges}
           onSelect={(id) => {
             const point = points.find((item) => item.id === id);
             if (!point) return;
             // 全景视图点击章节 hub：进入该章的单章放射树（既有视图），
-            // 在那里整簇 L3 全部展开
+            // 在那里整簇 L3 全部展开。先让镜头飞到该 hub（420ms），
+            // 播完再真正切数据——避免"瞬间跳变"的生硬感。
             if (chapterFilter === 'all' && point.level === 1) {
-              onFocusChapter?.(point.chapter);
+              if (pendingFocusTimer.current) clearTimeout(pendingFocusTimer.current);
+              stageHandleRef.current?.flyToNode(point.id, { duration: 420 });
+              pendingFocusTimer.current = setTimeout(() => {
+                onFocusChapter?.(point.chapter);
+                pendingFocusTimer.current = null;
+              }, 420);
               return;
             }
             setSelectedEdgeKey(null);
