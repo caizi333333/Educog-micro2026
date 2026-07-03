@@ -674,15 +674,6 @@ type MapNodeData = {
   [key: string]: unknown;
 };
 
-type MapGroupData = {
-  label: string;
-  subtitle?: string;
-  tone: GraphTone;
-  width: number;
-  height: number;
-  [key: string]: unknown;
-};
-
 function getGraphNodeSize(size: GraphNodeSize) {
   return graphNodeSize[size];
 }
@@ -703,48 +694,6 @@ function createMapNode(
     draggable: false,
     style: { zIndex },
   };
-}
-
-function createMapGroup(
-  id: string,
-  x: number,
-  y: number,
-  data: MapGroupData,
-): RFNode<MapGroupData> {
-  return {
-    id,
-    type: 'mapGroup',
-    position: { x, y },
-    data,
-    draggable: false,
-    selectable: false,
-    style: { zIndex: 0 },
-  };
-}
-
-function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
-  const tone = graphTone[data.tone];
-  return (
-    <div
-      style={{
-        width: data.width,
-        height: data.height,
-        borderColor: tone.border,
-        background: `linear-gradient(180deg, ${tone.bg}, rgba(2, 6, 23, 0.05))`,
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.04)`,
-      }}
-      className="relative rounded-2xl border px-4 py-3"
-    >
-      {/* small accent stripe on top edge so the group reads like a panel,
-          not a dashed sketch */}
-      <div
-        className="absolute left-4 top-0 h-[2px] w-16 rounded-b"
-        style={{ background: tone.color, opacity: 0.85 }}
-      />
-      <div className="font-mono text-[11px] font-semibold tracking-wide text-slate-200">{data.label}</div>
-      {data.subtitle && <div className="mt-1 font-mono text-[10px] tracking-wide" style={{ color: tone.color }}>{data.subtitle}</div>}
-    </div>
-  );
 }
 
 // 圆形节点：半径按层级分档（L1 最大 → L3 最小），配色是"填色圆盘"而不是
@@ -960,7 +909,7 @@ function ClusterHaloNode({ data }: NodeProps<RFNode<ClusterHaloData>>) {
   );
 }
 
-const mapNodeTypes = { mapNode: MapNode, mapGroup: MapGroupNode, clusterHalo: ClusterHaloNode };
+const mapNodeTypes = { mapNode: MapNode, clusterHalo: ClusterHaloNode };
 
 type HoverPayload = {
   x: number;
@@ -1984,12 +1933,26 @@ function ProblemGraphCanvas({
 }) {
   const layout = useMemo(() => {
     const roots = problemGraph.filter((node) => node.level === 1);
+    // 四个问题域按"概念理解→编程实现→实验操作→项目设计"的教学环节顺序
+    // 摆成紧凑 2×2 网格（水平/垂直间距均收紧到 540×360），取代旧版四角
+    // 散开(740×410 间距+540×415卡片框)后中央大片黑底的孤岛观感。四域彼此
+    // 没有真实依赖关系，不画连接边，靠"网格顺序+紧凑间距+统一光晕"制造
+    // 连贯感，而不是编造不存在的因果箭头。
+    // 网格间距 500×400：光晕直径(470×366，见下)+约30px 干净间隙，四个光晕
+    // 彼此贴近但不再物理相交——上一版 540×360 的纵向间距小于光晕高度(406)，
+    // 导致上下两簇光晕在边界处目视"糊"在一起，DOM 标签虽不重叠但视觉观感
+    // 仍是"挤压"而非"疏朗紧凑"，这版把纵向间距放宽 40px 修正。
     const centers = [
-      { x: 380, y: 270 },
-      { x: 1120, y: 270 },
-      { x: 380, y: 680 },
-      { x: 1120, y: 680 },
+      { x: 440, y: 300 },
+      { x: 940, y: 300 },
+      { x: 440, y: 700 },
+      { x: 940, y: 700 },
     ];
+    // 每域固定 10 个二级问题类（数据口径），ellipse 半径按"横向空间比纵向
+    // 紧张"原则收成竖向椭圆——呼应专业图谱 ringGeometry 的同一条经验，
+    // 具体数值按问题图谱自身间距(500×400)重新标定，不是照抄专业图谱的值。
+    const domainRx = 150;
+    const domainRy = 118;
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
 
@@ -1997,16 +1960,27 @@ function ProblemGraphCanvas({
       const center = centers[rootIndex] || centers[0];
       const domains = problemGraph.filter((node) => node.parentId === root.id);
       const tone = problemTone(root.category);
-      nodes.push(createMapGroup(`problem-group-${root.id}`, center.x - 270, center.y - 210, {
+      const leafTotal = problemGraph.filter((node) => node.category === root.category && node.level === 3).length;
+
+      // 无边框径向光晕代替旧的实线矩形卡片框：同一视觉语言复用专业图谱
+      // 的 ClusterHaloNode（不描边不带文字），只提供"这一片属于同一问题域"
+      // 的柔和分区暗示。光晕留白从 200/170 收紧到 170/130，避免相邻簇的
+      // 光晕在网格间距下彼此侵入。
+      const haloW = domainRx * 2 + 170;
+      const haloH = domainRy * 2 + 130;
+      nodes.push({
+        id: `problem-halo-${root.id}`,
+        type: 'clusterHalo',
+        position: { x: center.x - haloW / 2, y: center.y - haloH / 2 },
+        draggable: false,
+        selectable: false,
+        style: { zIndex: 0 },
+        data: { color: graphTone[tone].color, width: haloW, height: haloH },
+      });
+
+      nodes.push(createMapNode(root.id, center.x, center.y, {
         label: root.name,
-        subtitle: `${domains.length} 类 · ${problemGraph.filter((node) => node.category === root.category && node.level === 3).length} 个具体问题`,
-        tone,
-        width: 540,
-        height: 415,
-      }));
-      nodes.push(createMapNode(root.id, center.x, center.y - 105, {
-        label: root.name,
-        subtitle: `${problemGraph.filter((node) => node.category === root.category && node.level === 3).length}`,
+        subtitle: `${leafTotal}`,
         levelLabel: 'L1',
         tone,
         size: 'root',
@@ -2016,8 +1990,8 @@ function ProblemGraphCanvas({
 
       domains.forEach((domain, domainIndex) => {
         const angle = -Math.PI / 2 + (Math.PI * 2 * domainIndex) / Math.max(domains.length, 1);
-        const domainX = center.x + Math.cos(angle) * 178;
-        const domainY = center.y + 12 + Math.sin(angle) * 142;
+        const domainX = center.x + Math.cos(angle) * domainRx;
+        const domainY = center.y + Math.sin(angle) * domainRy;
         const leaves = problemGraph.filter((node) => node.parentId === domain.id);
         nodes.push(createMapNode(domain.id, domainX, domainY, {
           label: domain.name,
@@ -2031,9 +2005,9 @@ function ProblemGraphCanvas({
         edges.push(graphEdge(root.id, domain.id, tone, visibleIds.has(root.id) && visibleIds.has(domain.id), 1.5));
 
         leaves.forEach((leaf, leafIndex) => {
-          const leafSpread = Math.PI / 1.5;
+          const leafSpread = Math.PI / 1.6;
           const leafAngle = angle - leafSpread / 2 + (leafSpread * (leafIndex + 0.5)) / Math.max(leaves.length, 1);
-          const leafRadius = 82 + Math.min(leaves.length, 10) * 2.6;
+          const leafRadius = 62 + Math.min(leaves.length, 10) * 2.1;
           nodes.push(createMapNode(leaf.id, domainX + Math.cos(leafAngle) * leafRadius, domainY + Math.sin(leafAngle) * leafRadius, {
             label: leaf.name,
             levelLabel: 'L3',
@@ -2283,7 +2257,7 @@ function IdeologicalGraphCanvas({
 }) {
   const layout = useMemo(() => {
     const cx = 750;
-    const cy = 430;
+    const cy = 400;
     const roots = ideologicalNodes.filter((node) => node.level === 1);
     const nodes: RFNode[] = [
       createMapNode('sip-core', cx, cy, {
@@ -2299,10 +2273,19 @@ function IdeologicalGraphCanvas({
     ];
     const edges: RFEdge[] = [];
 
+    // 半径重新标定（原 325/270、150/126 是早期写死值，未经 DOM 实测校验）：
+    // 收紧到 295/215（一级主题环）与 150/112（二级元素环）后，元素环最低点
+    // Y≈727，与底部章节映射行(y=790)之间留出约63px干净间隙，不再挨得死近；
+    // 同时保持竖向椭圆（ry<rx）呼应专业图谱"横向空间更紧张"的同一套经验。
+    const rootRx = 295;
+    const rootRy = 215;
+    const elementRx = 150;
+    const elementRy = 112;
+
     roots.forEach((root, index) => {
       const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(roots.length, 1);
-      const rootX = cx + Math.cos(angle) * 325;
-      const rootY = cy + Math.sin(angle) * 270;
+      const rootX = cx + Math.cos(angle) * rootRx;
+      const rootY = cy + Math.sin(angle) * rootRy;
       const tone = ideologicalTone(root.category);
       const elements = ideologicalNodes.filter((node) => node.parentId === root.id);
       nodes.push(createMapNode(root.id, rootX, rootY, {
@@ -2317,10 +2300,13 @@ function IdeologicalGraphCanvas({
       edges.push(graphEdge('sip-core', root.id, tone, visibleIds.has(root.id), 1.7));
 
       elements.forEach((element, elementIndex) => {
-        const spread = Math.PI / 1.25;
+        // 扇面从 π/1.25 拉宽到 π：4 元素域(S1/S3/S6)顶点朝上/朝下时，中间两个
+        // 元素此前几乎水平并排(仅82px)，标签(104px宽)必然相撞——拉宽扇面后
+        // 同一根上相邻元素间距全部拉开到 88px+ 中心距，DOM 实测验证零重叠。
+        const spread = Math.PI;
         const elementAngle = angle - spread / 2 + (spread * (elementIndex + 0.5)) / Math.max(elements.length, 1);
-        const elementX = rootX + Math.cos(elementAngle) * 150;
-        const elementY = rootY + Math.sin(elementAngle) * 126;
+        const elementX = rootX + Math.cos(elementAngle) * elementRx;
+        const elementY = rootY + Math.sin(elementAngle) * elementRy;
         nodes.push(createMapNode(element.id, elementX, elementY, {
           label: element.name,
           subtitle: element.relatedChapters.length ? `CH${element.relatedChapters.join('/')}` : undefined,
@@ -2337,7 +2323,7 @@ function IdeologicalGraphCanvas({
     const chapters = ideologicalGraphStats.chaptersWithSip;
     chapters.forEach((chapter, index) => {
       const x = 130 + index * (1240 / Math.max(chapters.length - 1, 1));
-      const y = 840;
+      const y = 790;
       const id = `sip-chapter-${chapter}`;
       nodes.push(createMapNode(id, x, y, {
         label: `CH${chapter}`,
