@@ -800,6 +800,19 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
         className="relative flex items-center justify-center"
         style={{ width: size.width, height: size.height, opacity }}
       >
+        {/* 选中脉冲：镜头聚焦(fitView)本身缩放幅度可能很小，单靠镜头移动
+            不够醒目——这圈独立于镜头的扩散光环保证"点击生效了"看得见。
+            data.selected 从 false→true 时该 span 从无到有，浏览器天然重新
+            播放一次 CSS 动画；重复点击同一个已选中节点不会重播（selected
+            始终为 true，不会重新 mount），forwards 让动画结束后保持透明
+            不占用交互，不会一直闪烁骚扰。 */}
+        {data.selected && (
+          <span
+            className="animate-node-select-pulse pointer-events-none absolute inset-0 rounded-full"
+            style={{ border: `2px solid ${tone.color}` }}
+            aria-hidden
+          />
+        )}
         {/* 掌握度环：圆盘外沿一圈细弧，绿/黄/红随分数着色，替代原来"底边一条色条" */}
         {showMastery && mastery !== null && (
           <svg
