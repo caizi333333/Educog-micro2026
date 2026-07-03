@@ -58,7 +58,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
+import { knowledgePoints as staticKnowledgePoints, getPrerequisiteReason, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
 import { quizQuestions as staticQuizQuestions, type Question } from '@/lib/quiz-data';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { problemGraph, problemGraphStats, type ProblemNode } from '@/lib/problem-graph';
@@ -332,17 +332,24 @@ function DetailPanel({
             前置知识 · 先学什么
           </div>
           <div className="space-y-1.5">
-            {prereqs.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onSelectId(p.id)}
-                className="flex w-full items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-left text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] hover:text-cyan-100"
-              >
-                <span className="line-clamp-1">{p.name}</span>
-                <span className="shrink-0 font-mono text-[10px] text-slate-500">CH{p.chapter} · #{p.id}</span>
-              </button>
-            ))}
+            {prereqs.map((p) => {
+              const reason = getPrerequisiteReason(point.id, p.id);
+              return (
+                <div key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectId(p.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-left text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] hover:text-cyan-100"
+                  >
+                    <span className="line-clamp-1">{p.name}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-slate-500">CH{p.chapter} · #{p.id}</span>
+                  </button>
+                  {reason && (
+                    <div className="mt-1 px-3 text-[11px] leading-snug text-slate-500">{reason}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -354,17 +361,24 @@ function DetailPanel({
             支撑后续 · 学完能干什么
           </div>
           <div className="space-y-1.5">
-            {dependents.slice(0, 6).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onSelectId(p.id)}
-                className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2 text-left text-xs text-slate-200 hover:border-amber-300/40 hover:bg-amber-300/[0.08]"
-              >
-                <span className="line-clamp-1">{p.name}</span>
-                <span className="shrink-0 font-mono text-[10px] text-amber-200/70">CH{p.chapter} · #{p.id}</span>
-              </button>
-            ))}
+            {dependents.slice(0, 6).map((p) => {
+              const reason = getPrerequisiteReason(p.id, point.id);
+              return (
+                <div key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectId(p.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2 text-left text-xs text-slate-200 hover:border-amber-300/40 hover:bg-amber-300/[0.08]"
+                  >
+                    <span className="line-clamp-1">{p.name}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-amber-200/70">CH{p.chapter} · #{p.id}</span>
+                  </button>
+                  {reason && (
+                    <div className="mt-1 px-3 text-[11px] leading-snug text-slate-500">{reason}</div>
+                  )}
+                </div>
+              );
+            })}
             {dependents.length > 6 && (
               <div className="px-3 pt-1 font-mono text-[10px] text-slate-600">+{dependents.length - 6} 个后续节点</div>
             )}
@@ -896,6 +910,7 @@ function GraphMapStage({
   heightClassName = 'h-[660px] md:h-[760px]',
   fitPadding = 0.18,
   fitMaxZoom = 1.1,
+  onEdgeSelect,
 }: {
   nodes: RFNode[];
   edges: RFEdge[];
@@ -906,10 +921,13 @@ function GraphMapStage({
   // 初始 fitView 的留白与最大缩放：全景视图要贴边填满，径向视图要留呼吸感
   fitPadding?: number;
   fitMaxZoom?: number;
+  // 聚合依赖边（data.kind === 'dep'）被点击时触发，用于展开"具体节点对+理由"面板
+  onEdgeSelect?: (edgeId: string) => void;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<HoverPayload | null>(null);
+  const [edgeHover, setEdgeHover] = useState<{ x: number; y: number; count: number } | null>(null);
 
   // When the user picks a node, ease the camera so the node and its
   // immediate kinship fill the viewport. Skipped on first render and
@@ -990,7 +1008,24 @@ function GraphMapStage({
           });
         }}
         onNodeMouseLeave={() => setHover(null)}
-        onPaneClick={() => setHover(null)}
+        onEdgeClick={(_, edge) => {
+          const kind = (edge.data as { kind?: string } | undefined)?.kind;
+          if (kind !== 'dep') return;
+          onEdgeSelect?.(edge.id);
+        }}
+        onEdgeMouseEnter={(event, edge) => {
+          const data = edge.data as { kind?: string; pairs?: Array<[string, string]> } | undefined;
+          if (data?.kind !== 'dep') return;
+          const stageRect = stageRef.current?.getBoundingClientRect();
+          if (!stageRect) return;
+          setEdgeHover({
+            x: event.clientX - stageRect.left,
+            y: event.clientY - stageRect.top,
+            count: data.pairs?.length || 0,
+          });
+        }}
+        onEdgeMouseLeave={() => setEdgeHover(null)}
+        onPaneClick={() => { setHover(null); setEdgeHover(null); }}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable
@@ -1015,6 +1050,14 @@ function GraphMapStage({
         />
       </ReactFlow>
       {hover && <NodeHoverCard hover={hover} />}
+      {edgeHover && (
+        <div
+          className="pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-amber-300/30 bg-[#0b1117] px-2.5 py-1.5 text-[11px] text-amber-100 shadow-2xl"
+          style={{ left: Math.max(8, edgeHover.x - 60), top: Math.max(8, edgeHover.y - 40) }}
+        >
+          点击查看 {edgeHover.count} 条具体依赖
+        </div>
+      )}
     </div>
   );
 }
@@ -1172,6 +1215,11 @@ function FullKnowledgeMap({
     selectRef.current = onSelect;
     focusChapterRef.current = onFocusChapter;
   });
+
+  // 聚合依赖边被点击后选中，驱动下方"具体节点对+理由"展开面板；
+  // 切换章节筛选或重选节点时清空，避免面板残留指向不存在的边。
+  const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null);
+  useEffect(() => { setSelectedEdgeKey(null); }, [chapterFilter]);
 
   // 关系索引：byId 正查 + dependents 反查（"谁把我当前置"）。
   const relationIndex = useMemo(() => {
@@ -1494,8 +1542,16 @@ function FullKnowledgeMap({
             strokeWidth: Math.min(1.1 + dep.count * 0.3, 2.4),
             opacity: dep.cross ? 0.52 : 0.26,
             strokeLinecap: 'round',
+            cursor: 'pointer',
             ...(dep.cross ? { strokeDasharray: '7 5' } : {}),
           },
+          // 内含N条依赖的小徽标：让聚合边一眼看出不是装饰线，点击可展开明细
+          label: dep.count > 1 ? `${dep.count}` : undefined,
+          labelStyle: { fill: '#fef3c7', fontSize: 9, fontWeight: 600, fontFamily: 'monospace' },
+          labelBgStyle: { fill: 'rgba(217, 119, 6, 0.55)' },
+          labelBgPadding: [3, 2],
+          labelBgBorderRadius: 5,
+          interactionWidth: 16,
           markerEnd: { type: MarkerType.ArrowClosed, color: graphTone.amber.color, width: 9, height: 9 },
           data: { kind: 'dep', pairs: dep.pairs },
         });
@@ -1651,28 +1707,123 @@ function FullKnowledgeMap({
     return { nodes, edges, hasFocus };
   }, [points, progress, selectedId, visibleIds, chapterFilter, masteryByKa, focusIds, chain, repOf, experimentTitleByRefId]);
 
+  // 选中的聚合依赖边：从当前布局的边集里按 id 找回它折算前的具体节点对
+  const selectedEdge = useMemo(() => {
+    if (!selectedEdgeKey) return null;
+    const edge = layout.edges.find((e) => e.id === selectedEdgeKey);
+    if (!edge) return null;
+    const pairs = (edge.data as { pairs?: Array<[string, string]> } | undefined)?.pairs || [];
+    return { id: edge.id, pairs };
+  }, [layout.edges, selectedEdgeKey]);
+
   return (
-    <GraphMapStage
-      nodes={layout.nodes}
-      edges={layout.edges}
-      onSelect={(id) => {
-        const point = points.find((item) => item.id === id);
-        if (!point) return;
-        // 全景视图点击章节 hub：进入该章的单章放射树（既有视图），
-        // 在那里整簇 L3 全部展开
-        if (chapterFilter === 'all' && point.level === 1) {
-          onFocusChapter?.(point.chapter);
-          return;
-        }
-        onSelect(point);
-      }}
-      selectedId={selectedId}
-      // 未进入聚焦态（如初始化兜底选中章根）时不传 focus 集，镜头保持全景
-      focusIds={layout.hasFocus ? focusIds : undefined}
-      // 跟随外层容器高度，避免内层画布高于容器把 MiniMap/Controls 裁掉
-      heightClassName="h-full"
-      fitPadding={chapterFilter === 'all' ? 0.05 : 0.18}
-    />
+    <div className="flex h-full flex-col gap-3">
+      <div className="min-h-0 flex-1">
+        <GraphMapStage
+          nodes={layout.nodes}
+          edges={layout.edges}
+          onSelect={(id) => {
+            const point = points.find((item) => item.id === id);
+            if (!point) return;
+            // 全景视图点击章节 hub：进入该章的单章放射树（既有视图），
+            // 在那里整簇 L3 全部展开
+            if (chapterFilter === 'all' && point.level === 1) {
+              onFocusChapter?.(point.chapter);
+              return;
+            }
+            setSelectedEdgeKey(null);
+            onSelect(point);
+          }}
+          selectedId={selectedId}
+          // 未进入聚焦态（如初始化兜底选中章根）时不传 focus 集，镜头保持全景
+          focusIds={layout.hasFocus ? focusIds : undefined}
+          // 跟随外层容器高度，避免内层画布高于容器把 MiniMap/Controls 裁掉
+          heightClassName="h-full"
+          fitPadding={chapterFilter === 'all' ? 0.05 : 0.18}
+          onEdgeSelect={(edgeId) => setSelectedEdgeKey((prev) => (prev === edgeId ? null : edgeId))}
+        />
+      </div>
+      {selectedEdge && selectedEdge.pairs.length > 0 && (
+        <DepEdgeDetailPanel
+          pairs={selectedEdge.pairs}
+          pointById={relationIndex.byId}
+          onClose={() => setSelectedEdgeKey(null)}
+          onSelectPoint={(id) => {
+            const point = relationIndex.byId[id];
+            if (point) onSelect(point);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// 聚合依赖边展开面板：把 rolledDeps 折算前的具体 (前置 → 后继) 节点对
+// 逐条列出，配合 getPrerequisiteReason 展示课程逻辑理由，
+// 让评委点开一条聚合曲线就能看到"连的是什么、为什么连"。
+function DepEdgeDetailPanel({
+  pairs,
+  pointById,
+  onClose,
+  onSelectPoint,
+}: {
+  pairs: Array<[string, string]>;
+  pointById: Record<string, KnowledgePoint>;
+  onClose: () => void;
+  onSelectPoint: (id: string) => void;
+}) {
+  return (
+    <div className="glass-hover max-h-[280px] shrink-0 overflow-y-auto rounded-md border border-amber-300/25 bg-[#0b1117]/95 p-4 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-200">
+          <GitBranch className="h-3.5 w-3.5" />
+          聚合边展开 · 内含 {pairs.length} 条具体依赖
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="space-y-2">
+        {pairs.map(([fromId, toId]) => {
+          const from = pointById[fromId];
+          const to = pointById[toId];
+          const reason = getPrerequisiteReason(toId, fromId);
+          return (
+            <div
+              key={`${fromId}-${toId}`}
+              className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2"
+            >
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => onSelectPoint(fromId)}
+                  className="rounded px-1.5 py-0.5 text-cyan-200 hover:bg-cyan-300/[0.08] hover:text-cyan-100"
+                >
+                  {from?.name || fromId}
+                </button>
+                <ArrowRight className="h-3 w-3 shrink-0 text-slate-500" />
+                <button
+                  type="button"
+                  onClick={() => onSelectPoint(toId)}
+                  className="rounded px-1.5 py-0.5 text-amber-200 hover:bg-amber-300/[0.08] hover:text-amber-100"
+                >
+                  {to?.name || toId}
+                </button>
+              </div>
+              {reason ? (
+                <div className="mt-1 text-[11px] leading-snug text-slate-400">{reason}</div>
+              ) : (
+                <div className="mt-1 text-[11px] leading-snug text-slate-600">暂无课程逻辑理由说明</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
