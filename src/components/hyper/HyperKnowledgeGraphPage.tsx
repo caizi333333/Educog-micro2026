@@ -600,31 +600,38 @@ type GraphTone =
   | 'sky' | 'teal' | 'lime' | 'orange' | 'fuchsia' | 'rose';
 type GraphNodeSize = 'core' | 'root' | 'branch' | 'leaf' | 'chapter' | 'hub' | 'net';
 
+// 统一克制色板：全部色相共享同一饱和度/明度带（S≈0.62 L≈0.68），
+// 只有色相在环上旋转——避免旧版 12 色各自不同纯度堆在一起的"彩虹爆炸"。
+// red 单独保留给掌握度<60 预警语义，明度/饱和度对齐但色相独立以维持警示辨识度。
 const graphTone: Record<GraphTone, { color: string; bg: string; border: string; text: string; minimap: string }> = {
-  cyan: { color: '#67e8f9', bg: 'rgba(8, 145, 178, 0.16)', border: 'rgba(103, 232, 249, 0.38)', text: '#cffafe', minimap: '#06b6d4' },
-  emerald: { color: '#6ee7b7', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(110, 231, 183, 0.34)', text: '#d1fae5', minimap: '#10b981' },
-  amber: { color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.14)', border: 'rgba(251, 191, 36, 0.34)', text: '#fef3c7', minimap: '#f59e0b' },
-  red: { color: '#f87171', bg: 'rgba(239, 68, 68, 0.14)', border: 'rgba(248, 113, 113, 0.34)', text: '#fee2e2', minimap: '#ef4444' },
-  violet: { color: '#c084fc', bg: 'rgba(168, 85, 247, 0.14)', border: 'rgba(192, 132, 252, 0.36)', text: '#f3e8ff', minimap: '#a855f7' },
+  cyan: { color: '#7bcce0', bg: 'rgba(123, 204, 224, 0.15)', border: 'rgba(146, 215, 232, 0.40)', text: '#d7eef4', minimap: '#2ab3d5' },
+  emerald: { color: '#7be0ad', bg: 'rgba(123, 224, 173, 0.15)', border: 'rgba(146, 232, 189, 0.40)', text: '#d7f4e6', minimap: '#2ad580' },
+  amber: { color: '#e0be7b', bg: 'rgba(224, 190, 123, 0.15)', border: 'rgba(232, 203, 146, 0.40)', text: '#f4ead7', minimap: '#d59c2a' },
+  red: { color: '#e0827b', bg: 'rgba(224, 130, 123, 0.16)', border: 'rgba(232, 151, 146, 0.42)', text: '#f4d9d7', minimap: '#d5352a' },
+  violet: { color: '#a77be0', bg: 'rgba(167, 123, 224, 0.15)', border: 'rgba(183, 146, 232, 0.40)', text: '#e4d7f4', minimap: '#742ad5' },
   slate: { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)', border: 'rgba(148, 163, 184, 0.22)', text: '#cbd5e1', minimap: '#64748b' },
-  // 以下 6 色从原有色系扩展，供 10 个章节各配一个稳定主题色
-  sky: { color: '#7dd3fc', bg: 'rgba(14, 165, 233, 0.14)', border: 'rgba(125, 211, 252, 0.34)', text: '#e0f2fe', minimap: '#0ea5e9' },
-  teal: { color: '#5eead4', bg: 'rgba(20, 184, 166, 0.14)', border: 'rgba(94, 234, 212, 0.34)', text: '#ccfbf1', minimap: '#14b8a6' },
-  lime: { color: '#bef264', bg: 'rgba(132, 204, 22, 0.13)', border: 'rgba(190, 242, 100, 0.32)', text: '#ecfccb', minimap: '#84cc16' },
-  orange: { color: '#fdba74', bg: 'rgba(249, 115, 22, 0.13)', border: 'rgba(253, 186, 116, 0.32)', text: '#ffedd5', minimap: '#f97316' },
-  fuchsia: { color: '#f0abfc', bg: 'rgba(217, 70, 239, 0.13)', border: 'rgba(240, 171, 252, 0.34)', text: '#fae8ff', minimap: '#d946ef' },
-  rose: { color: '#fda4af', bg: 'rgba(244, 63, 94, 0.13)', border: 'rgba(253, 164, 175, 0.32)', text: '#ffe4e6', minimap: '#f43f5e' },
+  // 以下 6 色从原有色系扩展，供 10 个章节各配一个稳定主题色——同一色带内旋转色相
+  sky: { color: '#7bb4e0', bg: 'rgba(123, 180, 224, 0.15)', border: 'rgba(146, 194, 232, 0.40)', text: '#d7e7f4', minimap: '#2a8bd5' },
+  teal: { color: '#7be0d3', bg: 'rgba(123, 224, 211, 0.15)', border: 'rgba(146, 232, 220, 0.40)', text: '#d7f4f0', minimap: '#2ad5be' },
+  lime: { color: '#a0e07b', bg: 'rgba(160, 224, 123, 0.15)', border: 'rgba(177, 232, 146, 0.40)', text: '#e2f4d7', minimap: '#69d52a' },
+  orange: { color: '#e0a77b', bg: 'rgba(224, 167, 123, 0.15)', border: 'rgba(232, 183, 146, 0.40)', text: '#f4e4d7', minimap: '#d5742a' },
+  fuchsia: { color: '#e07be0', bg: 'rgba(224, 123, 224, 0.15)', border: 'rgba(232, 146, 232, 0.40)', text: '#f4d7f4', minimap: '#d52ad5' },
+  rose: { color: '#e07b94', bg: 'rgba(224, 123, 148, 0.15)', border: 'rgba(232, 146, 167, 0.40)', text: '#f4d7de', minimap: '#d52a55' },
 };
 
+// 圆形节点：宽高相等=直径，半径按层级分档（L1 最大 → L3 最小），
+// 用大小直接编码重要性层级，替代此前"统一大小圆角矩形"的卡片感。
+// 直径口径：core/hub(L1 章枢纽) 68-72px，root(单章 L1) 64px，
+// branch/net(L2 节) 44-52px，leaf(L3 点) 30-34px，chapter(思政章节脚注) 40px。
 const graphNodeSize: Record<GraphNodeSize, { width: number; height: number }> = {
-  core: { width: 188, height: 64 },
-  root: { width: 184, height: 60 },
-  branch: { width: 156, height: 42 },
-  leaf: { width: 124, height: 30 },
-  chapter: { width: 64, height: 28 },
-  // 全景网络视图专用：hub=章节枢纽，net=环绕 hub 的 L2 紧凑节点（两行标签）
-  hub: { width: 172, height: 54 },
-  net: { width: 88, height: 44 },
+  core: { width: 72, height: 72 },
+  root: { width: 68, height: 68 },
+  branch: { width: 52, height: 52 },
+  leaf: { width: 32, height: 32 },
+  chapter: { width: 40, height: 40 },
+  // 全景网络视图专用：hub=章节枢纽，net=环绕 hub 的 L2 紧凑节点
+  hub: { width: 70, height: 70 },
+  net: { width: 46, height: 46 },
 };
 
 // Per-chapter Lucide icon — picked to match the topic so an 8051 student
@@ -740,20 +747,26 @@ function MapGroupNode({ data }: NodeProps<RFNode<MapGroupData>>) {
   );
 }
 
+// 圆形节点：半径按层级分档（L1 最大 → L3 最小），配色是"填色圆盘"而不是
+// 卡片边框，标签常态显示在圆外正下方（而不是塞进圆内截断成 6-8px）。
+// L3 默认只显示极短的省略标签，完整名称走 hover 卡片（GraphMapStage 已有）。
 function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   const tone = graphTone[data.tone];
   const size = getGraphNodeSize(data.size);
   const isLeaf = data.size === 'leaf';
   const isNet = data.size === 'net';
   const isRoot = data.size === 'root' || data.size === 'core' || data.size === 'hub';
+  const isChapterFoot = data.size === 'chapter';
   // Focus mode: a non-selected node outside the kinship set fades to the
   // background. Visible-but-out-of-search filter still trumps focus dimming.
   const baseOpacity = data.visible || data.selected ? 1 : 0.18;
   const focusFactor = data.dimmed && !data.selected ? 0.22 : 1;
   const opacity = baseOpacity * focusFactor;
-  const labelMax = isRoot ? 14 : data.size === 'branch' ? 12 : 9;
+  // 常态标签长度：层级越低越短，L3/网状节点默认只留意到"这里有个点"，
+  // 完整名称交给 hover 卡片（NodeHoverCard）
+  const labelMax = isRoot ? 10 : data.size === 'branch' ? 8 : isNet ? 6 : 5;
   const ChapterIcon = isRoot ? getChapterIcon(data.chapter) : null;
-  const showMastery = typeof data.mastery === 'number' && (isRoot || data.size === 'branch' || isNet);
+  const showMastery = typeof data.mastery === 'number' && !isLeaf && !isChapterFoot;
   const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
   // 隐形中心桩：层级边（hub→L2）走"节点中心→节点中心"的直线，
   // 视觉上像放射辐条而不是绕外框的折线
@@ -764,6 +777,11 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
     opacity: 0,
     pointerEvents: 'none',
   };
+  const fontSize = isRoot ? 12 : data.size === 'branch' || isNet ? 10.5 : 9;
+  const mastery = typeof data.mastery === 'number' ? Math.max(0, Math.min(100, data.mastery)) : null;
+  // 掌握度进度环：半径略小于节点半径的圆弧，stroke-dasharray 走百分比
+  const ringR = size.width / 2 - 2.5;
+  const ringCirc = 2 * Math.PI * ringR;
 
   return (
     <>
@@ -772,95 +790,120 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
       <Handle id="rt" type="target" position={Position.Right} className={handleCls} />
       <Handle id="ct" type="target" position={Position.Top} className={handleCls} style={centerHandleStyle} />
       <div
-        className={cn(
-          'relative flex h-full w-full items-center overflow-hidden rounded-lg border text-left backdrop-blur-sm transition',
-          data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:-translate-y-[1px] hover:scale-[1.02]',
-          data.selected && 'scale-[1.10]',
-          isRoot ? 'gap-2.5 px-3' : isLeaf || isNet ? 'justify-center px-1.5' : 'gap-2 px-2.5',
-        )}
-        style={{
-          width: size.width,
-          height: size.height,
-          opacity,
-          color: tone.text,
-          borderColor: data.selected ? '#f8fafc' : tone.border,
-          background: data.selected
-            ? `linear-gradient(135deg, ${tone.bg}, rgba(255,255,255,0.14))`
-            : data.visible
-              ? `linear-gradient(160deg, ${tone.bg}, rgba(8,12,20,0.55))`
-              : 'rgba(15, 23, 42, 0.65)',
-          boxShadow: data.selected
-            ? `0 0 0 2px ${tone.color}, 0 0 0 4px rgba(248,250,252,0.16), 0 12px 32px ${tone.color}66, inset 0 1px 0 rgba(255,255,255,0.10)`
-            : isRoot
-              ? `0 4px 18px ${tone.color}26, inset 0 1px 0 rgba(255,255,255,0.05)`
-              : isNet
-                ? `0 2px 10px ${tone.color}1f, inset 0 1px 0 rgba(255,255,255,0.04)`
-                : `0 1px 0 rgba(255,255,255,0.04) inset`,
-        }}
+        className="relative flex items-center justify-center"
+        style={{ width: size.width, height: size.height, opacity }}
       >
-        {ChapterIcon && (
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
-            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.30)', color: tone.color }}
+        {/* 掌握度环：圆盘外沿一圈细弧，绿/黄/红随分数着色，替代原来"底边一条色条" */}
+        {showMastery && mastery !== null && (
+          <svg
+            width={size.width}
+            height={size.height}
+            className="pointer-events-none absolute inset-0 -rotate-90"
+            aria-hidden
           >
-            <ChapterIcon className="h-4 w-4" />
-          </span>
+            <circle
+              cx={size.width / 2}
+              cy={size.height / 2}
+              r={ringR}
+              fill="none"
+              stroke={tone.color}
+              strokeWidth={2}
+              strokeOpacity={0.9}
+              strokeLinecap="round"
+              strokeDasharray={`${(mastery / 100) * ringCirc} ${ringCirc}`}
+            />
+          </svg>
         )}
-        {!isLeaf && !isNet && !isRoot && data.levelLabel && (
-          <span
-            className="flex h-5 min-w-[22px] shrink-0 items-center justify-center rounded font-mono text-[9px] tracking-wider"
-            style={{ borderColor: tone.border, backgroundColor: 'rgba(0,0,0,0.28)', color: tone.color }}
-          >
-            {data.levelLabel}
-          </span>
-        )}
-        {isNet ? (
-          // 全景 L2 节点：两行居中标签（52 个全部上屏且不截断），
-          // 右下角淡淡标出 L3 数，提示点击后可展开
-          <span className="line-clamp-2 w-full break-words text-center text-[11px] font-medium leading-[14px]">
-            {data.label}
-          </span>
-        ) : (
-          <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          className={cn(
+            'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border text-center backdrop-blur-sm transition',
+            data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:brightness-110',
+            data.selected && 'scale-[1.12]',
+          )}
+          style={{
+            width: size.width - 6,
+            height: size.height - 6,
+            color: tone.text,
+            borderColor: data.selected ? '#f8fafc' : tone.border,
+            borderWidth: data.selected ? 2 : isRoot ? 1.75 : 1.25,
+            background: data.selected
+              ? `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), ${tone.bg} 60%, rgba(6,10,16,0.65))`
+              : data.visible
+                ? `radial-gradient(circle at 35% 30%, ${tone.bg}, rgba(6,10,16,0.72) 78%)`
+                : 'rgba(15, 23, 42, 0.65)',
+            boxShadow: data.selected
+              ? `0 0 0 3px ${tone.color}55, 0 0 0 5px rgba(248,250,252,0.14), 0 10px 26px ${tone.color}55`
+              : isRoot
+                ? `0 3px 14px ${tone.color}30, inset 0 1px 0 rgba(255,255,255,0.08)`
+                : `0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)`,
+          }}
+        >
+          {ChapterIcon ? (
+            <ChapterIcon className="h-[38%] w-[38%]" style={{ color: tone.color }} />
+          ) : isChapterFoot ? (
+            <span className="font-mono text-[10px] font-semibold tracking-wide">{data.label}</span>
+          ) : (
             <span
-              className={cn(
-                'min-w-0 truncate',
-                isRoot ? 'text-[13px] font-semibold leading-tight tracking-wide' : isLeaf ? 'text-[10px] leading-tight' : 'text-[11px] font-semibold leading-tight',
-              )}
+              className="line-clamp-2 max-w-full break-words px-1 font-medium leading-[1.05]"
+              style={{ fontSize }}
             >
               {truncateLabel(data.label, labelMax)}
             </span>
+          )}
+        </div>
+        {/* L2/L3 层级角标：圆盘左上角的小徽标，替代原来内嵌的 levelLabel 胶囊 */}
+        {!isRoot && !isChapterFoot && data.levelLabel && (
+          <span
+            className="pointer-events-none absolute -left-1 -top-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-[3px] font-mono text-[7px] font-semibold leading-none"
+            style={{ backgroundColor: '#05080d', color: tone.color, border: `1px solid ${tone.border}` }}
+          >
+            {data.levelLabel.replace('L', '')}
+          </span>
+        )}
+        {isNet && typeof data.childCount === 'number' && data.childCount > 0 && (
+          <span
+            className="pointer-events-none absolute -bottom-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-[3px] font-mono text-[7px] font-semibold leading-none"
+            style={{ backgroundColor: '#05080d', color: tone.color, border: `1px solid ${tone.border}` }}
+          >
+            +{data.childCount}
+          </span>
+        )}
+        {/* 实验关联角标：置于圆盘外层，避免被 overflow 裁剪 */}
+        {data.experiments && data.experiments.length > 0 && (
+          <span
+            className="pointer-events-none absolute -right-1 -top-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-emerald-300/60 bg-[#04231a] text-emerald-200 shadow-md"
+          >
+            <FlaskConical className="h-2 w-2" />
+          </span>
+        )}
+        {/* 常态标签：置于圆外正下方，不再挤进圆盘内部截断成 6-8px。
+            L1/L2 默认可读（10.5-13px 见下方 labelBelow 逻辑），L3 用极短省略,
+            完整名走 hover 卡片。 */}
+        {!isChapterFoot && (
+          <div
+            className="pointer-events-none absolute left-1/2 top-full mt-1 w-max max-w-[104px] -translate-x-1/2 text-center leading-tight"
+            style={{ opacity: Math.max(opacity, data.selected ? 1 : opacity) }}
+          >
+            <span
+              className={cn(
+                'inline-block max-w-[104px] truncate rounded px-1 py-[1px]',
+                isRoot ? 'text-[11px] font-semibold' : isNet || data.size === 'branch' ? 'text-[10px] font-medium' : 'text-[8.5px]',
+              )}
+              style={{
+                color: isRoot ? '#f1f5f9' : tone.text,
+                backgroundColor: isRoot ? 'rgba(5,8,13,0.72)' : 'transparent',
+              }}
+            >
+              {data.label}
+            </span>
             {isRoot && data.subtitle && (
-              <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70">{data.subtitle}</span>
+              <div className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.1em] opacity-70" style={{ color: tone.color }}>
+                {data.subtitle}
+              </div>
             )}
           </div>
         )}
-        {data.subtitle && !isLeaf && !isNet && !isRoot && (
-          <span className="ml-auto shrink-0 font-mono text-[9px] opacity-70">{data.subtitle}</span>
-        )}
-        {isNet && typeof data.childCount === 'number' && data.childCount > 0 && (
-          <span className="absolute bottom-0 right-1 font-mono text-[8px] opacity-55">+{data.childCount}</span>
-        )}
-        {showMastery && (
-          <span
-            className="absolute bottom-0 left-0 h-[2px]"
-            style={{
-              width: `${Math.max(6, Math.min(100, data.mastery as number))}%`,
-              background: tone.color,
-              opacity: 0.85,
-            }}
-          />
-        )}
       </div>
-      {/* 实验关联角标：置于节点框外层，避免被 overflow 裁剪 */}
-      {data.experiments && data.experiments.length > 0 && (
-        <span
-          className="absolute -right-1.5 -top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-emerald-300/60 bg-[#04231a] text-emerald-200 shadow-md"
-          style={{ opacity }}
-        >
-          <FlaskConical className="h-2.5 w-2.5" />
-        </span>
-      )}
       <Handle type="source" position={Position.Bottom} className={handleCls} />
       <Handle id="ls" type="source" position={Position.Left} className={handleCls} />
       <Handle id="rs" type="source" position={Position.Right} className={handleCls} />
