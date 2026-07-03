@@ -765,6 +765,13 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   // 常态标签长度：层级越低越短，L3/网状节点默认只留意到"这里有个点"，
   // 完整名称交给 hover 卡片（NodeHoverCard）
   const labelMax = isRoot ? 10 : data.size === 'branch' ? 8 : isNet ? 6 : 5;
+  // 标签外框宽度（圆外正下方那一行文字的最大宽度）：这才是相邻簇标签会不会
+  // physically 撞在一起的决定量。isNet(L2) 全景视图 52 个同屏，是密度主因，
+  // 原来统一 104px 与节点自身实际横向间距（改完 ringGeometry 后中心距约
+  // 70-95px）严重不成比例；收紧到 72px 后单个标签横向占用打对折，配合
+  // ringGeometry 的纵向椭圆化，两者相加才是真正把"标签重叠"压下去的组合，
+  // 而不是单靠某一项。root/branch 维持原宽度，因为它们数量少、间距天然大。
+  const labelBoxW = isNet ? 72 : 104;
   const ChapterIcon = isRoot ? getChapterIcon(data.chapter) : null;
   const showMastery = typeof data.mastery === 'number' && !isLeaf && !isChapterFoot;
   const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
@@ -884,17 +891,18 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
             完整名称随时可从 hover 卡片（NodeHoverCard）查看，不丢信息。 */}
         {!isChapterFoot && (!isLeaf || data.selected) && (
           <div
-            className="pointer-events-none absolute left-1/2 top-full mt-1 w-max max-w-[104px] -translate-x-1/2 text-center leading-tight"
-            style={{ opacity: Math.max(opacity, data.selected ? 1 : opacity) }}
+            className="pointer-events-none absolute left-1/2 top-full mt-1 w-max -translate-x-1/2 text-center leading-tight"
+            style={{ opacity: Math.max(opacity, data.selected ? 1 : opacity), maxWidth: labelBoxW }}
           >
             <span
               className={cn(
-                'inline-block max-w-[104px] truncate rounded px-1 py-[1px]',
+                'inline-block truncate rounded px-1 py-[1px]',
                 isRoot ? 'text-[11px] font-semibold' : isNet || data.size === 'branch' ? 'text-[10px] font-medium' : 'text-[8.5px]',
               )}
               style={{
                 color: isRoot ? '#f1f5f9' : tone.text,
                 backgroundColor: isRoot ? 'rgba(5,8,13,0.72)' : 'transparent',
+                maxWidth: labelBoxW,
               }}
             >
               {data.label}
@@ -1393,23 +1401,29 @@ function FullKnowledgeMap({
       // 三类边分层渲染：层级辐条（极淡）、前置依赖（主角：青→琥珀渐变
       // 曲线，跨章微流动）、学习主线（章序粗线）。实验关联以烧瓶角标呈现。
       const COLS = 5;
-      const CELL_W = 300;
-      const X0 = 210;
-      const ROW_Y = [225, 672];
+      const CELL_W = 352;
+      const X0 = 220;
+      const ROW_Y = [225, 700];
       const hubPos = new Map<number, { x: number; y: number }>();
       const l2Angle = new Map<string, number>();
       const l2Pos = new Map<string, { x: number; y: number }>();
       const onScreen = new Set<string>();
 
       // 环几何按 L2 数量微调：保证相邻簇不贴脸、环上节点不压 hub。
-      // 实测各章 L2 数量集中在 4-7 个（非个别章节畸多），真正的拥挤根因
-      // 是半径本身偏小——按 CELL_W=300 的横向簇间距，rx 安全上限约 140-150，
-      // 之前 100-118 的取值明显留有余量，故整体上调，让圆周间距真正容得下
-      // 每个 104px 宽的标签，而不是靠隐藏标签硬凑。
+      // 第三轮教训：单纯放大半径无效——fitView 会把整张图等比缩回容器，
+      // 半径和簇间距同时放大互相抵消。真正决定"挤不挤"的是【相邻簇同排
+      // L2 节点的最小间距】与【标签本身宽度】的比值，这两个量必须分开调：
+      // 1) CELL_W 300→352：拉开簇间距的分母；
+      // 2) rx 不再一味加大，改为压低（尤其 6/7 档从 124→108），把环整体
+      //    从"接近正圆"改造成"竖向椭圆"——因为章节是同排横向排列，横向空间
+      //    (CELL_W) 比纵向空间(行距 475px) 紧张得多，环该往纵向要空间，
+      //    不该往横向要空间，横向越推越挤邻簇；
+      // 3) 标签宽度本身也收紧（见 labelBox），双管齐下才是标签宽度 vs
+      //    节点间距的比值真正改善，而不是被 fitView 缩放抵消的假象。
       const ringGeometry = (count: number) => {
-        if (count <= 4) return { rx: 134, ry: 150, start: -Math.PI * 0.75 };
-        if (count === 5) return { rx: 118, ry: 180, start: -Math.PI / 2 };
-        return { rx: 124, ry: 158, start: -Math.PI / 2 };
+        if (count <= 4) return { rx: 112, ry: 160, start: -Math.PI * 0.75 };
+        if (count === 5) return { rx: 96, ry: 192, start: -Math.PI / 2 };
+        return { rx: 108, ry: 172, start: -Math.PI / 2 };
       };
 
       chapterNumbers.forEach((chapter, index) => {
