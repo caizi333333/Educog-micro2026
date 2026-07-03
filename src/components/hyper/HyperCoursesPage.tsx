@@ -414,16 +414,23 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
   // a small thumbnail card instead of a text chip, so students see the
   // figure right on the chapter card without opening a new tab.
   if (resource.type === 'image' && resource.url) {
+    // 图纸类素材（电路原理图/流程图）本身是白底黑线的技术文档，不改动
+    // 内容配色——但外层直接 bg-white 会在深色主题里露出一整块刺眼白板。
+    // 改为"深色画框裱图纸"：外层容器保持深色，白色只出现在留白+圆角+
+    // 轻阴影的内层小卡片里，让图纸看起来像被精心裱在深色背景上，而不是
+    // 没套上深色皮肤的组件。
     return (
       <a
         href={resource.url}
         target="_blank"
         rel="noreferrer"
-        className="group col-span-full block overflow-hidden rounded-md border border-white/[0.08] bg-white sm:col-span-2"
+        className="group col-span-full block overflow-hidden rounded-md border border-white/[0.08] bg-[#0c1117] sm:col-span-2"
         title={`点击查看大图：${resource.title}`}
       >
-        <div className="flex items-center justify-center bg-white p-2">
-          <img src={resource.url} alt={resource.title} className="block h-32 w-auto" loading="lazy" />
+        <div className="flex items-center justify-center p-3">
+          <div className="flex items-center justify-center rounded-md bg-white p-3 shadow-[0_1px_4px_rgba(0,0,0,0.35)]">
+            <img src={resource.url} alt={resource.title} className="block h-32 w-auto" loading="lazy" />
+          </div>
         </div>
         <div className="border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
           {resource.title}
@@ -499,19 +506,25 @@ function CourseMaterialPanel() {
           </a>
         </div>
       </div>
+      {/* PDF/图纸内容本身是白纸黑字的文档，不改动——但外层直接 bg-white
+          会在深色主题里露出大片刺眼白板。统一"深色画框裱文档"处理：外层
+          容器深色+内边距，白色只出现在留白包裹的内层，让文档像被精心
+          裱在深色背景上，呼应 ResourceChip 图纸预览的同款处理。 */}
       {showLabPdf && (
-        <object
-          data={labReportMaterial.href}
-          type="application/pdf"
-          className="block h-[640px] w-full rounded-md border border-emerald-300/20 bg-white"
-        >
-          <div className="flex h-[640px] items-center justify-center bg-white p-6 text-sm text-slate-700">
-            浏览器未启用 PDF 内嵌预览。
-            <a href={labReportMaterial.href} target="_blank" rel="noreferrer" className="ml-2 underline">
-              点击在新标签打开
-            </a>
-          </div>
-        </object>
+        <div className="rounded-md border border-emerald-300/20 bg-[#0c1117] p-3">
+          <object
+            data={labReportMaterial.href}
+            type="application/pdf"
+            className="block h-[640px] w-full rounded bg-white"
+          >
+            <div className="flex h-[640px] items-center justify-center rounded bg-white p-6 text-sm text-slate-700">
+              浏览器未启用 PDF 内嵌预览。
+              <a href={labReportMaterial.href} target="_blank" rel="noreferrer" className="ml-2 underline">
+                点击在新标签打开
+              </a>
+            </div>
+          </object>
+        </div>
       )}
       <div className="grid gap-3 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
         {verifiedDiagrams.map((diagram) => (
@@ -520,10 +533,12 @@ function CourseMaterialPanel() {
             href={diagram.href}
             target="_blank"
             rel="noreferrer"
-            className="group block overflow-hidden rounded-md border border-emerald-300/15 bg-white"
+            className="group block overflow-hidden rounded-md border border-emerald-300/15 bg-[#0c1117]"
           >
-            <div className="flex items-center justify-center bg-white p-2">
-              <img src={diagram.href} alt={diagram.title} className="block h-32 w-auto" loading="lazy" />
+            <div className="flex items-center justify-center p-3">
+              <div className="flex items-center justify-center rounded-md bg-white p-3 shadow-[0_1px_4px_rgba(0,0,0,0.35)]">
+                <img src={diagram.href} alt={diagram.title} className="block h-32 w-auto" loading="lazy" />
+              </div>
             </div>
             <div className="border-t border-emerald-300/15 bg-[#0c1117] px-3 py-2">
               <div className="text-[12px] font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
