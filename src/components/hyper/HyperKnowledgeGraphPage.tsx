@@ -1932,7 +1932,15 @@ function ProblemGraphCanvas({
   }, [selectedId, visibleIds]);
 
   return (
-    <GraphMapStage nodes={layout.nodes} edges={layout.edges} onSelect={onSelect} heightClassName="h-[620px] md:h-[740px]" />
+    <GraphMapStage
+      nodes={layout.nodes}
+      edges={layout.edges}
+      onSelect={onSelect}
+      // 与专业知识图谱(kg-canvas-)同款 viewport-relative 高度：问题/思政图谱头部比
+      // 专业图谱少一行图例(1280px下实测349px vs 366px)，复用同一公式的富余量绝对安全，
+      // 不会导致"头部+画布"溢出可视视口（1280×720 实测通过）。
+      heightClassName="h-[max(340px,calc(100vh-511px))] md:h-[max(340px,min(620px,calc(100vh-481px)))] lg:h-[max(340px,min(680px,calc(100vh-451px)))] xl:h-[max(340px,min(720px,calc(100vh-376px)))]"
+    />
   );
 }
 
@@ -2231,7 +2239,15 @@ function IdeologicalGraphCanvas({
   }, [selectedId, visibleIds]);
 
   return (
-    <GraphMapStage nodes={layout.nodes} edges={layout.edges} onSelect={onSelect} heightClassName="h-[620px] md:h-[740px]" />
+    <GraphMapStage
+      nodes={layout.nodes}
+      edges={layout.edges}
+      onSelect={onSelect}
+      // 与专业知识图谱(kg-canvas-)同款 viewport-relative 高度：问题/思政图谱头部比
+      // 专业图谱少一行图例(1280px下实测349px vs 366px)，复用同一公式的富余量绝对安全，
+      // 不会导致"头部+画布"溢出可视视口（1280×720 实测通过）。
+      heightClassName="h-[max(340px,calc(100vh-511px))] md:h-[max(340px,min(620px,calc(100vh-481px)))] lg:h-[max(340px,min(680px,calc(100vh-451px)))] xl:h-[max(340px,min(720px,calc(100vh-376px)))]"
+    />
   );
 }
 
@@ -2995,10 +3011,18 @@ export function HyperKnowledgeGraphPage() {
           </div>
           {/* Re-keying on chapter change forces React to remount the
               canvas, which lets the existing animate-fade-in keyframe
-              cross-fade the new layout in instead of snapping it on. */}
+              cross-fade the new layout in instead of snapping it on.
+              Height is viewport-relative (100vh minus the measured header
+              height at each breakpoint, +margin) instead of a fixed px
+              value, so "header + canvas" never exceeds the visible
+              viewport (verified at 1280x720, the official recording
+              resolution) while still growing generously on taller
+              screens. Floors at 340px keep the graph usable; the page's
+              outer overflow-auto remains as a scroll fallback for
+              viewports too short even for the floor (e.g. 1024x768). */}
           <div
             key={`kg-canvas-${chapter}`}
-            className="h-[520px] animate-fade-in md:h-[620px] xl:h-[720px]"
+            className="h-[max(340px,calc(100vh-511px))] animate-fade-in md:h-[max(340px,min(620px,calc(100vh-481px)))] lg:h-[max(340px,min(680px,calc(100vh-451px)))] xl:h-[max(340px,min(720px,calc(100vh-376px)))]"
           >
             <FullKnowledgeMap
               points={knowledgePoints}
