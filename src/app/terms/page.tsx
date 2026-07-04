@@ -3,7 +3,7 @@ export default function TermsPage() {
     <div className="max-w-4xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-6">使用条款</h1>
       <div className="prose dark:prose-invert max-w-none">
-        <p className="text-muted-foreground mb-4">生效日期：2024年1月1日</p>
+        <p className="text-muted-foreground mb-4">生效日期：2026年1月1日</p>
         
         <h2 className="text-xl font-semibold mt-6 mb-3">1. 服务条款接受</h2>
         <p>使用芯智育才平台即表示您同意遵守本使用条款。</p>

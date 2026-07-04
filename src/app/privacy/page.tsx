@@ -70,7 +70,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
-          <p className="text-sm text-muted-foreground pt-4 border-t border-border">最后更新于: 2024年7月</p>
+          <p className="text-sm text-muted-foreground pt-4 border-t border-border">最后更新于: 2026年7月</p>
 
         </CardContent>
       </Card>
