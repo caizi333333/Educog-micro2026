@@ -243,7 +243,7 @@ export function HyperAchievementsPage() {
         </div>
       </div>
 
-      <main className="grid gap-5 px-4 py-5 xl:grid-cols-[220px_1fr_360px] md:px-6">
+      <main className="grid items-start gap-5 px-4 py-5 xl:grid-cols-[220px_1fr_360px] md:px-6">
         <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:sticky xl:top-20 xl:self-start">
           <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">视图</div>
           {[
