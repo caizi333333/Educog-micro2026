@@ -140,6 +140,21 @@ function findRelatedExperiment(area: string, experiments: ExperimentConfig[]) {
   };
 }
 
+// 薄弱点多为 KA id（"5.3"）而非关键词，getAreaTerms 的别名表按文本关键词
+// 匹配，对纯数字编号的 area 基本必失配。知识点数据里 resources 已经显式
+// 标注了对应实验（refId），优先按这条权威关系找，找不到再退回关键词模糊匹配。
+function findExperimentFromPoints(points: KnowledgePoint[], experiments: ExperimentConfig[]) {
+  for (const point of points) {
+    const resource = point.resources?.find((item) => item.type === 'experiment');
+    if (!resource) continue;
+    const match = experiments.find((experiment) => experiment.id === resource.refId);
+    if (match) {
+      return { id: match.id, title: match.title, duration: match.duration, difficulty: match.difficulty };
+    }
+  }
+  return null;
+}
+
 function getChapterProgress(progress: HyperLearningProgressRecord[], chapter: number) {
   const keys = new Set([`ch${chapter}`, String(chapter)]);
   const records = progress.filter((record) => record.chapterId && keys.has(record.chapterId));
@@ -152,7 +167,9 @@ function buildAreaProfile(area: string, progress: HyperLearningProgressRecord[],
   const primaryPoint = relatedPoints.find((point) => point.level === 2) || relatedPoints[0] || null;
   const chapter = primaryPoint?.chapter || 1;
   const chapterRoot = kps.find((point) => point.level === 1 && point.chapter === chapter);
-  const relatedExperiment = findRelatedExperiment(area, experiments);
+  const relatedExperiment =
+    findExperimentFromPoints([primaryPoint, ...relatedPoints].filter((point): point is KnowledgePoint => Boolean(point)), experiments) ||
+    findRelatedExperiment(area, experiments);
 
   return {
     area,
