@@ -178,7 +178,7 @@ function buildFallbackPlan(weakAreas: string[], experiments: ExperimentConfig[],
       description: `回到${profile.chapterTitle}，先确认${area}涉及的核心概念、寄存器作用和常见约束。`,
       resource: {
         text: '打开知识图谱',
-        href: '/knowledge-graph',
+        href: profile.primaryPoint ? `/knowledge-graph?node=${encodeURIComponent(profile.primaryPoint.id)}` : '/knowledge-graph',
       },
     });
 
