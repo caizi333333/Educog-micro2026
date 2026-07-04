@@ -96,8 +96,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const avgAiUserScore = aiUserScores.length > 0 ? Math.round(aiUserScores.reduce((a, b) => a + b, 0) / aiUserScores.length) : 0;
-    const avgNonAiUserScore = nonAiUserScores.length > 0 ? Math.round(nonAiUserScores.reduce((a, b) => a + b, 0) / nonAiUserScores.length) : 0;
+    // 用 null 表示"没有这个群体的数据"，不能当 0 分处理——否则 0 个 AI
+    // 用户时会被当成"AI 用户均分 0%"，和"未使用 AI 均分"一减，冒出一个
+    // "AI 辅学提升幅度 -80%"这种没有任何 AI 用户支撑的假结论。
+    const avgAiUserScore = aiUserScores.length > 0 ? Math.round(aiUserScores.reduce((a, b) => a + b, 0) / aiUserScores.length) : null;
+    const avgNonAiUserScore = nonAiUserScores.length > 0 ? Math.round(nonAiUserScores.reduce((a, b) => a + b, 0) / nonAiUserScores.length) : null;
 
     // Weekly AI usage trend (last 8 weeks)
     const weeklyUsage: { week: string; aiEvents: number; activeUsers: number }[] = [];
@@ -145,7 +148,7 @@ export async function GET(request: NextRequest) {
         avgAiUserScore,
         avgNonAiUserScore,
         aiUsageRate: studentIds.length > 0 ? Math.round((totalAiUsers / studentIds.length) * 100) : 0,
-        scoreDifference: avgAiUserScore - avgNonAiUserScore,
+        scoreDifference: avgAiUserScore !== null && avgNonAiUserScore !== null ? avgAiUserScore - avgNonAiUserScore : null,
       },
       usageVsScore,
       weeklyUsage,

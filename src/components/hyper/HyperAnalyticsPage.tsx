@@ -57,8 +57,8 @@ export function HyperAnalyticsPage() {
   const [aiData, setAiData] = useState<{
     summary: {
       totalAiUsers: number; totalAiEvents: number; avgAiPerUser: number;
-      avgAiUserScore: number; avgNonAiUserScore: number;
-      aiUsageRate: number; scoreDifference: number;
+      avgAiUserScore: number | null; avgNonAiUserScore: number | null;
+      aiUsageRate: number; scoreDifference: number | null;
     };
     usageVsScore: { aiUsageCount: number; avgScore: number; studentCount: number }[];
     weeklyUsage: { week: string; aiEvents: number; activeUsers: number }[];
@@ -431,18 +431,25 @@ export function HyperAnalyticsPage() {
                 <div className="mt-1 font-mono text-[10px] text-slate-500">{aiData.summary.totalAiUsers} 人使用 / 共提问 {aiData.summary.totalAiEvents} 次</div>
               </div>
               <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035] p-4 text-center">
-                <div className="font-mono text-2xl font-semibold text-emerald-200">{aiData.summary.avgAiUserScore}%</div>
+                <div className="font-mono text-2xl font-semibold text-emerald-200">
+                  {aiData.summary.avgAiUserScore === null ? '--' : `${aiData.summary.avgAiUserScore}%`}
+                </div>
                 <div className="text-xs text-slate-400">AI 用户均分</div>
               </div>
               <div className="glass-hover transition-all rounded-md border border-white/[0.08] bg-white/[0.035] p-4 text-center">
-                <div className="font-mono text-2xl font-semibold text-slate-300">{aiData.summary.avgNonAiUserScore}%</div>
+                <div className="font-mono text-2xl font-semibold text-slate-300">
+                  {aiData.summary.avgNonAiUserScore === null ? '--' : `${aiData.summary.avgNonAiUserScore}%`}
+                </div>
                 <div className="text-xs text-slate-400">未使用 AI 均分</div>
               </div>
-              <div className={`glass-hover transition-all rounded-md border p-4 text-center ${aiData.summary.scoreDifference > 0 ? 'border-emerald-300/25 bg-emerald-300/[0.08]' : 'border-white/[0.08] bg-white/[0.035]'}`}>
-                <div className={`font-mono text-2xl font-semibold ${aiData.summary.scoreDifference > 0 ? 'text-emerald-200' : 'text-slate-300'}`}>
-                  {aiData.summary.scoreDifference > 0 ? '+' : ''}{aiData.summary.scoreDifference}%
+              <div className={`glass-hover transition-all rounded-md border p-4 text-center ${aiData.summary.scoreDifference !== null && aiData.summary.scoreDifference > 0 ? 'border-emerald-300/25 bg-emerald-300/[0.08]' : 'border-white/[0.08] bg-white/[0.035]'}`}>
+                <div className={`font-mono text-2xl font-semibold ${aiData.summary.scoreDifference !== null && aiData.summary.scoreDifference > 0 ? 'text-emerald-200' : 'text-slate-300'}`}>
+                  {aiData.summary.scoreDifference === null ? '--' : `${aiData.summary.scoreDifference > 0 ? '+' : ''}${aiData.summary.scoreDifference}%`}
                 </div>
                 <div className="text-xs text-slate-400">AI 辅学提升幅度</div>
+                {aiData.summary.scoreDifference === null && (
+                  <div className="mt-1 font-mono text-[10px] text-slate-500">暂无 AI 使用学生，无法对比</div>
+                )}
               </div>
             </div>
 
