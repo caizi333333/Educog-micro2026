@@ -105,8 +105,15 @@ export function middleware(request: NextRequest) {
         }
         return NextResponse.redirect(new URL('/', request.url));
       }
-      // /admin (system admin) requires ADMIN role specifically
-      if (pathname === '/admin' || (pathname.startsWith('/admin') && !pathname.startsWith('/admin/users'))) {
+      // /admin (system admin) requires ADMIN role specifically, except the
+      // sub-pages teachers are also meant to use: /admin/users (existing
+      // exception) and /admin/knowledge-graph (教师工作台"维护图谱"按钮指向
+      // 这里——教师侧本就该有权限用这个真编辑器，此前只是按钮链错；这里若
+      // 不放行会让按钮重新变回"点了没反应"的死链，用户已确认恢复放行)。
+      if (
+        pathname === '/admin' ||
+        (pathname.startsWith('/admin') && !pathname.startsWith('/admin/users') && !pathname.startsWith('/admin/knowledge-graph'))
+      ) {
         if (role !== 'ADMIN') {
           if (pathname.startsWith('/api/')) {
             return NextResponse.json({ error: '仅管理员可访问' }, { status: 403 });
