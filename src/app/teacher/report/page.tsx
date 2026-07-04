@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPointsByLevel } from '@/lib/knowledge-points';
 
@@ -50,6 +50,7 @@ export default function TeacherReportPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [gains, setGains] = useState<GainsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -66,8 +67,9 @@ export default function TeacherReportPage() {
           fetch('/api/analytics/learning-gains', { headers }),
         ]);
         if (dashRes.ok) setDashboard(await dashRes.json());
+        else setLoadError(true);
         if (gainsRes.ok) setGains(await gainsRes.json());
-      } catch { /* ignore */ }
+      } catch { setLoadError(true); }
       finally { setLoading(false); }
     }
     fetchData();
@@ -75,16 +77,32 @@ export default function TeacherReportPage() {
 
   // print=1 时（工作台"打印/导出PDF"入口）数据加载完自动唤起打印
   useEffect(() => {
-    if (loading || authLoading) return;
+    if (loading || authLoading || loadError) return;
     if (new URLSearchParams(window.location.search).get('print') !== '1') return;
     const timer = setTimeout(() => window.print(), 500);
     return () => clearTimeout(timer);
-  }, [loading, authLoading]);
+  }, [loading, authLoading, loadError]);
 
   if (loading || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
         <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (loadError || !dashboard) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white text-slate-900">
+        <AlertTriangle className="h-10 w-10 text-amber-500" />
+        <p className="text-lg font-semibold">报告数据加载失败</p>
+        <p className="text-sm text-slate-500">请检查网络后重试，避免导出空数据的报告。</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          重新加载
+        </button>
       </div>
     );
   }
