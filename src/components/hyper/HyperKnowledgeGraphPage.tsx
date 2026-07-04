@@ -10,7 +10,6 @@ import {
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   type Edge as RFEdge,
@@ -1087,14 +1086,6 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
         <Controls
           showInteractive={false}
           className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
-        />
-        <MiniMap
-          nodeColor={(node) => graphTone[((node.data as MapNodeData)?.tone || 'slate') as GraphTone]?.minimap || '#64748b'}
-          maskColor="rgba(2,6,23,0.58)"
-          pannable
-          zoomable
-          className="!rounded-lg !border !border-white/[0.08] !bg-[#0c1117]/90 !shadow-xl"
-          style={{ width: 158, height: 104 }}
         />
       </ReactFlow>
       {hover && <NodeHoverCard hover={hover} />}
