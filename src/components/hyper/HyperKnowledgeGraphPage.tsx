@@ -2588,7 +2588,14 @@ export function HyperKnowledgeGraphPage() {
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
   const [kaScores, setKaScores] = useState<Record<string, number>>({});
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const initialUrlAppliedRef = useRef(false);
+  // 记录"上一次已处理/已自写"的 query string，而非一次性布尔量：纯 boolean
+  // 在 Next App Router 客户端路由缓存复用同一组件实例时会永久锁死——从
+  // 薄弱节点/课程内容等页面二次带参跳回本页（组件未重新 mount）时，深链
+  // 参数被当成"已处理过"直接忽略，落到上次遗留的节点而不是目标节点。
+  // 按 query string 比对：只要传入的 searchParams 不同于"我们自己刚写回
+  // 的值"，就当作外部新深链来处理；自己 state→URL 回写的那次视为已处理，
+  // 避免下面第二个 effect 的回写触发这里重新纠正 chapter 的死循环。
+  const appliedSearchRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -2740,9 +2747,11 @@ export function HyperKnowledgeGraphPage() {
     // on every searchParams change would force-override fields that the
     // user just touched (e.g. clicking a node in the "all chapters"
     // overview snaps the canvas to that node's single-chapter view because
-    // we re-derive chapter from the node id). Run this effect only on the
-    // very first render where the URL is the only source of truth.
-    if (initialUrlAppliedRef.current) return;
+    // we re-derive chapter from the node id). Only run when the incoming
+    // query string is one we haven't already accounted for (a genuinely new
+    // external deep link) — see appliedSearchRef comment above.
+    const currentSearch = searchParams.toString();
+    if (appliedSearchRef.current === currentSearch) return;
 
     const viewParam = searchParams.get('view');
     const nodeParam = searchParams.get('node');
@@ -2776,13 +2785,13 @@ export function HyperKnowledgeGraphPage() {
       }
     }
 
-    initialUrlAppliedRef.current = true;
+    appliedSearchRef.current = currentSearch;
   }, [knowledgePointByGraphId, searchParams]);
 
   // Sync state -> URL (replace, no history pollution). Skipped on the very
   // first render so we don't trample the deep-link applied above.
   useEffect(() => {
-    if (!initialUrlAppliedRef.current) return;
+    if (appliedSearchRef.current === null) return;
     const base = pathname || '/knowledge-graph';
     const next = new URLSearchParams();
     if (view !== 'knowledge') next.set('view', view);
@@ -2797,6 +2806,10 @@ export function HyperKnowledgeGraphPage() {
     const qs = next.toString();
     const url = qs ? `${base}?${qs}` : base;
     if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== url) {
+      // 标记为"自己刚写回的值"，这样上面那个 effect 因 searchParams 变化
+      // 重新触发时会认得这是自己回写的结果而不是新深链，不会又把 chapter
+      // 之类的字段按 node 重新纠正一遍。
+      appliedSearchRef.current = qs;
       router.replace(url, { scroll: false });
     }
   }, [view, chapter, query, selectedId, selectedProblemId, selectedIdeologicalId, pathname, router]);
