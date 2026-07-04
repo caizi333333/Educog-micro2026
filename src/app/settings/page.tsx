@@ -30,6 +30,52 @@ export default function SettingsPage() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [changing, setChanging] = useState(false);
+    const [exporting, setExporting] = useState(false);
+
+    const handleExportData = async () => {
+        setExporting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                toast({ title: '请先登录', variant: 'destructive' });
+                return;
+            }
+            const headers = { Authorization: `Bearer ${token}` };
+            const [profileRes, statsRes, progressRes, activitiesRes] = await Promise.all([
+                fetch('/api/user/profile', { headers }),
+                fetch('/api/user/stats', { headers }),
+                fetch('/api/user/progress', { headers }),
+                fetch('/api/user/activities?limit=100', { headers }),
+            ]);
+            const [profile, stats, progress, activities] = await Promise.all([
+                profileRes.ok ? profileRes.json() : null,
+                statsRes.ok ? statsRes.json() : null,
+                progressRes.ok ? progressRes.json() : null,
+                activitiesRes.ok ? activitiesRes.json() : null,
+            ]);
+            const payload = {
+                exportedAt: new Date().toISOString(),
+                profile,
+                stats,
+                progress,
+                activities,
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `educog-data-${user?.username || 'export'}-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            toast({ title: '数据已导出' });
+        } catch {
+            toast({ title: '导出失败，请稍后重试', variant: 'destructive' });
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const handleChangePassword = async () => {
         if (!oldPassword || !newPassword || !confirmPassword) {
@@ -136,9 +182,9 @@ export default function SettingsPage() {
                                 将您的所有学习数据导出为JSON文件。
                             </span>
                         </Label>
-                         <Button variant="secondary">
+                         <Button variant="secondary" onClick={handleExportData} disabled={exporting}>
                             <Database className="mr-2 h-4 w-4" />
-                            导出数据
+                            {exporting ? '导出中...' : '导出数据'}
                         </Button>
                     </div>
                 </CardContent>
