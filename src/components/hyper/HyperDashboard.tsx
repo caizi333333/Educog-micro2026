@@ -446,7 +446,7 @@ export function HyperDashboard() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[0.95fr_1.05fr_0.75fr]">
+        <div className="mt-4 grid items-start gap-4 xl:grid-cols-[0.95fr_1.05fr_0.75fr]">
           <ContinuePanel current={continueExperiment} next={nextExperiment} />
 
           <div className="rounded-md border border-white/[0.08] bg-white/[0.025] p-4">
