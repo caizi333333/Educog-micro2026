@@ -60,9 +60,15 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error: unknown) {
+    // 只回显 register() 主动抛出的业务校验文案，其余内部错误（数据库连接失败/schema漂移等）
+    // 一律返回通用文案，避免把 Prisma 报错细节泄露给客户端。
+    const KNOWN_REGISTER_ERRORS = ['邮箱已被注册', '用户名已被使用', '班级邀请码无效或已停用'];
+    if (error instanceof Error && KNOWN_REGISTER_ERRORS.includes(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '注册失败' },
-      { status: 400 }
+      { error: '服务器内部错误，请稍后重试' },
+      { status: 500 }
     );
   }
 }

@@ -96,19 +96,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return setNoStore(response);
     }
     
-    if (error instanceof Error && error.message.includes('Database connection failed')) {
-      // 数据库连接错误
+    // 只有 login() 主动抛出的认证失败文案才回显给用户，其余（数据库连接失败等内部错误）
+    // 一律返回通用文案，避免把 Prisma 报错里的数据库主机名等内部信息泄露给客户端。
+    const KNOWN_AUTH_ERRORS = ['用户不存在或账号已被禁用', '密码错误'];
+    if (error instanceof Error && KNOWN_AUTH_ERRORS.includes(error.message)) {
       const response = NextResponse.json(
-        { error: '服务器内部错误' },
-        { status: 500 }
+        { error: error.message },
+        { status: 401 }
       );
       return setNoStore(response);
     }
-    
-    // 其他错误（如认证失败）
+
     const response = NextResponse.json(
-      { error: error instanceof Error ? error.message : '登录失败' },
-      { status: 401 }
+      { error: '服务器内部错误，请稍后重试' },
+      { status: 500 }
     );
     return setNoStore(response);
   }
