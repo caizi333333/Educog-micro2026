@@ -372,7 +372,10 @@ function BuzzerDisplay({ buzzer, pinLabel }: {
             key={i}
             className="pointer-events-none absolute inset-0 rounded-full border-2 border-amber-300/50"
             style={{
-              animation: `hyperBuzzArc ${(dur * (1 + i * 0.35)).toFixed(2)}s ease-out infinite`,
+              animationName: 'hyperBuzzArc',
+              animationDuration: `${(dur * (1 + i * 0.35)).toFixed(2)}s`,
+              animationTimingFunction: 'ease-out',
+              animationIterationCount: 'infinite',
               animationDelay: `${(i * dur * 0.3).toFixed(2)}s`,
             }}
           />
