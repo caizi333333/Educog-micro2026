@@ -46,11 +46,13 @@ export async function GET(request: Request) {
         _max: { score: true },
         _count: { _all: true },
       }),
-      // 完成的仿真实验数
-      prisma.userActivity.count({
+      // 完成的仿真实验数：直接数 UserExperiment 状态，跟个人主页/学情分析口径一致，
+      // 不依赖 UserActivity 日志（种子数据批量写入 UserExperiment 时不会补这条日志，
+      // 之前用 UserActivity 计数会导致证书页"完成仿真实验"恒为0）。
+      prisma.userExperiment.count({
         where: {
           userId: payload.userId,
-          action: { in: ['COMPLETE_EXPERIMENT', 'RUN_CODE'] },
+          status: 'COMPLETED',
         },
       }),
       // 已掌握模块数 (status=COMPLETED)
