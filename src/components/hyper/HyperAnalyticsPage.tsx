@@ -194,7 +194,7 @@ export function HyperAnalyticsPage() {
           ))}
         </section>
 
-        <main className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <main className="grid items-start gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <section className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-5">
               <h2 className="text-lg font-semibold text-slate-50">知识点掌握度</h2>
