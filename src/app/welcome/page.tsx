@@ -149,7 +149,7 @@ export default function WelcomePage() {
       <footer className="border-t mt-16">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-sm text-muted-foreground">
-            <p>© 2024 芯智育才 - 专业的8051微处理器在线学习平台</p>
+            <p>© 2026 芯智育才 - 专业的8051微处理器在线学习平台</p>
             <p className="mt-2">
               <Link href="/privacy" className="hover:text-primary">隐私政策</Link>
               {' | '}
