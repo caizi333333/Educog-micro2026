@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
     const userId = decoded.userId;
 
     // Fetch user statistics
+    // 5 次并发查询取代原来 6 次：同一 userId 下按 action 分别 count 的两条查询
+    // 合并成单次 findMany，在内存里派生 code_runs / debug_success 两个统计值。
     const [
       learningProgress,
       quizHistory,
       experiments,
       userProfile,
-      runCodeCount,
-      debugSuccessCount,
+      codeActivities,
     ] = await Promise.all([
       // Learning progress
       prisma.learningProgress.findMany({
@@ -66,16 +67,15 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // Real code run count
-      prisma.userActivity.count({
-        where: { userId, action: 'RUN_CODE' },
-      }),
-
-      // Real debug success count
-      prisma.userActivity.count({
-        where: { userId, action: 'DEBUG_SUCCESS' },
+      // Real code run + debug success activities (single row fetch, derived in memory)
+      prisma.userActivity.findMany({
+        where: { userId, action: { in: ['RUN_CODE', 'DEBUG_SUCCESS'] } },
+        select: { action: true },
       }),
     ]);
+
+    const runCodeCount = codeActivities.filter(a => a.action === 'RUN_CODE').length;
+    const debugSuccessCount = codeActivities.filter(a => a.action === 'DEBUG_SUCCESS').length;
 
     // Calculate statistics
     const stats = {
