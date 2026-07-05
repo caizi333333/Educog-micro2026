@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import {
-  ALL_ACHIEVEMENTS,
+  ACHIEVEMENTS_V2,
   checkAchievementUnlock,
   type AchievementProgress
 } from '@/lib/achievements-v2';
@@ -166,7 +166,7 @@ export async function GET(request: Request) {
       points: number; rarity: string;
     }> = [];
 
-    ALL_ACHIEVEMENTS.forEach(achievement => {
+    ACHIEVEMENTS_V2.forEach(achievement => {
       const criteriaType = achievement.criteria.type as keyof typeof userStats;
       const currentValue = userStats[criteriaType] || 0;
       const targetValue = achievement.criteria.target as number;
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
     }
 
     // Validate achievement ID
-    const validAchievement = ALL_ACHIEVEMENTS.find(ach => ach.id === achievementId);
+    const validAchievement = ACHIEVEMENTS_V2.find(ach => ach.id === achievementId);
     if (!validAchievement) {
       return NextResponse.json({ error: '无效的成就 ID' }, { status: 400 });
     }
