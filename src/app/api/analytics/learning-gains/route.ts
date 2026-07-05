@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.learningProgress.findMany({
         where: { userId: { in: studentIds } },
-        select: { userId: true, chapterId: true, progress: true },
+        select: { userId: true, chapterId: true, progress: true, timeSpent: true },
       }),
     ]);
 
@@ -65,20 +65,12 @@ export async function GET(request: NextRequest) {
       s.expCompleted++;
       studentMap.set(exp.userId, s);
     }
+    const totalTimeByStudent = new Map<string, number>();
     for (const lp of progress) {
       const s = studentMap.get(lp.userId) || emptyAgg();
       if (lp.chapterId) s.chapterProgress.set(lp.chapterId, lp.progress);
       studentMap.set(lp.userId, s);
-    }
-
-    // Also get totalTime from dashboard-compatible source
-    const progressWithTime = await prisma.learningProgress.findMany({
-      where: { userId: { in: studentIds } },
-      select: { userId: true, timeSpent: true },
-    });
-    const totalTimeByStudent = new Map<string, number>();
-    for (const p of progressWithTime) {
-      totalTimeByStudent.set(p.userId, (totalTimeByStudent.get(p.userId) || 0) + (p.timeSpent || 0));
+      totalTimeByStudent.set(lp.userId, (totalTimeByStudent.get(lp.userId) || 0) + (lp.timeSpent || 0));
     }
 
     // --- 1. Score Distribution ---
