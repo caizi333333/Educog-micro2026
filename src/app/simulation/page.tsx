@@ -366,7 +366,7 @@ export default function SimulationPage() {
           />
 
           {/* 窄屏提示：画布因屏幕宽度不足被隐藏，避免误以为功能缺失 */}
-          <div className="hidden w-8 flex-shrink-0 flex-col items-center justify-center gap-2 border-l border-white/[0.08] bg-[#0c1014]/70 py-3 min-[1024px]:flex xl:hidden">
+          <div className="flex w-8 flex-shrink-0 flex-col items-center justify-center gap-2 border-l border-white/[0.08] bg-[#0c1014]/70 py-3 xl:hidden">
             <Waypoints className="h-3.5 w-3.5 rotate-90 text-[#4a6266]" />
             <span className="[writing-mode:vertical-rl] text-[9px] tracking-wide text-[#4a6266]">加宽窗口查看接线画布</span>
           </div>
