@@ -47,6 +47,7 @@ model User {
   @@index([email])
   @@index([username])
   @@index([role])
+  @@index([totalPoints])
 }
 
 model ClassGroup {
@@ -110,6 +111,8 @@ model LearningEvent {
   @@index([eventType])
   @@index([targetType, targetId])
   @@index([createdAt])
+  @@index([userId, eventType])
+  @@index([userId, createdAt])
 }
 
 model Session {
@@ -137,6 +140,8 @@ model UserActivity {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([userId, action])
+  @@index([userId, action, createdAt])
 }
 
 model UserExperiment {
@@ -160,6 +165,7 @@ model UserExperiment {
   @@index([userId])
   @@index([experimentId])
   @@index([status])
+  @@index([userId, status])
 }
 
 model QuizAttempt {
@@ -180,6 +186,7 @@ model QuizAttempt {
   @@index([quizId])
   @@index([score])
   @@index([createdAt])
+  @@index([userId, completedAt])
 }
 
 model UserAchievement {
@@ -192,11 +199,16 @@ model UserAchievement {
   category      String
   unlockedAt    DateTime @default(now())
   progress      Int      @default(100)
+  points        Int      @default(0)
+  source        String   @default("SYSTEM")
+  awardedBy     String?
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, achievementId])
   @@index([userId])
   @@index([category])
+  @@index([achievementId])
+  @@index([userId, category])
 }
 
 model LearningPath {
@@ -242,6 +254,8 @@ model LearningProgress {
   @@index([userId])
   @@index([pathId])
   @@index([status])
+  @@index([userId, chapterId])
+  @@index([userId, status])
 }
 
 model Certificate {
@@ -316,4 +330,182 @@ model KnowledgeNode {
   @@index([level])
   @@index([parentId])
   @@index([graphNodeId])
+}
+
+model AchievementAuditLog {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  action        String   // GRANT | REVOKE | RECALC
+  performedBy   String?
+  previousState String?  // JSON
+  newState      String?  // JSON
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([achievementId])
+  @@index([action])
+}
+
+// ============================================================================
+// OBE 工程教育认证模型
+// 支撑链: GraduationRequirement → IndicatorPoint → CourseObjective → AssessmentLink → 评分数据
+// ============================================================================
+
+model GraduationRequirement {
+  id               String            @id @default(cuid())
+  code             String            @unique // e.g. "GR01"
+  index            Int               @unique // 1..11
+  name             String                    // e.g. "工程知识"
+  description      String?
+  standardVersion  String            @default("2024")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  indicators       IndicatorPoint[]
+
+  @@index([index])
+}
+
+model IndicatorPoint {
+  id                      String                @id @default(cuid())
+  code                    String                @unique // e.g. "1-3"
+  graduationRequirementId String
+  subIndex                Int                           // e.g. 3 for GR01 sub-point 3
+  description             String                        // e.g. "运用计算知识和工具"
+  achievementThreshold    Float                 @default(0.65)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  graduationRequirement   GraduationRequirement @relation(fields: [graduationRequirementId], references: [id], onDelete: Cascade)
+  courseObjectives        CourseObjective[]
+  grAchievements          GraduationRequirementAchievement[]
+
+  @@unique([graduationRequirementId, subIndex])
+  @@index([code])
+}
+
+model CourseObjective {
+  id                 String            @id @default(cuid())
+  code               String            @unique // e.g. "CO1"
+  name               String                    // e.g. "掌握8051微控制器基本结构与工作原理"
+  description        String?
+  indicatorPointId   String
+  supportWeight      Float                     // 0.0-1.0, how much this CO contributes to the indicator point
+  semester           String?                   // e.g. "2025-2026-1"
+  version            Int               @default(1) // CQI versioning
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  indicatorPoint     IndicatorPoint    @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
+  assessmentLinks    AssessmentLink[]
+  achievementRecords CourseObjectiveAchievement[]
+
+  @@index([indicatorPointId])
+  @@index([isActive])
+}
+
+model AssessmentLink {
+  id                  String          @id @default(cuid())
+  courseObjectiveId   String
+  assessmentType      String          // "QUIZ" | "EXPERIMENT" | "LEARNING_PROGRESS" | "COMPREHENSIVE"
+  assessmentTargetId  String          // quizId (e.g. "quiz-ch4"), experimentId (e.g. "exp03"), or chapterId
+  weight              Float           // 0.0-1.0, contribution weight within this CO
+  maxScore            Float           // 100 for quizzes/experiments, 100 for progress
+  chapter             Int?
+  description         String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  courseObjective     CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
+
+  @@unique([courseObjectiveId, assessmentType, assessmentTargetId])
+  @@index([courseObjectiveId])
+  @@index([assessmentType, assessmentTargetId])
+}
+
+model CourseObjectiveAchievement {
+  id                  String          @id @default(cuid())
+  userId              String
+  courseObjectiveId   String
+  semester            String?
+  classId             String?
+  weightedScoreSum    Float           // Σ(actual_score × weight)
+  weightedMaxSum      Float           // Σ(max_score × weight)
+  achievementDegree   Float           // weightedScoreSum / weightedMaxSum
+  passed              Boolean         // achievementDegree >= threshold
+  breakdown           String?         // JSON: { quiz: {score, max, weight}, experiment: {...} }
+  calculatedAt        DateTime        @default(now())
+  createdAt           DateTime        @default(now())
+  courseObjective     CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseObjectiveId, semester])
+  @@index([userId])
+  @@index([courseObjectiveId])
+  @@index([passed])
+  @@index([userId, courseObjectiveId])
+}
+
+model GraduationRequirementAchievement {
+  id                     String          @id @default(cuid())
+  userId                 String
+  indicatorPointId       String
+  semester               String?
+  classId                String?
+  achievementDegree      Float           // weighted average of supporting CO achievements
+  passed                 Boolean
+  contributingObjectives String?         // JSON: [{coId, coAchievement, weight}]
+  calculatedAt           DateTime        @default(now())
+  createdAt              DateTime        @default(now())
+  indicatorPoint         IndicatorPoint  @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, indicatorPointId, semester])
+  @@index([userId])
+  @@index([indicatorPointId])
+  @@index([passed])
+}
+
+model CQIReport {
+  id                  String          @id @default(cuid())
+  semester            String                           // e.g. "2025-2026-1"
+  classId             String?
+  title               String
+  reportType          String                           // "COURSE" | "INDICATOR" | "GRADUATION_REQ"
+  targetId            String?
+  targetCode          String?                          // e.g. "CO1", "1-3", "GR01"
+  averageAchievement  Float?
+  passRate            Float?
+  totalStudents       Int              @default(0)
+  passedStudents      Int              @default(0)
+  weakPoints          String?                           // JSON: [{targetId, description, avgScore}]
+  strengths           String?                           // JSON: [{targetId, description, avgScore}]
+  improvementMeasures String?                           // JSON: [{measure, responsible, deadline}]
+  previousMeasures    String?                           // JSON from prior semester
+  previousAchievement Float?
+  achievementChange   Float?
+  status              String           @default("DRAFT") // DRAFT | REVIEWED | APPROVED | CLOSED
+  reviewedBy          String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  actionItems         CQIActionItem[]
+
+  @@index([semester])
+  @@index([reportType])
+  @@index([classId])
+  @@index([status])
+}
+
+model CQIActionItem {
+  id            String    @id @default(cuid())
+  cqiReportId   String
+  description   String
+  category      String    // "CONTENT" | "METHOD" | "RESOURCE" | "ASSESSMENT"
+  assignedTo    String?   // teacher userId
+  dueDate       DateTime?
+  status        String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
+  result        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  cqiReport     CQIReport @relation(fields: [cqiReportId], references: [id], onDelete: Cascade)
+
+  @@index([cqiReportId])
+  @@index([status])
 }
