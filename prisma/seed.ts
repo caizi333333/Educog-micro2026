@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { COURSE_CHAPTER_SCHEDULE, COURSE_KA_COUNT_BY_CHAPTER } from '../src/lib/course-curriculum';
+import { OFFICIAL_EXPERIMENT_IDS } from '../src/lib/experiment-config';
 
 const prisma = new PrismaClient();
 
@@ -37,7 +39,7 @@ function randInt(min: number, max: number): number {
 }
 
 /** Pick random element */
-function pick<T>(arr: T[]): T {
+function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
@@ -76,18 +78,8 @@ function makeId(prefix: string): string {
 const SEMESTER_START = new Date('2025-09-01T08:00:00+08:00');
 const SEMESTER_END = new Date('2026-01-15T17:00:00+08:00');
 
-// Chapters cover weeks roughly:
-const CHAPTER_SCHEDULE: { chapterId: string; moduleId: string; name: string; weekStart: number; weekEnd: number }[] = [
-  { chapterId: 'ch1', moduleId: 'module-1', name: '第1章 单片机概述', weekStart: 1, weekEnd: 2 },
-  { chapterId: 'ch2', moduleId: 'module-1', name: '第2章 89C51硬件结构', weekStart: 3, weekEnd: 4 },
-  { chapterId: 'ch3', moduleId: 'module-1', name: '第3章 I/O端口', weekStart: 5, weekEnd: 6 },
-  { chapterId: 'ch4', moduleId: 'module-2', name: '第4章 指令系统与寻址', weekStart: 7, weekEnd: 8 },
-  { chapterId: 'ch5', moduleId: 'module-2', name: '第5章 C51程序设计', weekStart: 9, weekEnd: 10 },
-  { chapterId: 'ch6', moduleId: 'module-3', name: '第6章 中断系统', weekStart: 11, weekEnd: 12 },
-  { chapterId: 'ch7', moduleId: 'module-3', name: '第7章 定时器/计数器', weekStart: 13, weekEnd: 14 },
-  { chapterId: 'ch8', moduleId: 'module-4', name: '第8章 串行通信', weekStart: 15, weekEnd: 16 },
-  { chapterId: 'ch9', moduleId: 'module-4', name: '第9章 系统扩展与接口', weekStart: 17, weekEnd: 18 },
-];
+// 章节名称、模块与周次均从正式知识树和 17 周教学映射派生，避免种子口径漂移。
+const CHAPTER_SCHEDULE = COURSE_CHAPTER_SCHEDULE;
 
 function weekToDate(week: number, dayOffset = 0): Date {
   return addDays(SEMESTER_START, (week - 1) * 7 + dayOffset);
@@ -138,22 +130,14 @@ NAMES_2402.forEach((name, i) => {
 });
 
 // Quiz IDs matching the quiz-data.ts patterns
-const QUIZ_IDS = [
-  'quiz-ch1', 'quiz-ch2', 'quiz-ch3', 'quiz-ch4', 'quiz-ch5',
-  'quiz-ch6', 'quiz-ch7', 'quiz-ch8', 'quiz-ch9',
-];
+const QUIZ_IDS = CHAPTER_SCHEDULE.map((chapter) => `quiz-${chapter.chapterId}`);
 
 // 各章知识原子(KA)数量，对应 src/lib/quiz-data.ts 里每章的 subpoint 编号范围
 // (chapter N 的 KA 记作 "N.1".."N.k")，用于生成 COMPLETE_QUIZ 活动日志里的 weakAreas/scoresByKA
-const KA_COUNT_BY_CHAPTER: Record<number, number> = {
-  1: 5, 2: 6, 3: 6, 4: 6, 5: 6, 6: 4, 7: 4, 8: 5, 9: 4,
-};
+const KA_COUNT_BY_CHAPTER = COURSE_KA_COUNT_BY_CHAPTER;
 
-// Experiment IDs
-const EXPERIMENT_IDS = [
-  'proj01', 'proj02', 'proj03', 'proj04', 'proj05',
-  'proj06', 'proj07', 'proj08',
-];
+// 实验编号直接取自课程正式目录，禁止生成无对应配置的孤儿记录。
+const EXPERIMENT_IDS = OFFICIAL_EXPERIMENT_IDS;
 
 // Achievement definitions (must match achievement-system.ts)
 const ACHIEVEMENT_DEFS = [
@@ -183,10 +167,30 @@ const ACTIVITY_ACTIONS = [
 // ---------------------------------------------------------------------------
 // Main seed function
 // ---------------------------------------------------------------------------
+function requireSeedPassword(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value || value.length < 12) {
+    throw new Error(`${name} 必须配置且至少包含 12 个字符`);
+  }
+  return value;
+}
+
 async function main() {
   console.log('========================================');
   console.log('芯智育才 教学改革项目验收 - 演示数据初始化');
   console.log('========================================');
+
+  // 所有凭据必须在任何清理动作前通过校验，避免清库后才因缺少密码失败。
+  const adminPassword = requireSeedPassword('INIT_ADMIN_PASSWORD');
+  const teacherPassword = requireSeedPassword('INIT_TEACHER_PASSWORD');
+  const studentPassword = requireSeedPassword('INIT_STUDENT_PASSWORD');
+  const demoPassword = requireSeedPassword('INIT_DEMO_PASSWORD');
+  const [adminPw, teacherPw, studentPw, demoPw] = await Promise.all([
+    bcrypt.hash(adminPassword, 10),
+    bcrypt.hash(teacherPassword, 10),
+    bcrypt.hash(studentPassword, 10),
+    bcrypt.hash(demoPassword, 10),
+  ]);
 
   // Clean existing data (order matters for FK constraints)
   console.log('\n[1/9] 清理旧数据...');
@@ -209,13 +213,12 @@ async function main() {
   // 2. Create teacher (孙延才) and admin
   // ------------------------------------------------------------------
   console.log('[2/9] 创建教师与管理员账号...');
-  const hashedPw = await bcrypt.hash('edu123456', 10);
 
   const teacher = await prisma.user.create({
     data: {
       email: 'sunyancai@qust.edu.cn',
       username: 'sunyancai',
-      password: hashedPw,
+      password: teacherPw,
       name: '孙延才',
       role: 'TEACHER',
       status: 'ACTIVE',
@@ -233,7 +236,7 @@ async function main() {
     data: {
       email: 'admin@educog.com',
       username: 'admin',
-      password: hashedPw,
+      password: adminPw,
       name: '系统管理员',
       role: 'ADMIN',
       status: 'ACTIVE',
@@ -281,7 +284,6 @@ async function main() {
   }
 
   // Demo teacher for competition judges
-  const demoPw = await bcrypt.hash('demo123456', 10);
   const demoTeacher = await prisma.user.create({
     data: {
       email: 'demo_teacher@educog.com',
@@ -315,7 +317,6 @@ async function main() {
   // 3. Create ~40 students
   // ------------------------------------------------------------------
   console.log('[3/9] 创建学生账号...');
-  const studentPw = await bcrypt.hash('stu123456', 10);
 
   const createdStudents: { id: string; def: StudentDef; classId: string }[] = [];
 
@@ -368,7 +369,7 @@ async function main() {
     data: {
       email: 'demo_student@educog.com',
       username: 'demo_student',
-      password: studentPw,
+      password: demoPw,
       name: '演示学生',
       role: 'STUDENT',
       status: 'ACTIVE',
@@ -398,15 +399,15 @@ async function main() {
   console.log(`  演示学生: ${demoStudent.name} (${demoStudent.username})`);
 
   // ------------------------------------------------------------------
-  // 4. Learning Progress - students progressing through 9 chapters
+  // 4. Learning Progress - students progressing through the formal 10 chapters
   // ------------------------------------------------------------------
   console.log('[4/9] 生成学习进度数据...');
   let progressCount = 0;
 
   for (const stu of createdStudents) {
     // How many chapters this student has reached (based on ability + time)
-    // High-ability students reach ch9, low-ability reach ch5-7
-    const chaptersReached = Math.min(9, Math.max(3, Math.round(5 + stu.def.ability * 5)));
+    // High-ability students may reach ch10; low-ability students reach an earlier chapter.
+    const chaptersReached = Math.min(CHAPTER_SCHEDULE.length, Math.max(3, Math.round(5 + stu.def.ability * 5)));
 
     for (let ci = 0; ci < chaptersReached; ci++) {
       const ch = CHAPTER_SCHEDULE[ci];
@@ -464,7 +465,7 @@ async function main() {
   let quizCount = 0;
 
   for (const stu of createdStudents) {
-    const chaptersReached = Math.min(9, Math.max(3, Math.round(5 + stu.def.ability * 5)));
+    const chaptersReached = Math.min(CHAPTER_SCHEDULE.length, Math.max(3, Math.round(5 + stu.def.ability * 5)));
 
     for (let ci = 0; ci < chaptersReached; ci++) {
       const ch = CHAPTER_SCHEDULE[ci];
@@ -542,7 +543,7 @@ async function main() {
   let expCount = 0;
 
   for (const stu of createdStudents) {
-    const numExps = Math.min(8, Math.max(1, Math.round(2 + stu.def.ability * 7)));
+    const numExps = Math.min(EXPERIMENT_IDS.length, Math.max(1, Math.round(2 + stu.def.ability * 7)));
 
     for (let ei = 0; ei < numExps; ei++) {
       const expId = EXPERIMENT_IDS[ei];
@@ -711,7 +712,7 @@ async function main() {
 
   for (const stu of createdStudents) {
     const ab = stu.def.ability;
-    const chaptersReached = Math.min(9, Math.max(3, Math.round(5 + ab * 5)));
+    const chaptersReached = Math.min(CHAPTER_SCHEDULE.length, Math.max(3, Math.round(5 + ab * 5)));
     const modulesCompleted = Math.max(0, chaptersReached - 2);
     const totalTime = randInt(18000, 72000); // 5-20 hours
     const avgScore = randNormal(55 + ab * 40, 6, 40, 100);
@@ -780,9 +781,9 @@ async function main() {
           modules: JSON.stringify(pathModules),
           currentModule: Math.min(chaptersReached - 1, pathModules.length - 1),
           totalModules: pathModules.length,
-          status: chaptersReached >= 8 ? 'COMPLETED' : 'ACTIVE',
+          status: chaptersReached >= CHAPTER_SCHEDULE.length ? 'COMPLETED' : 'ACTIVE',
           startedAt: SEMESTER_START,
-          completedAt: chaptersReached >= 8 ? addDays(SEMESTER_END, -randInt(1, 20)) : null,
+          completedAt: chaptersReached >= CHAPTER_SCHEDULE.length ? addDays(SEMESTER_END, -randInt(1, 20)) : null,
           createdAt: SEMESTER_START,
           updatedAt: SEMESTER_END,
         },
@@ -791,7 +792,7 @@ async function main() {
     }
 
     // Certificates for top performers
-    if (ab > 0.75 && chaptersReached >= 8) {
+    if (ab > 0.75 && chaptersReached >= CHAPTER_SCHEDULE.length) {
       const certNo = `EDUCOG-MCU-2025-${stu.def.studentId}`;
       await prisma.certificate.create({
         data: {
@@ -828,12 +829,7 @@ async function main() {
   console.log(`  活动日志: ${totalActivities}`);
   console.log(`  成就解锁: ${totalAchievements}`);
   console.log('========================================');
-  console.log('\n默认账号:');
-  console.log('  教师 - 用户名: sunyancai, 密码: edu123456');
-  console.log('  管理员 - 用户名: admin, 密码: edu123456');
-  console.log('  学生 - 用户名: 学号(如 202401001), 密码: stu123456');
-  console.log('  演示教师 - 用户名: demo_teacher, 密码: demo123456');
-  console.log('  演示学生 - 用户名: demo_student, 密码: stu123456');
+  console.log('\n账号已创建；密码取自 INIT_*_PASSWORD 环境变量，日志不显示明文。');
 }
 
 main()

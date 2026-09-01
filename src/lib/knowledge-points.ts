@@ -1,13 +1,13 @@
 // ============================================================================
-// 微控制器应用技术 - 273个知识点三层级清单
+// 微控制器应用技术 - 279个知识点三层级清单（含 AI 素养单元）
 // 基于89C51系列单片机课程体系构建
-// 10个一级知识点 + 52个二级知识点 + 211个三级知识点
+// 10个一级知识点 + 53个二级知识点 + 216个三级知识点
 //
 // 除父子层级外，本文件还维护两类真实课程关系（见文件末尾 relationPatches）：
 //   prerequisites —— 前置依赖边，由课程组按课程逻辑编写，每条附一句推导依据，
 //                    可在 /admin/knowledge-graph 编辑器中逐节点调整；
-//   appliedIn    —— 知识点在哪些实验/项目中得到应用，与 experiment-config.ts
-//                    中各实验的 knowledgePoints 清单反向对应，口径保持一致。
+//   appliedIn    —— 使用 exp/proj 正式编号指向 experiment-config.ts 中的真实配置；
+//                    配置内中文覆盖项需按课程语义人工复核，不宣称可机械反向等同。
 // 每条 prerequisites 边为什么成立（具体到寄存器/机制的课程逻辑，而非空泛占位）
 // 通过 reasons/prerequisiteReasons 字段结构化出来，供 UI 层直接展示；
 // 运行时统一走 getPrerequisiteReason(pointId, prereqId) 查询，见文件末尾。
@@ -53,6 +53,55 @@ export interface KnowledgePoint {
   // node the reason lives in relationPatches[id].reasons and is resolved at
   // runtime by getPrerequisiteReason().
   prerequisiteReasons?: Record<string, string>;
+}
+
+/**
+ * Stable targets for legacy graph links whose aliases occur on more than one
+ * taxonomy node. The explicit table prevents array order or database merge
+ * order from changing a historical deep link's destination.
+ */
+export const LEGACY_GRAPH_NODE_TARGETS: Readonly<Record<string, string>> = {
+  mcu: '1',
+  cpu: '2.1',
+  io: '2.3',
+  addressing_modes: '3.1',
+  interrupts: '5.1',
+  timers: '6.1',
+  uart: '7.2',
+};
+
+/** Resolve a graph resource only to an implemented course route. */
+export function resolveKnowledgeResourceHref(resource: KnowledgePointResource, chapter?: number): string | null {
+  if (resource.url) return resource.url;
+  if (resource.type === 'experiment' && resource.refId) return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
+  if (resource.type === 'animation' && resource.refId === 'anim-addressing-modes') return '#addressing-compare';
+  if (resource.type === 'quiz' && resource.refId === 'quiz-ch3-addressing') return '/quiz?topic=addressing-modes';
+  if (resource.type === 'quiz' && resource.refId === 'quiz-ch10-ai-literacy') return '/quiz?topic=ai-literacy';
+  if (resource.type === 'quiz') {
+    const chapterFromRef = resource.refId?.match(/^quiz-ch(\d{1,2})(?:-|$)/i)?.[1];
+    const resolvedChapter = chapterFromRef ? Number(chapterFromRef) : chapter;
+    if (Number.isInteger(resolvedChapter) && Number(resolvedChapter) >= 1 && Number(resolvedChapter) <= 10) {
+      return `/quiz?chapter=${resolvedChapter}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Keep the detail panel aligned with a chapter filter. A selection already in
+ * the requested chapter is preserved; otherwise the chapter root (or the first
+ * available point) becomes the explicit landing point.
+ */
+export function resolveChapterSelection(
+  points: KnowledgePoint[],
+  chapter: number,
+  currentSelectedId: string,
+): string {
+  const current = points.find((point) => point.id === currentSelectedId);
+  if (current?.chapter === chapter) return current.id;
+  return points.find((point) => point.chapter === chapter && point.level === 1)?.id
+    ?? points.find((point) => point.chapter === chapter)?.id
+    ?? '';
 }
 
 export const knowledgePoints: KnowledgePoint[] = [
@@ -220,6 +269,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'slide', title: '3.1 寻址方式 课件', refId: 'ch03-ppt-s1' },
     { type: 'animation', title: '7种寻址方式对比动画', refId: 'anim-addressing-modes' },
     { type: 'quiz', title: '寻址方式 练习题', refId: 'quiz-ch3-addressing' },
+    { type: 'experiment', title: '实验二：指令系统实验', refId: 'exp02', duration: 90 },
   ] },
   { id: '3.1.1', name: '立即寻址', level: 3, parentId: '3.1', chapter: 3, description: '操作数直接包含在指令中，以#开头表示' },
   { id: '3.1.2', name: '直接寻址', level: 3, parentId: '3.1', chapter: 3, description: '操作数的地址直接给出，可访问内部RAM和SFR' },
@@ -612,7 +662,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '8.4', name: '传感器接口', level: 2, parentId: '8', chapter: 8, description: '常用传感器与单片机的接口技术', resources: [
     { type: 'slide', title: '8.4 传感器接口 课件', refId: 'ch08-ppt-s4' },
     { type: 'animation', title: 'DS18B20单总线通信时序动画', refId: 'anim-onewire-ds18b20' },
-    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 180 },
+    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 240 },
   ] },
   { id: '8.4.1', name: '温度传感器（DS18B20）', level: 3, parentId: '8.4', chapter: 8, description: 'DS18B20单总线协议、温度读取与数据转换' },
   { id: '8.4.2', name: '湿度传感器（DHT11）', level: 3, parentId: '8.4', chapter: 8, description: 'DHT11单总线时序、温湿度数据解析' },
@@ -650,7 +700,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     { type: 'quiz', title: '第9章 单元测验', refId: 'quiz-ch9' },
     { type: 'experiment', title: '项目二：智慧路灯系统设计', refId: 'proj02', duration: 180 },
     { type: 'experiment', title: '项目三：智能小车运动控制系统设计', refId: 'proj03', duration: 180 },
-    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 180 },
+    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 240 },
   ], prerequisites: ['7', '8'], appliedIn: ['proj02', 'proj03', 'proj04'],
     prerequisiteReasons: {
       '7': '系统级项目普遍要与上位机/其他模块通信（WiFi、蓝牙都靠串口AT指令），串口是系统对外数据交换的常规入口',
@@ -688,7 +738,7 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '9.4', name: '项目文档', level: 2, parentId: '9', chapter: 9, description: '工程项目的文档规范与答辩要求', resources: [
     { type: 'slide', title: '9.4 项目文档 课件', refId: 'ch09-ppt-s4' },
-    { type: 'document', title: '技术报告写作规范模板', refId: 'doc-report-template' },
+    { type: 'document', title: '实验一至八实验报告模板', refId: 'doc-report-template', url: '/resources/course/microcontroller-lab-report-1-8.pdf' },
   ] },
   { id: '9.4.1', name: '技术报告撰写', level: 3, parentId: '9.4', chapter: 9, description: '技术报告的结构、内容要求与排版规范' },
   { id: '9.4.2', name: '项目答辩要求', level: 3, parentId: '9.4', chapter: 9, description: '答辩流程、PPT制作与现场演示注意事项' },
@@ -715,7 +765,7 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '10.1', name: '物联网应用', level: 2, parentId: '10', chapter: 10, description: '单片机与无线通信模块的物联网应用', resources: [
     { type: 'slide', title: '10.1 物联网应用 课件', refId: 'ch10-ppt-s1' },
-    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 180 },
+    { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 240 },
     { type: 'document', title: 'ESP8266 AT指令参考手册', refId: 'doc-esp8266-at' },
   ] },
   { id: '10.1.1', name: 'WiFi模块（ESP8266）', level: 3, parentId: '10.1', chapter: 10, description: 'ESP8266 AT指令控制与TCP/IP网络连接' },
@@ -751,6 +801,18 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '10.4.4', name: '可穿戴设备应用', level: 3, parentId: '10.4', chapter: 10, description: '低功耗MCU在健康监测手环等可穿戴设备中的应用' },
   { id: '10.4.5', name: '边缘计算与MCU', level: 3, parentId: '10.4', chapter: 10, description: '边缘智能在资源受限MCU上的部署方案与典型应用' },
   { id: '10.4.6', name: 'TinyML嵌入式机器学习', level: 3, parentId: '10.4', chapter: 10, description: '在微控制器上部署轻量级机器学习模型的方法与工具链' },
+
+  { id: '10.5', name: 'AI素养与责任使用', level: 2, parentId: '10', chapter: 10, description: '核验AI输出、保护数据、规范引用并明确AI辅助调试边界', resources: [
+    { type: 'document', title: 'AI辅助学习核验清单', refId: 'doc-ai-literacy-checklist' },
+    { type: 'quiz', title: 'AI素养情境测验', refId: 'quiz-ch10-ai-literacy' },
+  ], prerequisites: ['10.2'], prerequisiteReasons: {
+    '10.2': '负责任地核验和引用 AI 输出，需先理解 AI 的基本能力、适用场景与局限',
+  } },
+  { id: '10.5.1', name: 'AI输出核验与引用', level: 3, parentId: '10.5', chapter: 10, description: '依据课程资料、数据手册和可运行结果交叉核验AI回答，并标明AI辅助范围' },
+  { id: '10.5.2', name: '隐私与数据安全', level: 3, parentId: '10.5', chapter: 10, description: '不向外部模型提交账号、密钥、学生身份和未授权实验数据' },
+  { id: '10.5.3', name: '提示设计与问题界定', level: 3, parentId: '10.5', chapter: 10, description: '用明确对象、约束、输入输出和验收条件组织问题，而不是把结论交给模型决定' },
+  { id: '10.5.4', name: 'AI辅助调试边界', level: 3, parentId: '10.5', chapter: 10, description: 'AI可以解释和提示，但代码正确性必须由编译、仿真、测试和教师评价确认' },
+  { id: '10.5.5', name: '学术诚信与责任判断', level: 3, parentId: '10.5', chapter: 10, description: '保留个人推理、引用来源和修改记录，不把AI生成内容冒充独立完成成果' },
 ];
 
 // ============================================================================
@@ -919,7 +981,7 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '7.3.3': { prerequisites: ['7.3.1'], appliedIn: ['exp09'], reasons: { '7.3.1': '接收要先完成初始化：等 RI、读 SBUF、清 RI' } }, // 等 RI、读 SBUF、清 RI
   '7.3.4': { prerequisites: ['7.3.2', '5.2.2'], appliedIn: ['exp09'], reasons: { '7.3.2': '中断方式收发建立在查询方式发送流程之上', '5.2.2': '中断方式要在 IE 中开 ES（串口中断允许位）' } }, // 中断方式要在 IE 中开 ES；实验九"串口中断处理"
   '7.4.1': { prerequisites: ['7.1.4'], reasons: { '7.1.4': 'RS-232 是对帧格式加电平标准的具体化' } },                   // RS-232 是对帧格式加电平标准的具体化
-  '7.4.4': { prerequisites: ['7.1.2'], appliedIn: ['proj04'], reasons: { '7.1.2': 'I2C 是同步串行协议，建立在同步/异步通信概念之上' } }, // I2C 是同步串行协议；项目四"AT24C02 I2C读写"
+  '7.4.4': { prerequisites: ['7.1.2'], reasons: { '7.1.2': 'I2C 是同步串行协议，建立在同步/异步通信概念之上' } }, // I2C 是同步串行协议；proj04 中 AT24C02 仅为后续扩展，不冒充已实现应用
 
   // —— 第8章 接口技术：所有接口都落在 I/O 口上（依赖2.3），
   //    显示扫描/单总线时序/电机调速普遍依赖第6章的定时能力。——
@@ -930,7 +992,7 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '8.5': { prerequisites: ['2.3.5', '6.3'], reasons: { '2.3.5': 'I/O 灌电流不足必须外加驱动', '6.3': '调速本质是 PWM/脉冲频率' } },              // I/O 灌电流不足必须外加驱动；调速本质是 PWM/脉冲频率
   '8.1.1': { appliedIn: ['exp04', 'proj01'] },             // 实验四"7段数码管结构"、项目一"数码管段选与位选"
   '8.1.2': { prerequisites: ['8.1.1', '6.3.1'], appliedIn: ['exp04'], reasons: { '8.1.1': '动态扫描建立在数码管段码/驱动电路认知之上', '6.3.1': '动态扫描 = 逐位点亮 + 每位停留 1-2ms 的定时' } }, // 动态扫描 = 逐位点亮 + 每位停留 1-2ms 的定时
-  '8.1.3': { appliedIn: ['proj02', 'proj04'] },            // 项目二/四"LCD1602接口与指令集/多行显示"
+  '8.1.3': { appliedIn: ['proj02'] },                      // 项目二已使用 LCD1602；proj04 的 UPDATE_LCD 仍为空接口，不记为已应用
   '8.1.4': { prerequisites: ['8.1.3'], reasons: { '8.1.3': '12864 在 1602 的指令集思路上扩展图形显示' } },                   // 12864 在 1602 的指令集思路上扩展图形显示
   '8.1.5': { prerequisites: ['8.1.2'], reasons: { '8.1.2': '点阵行列扫描与数码管动态扫描是同一思路' } },                   // 点阵行列扫描与数码管动态扫描同一思路（叠加原有 2.3.2）
   '8.2.2': { prerequisites: ['8.2.1'], reasons: { '8.2.1': '先懂单键的电平检测，再上行列扫描' } },                   // 先懂单键的电平检测，再上行列扫描（叠加原有 2.3）
@@ -999,7 +1061,7 @@ for (const point of knowledgePoints) {
  *
  * Resolves both data sources transparently so UI code never needs to know
  * where a given point's prerequisites were declared:
- *   1. relationPatches[pointId].reasons[prereqId]      (168 edges, chapters 1-10)
+ *   1. relationPatches[pointId].reasons[prereqId]      (203 edges, chapters 1-10)
  *   2. knowledgePoints[pointId].prerequisiteReasons[prereqId]  (inline nodes, e.g. '4', '8.2.2')
  */
 export function getPrerequisiteReason(pointId: string, prereqId: string): string | undefined {

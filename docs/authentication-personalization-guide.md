@@ -153,7 +153,7 @@ const savedData = localStorage.getItem(storageKey);
 - 实现数据持久化和查询优化
 
 ### 2. 添加更多个性化功能
-- 个人资料页面使用真实数据
+- 个人资料页面使用服务端记录，并按当前数据身份标识解释
 - 成就系统的完整实现
 - 学习进度可视化
 - 个性化推荐算法
@@ -170,11 +170,7 @@ const savedData = localStorage.getItem(storageKey);
 
 ## 测试账号
 
-系统默认创建了以下测试账号：
-
-- **管理员**: username: `admin`, password: `admin123456`
-- **教师**: username: `teacher`, password: `teacher123456`
-- **学生**: username: `student`, password: `student123456`
+系统初始化可创建 `admin`、`teacher`、`student` 三类账号；密码取自部署环境中的 `INIT_*_PASSWORD`，不得写入文档或日志。
 
 ## 注意事项
 

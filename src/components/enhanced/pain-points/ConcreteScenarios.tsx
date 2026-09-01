@@ -336,18 +336,6 @@ const ConcreteScenarios: React.FC = () => {
 
   const currentScenario = scenarios.find(s => s.id === selectedScenario) || scenarios[0];
 
-  // 如果没有找到当前场景，返回空状态
-  if (!currentScenario) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">暂无案例数据</h3>
-          <p className="text-gray-500">请稍后再试</p>
-        </div>
-      </div>
-    );
-  }
-
   // 时间轴动画效果
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -364,6 +352,18 @@ const ConcreteScenarios: React.FC = () => {
     }
     return () => clearInterval(interval);
   }, [isPlaying]);
+
+  // 如果没有找到当前场景，返回空状态
+  if (!currentScenario) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">暂无案例数据</h3>
+          <p className="text-gray-500">请稍后再试</p>
+        </div>
+      </div>
+    );
+  }
 
   const resetTimeline = () => {
     setTimelineProgress(0);

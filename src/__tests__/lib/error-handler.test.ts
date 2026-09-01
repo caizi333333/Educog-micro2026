@@ -5,7 +5,8 @@ import {
   AuthenticationError,
   NotFoundError,
   ErrorCode,
-  ErrorSeverity
+  ErrorSeverity,
+  handleApiError,
 } from '@/lib/error-handler';
 import { NextResponse } from 'next/server';
 import { clearAllMocks, mockPrisma } from '../utils/test-mocks';
@@ -256,7 +257,7 @@ describe('Error Handler', () => {
       expect(mockConsole.error).toHaveBeenCalledWith(
         'AppError [400]:',
         'Test error',
-        expect.stringContaining('/home/user/')
+        'Operational error'
       );
     });
 
@@ -269,7 +270,7 @@ describe('Error Handler', () => {
         'ValidationError [400]:',
         'Invalid input',
         'Field: username',
-        expect.stringContaining('/home/user/')
+        'Operational error'
       );
     });
 
@@ -538,6 +539,38 @@ describe('Error Handler', () => {
           }
         },
         { status: 500 }
+      );
+    });
+
+    it('应该隐藏业务错误消息和详情中的敏感字段', () => {
+      const sensitiveError = new AppError(
+        'Authentication failed: token=raw-token',
+        401,
+        'AUTHENTICATION_ERROR',
+        { token: 'raw-token', nested: { password: 'raw-password' } },
+      );
+
+      ErrorHandler.handleError(sensitiveError);
+
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        {
+          error: {
+            message: 'Internal server error',
+            statusCode: 401,
+            type: 'AppError',
+          },
+        },
+        { status: 401 },
+      );
+
+      handleApiError(sensitiveError);
+      expect(NextResponse.json).toHaveBeenLastCalledWith(
+        {
+          error: 'Internal server error',
+          code: 'AUTHENTICATION_ERROR',
+          details: { token: '[REDACTED]', nested: { password: '[REDACTED]' } },
+        },
+        { status: 401 },
       );
     });
 

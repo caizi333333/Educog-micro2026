@@ -118,11 +118,11 @@ const progress = await prisma.learningProgress.findMany({
 
 ## 测试账号
 
-| 角色 | 用户名 | 密码 |
-|------|--------|------|
-| 管理员 | admin | admin123456 |
-| 教师 | teacher | teacher123456 |
-| 学生 | student | student123456 |
+| 角色 | 用户名 | 初始化密码来源 |
+|------|--------|----------------|
+| 管理员 | admin | `INIT_ADMIN_PASSWORD` |
+| 教师 | teacher | `INIT_TEACHER_PASSWORD` |
+| 学生 | student | `INIT_STUDENT_PASSWORD` |
 
 ## 部署注意事项
 
@@ -140,5 +140,5 @@ const progress = await prisma.learningProgress.findMany({
 
 3. 或通过 API 初始化：
    ```
-   GET /api/init?secret=init-educog-2024
+   curl -X POST -H 'x-init-secret: <INIT_SECRET>' 'https://<部署域名>/api/init'
    ```

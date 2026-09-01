@@ -39,8 +39,12 @@ import {
   ChevronRight,
   LayoutDashboard,
   Sparkles,
+  GraduationCap,
+  FileText,
+  ListChecks,
+  X,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -57,45 +61,111 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AchievementNotification } from '@/components/ui/achievement-notification';
 import { useAchievementNotifications } from '@/hooks/use-achievement-notifications';
 import { useAchievementCheck } from '@/hooks/use-achievement-check';
+import { getMostSpecificRouteMatch } from '@/lib/role-access';
 
-// Navigation groups
-const learningItems = [
+// Navigation groups. Personal learning records are student-only; teachers get
+// task review at the same visual position so the next action matches the role.
+const sharedLearningItems = [
   { href: '/hyper', label: '总览工作台', icon: Sparkles },
-  { href: '/tasks', label: '我的任务', icon: ClipboardList },
   { href: '/knowledge-graph', label: '知识图谱', icon: Share2 },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
-  { href: '/weak-nodes', label: '薄弱节点', icon: Target },
-  { href: '/learning-path', label: '个性教学', icon: GitBranch },
 ];
 
-const analysisItems = [
+const studentPersonalLearningItems = [
+  { href: '/weak-nodes', label: '薄弱节点', icon: Target },
+  { href: '/learning-path', label: '个性化学习', icon: GitBranch },
+];
+
+const sharedAnalysisItems = [
   { href: '/analytics', label: '学情分析', icon: BarChart4 },
-  { href: '/achievements', label: '成就徽章', icon: Trophy },
   { href: '/ai-assistant', label: 'AI 助教', icon: Bot },
+];
+
+const studentPersonalAnalysisItems = [
+  { href: '/achievements', label: '成就徽章', icon: Trophy },
+  { href: '/obe', label: '毕业要求达成', icon: GraduationCap },
 ];
 
 const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
+  { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
+  { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },
+  { href: '/obe/teacher/cqi', label: '持续改进', icon: FileText },
+  { href: '/obe/admin', label: 'OBE 汇总', icon: BarChart4 },
   { href: '/admin/users', label: '用户管理', icon: Users },
   { href: '/admin', label: '系统管理', icon: Shield },
 ];
 
-// All menu items flattened for title lookup
-const getAllMenuItems = (role?: string) => {
-  const items = [
-    { href: '/', label: '课程内容', icon: BookOpen },
-    ...learningItems,
-    ...analysisItems,
-  ];
+type NavigationItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type LayoutUser = NonNullable<ReturnType<typeof useAuth>['user']>;
+type LogoutHandler = ReturnType<typeof useAuth>['logout'];
+
+const PRIMARY_NAVIGATION_ID = 'app-primary-navigation';
+
+function SkipToContentLink(): React.JSX.Element {
+  return (
+    <a
+      href="#main-content"
+      className="fixed left-4 top-3 z-[100] inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-cyan-200 px-4 text-sm font-semibold text-[#001014] shadow-xl transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-cyan-50 focus:ring-offset-2 focus:ring-offset-[#070a0d]"
+    >
+      跳到主要内容
+    </a>
+  );
+}
+
+export const getVisibleLearningItems = (role?: string): NavigationItem[] => {
+  if (role === 'STUDENT') {
+    return [
+      sharedLearningItems[0]!,
+      { href: '/tasks', label: '我的任务', icon: ClipboardList },
+      ...sharedLearningItems.slice(1),
+      ...studentPersonalLearningItems,
+    ];
+  }
+
   if (role === 'TEACHER' || role === 'ADMIN') {
-    items.push({ href: '/teacher', label: '教学仪表板', icon: LayoutDashboard });
+    return [
+      sharedLearningItems[0]!,
+      { href: '/teacher/pushed', label: '任务回查', icon: ClipboardList },
+      ...sharedLearningItems.slice(1),
+    ];
   }
-  if (role === 'ADMIN') {
-    // 用户管理页仅 ADMIN 可进，教师侧栏不展示避免点进拒绝页
-    items.push({ href: '/admin/users', label: '用户管理', icon: Users });
-    items.push({ href: '/admin', label: '系统管理', icon: Shield });
+
+  return sharedLearningItems;
+};
+
+export const getVisibleAnalysisItems = (role?: string): NavigationItem[] => {
+  if (role === 'STUDENT') {
+    return [sharedAnalysisItems[0]!, ...studentPersonalAnalysisItems, sharedAnalysisItems[1]!];
   }
+  return sharedAnalysisItems;
+};
+
+const getVisibleAdminItems = (role?: string): NavigationItem[] => {
+  if (role !== 'TEACHER' && role !== 'ADMIN') return [];
+
+  return adminItems.filter((item) => {
+    const adminOnly = item.href === '/admin'
+      || item.href === '/obe/admin'
+      || item.href === '/admin/users';
+    return !adminOnly || role === 'ADMIN';
+  });
+};
+
+// All menu items flattened for title lookup
+const getAllMenuItems = (role?: string): NavigationItem[] => {
+  const items: NavigationItem[] = [
+    { href: '/', label: '课程内容', icon: BookOpen },
+    ...getVisibleLearningItems(role),
+    ...getVisibleAnalysisItems(role),
+  ];
+  items.push(...getVisibleAdminItems(role));
   return items;
 };
 
@@ -104,11 +174,14 @@ const staticPageTitles: Record<string, string> = {
   '/profile': '个人资料',
   '/settings': '设置',
   '/privacy': '隐私政策',
-  '/learning-path': '个性教学',
+  '/learning-path': '个性化学习',
   '/certificate': '学习证明',
+  '/obe/teacher/objectives': '课程目标配置',
+  '/obe/teacher/cqi': '持续改进',
+  '/obe/admin': 'OBE 汇总',
 };
 
-const getRoleName = (role?: string) => {
+const getRoleName = (role?: string): string => {
   switch (role) {
     case 'ADMIN': return '管理员';
     case 'TEACHER': return '教师';
@@ -126,14 +199,22 @@ const getRoleBadgeVariant = (role?: string): 'default' | 'secondary' | 'outline'
   }
 };
 
-const getInitial = (name?: string) => {
+const getInitial = (name?: string): string => {
   if (!name) return 'U';
   return name.charAt(0).toUpperCase();
 };
 
-function NavItem({ item, pathname }: { item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }; pathname: string | null }) {
-  const isActive = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
+function NavItem({ item, activeHref }: { item: NavigationItem; activeHref: string | null }): React.JSX.Element {
+  const isActive = activeHref === item.href;
   const Icon = item.icon;
+  const linkRef = React.useRef<HTMLAnchorElement>(null);
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+
+  React.useEffect(() => {
+    if (isActive && (!isMobile || openMobile)) {
+      linkRef.current?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [isActive, isMobile, openMobile]);
 
   return (
     <SidebarMenuItem>
@@ -148,7 +229,15 @@ function NavItem({ item, pathname }: { item: { href: string; label: string; icon
         }
       >
         {/* 关闭 prefetch 避免 dev 环境频繁出现 _rsc 预取被中断（ERR_ABORTED） */}
-        <Link href={item.href} prefetch={false}>
+        <Link
+          ref={linkRef}
+          href={item.href}
+          prefetch={false}
+          aria-current={isActive ? 'page' : undefined}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false);
+          }}
+        >
           <Icon className={isActive ? 'text-primary' : ''} />
           <span>{item.label}</span>
         </Link>
@@ -157,43 +246,196 @@ function NavItem({ item, pathname }: { item: { href: string; label: string; icon
   );
 }
 
-function Header() {
+function MobileNavigationRouteSync({ pathname }: { pathname: string | null }): null {
+  const { isMobile, setOpenMobile } = useSidebar();
+  const previousPathnameRef = React.useRef(pathname);
+
+  React.useEffect(() => {
+    if (previousPathnameRef.current === pathname) return;
+    previousPathnameRef.current = pathname;
+    if (isMobile) setOpenMobile(false);
+  }, [isMobile, pathname, setOpenMobile]);
+
+  return null;
+}
+
+function MobileNavigationFocusManager({
+  triggerRef,
+}: {
+  triggerRef: React.RefObject<HTMLButtonElement>;
+}): null {
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+  const wasOpenRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isMobile && openMobile) {
+      setOpenMobile(false);
+      wasOpenRef.current = false;
+      return;
+    }
+    if (isMobile && wasOpenRef.current && !openMobile) {
+      triggerRef.current?.focus();
+    }
+    wasOpenRef.current = Boolean(isMobile && openMobile);
+  }, [isMobile, openMobile, setOpenMobile, triggerRef]);
+
+  return null;
+}
+
+function MobileSidebarCloseButton(): React.JSX.Element | null {
+  const { isMobile, setOpenMobile } = useSidebar();
+  if (!isMobile) return null;
+
+  return (
+    <button
+      type="button"
+      aria-label="关闭主导航菜单"
+      onClick={() => setOpenMobile(false)}
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <X className="h-5 w-5" />
+    </button>
+  );
+}
+
+function AccountMenuActions({ logout }: { logout: LogoutHandler }): React.JSX.Element {
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeMobileNavigation = (): void => {
+    if (isMobile) setOpenMobile(false);
+  };
+
+  return (
+    <>
+      <DropdownMenuItem asChild>
+        <Link href="/profile" onClick={closeMobileNavigation}>
+          <User className="mr-2 h-4 w-4" />
+          <span>个人资料</span>
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild>
+        <Link href="/settings" onClick={closeMobileNavigation}>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>设置</span>
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild>
+        <Link href="/privacy" onClick={closeMobileNavigation}>
+          <ShieldCheck className="mr-2 h-4 w-4" />
+          <span>隐私政策</span>
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={() => {
+          closeMobileNavigation();
+          void logout();
+        }}
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        <span>退出登录</span>
+      </DropdownMenuItem>
+    </>
+  );
+}
+
+function AccountMenuIdentity({ user }: { user: LayoutUser }): React.JSX.Element {
+  return (
+    <DropdownMenuLabel>
+      <div className="min-w-0">
+        <p className="truncate font-medium">{user.name}</p>
+        <p className="break-all text-xs text-muted-foreground">{user.email}</p>
+      </div>
+    </DropdownMenuLabel>
+  );
+}
+
+function SidebarAccountMenu({ user, logout }: { user: LayoutUser; logout: LogoutHandler }): React.JSX.Element {
+  const { isMobile } = useSidebar();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          aria-label={`打开账户菜单，当前角色${getRoleName(user.role)}`}
+          className="h-auto min-h-11 w-full justify-start gap-2.5 p-2 hover:bg-muted/60"
+        >
+          <Avatar className="h-9 w-9 shrink-0">
+            <AvatarImage src={user.avatar ?? undefined} alt={user.name} />
+            <AvatarFallback className="bg-primary/10 font-semibold text-primary ring-1 ring-primary/20">
+              {getInitial(user.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col items-start gap-0.5 group-data-[collapsible=icon]:hidden">
+            <span className="max-w-full truncate text-sm font-semibold">{user.name}</span>
+            <Badge variant={getRoleBadgeVariant(user.role)} className="h-4 px-1.5 py-0 text-[10px]">
+              {getRoleName(user.role)}
+            </Badge>
+          </div>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={isMobile ? 'top' : 'right'} align={isMobile ? 'start' : 'end'} className="w-52">
+        <AccountMenuIdentity user={user} />
+        <DropdownMenuSeparator />
+        <AccountMenuActions logout={logout} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function Header({
+  navigationTriggerRef,
+}: {
+  navigationTriggerRef: React.RefObject<HTMLButtonElement>;
+}): React.JSX.Element {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { isMobile, openMobile, state: sidebarState } = useSidebar();
 
   const menuItems = getAllMenuItems(user?.role);
   let currentPageTitle = '';
-  const currentPage = menuItems.find((item) => item.href === pathname);
+  const currentMenuPath = getMostSpecificRouteMatch(pathname, menuItems.map((item) => item.href));
+  const currentPage = menuItems.find((item) => item.href === currentMenuPath);
 
   if (currentPage) {
     currentPageTitle = currentPage.label;
   } else {
-    for (const path in staticPageTitles) {
-      if (pathname?.startsWith(path)) {
-        currentPageTitle = staticPageTitles[path];
-        break;
-      }
-    }
+    const titlePath = getMostSpecificRouteMatch(pathname, Object.keys(staticPageTitles));
+    if (titlePath) currentPageTitle = staticPageTitles[titlePath];
   }
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-white/[0.07] bg-background/[0.72] px-4 sticky top-0 z-30 shadow-[0_10px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-      <SidebarTrigger />
+    <header className="sticky top-0 z-30 flex h-14 min-w-0 items-center gap-3 border-b border-white/[0.07] bg-background/[0.72] px-4 shadow-[0_10px_30px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all">
+      <SidebarTrigger
+        ref={navigationTriggerRef}
+        aria-controls={PRIMARY_NAVIGATION_ID}
+        aria-expanded={isMobile ? openMobile : sidebarState === 'expanded'}
+        aria-haspopup={isMobile ? 'dialog' : undefined}
+        aria-label={isMobile
+          ? openMobile ? '关闭主导航菜单' : '打开主导航菜单'
+          : sidebarState === 'expanded' ? '收起侧边栏' : '展开侧边栏'}
+      />
       <Separator orientation="vertical" className="h-5" />
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <span>芯智育才</span>
+      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-muted-foreground">
+        <span className="shrink-0">芯智育才</span>
         {currentPageTitle && (
           <>
             <ChevronRight className="h-3.5 w-3.5" />
-            <span className="text-foreground font-medium">{currentPageTitle}</span>
+            <span className="truncate font-medium text-foreground">{currentPageTitle}</span>
           </>
         )}
       </div>
       <div className="flex-1" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`打开账户菜单，当前角色${getRoleName(user?.role)}`}
+            className="h-11 w-11 rounded-full"
+          >
             <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.avatar ?? undefined} alt={user?.name ?? ''} />
               <AvatarFallback className="text-xs bg-primary/10 text-primary">
                 {getInitial(user?.name)}
               </AvatarFallback>
@@ -201,42 +443,22 @@ function Header() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>
-            <div>
-              <p className="font-medium">{user?.name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
-            </div>
-          </DropdownMenuLabel>
+          {user && <AccountMenuIdentity user={user} />}
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/profile">
-              <User className="mr-2 h-4 w-4" />
-              <span>个人资料</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>设置</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>退出登录</span>
-          </DropdownMenuItem>
+          <AccountMenuActions logout={logout} />
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   const pathname = usePathname();
 
   const { user, loading, logout } = useAuth();
   const router = useRouter();
   const { currentAchievement, clearCurrent } = useAchievementNotifications();
+  const navigationTriggerRef = React.useRef<HTMLButtonElement>(null);
 
   useAchievementCheck();
 
@@ -244,16 +466,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   // but keeps the full app chrome once a user is signed in.
   const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
   const publicCoursePaths = ['/'];
-  const isPublicPath = publicPaths.includes(pathname || '');
-  const isPublicCoursePath = publicCoursePaths.includes(pathname || '');
+  const isPublicPath = publicPaths.includes(pathname ?? '');
+  const isPublicCoursePath = publicCoursePaths.includes(pathname ?? '');
   const renderPublicShell = isPublicPath || (isPublicCoursePath && !user);
 
   React.useEffect(() => {
     if (!loading && !user && !isPublicPath && !isPublicCoursePath) {
-      const from = pathname ? `?from=${encodeURIComponent(pathname)}` : '';
+      const requestedLocation = pathname
+        ? `${pathname}${window.location.search}${window.location.hash}`
+        : '';
+      const from = requestedLocation ? `?from=${encodeURIComponent(requestedLocation)}` : '';
       router.replace(`/login${from}`);
     }
   }, [isPublicCoursePath, isPublicPath, loading, pathname, router, user]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || window.location.hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
 
   if (renderPublicShell) {
     return <>{children}</>;
@@ -261,10 +491,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">加载中...</p>
+      <div className="edu-shell flex items-center justify-center min-h-screen">
+        <div className="text-center animate-fade-in">
+          <div className="chip-mark mx-auto flex h-14 w-14 items-center justify-center rounded-xl">
+            <Cpu className="h-6 w-6 text-primary animate-pulse" />
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">正在加载工作台...</p>
         </div>
       </div>
     );
@@ -272,8 +504,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#070a0d] text-slate-300">
-        <div className="text-center">
+      <div className="edu-shell flex min-h-screen items-center justify-center text-slate-300">
+        <div className="text-center animate-fade-in">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" />
           <p className="mt-4 text-sm">正在进入登录页...</p>
         </div>
@@ -282,31 +514,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const showAdmin = user.role === 'TEACHER' || user.role === 'ADMIN';
+  const visibleLearningItems = getVisibleLearningItems(user.role);
+  const visibleAnalysisItems = getVisibleAnalysisItems(user.role);
+  const visibleAdminItems = getVisibleAdminItems(user.role);
+  const visibleNavigationItems = [
+    { href: '/', label: '课程内容', icon: BookOpen },
+    ...visibleLearningItems,
+    ...visibleAnalysisItems,
+    ...visibleAdminItems,
+  ];
+  const activeHref = getMostSpecificRouteMatch(
+    pathname,
+    visibleNavigationItems.map((item) => item.href),
+  );
 
   return (
     <SidebarProvider>
+      <SkipToContentLink />
+      <MobileNavigationRouteSync pathname={pathname} />
+      <MobileNavigationFocusManager triggerRef={navigationTriggerRef} />
       <Sidebar className="sidebar-gradient border-r border-white/[0.07]">
         <SidebarHeader className="p-4">
-          <div className="flex items-center gap-2.5">
-            <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md">
-              <Cpu className="h-[18px] w-[18px] text-primary" />
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="chip-mark flex h-8 w-8 shrink-0 items-center justify-center rounded-md">
+                <Cpu className="h-[18px] w-[18px] text-primary" />
+              </div>
+              <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+                <span className="block truncate text-lg font-bold tracking-tight text-foreground">
+                  芯智育才
+                </span>
+                <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  8051 Lab
+                </span>
+              </div>
             </div>
-            <div className="group-data-[collapsible=icon]:hidden">
-              <span className="block text-lg font-bold tracking-tight text-foreground">
-                芯智育才
-              </span>
-              <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                8051 Lab
-              </span>
-            </div>
+            <MobileSidebarCloseButton />
           </div>
         </SidebarHeader>
 
-        <SidebarContent>
+        <SidebarContent id={PRIMARY_NAVIGATION_ID} role="navigation" aria-label="主导航">
           {/* Home */}
           <SidebarGroup>
             <SidebarMenu>
-              <NavItem item={{ href: '/', label: '课程内容', icon: BookOpen }} pathname={pathname} />
+              <NavItem item={{ href: '/', label: '课程内容', icon: BookOpen }} activeHref={activeHref} />
             </SidebarMenu>
           </SidebarGroup>
 
@@ -314,11 +565,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Learning group */}
           <SidebarGroup>
-            <SidebarGroupLabel>学习</SidebarGroupLabel>
+            <SidebarGroupLabel>{showAdmin ? '教学资源' : '学习'}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {learningItems.map((item) => (
-                  <NavItem key={item.href} item={item} pathname={pathname} />
+                {visibleLearningItems.map((item) => (
+                  <NavItem key={item.href} item={item} activeHref={activeHref} />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -328,11 +579,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Analysis group */}
           <SidebarGroup>
-            <SidebarGroupLabel>分析</SidebarGroupLabel>
+            <SidebarGroupLabel>{showAdmin ? '教学分析' : '分析'}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {analysisItems.map((item) => (
-                  <NavItem key={item.href} item={item} pathname={pathname} />
+                {visibleAnalysisItems.map((item) => (
+                  <NavItem key={item.href} item={item} activeHref={activeHref} />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -346,16 +597,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarGroupLabel>管理</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {adminItems
-                      .filter((item) => {
-                        // System admin + user management only for ADMIN role
-                        if (item.href === '/admin' || item.href === '/admin/users') return user.role === 'ADMIN';
-                        // Teacher dashboard for TEACHER/ADMIN
-                        return true;
-                      })
-                      .map((item) => (
-                        <NavItem key={item.href} item={item} pathname={pathname} />
-                      ))}
+                    {visibleAdminItems.map((item) => (
+                      <NavItem key={item.href} item={item} activeHref={activeHref} />
+                    ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
@@ -373,61 +617,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2.5 p-2 h-auto hover:bg-muted/60">
-                  <Avatar className="h-9 w-9 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold ring-1 ring-primary/20">
-                      {getInitial(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start gap-0.5 group-data-[collapsible=icon]:hidden min-w-0">
-                    <span className="font-semibold text-sm truncate max-w-full">{user.name}</span>
-                    <Badge variant={getRoleBadgeVariant(user.role)} className="text-[10px] px-1.5 py-0 h-4">
-                      {getRoleName(user.role)}
-                    </Badge>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="end" className="w-52">
-                <DropdownMenuLabel>
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>个人资料</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>设置</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/privacy">
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    <span>隐私政策</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>退出登录</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <SidebarAccountMenu user={user} logout={logout} />
           )}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="edu-shell">
-        <Header />
-        <main className="flex-1 p-6">{children}</main>
+        <Header navigationTriggerRef={navigationTriggerRef} />
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6">{children}</main>
       </SidebarInset>
 
       {/* Achievement Notifications */}

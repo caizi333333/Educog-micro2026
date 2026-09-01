@@ -7,6 +7,7 @@ import { type ExecutionTraceEntry } from '@/lib/simulator';
 
 interface ExecutionTraceProps {
   traceLog: ExecutionTraceEntry[];
+  totalExecuted?: number;
   className?: string;
 }
 
@@ -79,7 +80,7 @@ function TraceEntry({ entry }: { entry: ExecutionTraceEntry }) {
   );
 }
 
-const ExecutionTrace: React.FC<ExecutionTraceProps> = ({ traceLog }) => {
+const ExecutionTrace: React.FC<ExecutionTraceProps> = ({ traceLog, totalExecuted = traceLog.length }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,7 +96,7 @@ const ExecutionTrace: React.FC<ExecutionTraceProps> = ({ traceLog }) => {
           </svg>
         </div>
         <p className="text-xs font-medium">等待执行追踪</p>
-        <p className="text-[10px] mt-1 text-[#45475a]">单步执行后查看指令追踪记录</p>
+        <p className="text-[10px] mt-1 text-[#45475a]">运行或单步后查看指令追踪记录</p>
       </div>
     );
   }
@@ -109,7 +110,7 @@ const ExecutionTrace: React.FC<ExecutionTraceProps> = ({ traceLog }) => {
             执行追踪
           </span>
           <span className="text-[9px] text-[#45475a] font-mono">
-            {traceLog.length} 步
+            {traceLog.length} 条记录 · {totalExecuted} 条指令
           </span>
         </div>
 

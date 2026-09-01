@@ -1,11 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getStoredAccessToken } from '@/lib/auth-storage';
+import {
+  classifyAnswerSource,
+  renderSafeAnswerContent,
+  type AnswerSourceType,
+} from '@/components/ai-assistant/IntelligentQA';
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,11 +19,23 @@ import {
   Bug,
   Wrench,
   Sparkles,
-  Loader2
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface DiagnosticResult {
+const AI_EXPLANATION_TIMEOUT_MS = 20_000;
+
+type ActiveExplanationRequest = {
+  controller: AbortController;
+  timeoutId: ReturnType<typeof setTimeout>;
+  version: number;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export interface DiagnosticResult {
   id: string;
   severity: 'error' | 'warning' | 'info';
   line: number; // 1-based；0 表示整体性提示
@@ -84,13 +102,13 @@ function isLabelReference(op: string): boolean {
 }
 
 // 疑似 C 代码特征
-function looksLikeCCode(code: string): boolean {
+export function looksLikeCCode(code: string): boolean {
   return /#include|void\s+main|sbit\s+\w+|unsigned\s+(char|int)|while\s*\(|for\s*\([^)]*;|printf\s*\(|\w+\s*\([^)]*\)\s*\{/.test(code)
     || (code.includes('{') && code.includes('}'));
 }
 
 // 对输入逐行做真实的静态检查，返回带真实行号的诊断结果
-function runStaticCheck(code: string): DiagnosticResult[] {
+export function runStaticCheck(code: string): DiagnosticResult[] {
   const results: DiagnosticResult[] = [];
   const lines = code.split('\n');
   const labels = new Set<string>();
@@ -264,14 +282,38 @@ const ErrorDiagnostic: React.FC = () => {
   const [hasRun, setHasRun] = useState(false);
   const [isCCode, setIsCCode] = useState(false);
   const [aiExplanation, setAiExplanation] = useState('');
+  const [aiExplanationSource, setAiExplanationSource] = useState<AnswerSourceType>('生成解释');
   const [aiLoading, setAiLoading] = useState(false);
+  const activeExplanationRef = useRef<ActiveExplanationRequest | null>(null);
+  const explanationVersionRef = useRef(0);
+
+  const invalidateExplanation = useCallback((reason: 'code-changed' | 'rerun' | 'cancelled' | 'unmounted'): void => {
+    explanationVersionRef.current += 1;
+    const activeRequest = activeExplanationRef.current;
+    if (activeRequest) {
+      clearTimeout(activeRequest.timeoutId);
+      activeRequest.controller.abort(reason);
+      activeExplanationRef.current = null;
+    }
+    if (reason !== 'unmounted') setAiLoading(false);
+  }, []);
+
+  const handleCodeChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    invalidateExplanation('code-changed');
+    setCode(event.target.value);
+    setDiagnostics([]);
+    setHasRun(false);
+    setIsCCode(false);
+    setAiExplanation('');
+  }, [invalidateExplanation]);
 
   // 真实静态检查：本地逐行分析，行号与输入一一对应
-  const runDiagnostic = () => {
+  const runDiagnostic = (): void => {
     if (!code.trim()) {
       toast.error('请输入要诊断的代码');
       return;
     }
+    invalidateExplanation('rerun');
     setAiExplanation('');
     if (looksLikeCCode(code)) {
       setIsCCode(true);
@@ -287,35 +329,72 @@ const ErrorDiagnostic: React.FC = () => {
   };
 
   // DeepSeek 叠加解释：走既有 /api/ai/chat 通道，失败不影响静态结果
-  const explainWithAI = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const explainWithAI = async (): Promise<void> => {
+    const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
     if (!token) {
       toast.error('请先登录后再使用 AI 解释');
       return;
     }
+    if (activeExplanationRef.current) return;
+    const requestVersion = ++explanationVersionRef.current;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      if (activeExplanationRef.current?.version === requestVersion) {
+        controller.abort('timeout');
+      }
+    }, AI_EXPLANATION_TIMEOUT_MS);
+    activeExplanationRef.current = { controller, timeoutId, version: requestVersion };
+    const codeSnapshot = code;
+    const diagnosticsSnapshot = diagnostics;
     setAiLoading(true);
     try {
-      const issueLines = diagnostics
+      const issueLines = diagnosticsSnapshot
         .map(d => `- ${d.line > 0 ? `第${d.line}行：` : ''}${d.message}`)
         .join('\n');
-      const question = `请针对下面的8051汇编代码和静态检查结果，用中文简要解释每个问题的原因，并给出修改建议（不要代写完整程序）：\n\n代码：\n${code.slice(0, 2000)}\n\n静态检查结果：\n${issueLines || '- 未发现语法问题，请从逻辑角度给出改进建议'}`;
+      const question = `请针对下面的8051汇编代码和静态检查结果，用中文简要解释每个问题的原因，并给出修改建议（不要代写完整程序）：\n\n代码：\n${codeSnapshot.slice(0, 2000)}\n\n静态检查结果：\n${issueLines || '- 未发现语法问题，请从逻辑角度给出改进建议'}`;
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const answer = json?.data?.answer;
+      const json: unknown = await res.json();
+      const data = isRecord(json) && isRecord(json.data) ? json.data : null;
+      const answer = data && typeof data.answer === 'string'
+        ? data.answer.trim()
+        : '';
       if (!answer) throw new Error('empty answer');
+      if (requestVersion !== explanationVersionRef.current || controller.signal.aborted) return;
+      setAiExplanationSource(classifyAnswerSource(data, answer));
       setAiExplanation(answer);
     } catch (err) {
+      if (requestVersion !== explanationVersionRef.current) return;
+      if (controller.signal.aborted && controller.signal.reason === 'timeout') {
+        toast.error('AI 解释请求超时，请重试（静态检查结果不受影响）');
+        return;
+      }
+      if (controller.signal.aborted) return;
       console.warn('AI explanation failed:', err);
       toast.error('AI 解释暂不可用，请稍后重试（静态检查结果不受影响）');
     } finally {
-      setAiLoading(false);
+      if (requestVersion === explanationVersionRef.current) {
+        clearTimeout(timeoutId);
+        if (activeExplanationRef.current?.version === requestVersion) activeExplanationRef.current = null;
+        setAiLoading(false);
+      }
     }
   };
+
+  const cancelExplanation = useCallback((): void => {
+    if (!activeExplanationRef.current) return;
+    invalidateExplanation('cancelled');
+    toast.info('已取消本次 AI 解释');
+  }, [invalidateExplanation]);
+
+  useEffect(() => () => {
+    invalidateExplanation('unmounted');
+  }, [invalidateExplanation]);
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -338,7 +417,7 @@ const ErrorDiagnostic: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-slate-50">汇编错误诊断</h1>
+        <h2 className="text-3xl font-bold text-slate-50">汇编错误诊断</h2>
         <p className="text-slate-400">对 8051 汇编代码逐行静态检查，可叠加 AI 解释帮助理解错误原因</p>
       </div>
 
@@ -369,9 +448,10 @@ D1: MOV R6, #250
 D2: DJNZ R6, D2
     DJNZ R7, D1
     RET
-END`}
+            END`}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={handleCodeChange}
+            aria-label="8051 汇编代码"
             className="min-h-[300px] font-mono text-sm"
           />
           <div className="flex gap-4">
@@ -381,15 +461,14 @@ END`}
             </Button>
             {hasRun && !isCCode && (
               <Button
-                onClick={explainWithAI}
-                disabled={aiLoading}
+                onClick={aiLoading ? cancelExplanation : explainWithAI}
                 variant="outline"
                 className="flex-1"
               >
                 {aiLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    AI 分析中...
+                    <X className="mr-2 h-4 w-4" />
+                    取消 AI 分析
                   </>
                 ) : (
                   <>
@@ -474,11 +553,24 @@ END`}
               <Sparkles className="h-5 w-5 text-cyan-300" />
               AI 解释
             </CardTitle>
-            <CardDescription>由 DeepSeek 结合课程知识库生成，仅供理解参考</CardDescription>
+            <CardDescription className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span>回答来源</span>
+                <Badge variant="outline" className="border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-100">{aiExplanationSource}</Badge>
+              </div>
+              <p>
+                {aiExplanationSource === '本地回退'
+                  ? '服务端返回固定回退内容，未形成针对当前代码的生成式诊断；请以本地静态结果为准。'
+                  : aiExplanationSource === '课程检索'
+                    ? '内容显式引用课程检索节点，仍需结合当前代码和静态结果复核。'
+                    : '由服务端生成，用于解释本地静态诊断；请结合当前代码复核。'}
+                不改变静态诊断结果、测验得分、实验完成状态或教师评价。
+              </p>
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-              {aiExplanation}
+            <div className="space-y-2 text-sm leading-relaxed text-slate-200">
+              {renderSafeAnswerContent(aiExplanation)}
             </div>
           </CardContent>
         </Card>

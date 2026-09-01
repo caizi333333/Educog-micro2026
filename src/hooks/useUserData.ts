@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useUserStore } from '@/stores/useUserStore';
 import apiClient from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,7 +26,7 @@ export function useUserData() {
     },
   });
 
-  const fetchUserData = async (force = false) => {
+  const fetchUserData = useCallback(async (force = false) => {
     if (!user) {
       clearUserData();
       setLastFetchTime(null);
@@ -80,7 +80,7 @@ export function useUserData() {
       // Error is already handled by useApiCall
       console.error('User data fetch failed:', err);
     }
-  };
+  }, [clearUserData, execute, setUserAchievements, setUserStats, shouldRefetch, user]);
 
   useEffect(() => {
     if (user) {
@@ -88,7 +88,7 @@ export function useUserData() {
     } else {
       clearUserData();
     }
-  }, [user]);
+  }, [clearUserData, fetchUserData, user]);
 
   return {
     userStats,

@@ -345,12 +345,10 @@ post_deploy_setup() {
     echo "- [ ] 测试登录功能"
     echo "- [ ] 检查所有页面是否正常加载"
     echo ""
-    echo "默认账号:"
-    echo "管理员: admin / admin123456"
-    echo "教师: teacher / teacher123456"
-    echo "学生: student / student123456"
+    echo "初始化账号: admin / teacher / student"
+    echo "密码使用部署时配置的 INIT_*_PASSWORD 环境变量"
     echo ""
-    echo "⚠️  重要: 请立即修改默认密码！"
+    echo "⚠️  重要: 首次登录后请轮换初始化密码并停用初始化入口。"
 }
 
 # 主函数

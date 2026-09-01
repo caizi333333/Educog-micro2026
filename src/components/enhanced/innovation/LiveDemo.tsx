@@ -15,7 +15,7 @@ import {
   CheckCircle,
   AlertCircle,
   Brain,
-  Image,
+  Image as ImageIcon,
   Upload,
   Sparkles,
   Cpu,
@@ -57,7 +57,7 @@ const demoTypes: DemoType[] = [
     id: 'image-recognition',
     title: '电路图识别',
     description: '上传电路图，AI识别并生成对应代码',
-    icon: <Image className="w-5 h-5" />,
+    icon: <ImageIcon className="w-5 h-5" />,
     category: 'image-recognition'
   }
 ];

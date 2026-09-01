@@ -1,24 +1,21 @@
 /**
- * @fileoverview This file initializes the Genkit AI instance.
+ * @fileoverview Legacy DeepSeek generation helper.
+ *
+ * The application AI routes use SimpleAiClient directly. This helper is kept
+ * for compatibility with local callers and deliberately has no embedded key.
  */
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
+import { DeepSeekClient, type DeepSeekResponse } from './deepseek-client';
 
-// Initialize Genkit with minimal configuration to avoid dependency issues
-export const ai = genkit({
-  plugins: [
-    // Only include googleAI if API key is available
-    ...(process.env.GOOGLE_GENAI_API_KEY ? [googleAI({
-      apiKey: process.env.GOOGLE_GENAI_API_KEY,
-    })] : []),
-  ],
-});
+export async function generateWithDeepSeek(
+  prompt: string,
+  model: 'chat' | 'coder' = 'chat'
+): Promise<{ text: string; usage: DeepSeekResponse['usage'] }> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error('DEEPSEEK_API_KEY is not configured');
+  }
 
-// Export a custom generate function that can use DeepSeek
-import { DeepSeekClient } from './deepseek-client';
-
-export async function generateWithDeepSeek(prompt: string, model: 'chat' | 'coder' = 'chat') {
-  const client = new DeepSeekClient(process.env.DEEPSEEK_API_KEY || 'sk-660f4af29d0049188eae9c8177c90fc2');
+  const client = new DeepSeekClient(apiKey);
   const modelName = model === 'coder' ? 'deepseek-coder' : 'deepseek-chat';
   
   const response = await client.chat([
@@ -26,7 +23,7 @@ export async function generateWithDeepSeek(prompt: string, model: 'chat' | 'code
   ], modelName);
   
   return {
-    text: response.choices[0]?.message?.content || '',
+    text: response.choices[0]?.message?.content ?? '',
     usage: response.usage
   };
 }

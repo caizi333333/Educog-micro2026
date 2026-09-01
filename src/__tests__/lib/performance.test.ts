@@ -21,18 +21,20 @@ describe('性能监控系统', () => {
     });
 
     it('应该正确启动和结束计时器', () => {
-      const timerId = monitor.startTimer('test-operation');
-      expect(typeof timerId).toBe('string');
-      expect(timerId.length).toBeGreaterThan(0);
+      const now = jest.spyOn(performance, 'now')
+        .mockReturnValueOnce(100)
+        .mockReturnValueOnce(108);
+      try {
+        const timerId = monitor.startTimer('test-operation');
+        expect(typeof timerId).toBe('string');
+        expect(timerId.length).toBeGreaterThan(0);
 
-      // 模拟一些延迟
-      const startTime = Date.now();
-      const duration = monitor.endTimer(timerId);
-      const endTime = Date.now();
+        const duration = monitor.endTimer(timerId);
 
-      expect(typeof duration).toBe('number');
-      expect(duration).toBeGreaterThanOrEqual(0);
-      expect(duration).toBeLessThanOrEqual(endTime - startTime + 10); // 允许10ms误差
+        expect(duration).toBe(8);
+      } finally {
+        now.mockRestore();
+      }
     });
 
     it('应该处理无效的计时器ID', () => {

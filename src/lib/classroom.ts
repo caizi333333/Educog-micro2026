@@ -11,6 +11,7 @@ const METADATA_ALLOWED_KEYS = new Set([
   'component',
   'completionDetails',
   'contentType',
+  'experimentId',
   'interactions',
   'page',
   'resultSummary',
@@ -19,8 +20,19 @@ const METADATA_ALLOWED_KEYS = new Set([
   'screenResolution',
   'source',
   'userAgent',
+  'vote',
   'weakAreas',
   'scoresByKA',
+  'topicId',
+  'assessmentMode',
+  'confirmedNoWeakNodes',
+  'pathId',
+  'reviewedWeakAreas',
+  'requestId',
+  'rootNodeId',
+  'stepId',
+  'visitedModes',
+  'visitedNodeIds',
 ]);
 
 export type LearningEventInput = {
@@ -122,7 +134,11 @@ export function normalizeLearningEventInput(input: LearningEventInput, fallbackT
   };
 }
 
-export async function getActiveClassIdForUser(userId: string, preferredClassId?: string | null, tx: any = prisma) {
+export async function getActiveClassIdForUser(
+  userId: string,
+  preferredClassId?: string | null,
+  tx: any = prisma
+): Promise<string | null> {
   if (preferredClassId) {
     const enrollment = await tx.classEnrollment.findFirst({
       where: {
@@ -185,4 +201,23 @@ export async function getAccessibleClassIds(payload: JWTPayload) {
     select: { classId: true },
   });
   return classes.map((item: { classId: string }) => item.classId);
+}
+
+export async function canAccessStudentData(payload: JWTPayload, targetUserId: string) {
+  if (targetUserId === payload.userId || payload.role === 'ADMIN') return true;
+  if (payload.role !== 'TEACHER') return false;
+
+  const classIds = await getAccessibleClassIds(payload);
+  if (classIds.length === 0) return false;
+  const enrollment = await prisma.classEnrollment.findFirst({
+    where: {
+      userId: targetUserId,
+      classId: { in: classIds },
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      user: { role: 'STUDENT', status: 'ACTIVE' },
+    },
+    select: { id: true },
+  });
+  return Boolean(enrollment);
 }

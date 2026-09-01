@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 import { Clock, CheckCircle, Save, BookOpen, ClipboardCheck, PenTool, Bookmark, AlertCircle, StickyNote, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getMissingRequirements } from '@/lib/learning-completion';
@@ -24,6 +25,11 @@ interface LearningModuleWithProgressProps {
   onNotesClick?: () => void;
 }
 
+const CLIENT_METADATA = {
+  userAgent: 'SSR',
+  screenResolution: 'Unknown',
+};
+
 export function LearningModuleWithProgress({
   moduleId,
   chapterId,
@@ -41,18 +47,12 @@ export function LearningModuleWithProgress({
   const [hasNotes, setHasNotes] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   
-  // Use consistent metadata values for SSR and client
-  const clientMetadata = {
-    userAgent: 'SSR',
-    screenResolution: 'Unknown',
-  };
-
   // Memoize the options to prevent unnecessary re-renders
   const trackingOptions = useMemo(() => ({
     moduleId,
     chapterId,
     pathId,
-    metadata: clientMetadata,
+    metadata: CLIENT_METADATA,
     autoSaveInterval: 300000, // Save every 5 minutes
     minReadingTime: 30000, // Minimum 30 seconds to count as reading
     totalExercises,
@@ -88,7 +88,7 @@ export function LearningModuleWithProgress({
     if (typeof window === 'undefined') return;
     if (hasHydratedFromServerRef.current) return;
 
-    const token = localStorage.getItem('accessToken');
+    const token = getStoredAccessToken();
     if (!token) return;
 
     hasHydratedFromServerRef.current = true;

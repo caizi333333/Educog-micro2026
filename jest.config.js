@@ -11,8 +11,13 @@ module.exports = {
   ],
   testPathIgnorePatterns: [
     '<rootDir>/src/__tests__/utils/',
-    '<rootDir>/src/__tests__/setup/'
+    '<rootDir>/src/__tests__/setup/',
+    '<rootDir>/ccpm-demo/',
+    '<rootDir>/.next/',
+    '<rootDir>/.claude/worktrees/'
   ],
+  modulePathIgnorePatterns: ['<rootDir>/ccpm-demo/', '<rootDir>/.next/', '<rootDir>/.claude/worktrees/'],
+  watchPathIgnorePatterns: ['<rootDir>/ccpm-demo/', '<rootDir>/.next/', '<rootDir>/.claude/worktrees/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^lucide-react$': '<rootDir>/src/__tests__/mocks/lucide-react.js',

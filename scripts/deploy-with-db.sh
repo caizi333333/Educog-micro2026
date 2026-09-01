@@ -9,6 +9,10 @@ if [ ! -f .env.production.local ]; then
   echo "  DATABASE_URL=your-database-url"
   echo "  JWT_SECRET=your-jwt-secret"
   echo "  NEXTAUTH_SECRET=your-nextauth-secret"
+  echo "  INIT_SECRET=your-strong-init-secret"
+  echo "  INIT_ADMIN_PASSWORD=your-strong-admin-password"
+  echo "  INIT_TEACHER_PASSWORD=your-strong-teacher-password"
+  echo "  INIT_STUDENT_PASSWORD=your-strong-student-password"
   exit 1
 fi
 
@@ -45,9 +49,6 @@ echo "📌 部署 URL: https://$DEPLOYMENT_URL"
 echo ""
 echo "下一步："
 echo "1. 初始化数据库（如果是首次部署）："
-echo "   curl 'https://$DEPLOYMENT_URL/api/init?secret=init-educog-2024'"
+echo "   curl -X POST -H 'x-init-secret: <INIT_SECRET>' 'https://$DEPLOYMENT_URL/api/init'"
 echo ""
-echo "2. 访问网站并使用默认账号登录："
-echo "   管理员: admin / admin123456"
-echo "   教师: teacher / teacher123456"
-echo "   学生: student / student123456"
+echo "2. 使用环境变量 INIT_*_PASSWORD 中配置的密码登录。"

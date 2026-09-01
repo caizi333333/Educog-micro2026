@@ -162,7 +162,7 @@ openssl rand -hex 32
          data: {
            email: 'admin@educog.com',
            username: 'admin',
-           password: '$2a$10$...', // bcrypt hash of 'admin123456'
+           password: '<由 INIT_ADMIN_PASSWORD 生成的 bcrypt 哈希>',
            role: 'ADMIN'
          }
        });
@@ -204,9 +204,7 @@ openssl rand -hex 32
 
 2. **测试登录**
    - 点击 "登录"
-   - 使用默认账号：
-     - 用户名：`admin`
-     - 密码：`admin123456`
+   - 使用初始化账号：用户名 `admin`，密码取自部署环境中的 `INIT_ADMIN_PASSWORD`
 
 3. **检查功能**
    - [ ] 登录功能正常

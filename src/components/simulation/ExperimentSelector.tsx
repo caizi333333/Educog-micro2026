@@ -9,6 +9,9 @@ import {
   Target,
   Search,
   FlaskConical,
+  AlertTriangle,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type ExperimentConfig } from '@/lib/experiment-config';
@@ -21,6 +24,9 @@ interface ExperimentSelectorProps {
   selectedDifficulty: string;
   onDifficultyChange: (difficulty: string) => void;
   experimentStatus: Record<string, any>;
+  isLoadingStatus: boolean;
+  statusError: string | null;
+  onRetryStatus: () => void;
   className?: string;
 }
 
@@ -36,6 +42,24 @@ const difficultyLabel: Record<string, { label: string; dot: string; badge: strin
   advanced:     { label: '高级', dot: 'bg-red-400',     badge: 'text-red-400 bg-red-400/10 border-red-400/20' },
 };
 
+export function calculateExperimentProgress(
+  experiments: Pick<ExperimentConfig, 'id'>[],
+  experimentStatus: Record<string, unknown>,
+): { completedCount: number; totalCount: number; progressPct: number } {
+  const experimentIds = [...new Set(experiments.map((experiment) => experiment.id))];
+  const completedCount = experimentIds.filter((experimentId) => {
+    const status = experimentStatus[experimentId];
+    return status === 'COMPLETED'
+      || (typeof status === 'object' && status !== null && (status as { completed?: unknown }).completed === true);
+  }).length;
+  const totalCount = experimentIds.length;
+  const progressPct = totalCount > 0
+    ? Math.min(100, Math.max(0, Math.round((completedCount / totalCount) * 100)))
+    : 0;
+
+  return { completedCount, totalCount, progressPct };
+}
+
 const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
   experiments,
   selectedExperiment,
@@ -44,6 +68,9 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
   selectedDifficulty,
   onDifficultyChange,
   experimentStatus,
+  isLoadingStatus,
+  statusError,
+  onRetryStatus,
 }) => {
   const [openCategories, setOpenCategories] = React.useState<Record<string, boolean>>({});
   const [search, setSearch] = React.useState('');
@@ -60,9 +87,7 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
     return acc;
   }, {} as Record<string, ExperimentConfig[]>);
 
-  const completedCount = Object.values(experimentStatus).filter((s: any) => s === 'COMPLETED' || s?.completed).length;
-  const totalCount = experiments.length;
-  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const { completedCount, totalCount, progressPct } = calculateExperimentProgress(experiments, experimentStatus);
 
   return (
     <div className="h-full flex flex-col">
@@ -73,31 +98,55 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
             <FlaskConical className="w-3.5 h-3.5 text-[#89b4fa]" />
             <span className="text-xs font-semibold text-[#cdd6f4]">实验列表</span>
           </div>
-          <span className="text-[10px] text-[#6c7086] font-mono">{completedCount}/{totalCount}</span>
+          {isLoadingStatus ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-[#6c7086]" role="status">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              核对中
+            </span>
+          ) : (
+            <span className="text-[10px] text-[#6c7086] font-mono">
+              {statusError ? '完成记录 —' : `已完成 ${completedCount}/${totalCount}`}
+            </span>
+          )}
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 bg-[#313244] rounded-full mb-2.5 overflow-hidden">
+        <div className="h-1 bg-[#313244] rounded-full mb-2.5 overflow-hidden" aria-hidden="true">
           <div
             className="h-full bg-gradient-to-r from-[#89b4fa] to-[#74c7ec] rounded-full transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
+            style={{ width: `${statusError ? 0 : progressPct}%` }}
           />
         </div>
 
+        {statusError && !isLoadingStatus && (
+          <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-2 text-[10px] leading-4 text-amber-100" role="alert">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span className="min-w-0 flex-1">{statusError}</span>
+            <button
+              type="button"
+              onClick={onRetryStatus}
+              aria-label="重新加载实验完成记录"
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-amber-100 hover:bg-amber-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative mb-2">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#585b70]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-[#585b70]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索实验..."
-            className="w-full h-7 pl-7 pr-2 text-xs rounded-md bg-[#181825] border border-[#313244] text-[#cdd6f4] focus:outline-none focus:border-[#89b4fa]/50 focus:ring-1 focus:ring-[#89b4fa]/20 placeholder:text-[#45475a] transition-all"
+            className="h-11 w-full rounded-md border border-[#313244] bg-[#181825] pl-8 pr-2 text-xs text-[#cdd6f4] transition-all placeholder:text-[#45475a] focus:border-[#89b4fa]/50 focus:outline-none focus:ring-1 focus:ring-[#89b4fa]/20"
           />
         </div>
 
         {/* Difficulty filter chips */}
-        <div className="flex gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {[
             { value: 'all', label: '全部' },
             { value: 'beginner', label: '基础' },
@@ -105,10 +154,11 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
             { value: 'advanced', label: '高级' },
           ].map((d) => (
             <button
+              type="button"
               key={d.value}
               onClick={() => onDifficultyChange(d.value)}
               className={cn(
-                "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border",
+                "inline-flex min-h-11 items-center justify-center rounded-md border px-1 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89b4fa]/60",
                 selectedDifficulty === d.value
                   ? "bg-[#89b4fa]/15 text-[#89b4fa] border-[#89b4fa]/30"
                   : "bg-[#313244]/40 text-[#6c7086] border-transparent hover:bg-[#313244]/70 hover:text-[#a6adc8]"
@@ -131,7 +181,7 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
                 setOpenCategories((prev) => ({ ...prev, [category]: !(prev[category] ?? true) }))
               }
             >
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 rounded-md hover:bg-[#313244]/30 transition-colors group">
+              <CollapsibleTrigger className="group flex min-h-11 w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[#313244]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89b4fa]/60">
                 <div className="flex items-center gap-2">
                   <ChevronDown
                     className={cn(
@@ -151,30 +201,45 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
                   const isSelected = selectedExperiment === exp.id;
                   const status = experimentStatus[exp.id];
                   const isCompleted = status === 'COMPLETED';
+                  const isInProgress = status === 'IN_PROGRESS';
+                  const isAssigned = status === 'ASSIGNED' || status === 'NOT_STARTED';
                   const diff = difficultyLabel[exp.difficulty] || difficultyLabel.basic;
 
                   return (
                     <div
                       key={exp.id}
-                      onClick={() => onExperimentSelect(exp.id)}
                       className={cn(
-                        "group/item flex flex-col gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150",
+                        "group/item flex min-h-11 flex-col gap-1.5 rounded-lg px-2.5 py-2 transition-all duration-150 glass-hover",
                         isSelected
                           ? "bg-[#89b4fa]/8 ring-1 ring-[#89b4fa]/20"
                           : "hover:bg-[#313244]/40"
                       )}
                     >
                       <div className="flex items-start justify-between gap-1">
-                        <span
+                        <button
+                          type="button"
+                          onClick={() => onExperimentSelect(exp.id)}
+                          aria-pressed={isSelected}
+                          aria-label={`选择${exp.title}`}
                           className={cn(
-                            "text-xs font-medium leading-tight flex-1",
+                            "min-h-11 flex-1 rounded text-left text-xs font-medium leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89b4fa]/60",
                             isSelected ? "text-[#89b4fa]" : "text-[#cdd6f4]"
                           )}
                         >
                           {exp.title}
-                        </span>
+                        </button>
                         {isCompleted && (
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        )}
+                        {isInProgress && (
+                          <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-1.5 py-0.5 text-[9px] text-amber-200">
+                            进行中
+                          </span>
+                        )}
+                        {isAssigned && (
+                          <span className="shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-1.5 py-0.5 text-[9px] text-cyan-200">
+                            待开始
+                          </span>
                         )}
                       </div>
 
@@ -198,15 +263,16 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
                         </div>
 
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             onLoadExperiment(exp.id);
                           }}
                           className={cn(
-                            "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                            "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 py-1 text-[10px] font-medium opacity-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89b4fa]/60 xl:opacity-0 xl:group-hover/item:opacity-100 xl:group-focus-within/item:opacity-100",
                             isSelected
                               ? "bg-[#89b4fa] text-[#1e1e2e] hover:bg-[#89b4fa]/90"
-                              : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a] opacity-0 group-hover/item:opacity-100"
+                              : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a]"
                           )}
                         >
                           <Play className="w-2.5 h-2.5" />

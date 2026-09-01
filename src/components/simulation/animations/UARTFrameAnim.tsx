@@ -4,22 +4,22 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const DATA_BYTE = 0x41; // 'A' = 01000001
+const BITS = [
+  { label: '起始', value: 0, type: 'start' as const },
+  ...Array.from({ length: 8 }, (_, i) => ({
+    label: `D${i}`,
+    value: (DATA_BYTE >> i) & 1,
+    type: 'data' as const,
+  })),
+  { label: '停止', value: 1, type: 'stop' as const },
+];
+
 /**
  * UART 串口数据帧交互动画
  * 展示一个完整数据帧的发送过程: 起始位→8位数据→停止位
  */
 export default function UARTFrameAnim() {
-  const DATA_BYTE = 0x41; // 'A' = 01000001
-  const BITS = [
-    { label: '起始', value: 0, type: 'start' as const },
-    ...Array.from({ length: 8 }, (_, i) => ({
-      label: `D${i}`,
-      value: (DATA_BYTE >> i) & 1,
-      type: 'data' as const,
-    })),
-    { label: '停止', value: 1, type: 'stop' as const },
-  ];
-
   const [activeIdx, setActiveIdx] = useState(-1);
   const [playing, setPlaying] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,7 +29,7 @@ export default function UARTFrameAnim() {
       if (prev >= BITS.length - 1) { setPlaying(false); return prev; }
       return prev + 1;
     });
-  }, [BITS.length]);
+  }, []);
 
   useEffect(() => {
     if (!playing) return;
@@ -102,7 +102,7 @@ export default function UARTFrameAnim() {
     ctx.strokeStyle = activeIdx >= BITS.length - 1 ? '#585b70' : '#45475a';
     ctx.stroke();
 
-  }, [activeIdx, BITS]);
+  }, [activeIdx]);
 
   const reset = () => { setActiveIdx(-1); setPlaying(false); };
   const start = () => {

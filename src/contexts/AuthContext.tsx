@@ -2,7 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
+import {
+  clearStoredAuth,
+  getStoredAccessToken,
+  getStoredAuthMode,
+  getStoredUser,
+  storeAuth,
+} from '@/lib/auth-storage';
+import {
+  CLIENT_READ_TIMEOUT_MS,
+  CLIENT_WRITE_TIMEOUT_MS,
+  fetchClientRequest,
+} from '@/lib/client-fetch';
 
 interface User {
   id: string;
@@ -10,6 +21,7 @@ interface User {
   username: string;
   name: string;
   role: 'ADMIN' | 'TEACHER' | 'STUDENT' | 'GUEST';
+  avatar?: string;
   studentId?: string;
   teacherId?: string;
   class?: string;
@@ -23,25 +35,19 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (emailOrUsername: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getCookieValue(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const prefix = `${name}=`;
-  const cookie = document.cookie.split('; ').find((item) => item.startsWith(prefix));
-  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+function clearAuthState() {
+  clearStoredAuth();
 }
 
-function clearStoredAuth() {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('user');
-  const secureAttr = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `accessToken=; path=/; max-age=0; SameSite=Lax${secureAttr}`;
+function isDefinitiveAuthFailure(status: number): boolean {
+  return status === 401 || status === 403 || status === 404;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -50,31 +56,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // 从 localStorage 获取用户信息
+  // 本地只缓存非敏感用户摘要，最终身份以 /api/auth/me 为准。
   const loadUserFromStorage = useCallback(() => {
     try {
-      const accessToken = localStorage.getItem('accessToken');
-      const userStr = localStorage.getItem('user');
-      
-      if (accessToken && userStr) {
-        const decoded: any = jwtDecode(accessToken);
-        const now = Date.now() / 1000;
-        
-        // 检查 token 是否过期
-        if (decoded.exp && decoded.exp > now) {
-          const userData = JSON.parse(userStr);
-          setUser(userData);
-          return true;
-        } else {
-          // Token 过期，清理存储
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
-        }
+      const userStr = getStoredUser();
+      if (getStoredAccessToken() && userStr) {
+        setUser(JSON.parse(userStr) as User);
+        return true;
       }
+      setUser(null);
     } catch (error) {
       console.error('Failed to load user from storage:', error);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
+      clearStoredAuth();
+      setUser(null);
     }
     return false;
   }, []);
@@ -82,25 +76,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 刷新用户信息
   const refreshUser = useCallback(async () => {
     try {
-      const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
-      if (!accessToken) {
-        throw new Error('Missing access token');
-      }
+      const accessToken = getStoredAccessToken();
 
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
+      const response = await fetchClientRequest('/api/auth/me', {
+        headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : undefined,
         cache: 'no-store',
-      });
+      }, CLIENT_READ_TIMEOUT_MS);
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        const mode = getStoredAuthMode() ?? 'session';
+        storeAuth('', data.user, mode);
+      } else if (isDefinitiveAuthFailure(response.status)) {
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+        clearAuthState();
+        setUser(null);
       } else {
-        throw new Error('Failed to refresh user');
+        throw new Error(`Failed to refresh user: ${response.status}`);
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);
@@ -111,13 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 登录
   const login = useCallback(async (emailOrUsername: string, password: string) => {
-    const response = await fetch('/api/auth/login', {
+    const response = await fetchClientRequest('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ emailOrUsername, password }),
-    });
+    }, CLIENT_WRITE_TIMEOUT_MS);
 
     if (!response.ok) {
       const error = await response.json();
@@ -126,33 +119,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = await response.json();
     
-    // 保存到 localStorage
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    storeAuth('', data.user, 'persistent');
     
     // 立即设置用户状态
     setUser(data.user);
     
-    // 返回登录数据，让调用方处理重定向
-    return data;
-  }, [router]);
+  }, []);
 
   // 登出
   const logout = useCallback(async () => {
-    const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
+    const accessToken = getStoredAccessToken();
     try {
-      await fetch('/api/auth/logout', {
+      await fetchClientRequest('/api/auth/logout', {
         method: 'POST',
         headers: accessToken ? {
           'Authorization': `Bearer ${accessToken}`
         } : undefined,
-      });
+      }, CLIENT_WRITE_TIMEOUT_MS);
     } catch (error) {
       console.error('Logout error:', error);
     }
 
     // 清理本地存储
-    clearStoredAuth();
+    clearAuthState();
     setUser(null);
     
     // 如果在受保护的页面，重定向到登录页
@@ -174,55 +163,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       setLoading(true); // 开始加载时设置loading为true
       try {
-        const accessToken = localStorage.getItem('accessToken') ?? getCookieValue('accessToken');
-        const userStr = localStorage.getItem('user');
-        
-        if (accessToken) {
-          const decoded: any = jwtDecode(accessToken);
-          const now = Date.now() / 1000;
-          
-          // 检查 token 是否过期
-          if (decoded.exp && decoded.exp > now) {
-            if (userStr) {
-              try {
-                const userData = JSON.parse(userStr);
-                setUser(userData);
-              } catch {
-                localStorage.removeItem('user');
-              }
-            }
-            
-            // 尝试刷新用户信息
-            try {
-              const response = await fetch('/api/auth/me', {
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`
-                },
-                cache: 'no-store',
-              });
-
-              if (response.ok) {
-                const data = await response.json();
-                setUser(data.user);
-                localStorage.setItem('accessToken', accessToken);
-                localStorage.setItem('user', JSON.stringify(data.user));
-              } else if (!userStr) {
-                clearStoredAuth();
-              }
-            } catch (error) {
-              console.error('Failed to refresh user:', error);
-              if (!userStr) {
-                clearStoredAuth();
-              }
-            }
-          } else {
-            // Token 过期，清理存储
+        const accessToken = getStoredAccessToken();
+        const userStr = getStoredUser();
+        if (userStr) {
+          try {
+            setUser(JSON.parse(userStr) as User);
+          } catch {
             clearStoredAuth();
           }
         }
+
+        // 即使本地标记缺失也请求一次，以便从 HttpOnly cookie 恢复有效会话。
+        const response = await fetchClientRequest('/api/auth/me', {
+          headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : undefined,
+          cache: 'no-store',
+        }, CLIENT_READ_TIMEOUT_MS);
+
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          const mode = getStoredAuthMode() ?? 'session';
+          storeAuth('', data.user, mode);
+        } else if (isDefinitiveAuthFailure(response.status)) {
+          await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+          clearAuthState();
+          setUser(null);
+        }
       } catch (error) {
         console.error('Failed to load user from storage:', error);
-        clearStoredAuth();
+        // 网络短暂故障不应清掉本地摘要，避免用户被误登出。
       } finally {
         // 无论成功还是失败，都要设置loading为false
         setLoading(false);
@@ -235,8 +204,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 监听存储变化（用于多标签页同步）
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'accessToken' || e.key === 'user') {
-        loadUserFromStorage();
+      if (e.key === 'accessToken' || e.key === 'authSession' || e.key === 'user') {
+        if (e.key === 'accessToken' || e.key === 'authSession') {
+          loadUserFromStorage();
+        } else if (e.newValue) {
+          try {
+            setUser(JSON.parse(e.newValue));
+          } catch {
+            clearStoredAuth();
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
       }
     };
 

@@ -1,437 +1,138 @@
 import { NextRequest } from 'next/server';
 
-// Mock the auth module
-jest.mock('@/lib/auth', () => ({
-  verifyToken: jest.fn(),
-}));
-
-// Mock the prisma module
+jest.mock('@/lib/auth', () => ({ verifyToken: jest.fn() }));
 jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    userProgress: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      upsert: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  },
+  prisma: (globalThis as any).__mockPrisma,
 }));
 
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { 
-  setupAuthMock,
-  setupPrismaMock,
-  clearAllMocks
-} from '../utils/test-mocks';
 import { GET, POST, PUT } from '@/app/api/user/progress/route';
 
 const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
-describe('/api/user/progress API路由', () => {
+function request(method = 'GET'): NextRequest {
+  return new NextRequest('http://localhost:3000/api/user/progress', {
+    method,
+    headers: { authorization: 'Bearer valid-token' },
+  });
+}
+
+describe('/api/user/progress', () => {
   beforeEach(() => {
-    clearAllMocks(mockPrisma as any);
+    jest.clearAllMocks();
+    mockVerifyToken.mockResolvedValue({
+      userId: 'user123',
+      email: 'test@example.com',
+      role: 'STUDENT',
+    } as any);
+    (mockPrisma.learningProgress.count as jest.Mock).mockResolvedValue(0);
+    (mockPrisma.learningProgress.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { timeSpent: null },
+      _max: { completedAt: null },
+      _count: 0,
+    } as any);
+    (mockPrisma.quizAttempt.aggregate as jest.Mock).mockResolvedValue({
+      _avg: { score: null },
+      _count: 0,
+    } as any);
+    (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([]);
   });
 
-  describe('GET /api/user/progress', () => {
-    it('应该返回用户进度数据', async () => {
-      // Mock认证用户
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
+  it('应从服务端学习与测评记录派生进度', async () => {
+    const today = new Date();
+    const yesterday = new Date(Date.now() - 86_400_000);
+    (mockPrisma.learningProgress.count as jest.Mock).mockResolvedValue(5);
+    (mockPrisma.learningProgress.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { timeSpent: 3600 },
+      _max: { completedAt: today },
+      _count: 8,
+    } as any);
+    (mockPrisma.quizAttempt.aggregate as jest.Mock).mockResolvedValue({
+      _avg: { score: 85.126 },
+      _count: 3,
+    } as any);
+    (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([
+      { completedAt: today },
+      { completedAt: yesterday },
+    ] as any);
 
-      // Mock数据库响应
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', {
-        id: 'progress123',
-        userId: 'user123',
-        modulesCompleted: 5,
-        totalTimeSpent: 3600,
-        averageScore: 85,
-        streakDays: 7,
-        lastActiveDate: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+    const response = await GET(request());
+    const data = await response.json();
 
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { 'authorization': 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data).toHaveProperty('modulesCompleted', 5);
-      expect(data).toHaveProperty('totalTimeSpent', 3600);
-      expect(data).toHaveProperty('averageScore', 85);
-      expect(data).toHaveProperty('streakDays', 7);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(data).toMatchObject({
+      source: 'SERVER_DERIVED',
+      modulesCompleted: 5,
+      totalTimeSpent: 3600,
+      averageScore: 85.13,
+      streakDays: 2,
+      learningRecords: 8,
+      quizAttempts: 3,
+      dataSufficient: true,
     });
+    expect(mockPrisma.userProgress.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.learningProgress.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      take: 366,
+      orderBy: { completedAt: 'desc' },
+    }));
+  });
 
-    it('应该处理未认证用户', async () => {
-      setupAuthMock(mockVerifyToken, null);
+  it('无学习记录时应返回明确的零值与数据不足状态', async () => {
+    const response = await GET(request());
+    const data = await response.json();
 
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { 'authorization': 'Bearer invalid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(data).toHaveProperty('error', 'Unauthorized');
-    });
-
-    it('应该处理用户进度不存在的情况', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', null);
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { 'authorization': 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(404);
-      expect(data).toHaveProperty('error', 'Progress not found');
-    });
-
-    it('应该处理数据库错误', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', new Error('Database error'));
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { 'authorization': 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data).toHaveProperty('error', 'Internal server error');
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      modulesCompleted: 0,
+      totalTimeSpent: 0,
+      averageScore: null,
+      streakDays: 0,
+      dataSufficient: false,
     });
   });
 
-  describe('POST /api/user/progress', () => {
-    it('应该创建新的用户进度', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
+  it('最近完成记录超过一天未更新时连续天数应归零', async () => {
+    (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([
+      { completedAt: new Date(Date.now() - 3 * 86_400_000) },
+    ] as any);
 
-      const newProgress = {
-        modulesCompleted: 1,
-        totalTimeSpent: 600,
-        averageScore: 90,
-        streakDays: 1,
-      };
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'create', {
-        id: 'progress123',
-        userId: 'user123',
-        ...newProgress,
-        lastActiveDate: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'POST',
-        body: JSON.stringify(newProgress),
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(201);
-      expect(data).toHaveProperty('modulesCompleted', 1);
-      expect(data).toHaveProperty('totalTimeSpent', 600);
-      expect(mockPrisma.userProgress.create).toHaveBeenCalledWith({
-        data: {
-          userId: 'user123',
-          ...newProgress,
-        },
-      });
-    });
-
-    it('应该验证请求数据', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
-
-      const invalidData = {
-        modulesCompleted: -1, // 无效值
-        totalTimeSpent: 'invalid', // 无效类型
-      };
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'POST',
-        body: JSON.stringify(invalidData),
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data).toHaveProperty('error');
-    });
-
-    it('应该处理JSON解析错误', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'POST',
-        body: 'invalid json',
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data).toHaveProperty('error', 'Invalid JSON');
-    });
+    const response = await GET(request());
+    expect((await response.json()).streakDays).toBe(0);
   });
 
-  describe('PUT /api/user/progress', () => {
-    it('应该更新现有的用户进度', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'STUDENT'
-      });
+  it('无有效令牌时应返回 401 且不查询学习数据', async () => {
+    mockVerifyToken.mockResolvedValue(null);
 
-      const updateData = {
-        modulesCompleted: 6,
-        totalTimeSpent: 4200,
-        averageScore: 88,
-        streakDays: 8,
-      };
+    const response = await GET(request());
 
-      setupPrismaMock(mockPrisma, 'userProgress', 'update', {
-        id: 'progress123',
-        userId: 'user123',
-        ...updateData,
-        lastActiveDate: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'PUT',
-        body: JSON.stringify(updateData),
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data).toHaveProperty('modulesCompleted', 6);
-      expect(data).toHaveProperty('totalTimeSpent', 4200);
-      expect(mockPrisma.userProgress.update).toHaveBeenCalledWith({
-        where: { userId: 'user123' },
-        data: updateData,
-      });
-    });
-
-    it('应该处理部分更新', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
-
-      const partialUpdate = {
-        modulesCompleted: 7,
-      };
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'update', {
-        id: 'progress123',
-        userId: 'user123',
-        modulesCompleted: 7,
-        totalTimeSpent: 3600,
-        averageScore: 85,
-        streakDays: 7,
-        lastActiveDate: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'PUT',
-        body: JSON.stringify(partialUpdate),
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data).toHaveProperty('modulesCompleted', 7);
-      expect(mockPrisma.userProgress.update).toHaveBeenCalledWith({
-        where: { userId: 'user123' },
-        data: partialUpdate,
-      });
-    });
-
-    it('应该处理记录不存在的情况', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
-
-      const updateData = { modulesCompleted: 6 };
-
-      const err: any = new Error('Record not found');
-      err.code = 'P2025'; // Prisma record not found error
-      (mockPrisma.userProgress.update as jest.Mock).mockRejectedValue(err);
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        method: 'PUT',
-        body: JSON.stringify(updateData),
-        headers: { 
-          'Content-Type': 'application/json',
-          'authorization': 'Bearer valid-token'
-        },
-      });
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(404);
-      expect(data).toHaveProperty('error', 'Progress not found');
-    });
+    expect(response.status).toBe(401);
+    expect(mockPrisma.learningProgress.aggregate).not.toHaveBeenCalled();
   });
 
-  describe('并发和性能测试', () => {
-    it('应该处理并发请求', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
+  it('数据库失败时不得伪装成零值进度', async () => {
+    (mockPrisma.learningProgress.aggregate as jest.Mock).mockRejectedValue(new Error('database unavailable'));
 
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', {
-        id: 'progress123',
-        userId: 'user123',
-        modulesCompleted: 5,
-        totalTimeSpent: 3600,
-        averageScore: 85,
-        streakDays: 7,
-        lastActiveDate: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+    const response = await GET(request());
+    const data = await response.json();
 
-      const requests = Array.from({ length: 10 }, () => 
-        GET(new NextRequest('http://localhost:3000/api/user/progress', {
-          headers: { authorization: 'Bearer valid-token' }
-        }))
-      );
-
-      const responses = await Promise.all(requests);
-      
-      responses.forEach(response => {
-        expect(response.status).toBe(200);
-      });
-    });
-
-    it('应该在合理时间内响应', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', {
-        id: 'progress123',
-        userId: 'user123',
-        modulesCompleted: 5,
-        totalTimeSpent: 3600,
-        averageScore: 85,
-        streakDays: 7,
-        lastActiveDate: new Date(),
-        updatedAt: new Date(),
-        createdAt: new Date(),
-      });
-
-      const startTime = Date.now();
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { authorization: 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const endTime = Date.now();
-
-      expect(response.status).toBe(200);
-      expect(endTime - startTime).toBeLessThan(1000); // 应该在1秒内响应
-    });
+    expect(response.status).toBe(500);
+    expect(data.error).toBe('获取学习进度失败');
   });
 
-  describe('错误边界测试', () => {
-    it('应该处理数据库连接超时', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
+  it.each([
+    ['POST', POST],
+    ['PUT', PUT],
+  ])('%s 不得由客户端写入派生进度', async (method, handler) => {
+    const response = await handler(request(method));
+    const data = await response.json();
 
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', new Error('Connection timeout'));
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { authorization: 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data).toHaveProperty('error', 'Internal server error');
-    });
-
-    it('应该处理内存不足错误', async () => {
-      mockVerifyToken.mockResolvedValue({
-        userId: 'user123', email: 'test@example.com'
-      } as any);
-
-      setupPrismaMock(mockPrisma, 'userProgress', 'findUnique', new Error('Out of memory'));
-
-      const request = new NextRequest('http://localhost:3000/api/user/progress', {
-        headers: { authorization: 'Bearer valid-token' }
-      });
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data).toHaveProperty('error', 'Internal server error');
-    });
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('GET');
+    expect(data.error).toContain('不支持客户端修改');
+    expect(mockPrisma.userProgress.create).not.toHaveBeenCalled();
+    expect(mockPrisma.userProgress.update).not.toHaveBeenCalled();
   });
 });

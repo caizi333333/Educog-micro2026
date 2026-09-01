@@ -81,6 +81,85 @@ export interface ExperimentConfig {
   extensions: string[];
 }
 
+/**
+ * proj04 是持续循环的监控程序，不能用“执行到 END”作为完成条件。
+ * 完成前至少要形成一段可复核的执行记录，并观察到一帧完整遥测数据。
+ */
+export const PROJ04_MIN_OBSERVATION_STEPS = 200;
+
+export const PROJ04_MILESTONE_IDS = [
+  'requirements',
+  'interfaces',
+  'implementation',
+  'integration',
+  'review',
+] as const;
+
+export type Proj04MilestoneId = typeof PROJ04_MILESTONE_IDS[number];
+
+export interface Proj04MilestoneEvidence {
+  id: Proj04MilestoneId;
+  confirmed: boolean;
+  /** 由服务端写入；前端不能自行认定确认时间。 */
+  confirmedAt: string | null;
+}
+
+export interface Proj04CompletionEvidence {
+  version: 1;
+  milestones: Proj04MilestoneEvidence[];
+  /** 最近一次服务端保存时间。 */
+  updatedAt: string | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function emptyProj04CompletionEvidence(): Proj04CompletionEvidence {
+  return {
+    version: 1,
+    milestones: PROJ04_MILESTONE_IDS.map((id) => ({ id, confirmed: false, confirmedAt: null })),
+    updatedAt: null,
+  };
+}
+
+/**
+ * 兼容缺失或旧版 results：只接收五个正式里程碑，未知字段不会进入完成判定。
+ */
+export function normalizeProj04CompletionEvidence(value: unknown): Proj04CompletionEvidence {
+  const empty = emptyProj04CompletionEvidence();
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.milestones)) return empty;
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const item of value.milestones) {
+    if (isRecord(item) && typeof item.id === 'string' && !byId.has(item.id)) byId.set(item.id, item);
+  }
+  return {
+    version: 1,
+    milestones: PROJ04_MILESTONE_IDS.map((id) => {
+      const item = byId.get(id);
+      const confirmed = item?.confirmed === true;
+      const confirmedAt = confirmed && typeof item?.confirmedAt === 'string' && !Number.isNaN(Date.parse(item.confirmedAt))
+        ? item.confirmedAt
+        : null;
+      return { id, confirmed, confirmedAt };
+    }),
+    updatedAt: typeof value.updatedAt === 'string' && !Number.isNaN(Date.parse(value.updatedAt))
+      ? value.updatedAt
+      : null,
+  };
+}
+
+export function isProj04MilestoneEvidenceComplete(value: unknown): boolean {
+  const normalized = normalizeProj04CompletionEvidence(value);
+  return normalized.milestones.every((item) => item.confirmed && item.confirmedAt !== null);
+}
+
+/** 接受 JSON 字段间的常见空格，但必须同时包含 temp 与 humi。 */
+export function hasProj04TelemetryFrame(value: unknown): value is string {
+  return typeof value === 'string'
+    && /\{\s*"temp"\s*:\s*-?\d{1,3}\s*,\s*"humi"\s*:\s*\d{1,3}\s*\}/.test(value);
+}
+
 export const experimentConfigs: ExperimentConfig[] = [
   {
     id: 'exp01',
@@ -2486,32 +2565,32 @@ END`,
   {
     id: 'proj04',
     title: '项目四：智慧农业大棚监控系统设计',
-    description: '创新型项目：集成DS18B20温度传感器、DHT11湿度传感器、LCD显示、串口数据上传和EEPROM存储，构建完整的物联网监控系统。',
+    description: '综合项目：以模拟温湿度输入完成采集、阈值报警和串口JSON上报；LCD仅保留未实现接口，EEPROM属于后续扩展，不计入本轮完成判定。',
     category: '综合项目',
     difficulty: 'advanced',
-    duration: 480,
+    duration: 240,
     objectives: [
       '掌握DS18B20单总线温度传感器的驱动编程',
       '实现DHT11温湿度传感器的数据采集',
-      '完成LCD1602实时数据显示（项目后续任务，UPDATE_LCD留出接口）',
+      '识别LCD1602后续任务边界（UPDATE_LCD当前为空，不计入本轮完成）',
       '设计基于串口的JSON格式数据上传',
-      '实现AT24C02 EEPROM数据存储（项目拓展）',
+      '了解AT24C02 EEPROM扩展接口（当前程序未实现，不计入本轮完成）',
       '设计阈值报警系统'
     ],
     prerequisites: [
-      '完成串口通信实验',
-      '掌握定时器中断编程',
-      '了解I2C总线协议基础',
-      '具备传感器接口设计能力'
+      '核心必备：完成exp09串口通信实验',
+      '核心必备：能配置定时器/中断并解释周期采集流程',
+      '核心必备：能说明DS18B20与DHT11在当前仿真中的模拟输入边界',
+      '扩展准备（非完成前置）：了解I2C、LCD1602与AT24C02基础'
     ],
     knowledgePoints: [
       'DS18B20单总线协议',
       '温度数据转换与处理',
       'DHT11通信时序',
       '湿度数据解析',
-      'LCD1602多行显示',
+      'LCD1602多行显示（后续任务）',
       'UART数据帧格式设计',
-      'AT24C02 I2C读写',
+      'AT24C02 I2C读写（扩展项）',
       '阈值比较与蜂鸣器报警',
       '传感器异常的容错处理',
       '系统可靠性设计'
@@ -2519,8 +2598,8 @@ END`,
     hardwareRequirements: [
       'DS18B20温度传感器',
       'DHT11温湿度传感器',
-      'LCD1602液晶显示屏',
-      'AT24C02 EEPROM存储芯片',
+      'LCD1602液晶显示屏（后续任务，非本轮必需）',
+      'AT24C02 EEPROM存储芯片（扩展选配，非本轮必需）',
       '蜂鸣器报警模块',
       '继电器控制模块',
       'USB转TTL串口模块',
@@ -2575,7 +2654,7 @@ MAIN:
 MAIN_LOOP:
     ACALL READ_DS18B20   ; 读取温度
     ACALL READ_DHT11     ; 读取湿度
-    ACALL UPDATE_LCD     ; 更新LCD显示
+    ACALL UPDATE_LCD     ; 后续接口：当前为空，不产生LCD显示
     ACALL CHECK_ALARM    ; 检查阈值报警
     ACALL SEND_DATA      ; 串口上报数据
     ACALL DELAY_2S       ; 等待下次采集
@@ -2601,7 +2680,7 @@ READ_DS18B20:
     MOV TEMP_H, A
 
     ; 仿真平台没有DS18B20实体，总线读回全1（FFFFH）；
-    ; 此时代入模拟温度25.0°C（0190H=25×16），保证显示/上报链路可观察。
+    ; 此时代入模拟温度25.0°C（0190H=25×16），保证采集/上报链路可观察。
     ; 接入真实硬件时删除以下检测段即可
     MOV A, TEMP_H
     ANL A, TEMP_L
@@ -2726,6 +2805,7 @@ SEND_NUM:
     RET
 
 UPDATE_LCD:
+    ; 空接口：LCD驱动尚未集成，不计入本轮完成判定
     RET
 
 T0_ISR:
@@ -2757,18 +2837,19 @@ END`,
       '温度原始值在40H-41H（0190H=25×16）、湿度65%在42H，内存面板可观察',
       '串口每2秒发送JSON格式数据：{"temp":25,"humi":65}，串口终端实时显示',
       '25°C低于30°C阈值，蜂鸣器保持静音（P3.5=0）；修改阈值或模拟温度可触发报警',
-      '系统稳定运行无死机（LCD显示为项目后续任务，UPDATE_LCD留出接口）'
+      '程序持续循环且未出现故障属于正确状态；观察到完整遥测帧并手动停止后可提交本轮结果（LCD驱动尚未实现，EEPROM仅为扩展项）'
     ],
     troubleshooting: [
       { issue: 'DS18B20读取失败', solution: '检查4.7kΩ上拉电阻，验证单总线时序是否正确' },
       { issue: '温度数据不准确', solution: '检查温度转换公式，注意正负温度的处理' },
       { issue: '串口输出乱码', solution: '确认波特率设置匹配，检查晶振频率' },
-      { issue: 'EEPROM读写错误', solution: '检查I2C时序，确认设备地址和ACK应答' }
+      { issue: '扩展项：EEPROM读写错误', solution: '检查I2C时序，确认设备地址和ACK应答；该项不影响本轮完成判定' }
     ],
     extensions: [
       '添加WiFi模块实现远程监控',
       '设计上位机监控软件',
-      '实现数据存储与历史趋势显示',
+      '实现LCD1602显示并单独验证初始化与刷新时序',
+      '实现AT24C02数据存储与历史趋势显示，并单独验证掉电恢复',
       '添加继电器控制风扇/加热器',
       '设计多节点组网监控系统'
     ]
@@ -2777,6 +2858,14 @@ END`,
 
 // 导出实验配置数组，用于测试和其他模块
 export const experiments = experimentConfigs;
+
+/**
+ * 课程正式实验目录。统计、导出和种子数据只能使用这一份编号集，
+ * 避免已下线或未实现的编号进入教学成效指标。
+ */
+export const OFFICIAL_EXPERIMENT_IDS = Object.freeze(
+  experimentConfigs.map((experiment) => experiment.id),
+);
 
 /**
  * 根据实验ID获取实验配置

@@ -42,9 +42,9 @@ describe('成就系统 V2', () => {
         expect(typeof achievement.criteria.target).toBe('number');
         expect(achievement.criteria.target).toBeGreaterThan(0);
         
-        // 验证points为正数
+        // 入门类成就可只作状态标识，不强制附加积分。
         expect(typeof achievement.points).toBe('number');
-        expect(achievement.points).toBeGreaterThan(0);
+        expect(achievement.points).toBeGreaterThanOrEqual(0);
       });
     });
 
@@ -52,6 +52,12 @@ describe('成就系统 V2', () => {
       const ids = ACHIEVEMENTS_V2.map(a => a.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(ids.length);
+    });
+
+    it('应包含登录流程实际持久化的 first_login 成就', () => {
+      expect(ACHIEVEMENTS_V2).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'first_login', title: '初次登录' }),
+      ]));
     });
   });
 

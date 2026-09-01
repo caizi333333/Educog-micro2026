@@ -3,25 +3,7 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { KnowledgePoint } from '@/lib/knowledge-points';
 import { fetchKnowledgePoints } from '@/lib/knowledge-source';
-
-interface KnowledgeNodeData {
-  id: string;
-  title: string;
-  type: 'concept' | 'skill' | 'project' | 'theory' | 'practice';
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  description: string;
-  prerequisites: string[];
-  connections: string[];
-  learningTime: number;
-  tags: string[];
-  resources: {
-    videos: number;
-    exercises: number;
-    projects: number;
-    documents: number;
-  };
-  position: { x: number; y: number };
-}
+import { canAccessStudentData } from '@/lib/classroom';
 
 function mapLevelToDifficulty(level: 1 | 2 | 3): 'beginner' | 'intermediate' | 'advanced' {
   if (level === 1) return 'beginner';
@@ -47,10 +29,25 @@ function countResources(point: KnowledgePoint) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authorization = request.headers.get('authorization');
+    const token = authorization?.startsWith('Bearer ')
+      ? authorization.substring(7)
+      : request.cookies?.get('accessToken')?.value;
+    const payload = token ? await verifyToken(token) : null;
+    if (!payload) {
+      return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const nodeId = searchParams.get('id');
-    const userId = searchParams.get('userId');
-    const chapter = searchParams.get('chapter');
+    const userId = searchParams.get('userId')?.trim() || payload.userId;
+    const chapterParam = searchParams.get('chapter');
+    const chapter = chapterParam === null ? null : Number(chapterParam);
+    if (chapter !== null && (!Number.isInteger(chapter) || chapter < 1 || chapter > 10)) {
+      return NextResponse.json({ success: false, error: '章节编号无效' }, { status: 400 });
+    }
+    if (!(await canAccessStudentData(payload, userId))) {
+      return NextResponse.json({ success: false, error: '无权查看该学生数据' }, { status: 403 });
+    }
 
     const { points: allPoints } = await fetchKnowledgePoints();
 
@@ -125,8 +122,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all nodes, optionally filtered by chapter
-    const points = chapter
-      ? allPoints.filter((p) => p.chapter === parseInt(chapter, 10))
+    const points = chapter !== null
+      ? allPoints.filter((p) => p.chapter === chapter)
       : allPoints;
 
     // If userId provided, batch-fetch their progress for all relevant modules
@@ -203,44 +200,10 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const nodeData: KnowledgeNodeData = await request.json();
-
-    // Validate required fields
-    if (!nodeData.id || !nodeData.title || !nodeData.type) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields'
-      }, { status: 400 });
-    }
-
-    // Knowledge nodes are defined in the static knowledge-points file.
-    // This endpoint creates a LearningProgress record to track user interaction.
-    await prisma.learningProgress.upsert({
-      where: {
-        userId_moduleId_chapterId: {
-          userId: decoded.userId,
-          moduleId: nodeData.id,
-          chapterId: String(nodeData.tags?.[0] ?? '0'),
-        },
-      },
-      update: {
-        lastAccessAt: new Date(),
-      },
-      create: {
-        userId: decoded.userId,
-        moduleId: nodeData.id,
-        chapterId: String(nodeData.tags?.[0] ?? '0'),
-        status: 'NOT_STARTED',
-        progress: 0,
-        timeSpent: 0,
-      },
-    });
-
     return NextResponse.json({
-      success: true,
-      message: 'Node created successfully',
-      data: nodeData
-    });
+      success: false,
+      error: '节点交互请通过学习事件接口记录',
+    }, { status: 405, headers: { Allow: 'GET' } });
 
   } catch (error) {
     console.error('Knowledge graph nodes POST API error:', error);
@@ -269,35 +232,10 @@ export async function PUT(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const nodeData: KnowledgeNodeData = await request.json();
-
-    if (!nodeData.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Node ID is required'
-      }, { status: 400 });
-    }
-
-    // Update the user's progress record for this node
-    const existing = await prisma.learningProgress.findFirst({
-      where: {
-        userId: decoded.userId,
-        moduleId: nodeData.id,
-      },
-    });
-
-    if (existing) {
-      await prisma.learningProgress.update({
-        where: { id: existing.id },
-        data: { lastAccessAt: new Date() },
-      });
-    }
-
     return NextResponse.json({
-      success: true,
-      message: 'Node updated successfully',
-      data: nodeData
-    });
+      success: false,
+      error: '节点交互请通过学习事件接口记录',
+    }, { status: 405, headers: { Allow: 'GET' } });
 
   } catch (error) {
     console.error('Knowledge graph nodes PUT API error:', error);
@@ -326,28 +264,10 @@ export async function DELETE(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const nodeId = searchParams.get('id');
-
-    if (!nodeId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Node ID is required'
-      }, { status: 400 });
-    }
-
-    // Delete user's progress records for this node
-    await prisma.learningProgress.deleteMany({
-      where: {
-        userId: decoded.userId,
-        moduleId: nodeId,
-      },
-    });
-
     return NextResponse.json({
-      success: true,
-      message: 'Node deleted successfully'
-    });
+      success: false,
+      error: '学习记录不允许通过知识节点接口删除',
+    }, { status: 405, headers: { Allow: 'GET' } });
 
   } catch (error) {
     console.error('Knowledge graph nodes DELETE API error:', error);

@@ -24,6 +24,8 @@ model User {
   grade              String?
   major              String?
   teacherId          String?                 @unique
+  creationRequestKey String?                 @unique
+  authVersion        Int                     @default(0)
   department         String?
   title              String?
   totalPoints        Int                     @default(0)
@@ -57,6 +59,7 @@ model ClassGroup {
   courseName     String?
   semester       String?
   teacherId      String?
+  creationRequestKey String?           @unique
   status         String            @default("ACTIVE")
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -437,7 +440,7 @@ model CourseObjectiveAchievement {
   createdAt           DateTime        @default(now())
   courseObjective     CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, courseObjectiveId, semester])
+  @@unique([userId, courseObjectiveId, semester, classId])
   @@index([userId])
   @@index([courseObjectiveId])
   @@index([passed])
@@ -457,7 +460,7 @@ model GraduationRequirementAchievement {
   createdAt              DateTime        @default(now())
   indicatorPoint         IndicatorPoint  @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, indicatorPointId, semester])
+  @@unique([userId, indicatorPointId, semester, classId])
   @@index([userId])
   @@index([indicatorPointId])
   @@index([passed])

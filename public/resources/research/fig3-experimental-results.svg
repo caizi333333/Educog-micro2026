@@ -1,139 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="180" height="120" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120">
-  <!-- 定义样式 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-labelledby="title desc">
+  <title id="title">教学成效证据采集状态</title>
+  <desc id="desc">当前已记录平台过程数据，但缺少同口径真实前后测和真实班级数据。真实成绩、课堂观察、问卷与学生成果均待采集，因此不发布教学提升数值。</desc>
   <defs>
+    <marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0.5 L10,4 L0,7.5Z" fill="#244A78"/></marker>
     <style>
-      .title-text { font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; fill: #000000; }
-      .axis-text { font-family: Arial, sans-serif; font-size: 5px; fill: #000000; }
-      .label-text { font-family: Arial, sans-serif; font-size: 6px; font-weight: bold; fill: #000000; }
-      .value-text { font-family: Arial, sans-serif; font-size: 4px; font-weight: bold; fill: #000000; }
-      .legend-text { font-family: Arial, sans-serif; font-size: 5px; fill: #000000; }
-      .sig-text { font-family: Arial, sans-serif; font-size: 6px; font-weight: bold; fill: #E74C3C; }
-      
-      .exp-bar { fill: #2C3E50; stroke: #000000; stroke-width: 0.2; }
-      .ctrl-bar { fill: #7FB3D3; stroke: #000000; stroke-width: 0.2; }
-      .grid-line { stroke: #CCCCCC; stroke-width: 0.3; }
-      .axis-line { stroke: #000000; stroke-width: 0.8; }
+      .h1{font:700 26px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#fff}
+      .h2{font:700 19px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#173454}
+      .body{font:400 15px SimSun,'Noto Serif SC',serif;fill:#1f2937}
+      .small{font:400 13px SimSun,'Noto Serif SC',serif;fill:#53657a}
+      .code{font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#fff}
+      .light{fill:#dbe8f5}
     </style>
   </defs>
-  
-  <!-- 背景 -->
-  <rect width="180" height="120" fill="#FFFFFF"/>
-  
-  <!-- 标题 -->
-  <text x="90" y="8" text-anchor="middle" class="title-text">Experimental Results Comparison</text>
-  
-  <!-- 绘图区域背景 -->
-  <rect x="20" y="15" width="140" height="80" fill="#FAFAFA" stroke="#CCCCCC" stroke-width="0.3"/>
-  
-  <!-- 网格线 -->
-  <line x1="20" y1="27" x2="160" y2="27" class="grid-line"/>
-  <line x1="20" y1="39" x2="160" y2="39" class="grid-line"/>
-  <line x1="20" y1="51" x2="160" y2="51" class="grid-line"/>
-  <line x1="20" y1="63" x2="160" y2="63" class="grid-line"/>
-  <line x1="20" y1="75" x2="160" y2="75" class="grid-line"/>
-  <line x1="20" y1="87" x2="160" y2="87" class="grid-line"/>
-  
-  <!-- Y轴左侧 -->
-  <line x1="20" y1="15" x2="20" y2="95" class="axis-line"/>
-  
-  <!-- Y轴刻度标签（左侧，成绩） -->
-  <text x="18" y="17" text-anchor="end" class="axis-text">100</text>
-  <text x="18" y="29" text-anchor="end" class="axis-text">80</text>
-  <text x="18" y="41" text-anchor="end" class="axis-text">60</text>
-  <text x="18" y="53" text-anchor="end" class="axis-text">40</text>
-  <text x="18" y="65" text-anchor="end" class="axis-text">20</text>
-  <text x="18" y="77" text-anchor="end" class="axis-text">0</text>
-  
-  <!-- Y轴右侧 -->
-  <line x1="160" y1="15" x2="160" y2="95" class="axis-line"/>
-  
-  <!-- Y轴刻度标签（右侧，百分比） -->
-  <text x="162" y="17" class="axis-text">100%</text>
-  <text x="162" y="29" class="axis-text">80%</text>
-  <text x="162" y="41" class="axis-text">60%</text>
-  <text x="162" y="53" class="axis-text">40%</text>
-  <text x="162" y="65" class="axis-text">20%</text>
-  <text x="162" y="77" class="axis-text">0%</text>
-  
-  <!-- X轴 -->
-  <line x1="20" y1="95" x2="160" y2="95" class="axis-line"/>
-  
-  <!-- 期末成绩柱状图 -->
-  <g>
-    <!-- 实验组 85.6分 -->
-    <rect x="25" y="26" width="8" height="69" class="exp-bar"/>
-    <!-- 对照组 78.2分 -->
-    <rect x="34" y="37" width="8" height="58" class="ctrl-bar"/>
-    
-    <!-- 数值标签 -->
-    <text x="29" y="24" text-anchor="middle" class="value-text">85.6</text>
-    <text x="38" y="35" text-anchor="middle" class="value-text">78.2</text>
+  <rect width="900" height="560" fill="#fff"/>
+  <rect x="12" y="12" width="876" height="536" rx="2" fill="none" stroke="#244A78" stroke-width="1.8"/>
+  <rect x="12" y="12" width="876" height="70" fill="#244A78"/>
+  <text x="450" y="48" text-anchor="middle" class="h1">教学成效证据采集状态</text>
+  <text x="450" y="70" text-anchor="middle" class="small light">用状态替代未经实测的提升数值</text>
+
+  <g id="recorded">
+    <rect x="42" y="120" width="246" height="238" rx="2" fill="#edf7f5" stroke="#0F766E" stroke-width="1.2"/>
+    <rect x="42" y="120" width="246" height="42" fill="#0F766E"/>
+    <text x="165" y="146" text-anchor="middle" class="code">RECORDED</text>
+    <text x="165" y="201" text-anchor="middle" class="h2">过程已记录</text>
+    <text x="68" y="240" class="body">• 任务触达与目标对象</text>
+    <text x="68" y="273" class="body">• 学习步骤与入口状态</text>
+    <text x="68" y="306" class="body">• 测验作答与实验完成</text>
+    <text x="165" y="338" text-anchor="middle" class="small">用途：核对功能和过程落盘</text>
   </g>
-  
-  <!-- 实验成绩柱状图 -->
-  <g>
-    <!-- 实验组 91.3分 -->
-    <rect x="50" y="22" width="8" height="73" class="exp-bar"/>
-    <!-- 对照组 82.7分 -->
-    <rect x="59" y="35" width="8" height="60" class="ctrl-bar"/>
-    
-    <!-- 数值标签 -->
-    <text x="54" y="20" text-anchor="middle" class="value-text">91.3</text>
-    <text x="63" y="33" text-anchor="middle" class="value-text">82.7</text>
+
+  <g id="insufficient">
+    <rect x="327" y="120" width="246" height="238" rx="2" fill="#fff7e8" stroke="#9A6700" stroke-width="1.2"/>
+    <rect x="327" y="120" width="246" height="42" fill="#9A6700"/>
+    <text x="450" y="146" text-anchor="middle" class="code">INSUFFICIENT</text>
+    <text x="450" y="201" text-anchor="middle" class="h2">成效证据不足</text>
+    <text x="353" y="240" class="body">• 当前为演示环境</text>
+    <text x="353" y="273" class="body">• 无同口径真实前后测</text>
+    <text x="353" y="306" class="body">• 重复作答不等于受控实验</text>
+    <text x="450" y="338" text-anchor="middle" class="small">结论：不计算教学增益</text>
   </g>
-  
-  <!-- 学习完成率柱状图 -->
-  <g>
-    <!-- 实验组 94.2% -->
-    <rect x="75" y="21" width="8" height="74" class="exp-bar"/>
-    <!-- 对照组 81.5% -->
-    <rect x="84" y="37" width="8" height="58" class="ctrl-bar"/>
-    
-    <!-- 数值标签 -->
-    <text x="79" y="19" text-anchor="middle" class="value-text">94.2</text>
-    <text x="88" y="35" text-anchor="middle" class="value-text">81.5</text>
+
+  <g id="pending">
+    <rect x="612" y="120" width="246" height="238" rx="2" fill="#eef4fa" stroke="#244A78" stroke-width="1.2"/>
+    <rect x="612" y="120" width="246" height="42" fill="#64748B"/>
+    <text x="735" y="146" text-anchor="middle" class="code">PENDING</text>
+    <text x="735" y="201" text-anchor="middle" class="h2">待真实采集</text>
+    <text x="638" y="240" class="body">• 真实成绩与固定测评</text>
+    <text x="638" y="273" class="body">• 课堂观察与问卷</text>
+    <text x="638" y="306" class="body">• 可核验学生成果</text>
+    <text x="735" y="338" text-anchor="middle" class="small">完成后再按预设口径分析</text>
   </g>
-  
-  <!-- 课程满意度柱状图 -->
-  <g>
-    <!-- 实验组 8.7分 -->
-    <rect x="100" y="26" width="8" height="69" class="exp-bar"/>
-    <!-- 对照组 7.3分 -->
-    <rect x="109" y="40" width="8" height="55" class="ctrl-bar"/>
-    
-    <!-- 数值标签 -->
-    <text x="104" y="24" text-anchor="middle" class="value-text">8.7</text>
-    <text x="113" y="38" text-anchor="middle" class="value-text">7.3</text>
-  </g>
-  
-  <!-- X轴标签 -->
-  <text x="37" y="105" text-anchor="middle" class="label-text">Final Exam</text>
-  <text x="62" y="105" text-anchor="middle" class="label-text">Lab Score</text>
-  <text x="87" y="105" text-anchor="middle" class="label-text">Completion</text>
-  <text x="112" y="105" text-anchor="middle" class="label-text">Satisfaction</text>
-  
-  <!-- 显著性标记 -->
-  <text x="37" y="13" text-anchor="middle" class="sig-text">***</text>
-  <text x="62" y="13" text-anchor="middle" class="sig-text">***</text>
-  <text x="87" y="13" text-anchor="middle" class="sig-text">***</text>
-  <text x="112" y="13" text-anchor="middle" class="sig-text">***</text>
-  
-  <!-- 图例 -->
-  <g transform="translate(125, 20)">
-    <rect x="0" y="0" width="6" height="4" class="exp-bar"/>
-    <text x="8" y="3" class="legend-text">Experimental</text>
-    
-    <rect x="0" y="6" width="6" height="4" class="ctrl-bar"/>
-    <text x="8" y="9" class="legend-text">Control</text>
-    
-    <text x="0" y="16" class="legend-text">*** p&lt;0.001</text>
-  </g>
-  
-  <!-- Y轴标签 -->
-  <text x="10" y="56" text-anchor="middle" class="axis-text" transform="rotate(-90, 10, 56)">Score</text>
-  <text x="170" y="56" text-anchor="middle" class="axis-text" transform="rotate(90, 170, 56)">Percentage</text>
-  
-  <!-- 样本说明 -->
-  <text x="90" y="117" text-anchor="middle" class="legend-text">n=160 per group, Independent samples t-test</text>
+
+  <line x1="288" y1="239" x2="319" y2="239" stroke="#244A78" stroke-width="1.4" marker-end="url(#arr)"/>
+  <line x1="573" y1="239" x2="604" y2="239" stroke="#244A78" stroke-width="1.4" marker-end="url(#arr)"/>
+
+  <rect x="42" y="398" width="816" height="108" rx="2" fill="#f5f8fc" stroke="#b8c9dc" stroke-width="1"/>
+  <text x="64" y="430" class="h2">允许形成比较结论的最低条件</text>
+  <text x="64" y="462" class="body">同一教学对象 · 固定测评编号 · 首测与再次测评规则一致 · 原始记录可复核 · 样本量满足分析要求</text>
+  <text x="64" y="491" class="small">任一条件缺失时，页面保持“数据不足”或“待采集”，不显示提升百分比、显著性或因果判断。</text>
+  <text x="858" y="532" text-anchor="end" class="small">状态日期：2026-07-31｜当前环境：DEMO</text>
 </svg>

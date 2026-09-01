@@ -3,6 +3,8 @@
  * 桂林航天工业学院 · 微控制器原理与应用
  */
 
+import type { Proj04MilestoneId } from '@/lib/experiment-config';
+
 export interface TeachingSection {
   title: string;
   content: string; // Markdown-like plain text (rendered with whitespace preserved)
@@ -69,6 +71,17 @@ export interface KeyPoints {
   difficulty: string[];
 }
 
+export interface ProjectBrief {
+  evidenceStatus: string;
+  simulationBoundary: string;
+  prerequisiteGate: string;
+  completionNextStep: string;
+  roles: { role: string; responsibility: string }[];
+  milestones: { id: Proj04MilestoneId; title: string; completionRule: string }[];
+  deliverables: string[];
+  rubric: { dimension: string; weight: number; evidence: string }[];
+}
+
 export interface TeachingContent {
   /** 课程大纲映射 — 对应《微控制器应用技术》教学大纲 */
   syllabusMapping?: SyllabusMapping;
@@ -80,6 +93,8 @@ export interface TeachingContent {
   addressingComparison?: AddressingMode[];
   /** 结构化课程思政（优先于 syllabusMapping.ideologicalPoint 渲染） */
   ideological?: IdeologicalContent;
+  /** 综合项目任务书；属于平台教学模板，不代表已有真实学生成果。 */
+  projectBrief?: ProjectBrief;
   /** 理论背景 */
   theory: TeachingSection[];
   /** 硬件电路说明（文字描述，用 ASCII 示意） */
@@ -283,11 +298,11 @@ RRC A — 带进位循环右移 (9 位移位)
   // ═══════════════════════════════════════════════
   exp02: {
     syllabusMapping: {
-      week: '第3-5周',
-      chapter: '单片机硬件结构',
-      hours: 6,
-      textbookRef: '《单片机原理及应用技术》第2章：存储器组织与特殊功能寄存器',
-      knowledgeMap: '一级知识点"硬件结构"，含约40个三级知识点',
+      week: '周次待核实',
+      chapter: '第3章 指令系统 · 3.1 寻址方式',
+      hours: 0,
+      textbookRef: '课程教材第3章“指令系统”（具体版本与页码待核实）',
+      knowledgeMap: '3.1 寻址方式及3.1.1—3.1.7七个子节点',
       ideologicalPoint: '航天嵌入式系统可靠性设计（航天品质/工匠精神）',
     },
     addressingComparison: [
@@ -2032,16 +2047,16 @@ L298N 引脚功能：
       week: '实践项目4（4学时）',
       chapter: '智慧农业大棚监控系统设计',
       hours: 4,
-      textbookRef: '对应第11-16周知识点：温湿度采集、LCD显示、串口数据传输、报警控制',
+      textbookRef: '对应第11-16周知识点：温湿度采集、串口数据传输、阈值报警；LCD显示为后续任务',
       knowledgeMap: '综合运用"中断系统"+"定时器/计数器"+"通信接口"全部知识点',
       ideologicalPoint: '乡村振兴与智慧农业（科技服务社会）',
     },
     objectives3D: {
-      knowledge: ['理解温湿度采集与阈值报警原理', '掌握 LCD 显示与串口数据传输'],
-      ability: ['能设计环境监测与自动调控程序', '能把采集、显示、传输、报警整合成系统'],
+      knowledge: ['理解温湿度采集与阈值报警原理', '掌握串口数据上报并能说明 LCD 后续接口边界'],
+      ability: ['能设计环境监测与自动调控程序', '能把采集、传输、报警整合成可持续运行的监控闭环'],
     },
     keyPoints: {
-      focus: ['传感器数据采集与显示', '阈值判断与自动控制/报警'],
+      focus: ['传感器数据采集与串口上报', '阈值判断与自动控制/报警'],
       difficulty: ['多参数的实时监测与协调', '串口数据传输的可靠性'],
     },
     ideological: {
@@ -2051,6 +2066,39 @@ L298N 引脚功能：
         '把单片机用到田间地头，也是工科生把论文写在祖国大地上的一种方式。',
       ],
       goldenQuote: '把技术种进泥土里，才见得着它真正的分量。',
+    },
+    projectBrief: {
+      evidenceStatus: '平台内置综合项目任务模板｜暂无真实学生成果材料',
+      simulationBoundary: '当前平台用模拟温湿度输入验证采集、阈值报警与串口上报；默认程序持续循环属于正确行为。LCD 驱动尚未实现，EEPROM 仅为扩展项；实物传感精度、现场通信可靠性和长期稳定性须另行测试。',
+      prerequisiteGate: '核心前置：完成 exp09 串口通信实验，能够配置定时器/中断，并能说明 DS18B20、DHT11 在当前仿真中的输入边界。I2C、LCD 和 EEPROM 不作为本轮完成前置。',
+      completionNextStep: '完成有效遥测观测并保存 5 项里程碑自检后，可提交本轮项目完成；随后返回任务页进入教师复核。LCD、EEPROM 与实物联调作为独立扩展继续验证，不能回填为本轮已完成。',
+      roles: [
+        { role: '机械/农业场景', responsibility: '定义大棚布点、执行机构安装位置与环境约束。' },
+        { role: '电气', responsibility: '完成传感器、继电器、蜂鸣器和电源接口设计。' },
+        { role: '自动化', responsibility: '确定阈值、控制状态与异常降级策略。' },
+        { role: '物联网', responsibility: '设计UART数据帧、上位机接入和数据字段。' },
+        { role: '软件', responsibility: '实现驱动、状态机、日志和可复现测试。' },
+      ],
+      milestones: [
+        { id: 'requirements', title: '1｜需求分析', completionRule: '提交对象、输入输出、阈值、异常场景和验收指标。' },
+        { id: 'interfaces', title: '2｜接口设计', completionRule: '完成端口表、数据帧、模块接口和仿真边界说明。' },
+        { id: 'implementation', title: '3｜控制实现', completionRule: '采集、阈值报警和串口上报模块可独立运行；注明 LCD 空接口与 EEPROM 扩展边界。' },
+        { id: 'integration', title: '4｜联合调试', completionRule: '按正常、越限、传感器异常三类用例形成测试记录。' },
+        { id: 'review', title: '5｜答辩复核', completionRule: '提交证据包并说明已验证结果、限制和后续实物验证。' },
+      ],
+      deliverables: [
+        '带版本号的8051汇编代码与端口分配表',
+        '仿真运行记录及关键寄存器/串口截图',
+        '至少3类工况的测试表与问题修复记录',
+        '个人贡献说明、工程伦理判断与项目反思',
+      ],
+      rubric: [
+        { dimension: '功能正确性', weight: 30, evidence: '规定工况下的可重复运行记录' },
+        { dimension: '接口规范', weight: 20, evidence: '端口表、数据帧和模块说明' },
+        { dimension: '测试质量', weight: 20, evidence: '用例覆盖、异常处理和复测结果' },
+        { dimension: '协作贡献', weight: 15, evidence: '分工、版本记录和个人贡献说明' },
+        { dimension: '工程伦理', weight: 15, evidence: '数据真实性、安全边界和责任判断' },
+      ],
     },
     theory: [
       {
@@ -2141,8 +2189,8 @@ JSON格式数据上报（与上位机/物联网平台对接）：
   - \\r\\n结尾便于行缓冲接收`,
       },
       {
-        title: 'AT24C02 I2C EEPROM 存储',
-        content: `AT24C02 是 2Kbit (256字节) 串行EEPROM：
+        title: '扩展参考｜AT24C02 I2C EEPROM 存储',
+        content: `本节仅供项目扩展，不计入当前平台完成判定。AT24C02 是 2Kbit (256字节) 串行EEPROM：
 
 I2C 总线基础：
   SDA: 数据线 (双向)
@@ -2236,10 +2284,10 @@ DS18B20 接线 (单总线)：
       { step: '1. 实现单总线驱动', detail: '编写OW_RESET/OW_WRITE/OW_READ三个基础子程序，注意μs级时序' },
       { step: '2. DS18B20温度读取', detail: '复位→跳过ROM(CCH)→启动转换(44H)→等待750ms→复位→读暂存器(BEH)→读2字节' },
       { step: '3. 温度数据处理', detail: '12位数据×0.0625得到实际温度。整数部分右移4位，小数部分取低4位×625' },
-      { step: '4. LCD显示温湿度（项目后续任务）', detail: 'UPDATE_LCD留出接口：第1行显示"Temp:25.0C"，第2行显示"Humi:65%"，实物阶段完成' },
+      { step: '4. LCD显示温湿度（项目后续任务）', detail: 'UPDATE_LCD当前仅为空接口；第1行温度、第2行湿度的显示需在后续实物阶段另行实现与验证' },
       { step: '5. 串口数据上报', detail: '组装JSON字符串{"temp":xx,"humi":xx}，逐字节通过SBUF发送，等待TI；串口终端实时可见' },
       { step: '6. 阈值报警设计', detail: '双字节SUBB比较温度原始值与01E0H（30°C×16），JNC置位蜂鸣器。可扩展为上下限双阈值' },
-      { step: '7. EEPROM存储配置（项目拓展）', detail: 'I2C写入报警阈值到AT24C02，上电时读取恢复设置' },
+      { step: '7. EEPROM存储配置（项目拓展）', detail: '后续可用I2C写入报警阈值并验证上电恢复；当前程序未实现，且不计入本轮完成判定' },
       { step: '8. 系统可靠性测试', detail: '长时间运行观察数据稳定性，测试传感器异常时的容错处理' },
     ],
     instructionRef: [
@@ -2264,7 +2312,7 @@ DS18B20 接线 (单总线)：
       { mistake: '忘记4.7kΩ上拉电阻', explanation: '单总线和I2C都是开漏输出，必须外接上拉电阻。没有上拉，总线无法回到高电平，通信必然失败。' },
       { mistake: '温度负数处理错误', explanation: 'DS18B20负温度用补码表示，MSB高5位全1。必须先判断符号位，负数需取反加1再乘0.0625。' },
       { mistake: '串口发送不等TI', explanation: '写SBUF后必须等TI=1才能发下一字节。否则数据会被覆盖导致丢失。常用JNB TI,$循环等待。' },
-      { mistake: 'EEPROM写入后未延时', explanation: 'AT24C02每次写入需5ms内部编程时间(tWR)。连续写入前必须延时5ms或查询ACK。' },
+      { mistake: '扩展项：EEPROM写入后未延时', explanation: 'AT24C02每次写入需5ms内部编程时间(tWR)。连续写入前必须延时5ms或查询ACK；该项不计入当前平台完成判定。' },
     ],
     thinkingQuestions: [
       '为什么DS18B20用单总线而不是I2C/SPI？单总线的优缺点是什么？',

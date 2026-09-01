@@ -124,10 +124,8 @@ echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)"
 ## 🎉 部署成功后
 
 1. **访问你的网站**: `https://你的项目名.vercel.app`
-2. **默认登录账号**: 
-   - 用户名: `admin`
-   - 密码: `admin123456`
-3. **立即修改密码**！
+2. **初始化登录账号**：用户名 `admin`，密码取自部署环境中的 `INIT_ADMIN_PASSWORD`
+3. **首次登录后立即轮换初始化密码**！
 
 ---
 

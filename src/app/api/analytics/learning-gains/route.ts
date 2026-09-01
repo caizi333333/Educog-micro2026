@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { getAccessibleClassIds } from '@/lib/classroom';
+import { getDataProvenance } from '@/lib/env';
+import { experiments as experimentCatalog } from '@/lib/experiment-config';
+
+const OFFICIAL_EXPERIMENT_IDS = experimentCatalog.map((experiment) => experiment.id);
+const DEMO_ACCOUNT_PREFIX = 'demo_';
+const DEMO_ACCOUNT_EXCLUSION = '账号名以 demo_ 开头的专用演示学生不纳入教学分析';
 
 export async function GET(request: NextRequest) {
   try {
+    const dataProvenance = getDataProvenance();
     const authorization = request.headers.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: '未授权' }, { status: 401 });
@@ -15,6 +22,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
+    const requestedAsOf = new URL(request.url).searchParams.get('asOf');
+    const asOf = requestedAsOf ? new Date(requestedAsOf) : new Date();
+    if (Number.isNaN(asOf.getTime())) {
+      return NextResponse.json({ error: '数据截止时间格式无效' }, { status: 400 });
+    }
     const accessibleClassIds = await getAccessibleClassIds(payload);
     const studentEnrollments = accessibleClassIds.length === 0
       ? []
@@ -23,41 +35,85 @@ export async function GET(request: NextRequest) {
           classId: { in: accessibleClassIds },
           role: 'STUDENT',
           status: 'ACTIVE',
-          user: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
+          joinedAt: { lte: asOf },
+          user: { role: 'STUDENT', status: 'ACTIVE' },
         },
-        select: { userId: true },
+        select: { userId: true, user: { select: { username: true } } },
       });
 
-    const studentIds = [...new Set(studentEnrollments.map((e) => e.userId))];
+    const enrollmentByStudent = new Map(
+      studentEnrollments.map((enrollment) => [enrollment.userId, enrollment.user.username]),
+    );
+    const enrolledStudentCount = enrollmentByStudent.size;
+    const studentIds = [...enrollmentByStudent.entries()]
+      .filter(([, username]) => !username.toLowerCase().startsWith(DEMO_ACCOUNT_PREFIX))
+      .map(([userId]) => userId);
+    const excludedDemoCount = enrolledStudentCount - studentIds.length;
+    const scopeBase = {
+      asOf: asOf.toISOString(),
+      basis: 'ACTIVE_CLASS_ENROLLMENT',
+      accessibleClassCount: accessibleClassIds.length,
+      enrolledStudentCount,
+      includedStudentCount: studentIds.length,
+      excludedStudentCount: excludedDemoCount,
+      exclusions: excludedDemoCount > 0
+        ? [{ code: 'DEMO_ACCOUNT', label: DEMO_ACCOUNT_EXCLUSION, count: excludedDemoCount }]
+        : [],
+    };
     if (studentIds.length === 0) {
-      return NextResponse.json({ scoreDistribution: [], experimentCorrelation: [], timeCorrelation: [], prePostComparison: [], chapterMasteryAvg: [] });
+      return NextResponse.json({
+        dataProvenance,
+        scoreAggregation: 'BEST_SCORE_PER_QUIZ_THEN_STUDENT_MEAN',
+        scope: {
+          ...scopeBase,
+          metricSamples: {
+            quizStudents: 0,
+            learningTimeStudents: 0,
+            experimentStudents: 0,
+            repeatedAttemptStudents: 0,
+          },
+        },
+        comparisonType: 'REPEATED_ATTEMPT',
+        scoreDistribution: [],
+        scoreSummary: { avg: 0, total: 0 },
+        experimentCorrelation: [],
+        timeCorrelation: [],
+        prePostComparison: [],
+        chapterMasteryAvg: [],
+      });
     }
 
     const [quizAttempts, experiments, progress] = await Promise.all([
       prisma.quizAttempt.findMany({
-        where: { userId: { in: studentIds } },
-        select: { userId: true, score: true, completedAt: true },
+        where: { userId: { in: studentIds }, completedAt: { lte: asOf } },
+        select: { userId: true, quizId: true, score: true, completedAt: true },
         orderBy: { completedAt: 'asc' },
       }),
       prisma.userExperiment.findMany({
-        where: { userId: { in: studentIds }, status: 'COMPLETED' },
+        where: {
+          userId: { in: studentIds },
+          experimentId: { in: OFFICIAL_EXPERIMENT_IDS },
+          status: 'COMPLETED',
+          completedAt: { lte: asOf },
+        },
         select: { userId: true },
       }),
       prisma.learningProgress.findMany({
-        where: { userId: { in: studentIds } },
+        where: { userId: { in: studentIds }, updatedAt: { lte: asOf } },
         select: { userId: true, chapterId: true, progress: true, timeSpent: true },
       }),
     ]);
 
     // --- Per-student aggregates ---
-    type StudentAgg = { scores: number[]; expCompleted: number; totalTime: number; chapterProgress: Map<string, number> };
-    const emptyAgg = (): StudentAgg => ({ scores: [], expCompleted: 0, totalTime: 0, chapterProgress: new Map() });
+    type StudentAgg = { quizBestScores: Map<string, number>; expCompleted: number; totalTime: number; chapterProgress: Map<string, number> };
+    const emptyAgg = (): StudentAgg => ({ quizBestScores: new Map(), expCompleted: 0, totalTime: 0, chapterProgress: new Map() });
 
     const studentMap = new Map<string, StudentAgg>();
 
     for (const qa of quizAttempts) {
       const s = studentMap.get(qa.userId) || emptyAgg();
-      s.scores.push(qa.score);
+      const currentBest = s.quizBestScores.get(qa.quizId);
+      if (currentBest === undefined || qa.score > currentBest) s.quizBestScores.set(qa.quizId, qa.score);
       studentMap.set(qa.userId, s);
     }
     for (const exp of experiments) {
@@ -76,8 +132,9 @@ export async function GET(request: NextRequest) {
     // --- 1. Score Distribution ---
     const allAvgScores: number[] = [];
     for (const [, data] of studentMap) {
-      if (data.scores.length > 0) {
-        allAvgScores.push(Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length));
+      const scores = [...data.quizBestScores.values()];
+      if (scores.length > 0) {
+        allAvgScores.push(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
       }
     }
     const ranges = [
@@ -95,8 +152,9 @@ export async function GET(request: NextRequest) {
     // --- 2. Experiment Completion vs Score (binned) ---
     const expBins = new Map<number, { total: number; scoreSum: number }>();
     for (const [userId, data] of studentMap) {
-      if (data.scores.length === 0) continue;
-      const avg = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+      const scores = [...data.quizBestScores.values()];
+      if (scores.length === 0) continue;
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
       const bin = data.expCompleted;
       const existing = expBins.get(bin) || { total: 0, scoreSum: 0 };
       existing.total++;
@@ -116,9 +174,12 @@ export async function GET(request: NextRequest) {
       { label: '>11h', min: 39600, max: Infinity, total: 0, scoreSum: 0 },
     ];
     for (const [userId, data] of studentMap) {
-      if (data.scores.length === 0) continue;
-      const avg = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+      const scores = [...data.quizBestScores.values()];
+      if (scores.length === 0) continue;
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
       const time = totalTimeByStudent.get(userId) || 0;
+      // 没有有效学习时长的学生不能被归入“<8h”组，否则缺失值会被误读为 0 小时。
+      if (time <= 0) continue;
       const bin = timeBins.find((b) => time >= b.min && time < b.max);
       if (bin) { bin.total++; bin.scoreSum += avg; }
     }
@@ -126,15 +187,22 @@ export async function GET(request: NextRequest) {
       .filter((b) => b.total > 0)
       .map((b) => ({ timeRange: b.label, avgScore: Math.round(b.scoreSum / b.total), studentCount: b.total }));
 
-    // --- 4. Pre/Post Quiz Comparison ---
-    const quizByStudent = new Map<string, { first: number; latest: number }>();
+    // --- 4. Repeated-attempt comparison ---
+    // 同一 quizId 的首次/最近一次作答只表示重复作答变化，不等同于受控前测/后测。
+    const quizSeries = new Map<string, { userId: string; scores: number[] }>();
     for (const qa of quizAttempts) {
-      const existing = quizByStudent.get(qa.userId);
-      if (!existing) {
-        quizByStudent.set(qa.userId, { first: qa.score, latest: qa.score });
-      } else {
-        existing.latest = qa.score;
-      }
+      const key = `${qa.userId}:${qa.quizId}`;
+      const series = quizSeries.get(key) ?? { userId: qa.userId, scores: [] };
+      series.scores.push(qa.score);
+      quizSeries.set(key, series);
+    }
+    const comparableByStudent = new Map<string, { first: number[]; latest: number[] }>();
+    for (const series of quizSeries.values()) {
+      if (series.scores.length < 2) continue;
+      const comparison = comparableByStudent.get(series.userId) ?? { first: [], latest: [] };
+      comparison.first.push(series.scores[0]!);
+      comparison.latest.push(series.scores[series.scores.length - 1]!);
+      comparableByStudent.set(series.userId, comparison);
     }
     // Get student names
     const students = await prisma.user.findMany({
@@ -142,14 +210,14 @@ export async function GET(request: NextRequest) {
       select: { id: true, name: true },
     });
     const nameMap = new Map(students.map((s) => [s.id, s.name]));
-    const prePostComparison = [...quizByStudent.entries()]
-      .filter(([, data]) => Math.abs(data.latest - data.first) > 0.5) // only show students with actual change
+    const prePostComparison = [...comparableByStudent.entries()]
       .map(([userId, data]) => ({
         name: nameMap.get(userId) || userId,
-        firstScore: Math.round(data.first),
-        latestScore: Math.round(data.latest),
-        gain: Math.round(data.latest - data.first),
+        firstScore: Math.round(data.first.reduce((sum, score) => sum + score, 0) / data.first.length),
+        latestScore: Math.round(data.latest.reduce((sum, score) => sum + score, 0) / data.latest.length),
+        comparisonCount: data.first.length,
       }))
+      .map((item) => ({ ...item, gain: item.latestScore - item.firstScore }))
       .sort((a, b) => b.gain - a.gain);
 
     // --- 5. Chapter Mastery Average ---
@@ -167,6 +235,18 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => a.chapter.localeCompare(b.chapter));
 
     return NextResponse.json({
+      dataProvenance,
+      scoreAggregation: 'BEST_SCORE_PER_QUIZ_THEN_STUDENT_MEAN',
+      scope: {
+        ...scopeBase,
+        metricSamples: {
+          quizStudents: new Set(quizAttempts.map((attempt) => attempt.userId)).size,
+          learningTimeStudents: [...totalTimeByStudent.values()].filter((time) => time > 0).length,
+          experimentStudents: new Set(experiments.map((experiment) => experiment.userId)).size,
+          repeatedAttemptStudents: comparableByStudent.size,
+        },
+      },
+      comparisonType: 'REPEATED_ATTEMPT',
       scoreDistribution: ranges,
       scoreSummary: { avg: allAvgScores.length > 0 ? Math.round(allAvgScores.reduce((a, b) => a + b, 0) / allAvgScores.length) : 0, total: allAvgScores.length },
       experimentCorrelation,

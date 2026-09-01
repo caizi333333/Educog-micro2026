@@ -170,7 +170,7 @@ export async function fetchWithErrorHandling<T>(
 }
 
 // React Hook for API calls with error handling
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export interface UseApiCallState<T> {
   data: T | null;
@@ -186,16 +186,19 @@ export function useApiCall<T>(
     loading: false,
     error: null,
   });
+  const configRef = useRef(config);
+  configRef.current = config;
   
   const execute = useCallback(async (fetchFn: () => Promise<T>) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
+    const currentConfig = configRef.current;
     
     try {
       const data = await fetchWithErrorHandling(fetchFn, {
-        ...config,
+        ...currentConfig,
         onError: (error) => {
           setState(prev => ({ ...prev, error, loading: false }));
-          config.onError?.(error);
+          currentConfig.onError?.(error);
         },
       });
       
@@ -205,7 +208,7 @@ export function useApiCall<T>(
       // Error is already handled in fetchWithErrorHandling
       throw error;
     }
-  }, [config]);
+  }, []);
   
   const reset = useCallback(() => {
     setState({ data: null, loading: false, error: null });

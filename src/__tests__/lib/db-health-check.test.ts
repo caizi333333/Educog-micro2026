@@ -315,6 +315,9 @@ describe('db-health-check', () => {
       
       // Assert
       expect(result.timestamp).toBeDefined();
+      expect(result.scope).toBe('INSTANTANEOUS');
+      expect(result.label).toBe('即时连接探测');
+      expect(result.note).toContain('不代表历史可用率');
       expect(result.database.isConnected).toBe(true);
       expect(result.database.latency).toBeGreaterThanOrEqual(0);
       expect(result.database.info).toMatchObject({
@@ -324,7 +327,7 @@ describe('db-health-check', () => {
         database: 'testdb',
         hasCredentials: true,
       });
-      expect(result.recommendations).toEqual(['数据库连接正常']);
+      expect(result.recommendations).toEqual(['本次只读查询已完成；如需判断持续表现，请查看独立监测窗口。']);
     });
 
     it('should create failed health check response', async () => {
@@ -338,10 +341,11 @@ describe('db-health-check', () => {
       // Assert
       expect(result.timestamp).toBeDefined();
       expect(result.database.isConnected).toBe(false);
-      expect(result.database.error).toBe('Connection failed');
+      expect(result.database.error).toBe('数据库连接暂不可用');
       expect(result.database.info).toMatchObject({ provider: 'postgresql' });
-      expect(result.recommendations[0]).toBe('数据库连接失败，请检查以下项目：');
-      expect(result.recommendations).toContain('检查DATABASE_URL环境变量配置');
+      expect(result.recommendations[0]).toBe('请稍后手动重试，避免连续刷新增加连接压力。');
+      expect(result.recommendations).toContain('若多次失败，请联系系统管理员查看服务端日志。');
+      expect(JSON.stringify(result)).not.toContain('Connection failed');
     });
 
     it('should include specific suggestions in failed response', async () => {
@@ -354,10 +358,11 @@ describe('db-health-check', () => {
       
       // Assert
       expect(result.database.isConnected).toBe(false);
-      expect(result.recommendations).toContain('数据库连接失败，请检查以下项目：');
-      expect(result.recommendations).toContain('检查网络连接是否正常');
-      expect(result.recommendations).toContain('确认数据库服务器是否在线');
-      expect(result.recommendations).toContain('检查防火墙设置');
+      expect(result.database.error).toBe('数据库连接暂不可用');
+      expect(result.recommendations).toEqual([
+        '请稍后手动重试，避免连续刷新增加连接压力。',
+        '若多次失败，请联系系统管理员查看服务端日志。',
+      ]);
     });
 
     it('should handle health check response with empty suggestions array', async () => {
@@ -370,11 +375,11 @@ describe('db-health-check', () => {
       
       // Assert
       expect(result.database.isConnected).toBe(false);
-      expect(result.database.error).toBe('Unknown database error');
-      expect(result.recommendations[0]).toBe('数据库连接失败，请检查以下项目：');
-      expect(result.recommendations).toContain('检查DATABASE_URL环境变量配置');
-      expect(result.recommendations).toContain('确认数据库服务提供商状态');
-      expect(result.recommendations).toContain('尝试重启应用程序');
+      expect(result.database.error).toBe('数据库连接暂不可用');
+      expect(result.recommendations).toEqual([
+        '请稍后手动重试，避免连续刷新增加连接压力。',
+        '若多次失败，请联系系统管理员查看服务端日志。',
+      ]);
     });
   });
 

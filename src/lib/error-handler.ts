@@ -1,5 +1,40 @@
 import { NextResponse } from 'next/server';
 
+const SENSITIVE_ERROR_MESSAGE_PATTERN = /(?:password|secret|token|api[_-]?key|authorization)\s*(?:=|:)\s*\S+|bearer\s+[A-Za-z0-9._~-]+/i;
+const SENSITIVE_FIELD_NAME_PATTERN = /^(?:password|secret|token|api[_-]?key|authorization)$/i;
+const SENSITIVE_STACK_PATTERN = /\/Users\/[^/]+\/|\/sessions\/[^/]+\/[^/]+\/|password|secret|token/gi;
+
+function publicErrorMessage(message: string): string {
+  return SENSITIVE_ERROR_MESSAGE_PATTERN.test(message) ? 'Internal server error' : message;
+}
+
+function sanitizeErrorStack(stack: string): string {
+  return stack.replace(SENSITIVE_STACK_PATTERN, (match) => (
+    match.startsWith('/') ? '/home/user/' : '[REDACTED]'
+  ));
+}
+
+function sanitizePublicDetails(
+  value: unknown,
+  depth = 0,
+  seen: WeakSet<object> = new WeakSet<object>(),
+): unknown {
+  if (depth > 4) return '[TRUNCATED]';
+  if (typeof value === 'string') return publicErrorMessage(value);
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[CIRCULAR]';
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((item) => sanitizePublicDetails(item, depth + 1, seen));
+  }
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+    key,
+    SENSITIVE_FIELD_NAME_PATTERN.test(key)
+      ? '[REDACTED]'
+      : sanitizePublicDetails(item, depth + 1, seen),
+  ]));
+}
+
 // 错误代码枚举
 export enum ErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -34,10 +69,6 @@ export class AppError extends Error {
     if (code) this.code = code;
     if (details) this.details = details;
     
-    // 确保堆栈跟踪正确
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
-    }
   }
 }
 
@@ -49,9 +80,6 @@ export class ValidationError extends AppError {
     this.name = 'ValidationError';
     if (field) this.field = field;
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ValidationError);
-    }
   }
 }
 
@@ -60,9 +88,6 @@ export class AuthenticationError extends AppError {
     super(message, 401, 'AUTHENTICATION_ERROR');
     this.name = 'AuthenticationError';
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AuthenticationError);
-    }
   }
 }
 
@@ -71,9 +96,6 @@ export class AuthorizationError extends AppError {
     super(message, 403, 'AUTHORIZATION_ERROR');
     this.name = 'AuthorizationError';
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AuthorizationError);
-    }
   }
 }
 
@@ -87,9 +109,6 @@ export class NotFoundError extends AppError {
     super(message, 404, 'NOT_FOUND');
     this.name = 'NotFoundError';
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, NotFoundError);
-    }
   }
 }
 
@@ -98,9 +117,6 @@ export class ConflictError extends AppError {
     super(message, 409, 'CONFLICT');
     this.name = 'ConflictError';
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ConflictError);
-    }
   }
 }
 
@@ -109,9 +125,6 @@ export class RateLimitError extends AppError {
     super(message, 429, 'RATE_LIMIT_EXCEEDED');
     this.name = 'RateLimitError';
     
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, RateLimitError);
-    }
   }
 }
 
@@ -124,9 +137,9 @@ export function handleApiError(error: Error & Partial<AppError>): NextResponse {
   if (error.statusCode) {
     return NextResponse.json(
       {
-        error: error.message,
+        error: publicErrorMessage(error.message),
         code: error.code,
-        details: error.details
+        details: sanitizePublicDetails(error.details)
       },
       { status: error.statusCode || 500 }
     );
@@ -150,7 +163,7 @@ export function handleApiError(error: Error & Partial<AppError>): NextResponse {
   // 默认错误响应
   return NextResponse.json(
     { 
-      error: process.env.NODE_ENV === 'production' ? '服务器错误' : error.message,
+      error: '服务器错误',
       code: 'INTERNAL_SERVER_ERROR'
     },
     { status: 500 }
@@ -160,8 +173,8 @@ export function handleApiError(error: Error & Partial<AppError>): NextResponse {
 // 错误日志记录
 function logError(error: Error & Partial<AppError>): void {
   const errorInfo = {
-    message: error.message,
-    stack: error.stack,
+    message: publicErrorMessage(error.message),
+    stack: error.stack ? sanitizeErrorStack(error.stack) : undefined,
     code: (error as AppError).code,
     statusCode: (error as AppError).statusCode,
     timestamp: new Date().toISOString(),
@@ -195,7 +208,7 @@ export function withErrorHandler(
 export class ErrorHandler {
   private static shouldHideMessage(message: string): boolean {
     // 无论环境如何，都不应该在响应中暴露敏感信息
-    return /(password|secret|token|api[_-]?key|authorization|bearer)/i.test(message);
+    return SENSITIVE_ERROR_MESSAGE_PATTERN.test(message);
   }
 
   static handleError(error: unknown): NextResponse {
@@ -214,7 +227,7 @@ export class ErrorHandler {
     
     if (error instanceof AppError) {
       const errorData: Record<string, unknown> = {
-        message: error.message,
+        message: this.shouldHideMessage(error.message) ? 'Internal server error' : error.message,
         statusCode: error.statusCode,
         type: error.constructor.name
       };
@@ -263,24 +276,25 @@ export class ErrorHandler {
   static logError(error: Error & Partial<AppError>): void {
     const errorType = error.constructor.name;
     const statusCode = (error as AppError).statusCode || 500;
-    let stack = error.stack || 'No stack trace available';
-    
-    // 清理堆栈跟踪中的敏感路径
-    stack = stack.replace(/\/Users\/[^/]+\//g, '/home/user/');
-    stack = stack.replace(/\/sessions\/[^/]+\/[^/]+\//g, '/home/user/');
-    stack = stack.replace(/password|secret|token/gi, '[REDACTED]');
+    const isOperational = (error as AppError).isOperational === true;
+    const stack = isOperational
+      ? 'Operational error'
+      : error.stack
+        ? sanitizeErrorStack(error.stack)
+        : 'No stack trace available';
+    const message = publicErrorMessage(error.message);
     
     if (error instanceof ValidationError && error.field) {
       console.error(
         `${errorType} [${statusCode}]:`,
-        error.message,
+        message,
         `Field: ${error.field}`,
         stack
       );
     } else {
       console.error(
         `${errorType} [${statusCode}]:`,
-        error.message,
+        message,
         stack
       );
     }

@@ -2,159 +2,122 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 
-// 获取用户进度
-export async function GET(request: NextRequest) {
+function json(body: unknown, status = 200): NextResponse {
+  const response = NextResponse.json(body, { status });
+  response.headers.set('Cache-Control', 'no-store, max-age=0');
+  return response;
+}
+
+function shanghaiDateKey(value: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(value);
+}
+
+function calculateStreak(completedAt: Array<Date | null>): number {
+  const dates = [...new Set(completedAt
+    .filter((value): value is Date => value instanceof Date)
+    .map(shanghaiDateKey))]
+    .sort((a, b) => b.localeCompare(a));
+  if (dates.length === 0) return 0;
+
+  const today = shanghaiDateKey(new Date());
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  if (dates[0] !== today && dates[0] !== yesterday) return 0;
+
+  let streak = 1;
+  for (let index = 1; index < dates.length; index += 1) {
+    const current = dates[index - 1];
+    const previous = dates[index];
+    if (!current || !previous) continue;
+    const days = Math.round(
+      (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`))
+      / 86_400_000,
+    );
+    if (days !== 1) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // 从请求头获取认证令牌
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authorization = request.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+      return json({ error: '未授权' }, 401);
     }
 
-    const token = authHeader.substring(7);
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const payload = await verifyToken(authorization.substring(7));
+    if (!payload?.userId) return json({ error: '令牌无效' }, 401);
 
-    // 查找用户进度
-    const userProgress = await prisma.userProgress.findUnique({
-      where: { userId: payload.userId }
+    const userId = payload.userId;
+    const [modulesCompleted, learningAggregate, quizAggregate, recentCompletions] = await Promise.all([
+      prisma.learningProgress.count({
+        where: {
+          userId,
+          OR: [{ status: 'COMPLETED' }, { progress: { gte: 100 } }],
+        },
+      }),
+      prisma.learningProgress.aggregate({
+        where: { userId },
+        _sum: { timeSpent: true },
+        _max: { completedAt: true },
+        _count: true,
+      }),
+      prisma.quizAttempt.aggregate({
+        where: { userId },
+        _avg: { score: true },
+        _count: true,
+      }),
+      prisma.learningProgress.findMany({
+        where: { userId, completedAt: { not: null } },
+        select: { completedAt: true },
+        orderBy: { completedAt: 'desc' },
+        take: 366,
+      }),
+    ]);
+
+    const learningRecords = typeof learningAggregate._count === 'number'
+      ? learningAggregate._count
+      : 0;
+    const quizAttempts = typeof quizAggregate._count === 'number'
+      ? quizAggregate._count
+      : 0;
+
+    return json({
+      source: 'SERVER_DERIVED',
+      modulesCompleted,
+      totalTimeSpent: learningAggregate._sum.timeSpent ?? 0,
+      averageScore: quizAggregate._avg.score == null
+        ? null
+        : Math.round(quizAggregate._avg.score * 100) / 100,
+      streakDays: calculateStreak(recentCompletions.map((item) => item.completedAt)),
+      lastActiveDate: learningAggregate._max.completedAt ?? null,
+      learningRecords,
+      quizAttempts,
+      dataSufficient: learningRecords > 0 || quizAttempts > 0,
     });
-
-    if (!userProgress) {
-      return NextResponse.json({ error: 'Progress not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(userProgress);
   } catch (error) {
     console.error('Error fetching user progress:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return json({ error: '获取学习进度失败' }, 500);
   }
 }
 
-// 创建用户进度
-export async function POST(request: NextRequest) {
-  try {
-    // 从请求头获取认证令牌
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 解析请求体
-    let body;
-    try {
-      body = await request.json();
-    } catch (error) {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
-
-    // 验证数据
-    const { modulesCompleted, totalTimeSpent, averageScore, streakDays } = body;
-    if (
-      typeof modulesCompleted !== 'number' || modulesCompleted < 0 ||
-      typeof totalTimeSpent !== 'number' || totalTimeSpent < 0 ||
-      (averageScore !== undefined && (typeof averageScore !== 'number' || averageScore < 0 || averageScore > 100)) ||
-      (streakDays !== undefined && (typeof streakDays !== 'number' || streakDays < 0))
-    ) {
-      return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
-    }
-
-    // 创建用户进度
-    const userProgress = await prisma.userProgress.create({
-      data: {
-        userId: payload.userId,
-        modulesCompleted,
-        totalTimeSpent,
-        averageScore,
-        streakDays
-      }
-    });
-
-    return NextResponse.json(userProgress, { status: 201 });
-  } catch (error) {
-    console.error('Error creating user progress:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+function readOnlyResponse(): NextResponse {
+  const response = json({ error: '学习进度由服务端学习事件生成，不支持客户端修改' }, 405);
+  response.headers.set('Allow', 'GET');
+  return response;
 }
 
-// 更新用户进度
-export async function PUT(request: NextRequest) {
-  try {
-    // 从请求头获取认证令牌
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export async function POST(_request: NextRequest): Promise<NextResponse> {
+  return readOnlyResponse();
+}
 
-    const token = authHeader.substring(7);
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 解析请求体
-    let body;
-    try {
-      body = await request.json();
-    } catch (error) {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
-
-    // 验证数据
-    const { modulesCompleted, totalTimeSpent, averageScore, streakDays } = body;
-    const updateData: any = {};
-    
-    if (modulesCompleted !== undefined) {
-      if (typeof modulesCompleted !== 'number' || modulesCompleted < 0) {
-        return NextResponse.json({ error: 'Invalid modulesCompleted' }, { status: 400 });
-      }
-      updateData.modulesCompleted = modulesCompleted;
-    }
-    
-    if (totalTimeSpent !== undefined) {
-      if (typeof totalTimeSpent !== 'number' || totalTimeSpent < 0) {
-        return NextResponse.json({ error: 'Invalid totalTimeSpent' }, { status: 400 });
-      }
-      updateData.totalTimeSpent = totalTimeSpent;
-    }
-    
-    if (averageScore !== undefined) {
-      if (typeof averageScore !== 'number' || averageScore < 0 || averageScore > 100) {
-        return NextResponse.json({ error: 'Invalid averageScore' }, { status: 400 });
-      }
-      updateData.averageScore = averageScore;
-    }
-    
-    if (streakDays !== undefined) {
-      if (typeof streakDays !== 'number' || streakDays < 0) {
-        return NextResponse.json({ error: 'Invalid streakDays' }, { status: 400 });
-      }
-      updateData.streakDays = streakDays;
-    }
-
-    // 更新用户进度
-    const userProgress = await prisma.userProgress.update({
-      where: { userId: payload.userId },
-      data: updateData
-    });
-
-    return NextResponse.json(userProgress);
-  } catch (error: any) {
-    console.error('Error updating user progress:', error);
-    
-    // 处理 Prisma 记录不存在错误
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Progress not found' }, { status: 404 });
-    }
-    
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+export async function PUT(_request: NextRequest): Promise<NextResponse> {
+  return readOnlyResponse();
 }

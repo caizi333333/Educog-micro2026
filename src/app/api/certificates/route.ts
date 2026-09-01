@@ -1,6 +1,35 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getDataProvenance } from '@/lib/env';
+
+type CertificateMetadata = {
+  awardScope?: string;
+  scope?: string;
+  criteria?: string;
+  requirements?: string;
+};
+
+function readCertificateMetadata(value: string | null): CertificateMetadata {
+  if (!value) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const record = parsed as Record<string, unknown>;
+    const readText = (key: keyof CertificateMetadata): string | undefined => {
+      const item = record[key];
+      return typeof item === 'string' && item.trim() ? item.trim() : undefined;
+    };
+    return {
+      awardScope: readText('awardScope'),
+      scope: readText('scope'),
+      criteria: readText('criteria'),
+      requirements: readText('requirements'),
+    };
+  } catch {
+    return {};
+  }
+}
 
 // 获取用户证书列表
 export async function GET(request: Request) {
@@ -33,7 +62,7 @@ export async function GET(request: Request) {
       // 用户基本信息
       prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, name: true, username: true },
+        select: { id: true, name: true, username: true, role: true },
       }),
       // 学习时长统计
       prisma.learningProgress.aggregate({
@@ -74,11 +103,25 @@ export async function GET(request: Request) {
     // 计算学习时长（timeSpent 存储为秒，转换为小时）
     const totalHours = Math.round((learningStats._sum.timeSpent || 0) / 3600);
 
+    const persistedCertificates = certificates.map((certificate) => {
+      const metadata = readCertificateMetadata(certificate.metadata);
+      return {
+        ...certificate,
+        // These fields only normalize persisted certificate fields for display.
+        // Missing criteria remain null so the UI never invents an award rule.
+        awardScope: metadata.awardScope ?? metadata.scope ?? certificate.name,
+        criteria: metadata.criteria ?? metadata.requirements ?? certificate.description ?? null,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      certificates,
+      dataProvenance: getDataProvenance(),
+      asOf: new Date().toISOString(),
+      certificates: persistedCertificates,
       profile: {
         name: user.name || user.username,
+        role: user.role,
       },
       stats: {
         totalHours,
@@ -91,7 +134,6 @@ export async function GET(request: Request) {
     console.error('获取证书失败:', error);
     return NextResponse.json({
       error: '服务器内部错误',
-      details: error instanceof Error ? error.message : '未知错误',
     }, { status: 500 });
   }
 }

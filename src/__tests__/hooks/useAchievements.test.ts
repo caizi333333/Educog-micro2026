@@ -1,399 +1,250 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAchievements } from '@/hooks/useAchievements';
-import { ACHIEVEMENTS_V2 } from '@/lib/achievements-v2';
-import { mockUserProgress } from '../utils/mock-data';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { ALL_ACHIEVEMENTS } from '@/lib/achievements-v2';
+import { ClientRequestTimeoutError } from '@/lib/client-fetch';
 
-// Mock the achievements module
-jest.mock('@/lib/achievements-v2', () => {
-  const originalModule = jest.requireActual('@/lib/achievements-v2');
-  return {
-    ...originalModule,
-    checkAchievementUnlock: jest.fn(),
-    generateUnlockMessage: jest.fn(),
-    getAchievementsByCategory: jest.fn(),
-    formatAchievementDisplay: jest.fn()
-  };
-});
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('@/hooks/use-toast', () => ({ useToast: jest.fn() }));
 
-// Mock localStorage
-const mockLocalStorage = {
+const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockUseToast = useToast as jest.MockedFunction<typeof useToast>;
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
+const localStorageMock = {
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
-  clear: jest.fn()
+  clear: jest.fn(),
 };
 
 Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage
+  configurable: true,
+  value: localStorageMock,
 });
 
-const {
-  checkAchievementUnlock,
-  generateUnlockMessage,
-  getAchievementsByCategory,
-  formatAchievementDisplay
-} = require('@/lib/achievements-v2');
+const signedInUser = {
+  id: 'user-1',
+  username: 'student',
+  email: 'student@example.com',
+  name: 'Student',
+  role: 'STUDENT' as const,
+};
 
-describe('useAchievements Hook', () => {
-  const mockUserStats = {
-    modules_completed: 5,
-    code_runs: 20,
-    debug_success: 18,
-    experiments_completed: 3,
-    daily_streak: 7,
-    perfect_quiz: 2,
-    speed_completion: 1,
-    night_study: 5,
-    morning_study: 3,
-    questions_answered: 15,
-    discussions_started: 2,
-    easter_egg_found: 1,
-    bugs_reported: 0,
-    continuous_hours: 4
-  };
+const achievementEvidence = {
+  dataProvenance: { mode: 'DEMO' as const, label: '演示数据', note: '用于测试的数据身份说明' },
+  asOf: '2026-08-26T00:00:00.000Z',
+  sampleSize: {
+    achievementRules: ALL_ACHIEVEMENTS.length,
+    unlockedAchievementRecords: 1,
+    activityRecords: 2,
+    learningProgressRecords: 1,
+    quizAttempts: 1,
+    experimentRecords: 0,
+  },
+};
+
+describe('useAchievements', () => {
+  const toast = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockLocalStorage.getItem.mockReturnValue(null);
-    mockLocalStorage.setItem.mockImplementation(() => {});
-    
-    // Reset mocked functions
-    checkAchievementUnlock.mockReturnValue({ unlocked: false, progress: 0 });
-    generateUnlockMessage.mockReturnValue('Achievement unlocked!');
-    getAchievementsByCategory.mockReturnValue([]);
-    formatAchievementDisplay.mockReturnValue({ title: 'Test', description: 'Test achievement' });
+    mockUseAuth.mockReturnValue({ user: signedInUser, loading: false } as ReturnType<typeof useAuth>);
+    mockUseToast.mockReturnValue({ toast, dismiss: jest.fn(), toasts: [] } as ReturnType<typeof useToast>);
+    localStorageMock.getItem.mockReturnValue('valid-token');
+
+    const unlockedId = ALL_ACHIEVEMENTS[0]?.id;
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...achievementEvidence,
+          success: true,
+          achievements: unlockedId ? [{ achievementId: unlockedId, unlocked: true, progress: 100, unlockedAt: '2026-07-15T00:00:00.000Z' }] : [],
+          stats: { totalPoints: 120 },
+          userStats: { modules_completed: 3, code_runs: 2 },
+        }),
+      });
   });
 
-  describe('初始化', () => {
-    it('应该正确初始化成就状态', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(result.current.userProgress).toEqual([]);
-      expect(result.current.userStats).toBeNull();
-      expect(result.current.loading).toBe(false); // 没有用户登录时loading为false
-      expect(result.current.refreshing).toBe(false);
-    });
+  it('stops loading without requesting data when no user is signed in', async () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: false } as ReturnType<typeof useAuth>);
 
-    it('应该提供必要的方法', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(typeof result.current.fetchAchievements).toBe('function');
-      expect(typeof result.current.calculateStats).toBe('function');
-      expect(typeof result.current.getFilteredAchievements).toBe('function');
-    });
+    const { result } = renderHook(() => useAchievements());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  describe('统计计算', () => {
-    it('应该正确计算成就统计', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const stats = result.current.calculateStats();
-      
-      // 验证基本统计结构
-      expect(stats).toHaveProperty('unlockedCount');
-      expect(stats).toHaveProperty('totalCount');
-      expect(stats).toHaveProperty('totalPoints');
-      expect(stats).toHaveProperty('completionPercentage');
-      expect(stats).toHaveProperty('byTier');
-      
-      // 验证初始状态
-      expect(stats.unlockedCount).toBe(0);
-      expect(stats.totalCount).toBe(ACHIEVEMENTS_V2.length);
-      expect(stats.totalPoints).toBe(0);
-      expect(stats.completionPercentage).toBe(0);
-    });
+  it('does not request data before authentication hydration completes', () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: true } as ReturnType<typeof useAuth>);
 
-    it('应该正确按等级分组成就', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const stats = result.current.calculateStats();
-      
-      expect(stats.byTier).toHaveProperty('bronze');
-      expect(stats.byTier).toHaveProperty('silver');
-      expect(stats.byTier).toHaveProperty('gold');
-      expect(stats.byTier).toHaveProperty('platinum');
-    });
+    const { result } = renderHook(() => useAchievements());
+
+    expect(result.current.loading).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  describe('成就过滤', () => {
-    it('应该正确按类别过滤成就', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const learningAchievements = result.current.getFilteredAchievements('learning');
-      const practiceAchievements = result.current.getFilteredAchievements('practice');
-      
-      expect(Array.isArray(learningAchievements)).toBe(true);
-      expect(Array.isArray(practiceAchievements)).toBe(true);
-      
-      // 验证过滤结果包含正确类别的成就
-      learningAchievements.forEach(achievement => {
-        expect(achievement.category).toBe('learning');
-      });
-    });
+  it.each(['TEACHER', 'ADMIN'] as const)('does not request student achievements for a %s account', async (role) => {
+    mockUseAuth.mockReturnValue({ user: { ...signedInUser, role }, loading: false } as ReturnType<typeof useAuth>);
 
-    it('应该返回所有成就当类别为all时', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const allAchievements = result.current.getFilteredAchievements('all');
-      
-      // 隐藏成就会被过滤，所以实际显示的成就数量会少于总数
-      expect(allAchievements.length).toBeLessThanOrEqual(ACHIEVEMENTS_V2.length);
-      expect(allAchievements.length).toBeGreaterThan(0);
-    });
+    const { result } = renderHook(() => useAchievements());
 
-    it('应该正确排序成就', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const achievements = result.current.getFilteredAchievements('all');
-      
-      // 验证排序逻辑（已解锁的在前，然后按等级排序）
-      expect(Array.isArray(achievements)).toBe(true);
-      expect(achievements.length).toBeGreaterThan(0);
-    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.userProgress).toEqual([]);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  describe('成就分类', () => {
-    it('应该正确按类别获取成就', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const socialAchievements = result.current.getAchievementsByCategory('social');
-      
-      expect(Array.isArray(socialAchievements)).toBe(true);
-      // 验证返回的成就都属于指定类别
-      socialAchievements.forEach(achievement => {
-        expect(achievement.category).toBe('social');
+  it('ignores a late student response after the account changes role', async () => {
+    let resolveAchievements!: (value: unknown) => void;
+    mockFetch.mockReset().mockImplementationOnce(() => new Promise((resolve) => {
+      resolveAchievements = resolve;
+    }));
+
+    const { result, rerender } = renderHook(() => useAchievements());
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    mockUseAuth.mockReturnValue({ user: { ...signedInUser, role: 'TEACHER' }, loading: false } as ReturnType<typeof useAuth>);
+    rerender();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      resolveAchievements({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          achievements: [{ achievementId: ALL_ACHIEVEMENTS[0]?.id, unlocked: true }],
+          stats: { totalPoints: 999 },
+        }),
       });
     });
 
-    it('应该处理空的类别', () => {
-      getAchievementsByCategory.mockReturnValue([]);
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      const emptyCategory = result.current.getAchievementsByCategory('nonexistent');
-      
-      expect(emptyCategory).toEqual([]);
-    });
+    expect(result.current.userProgress).toEqual([]);
+    expect(result.current.totalPoints).toBeNull();
   });
 
-  describe('成就显示', () => {
-    it('应该正确格式化成就显示', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const display = result.current.formatAchievementDisplay('first_program', [mockUserProgress] as any);
-      
-      expect(display).toHaveProperty('title');
-      expect(display).toHaveProperty('icon');
-      expect(typeof display.title).toBe('string');
-      expect(typeof display.icon).toBe('string');
-    });
+  it('maps server unlocks, user stats and the server-owned point total', async () => {
+    const { result } = renderHook(() => useAchievements());
 
-    it('应该处理隐藏成就的显示', () => {
-      const mockHiddenDisplay = {
-        title: '???',
-        description: 'Hidden achievement',
-        icon: '🔒',
-        rarity: 'rare'
-      };
-      
-      formatAchievementDisplay.mockReturnValue(mockHiddenDisplay);
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      const display = result.current.formatAchievementDisplay('hidden_achievement', [mockUserProgress] as any);
-      
-      expect(display.title).toBe('???');
-      expect(display.icon).toBe('🔒');
-    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/achievements', expect.objectContaining({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer valid-token' },
+      signal: expect.any(AbortSignal),
+    }));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.current.userProgress.filter((item) => item.unlocked)).toHaveLength(1);
+    expect(result.current.userStats).toMatchObject({ modules_completed: 3, code_runs: 2 });
+    expect(result.current.totalPoints).toBe(120);
+    expect(result.current.calculateStats()).toMatchObject({ unlockedCount: 1, totalPoints: 120 });
   });
 
-  describe('最近解锁', () => {
-    it('应该正确记录最近解锁的成就', () => {
-      checkAchievementUnlock.mockReturnValue({ unlocked: true, progress: 100 });
-      generateUnlockMessage.mockReturnValue('Achievement unlocked!');
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      act(() => {
-        result.current.checkAchievements(mockUserProgress);
-      });
-      
-      expect(result.current.recentUnlocks.length).toBeGreaterThan(0);
-      expect(result.current.recentUnlocks[0]).toMatchObject({
-        achievementId: expect.any(String),
-        message: expect.stringContaining('解锁成就:'),
-        timestamp: expect.any(Number)
-      });
-    });
+  it('filters the unified catalog by category', async () => {
+    const { result } = renderHook(() => useAchievements('quiz'));
 
-    it('应该限制最近解锁列表的长度', () => {
-      checkAchievementUnlock.mockReturnValue({ unlocked: true, progress: 100 });
-      generateUnlockMessage.mockReturnValue('Achievement unlocked!');
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      // 模拟解锁多个成就
-      act(() => {
-        for (let i = 0; i < 15; i++) {
-          result.current.checkAchievements({
-            ...mockUserProgress,
-            modulesCompleted: i + 1
-          });
-        }
-      });
-      
-      // 验证列表长度不超过限制（假设限制为10）
-      expect(result.current.recentUnlocks.length).toBeLessThanOrEqual(10);
-    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
-    it('应该正确清除最近解锁记录', () => {
-      checkAchievementUnlock.mockReturnValue({ unlocked: true, progress: 100 });
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      act(() => {
-        result.current.checkAchievements(mockUserProgress);
-      });
-      
-      expect(result.current.recentUnlocks.length).toBeGreaterThan(0);
-      
-      act(() => {
-        result.current.clearRecentUnlocks();
-      });
-      
-      expect(result.current.recentUnlocks).toEqual([]);
-    });
+    expect(result.current.achievements.length).toBeGreaterThan(0);
+    expect(result.current.achievements.every((achievement) => achievement.category === 'quiz')).toBe(true);
+    expect(result.current.getAchievementsByCategory('experiment').every((achievement) => achievement.category === 'experiment')).toBe(true);
   });
 
-  describe('总积分计算', () => {
-    it('应该正确计算总积分', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      // 模拟解锁一些成就
-      checkAchievementUnlock.mockReturnValue({ unlocked: true, progress: 100 });
-      
-      act(() => {
-        result.current.checkAchievements(mockUserProgress);
-      });
-      
-      expect(result.current.totalPoints).toBeGreaterThan(0);
-    });
+  it('returns no definitions for an unknown category', async () => {
+    const { result } = renderHook(() => useAchievements());
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
-    it('应该在没有解锁成就时返回0积分', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(result.current.totalPoints).toBe(0);
-    });
+    expect(result.current.getFilteredAchievements('unknown')).toEqual([]);
   });
 
-  describe('API交互', () => {
-    it('应该正确调用fetchAchievements', async () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      await act(async () => {
-        await result.current.fetchAchievements();
-      });
-      
-      expect(result.current.loading).toBe(false);
-    });
+  it('reports an authenticated API failure and keeps the page recoverable', async () => {
+    mockFetch.mockReset().mockResolvedValueOnce({ ok: false, status: 503 });
 
-    it('应该处理API错误', async () => {
-      // 模拟API错误
-      global.fetch = jest.fn().mockRejectedValue(new Error('API Error'));
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      await act(async () => {
-        await result.current.fetchAchievements();
-      });
-      
-      expect(result.current.loading).toBe(false);
-      expect(result.current.error).toBeTruthy();
-    });
+    const { result } = renderHook(() => useAchievements());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('获取成就失败');
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
   });
 
-  describe('错误处理', () => {
-    it('应该处理checkAchievementUnlock抛出的错误', () => {
-      checkAchievementUnlock.mockImplementation(() => {
-        throw new Error('Achievement check failed');
-      });
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(() => {
-        act(() => {
-          result.current.checkAchievements(mockUserProgress);
-        });
-      }).not.toThrow();
-      
-      expect(result.current.unlockedAchievements).toEqual([]);
-    });
+  it('turns a request timeout into a recoverable, explicit state', async () => {
+    mockFetch.mockReset().mockRejectedValueOnce(new ClientRequestTimeoutError());
 
-    it('应该处理localStorage错误', () => {
-      mockLocalStorage.setItem.mockImplementation(() => {
-        throw new Error('Storage quota exceeded');
-      });
-      
-      checkAchievementUnlock.mockReturnValue({ unlocked: true, progress: 100 });
-      
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(() => {
-        act(() => {
-          result.current.checkAchievements(mockUserProgress);
-        });
-      }).not.toThrow();
-    });
+    const { result } = renderHook(() => useAchievements());
 
-    it('应该处理无效的用户进度数据', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      expect(() => {
-        act(() => {
-          result.current.checkAchievements(null as any);
-        });
-      }).not.toThrow();
-      
-      expect(() => {
-        act(() => {
-          result.current.checkAchievements(undefined as any);
-        });
-      }).not.toThrow();
-    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('读取成就记录超时，请重试');
+    expect(result.current.refetch).toEqual(expect.any(Function));
   });
 
-  describe('边界情况', () => {
-    it('应该处理空的用户统计数据', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const stats = result.current.calculateStats();
-      
-      expect(stats.unlockedCount).toBe(0);
-      expect(stats.totalCount).toBe(ACHIEVEMENTS_V2.length);
-      expect(stats.totalPoints).toBe(0);
-      expect(stats.completionPercentage).toBe(0);
+  it('rejects a malformed 200 response instead of publishing zero-valued progress', async () => {
+    mockFetch.mockReset().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ detail: 'Bad Request' }),
     });
 
-    it('应该处理无效的过滤类别', () => {
-      const { result } = renderHook(() => useAchievements());
-      
-      const achievements = result.current.getFilteredAchievements('invalid_category' as any);
-      
-      expect(Array.isArray(achievements)).toBe(true);
-      expect(achievements.length).toBe(0);
+    const { result } = renderHook(() => useAchievements());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('成就数据响应格式异常');
+    expect(result.current.userProgress).toEqual([]);
+    expect(result.current.totalPoints).toBeNull();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+  });
+
+  it('supports an explicit refresh and clears a previous error after success', async () => {
+    mockFetch.mockReset().mockResolvedValueOnce({ ok: false, status: 503 });
+    const { result } = renderHook(() => useAchievements());
+    await waitFor(() => expect(result.current.error).toBe('获取成就失败'));
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...achievementEvidence,
+          sampleSize: { ...achievementEvidence.sampleSize, unlockedAchievementRecords: 0 },
+          success: true,
+          achievements: [],
+          stats: { totalPoints: 0 },
+        }),
+      });
+
+    await act(async () => {
+      await result.current.refetch(true);
     });
 
-    it('应该正确处理组件卸载', () => {
-      const { result, unmount } = renderHook(() => useAchievements());
-      
-      // 验证初始状态（由于没有用户登录，loading会立即变为false）
-      expect(result.current.loading).toBe(false);
-      
-      // 卸载组件
-      unmount();
-      
-      // 验证没有错误
-      expect(true).toBe(true);
+    expect(result.current.refreshing).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('clears previously confirmed achievement values when the token disappears before refresh', async () => {
+    const { result } = renderHook(() => useAchievements());
+    await waitFor(() => expect(result.current.totalPoints).toBe(120));
+
+    localStorageMock.getItem.mockReturnValue(null);
+    await act(async () => {
+      await result.current.refetch(true);
     });
+
+    expect(result.current.accessErrorStatus).toBe(401);
+    expect(result.current.userProgress).toEqual([]);
+    expect(result.current.userStats).toBeNull();
+    expect(result.current.totalPoints).toBeNull();
+  });
+
+  it.each([401, 403] as const)('clears stale results and exposes a recoverable %s access state', async (status) => {
+    mockFetch.mockReset().mockResolvedValueOnce({ ok: false, status });
+
+    const { result } = renderHook(() => useAchievements());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.accessErrorStatus).toBe(status);
+    expect(result.current.userProgress).toEqual([]);
+    expect(result.current.totalPoints).toBeNull();
+    expect(toast).not.toHaveBeenCalled();
   });
 });

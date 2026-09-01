@@ -1,4 +1,10 @@
 import { quizQuestions, type MultipleChoiceQuestion, type CodeCompletionQuestion } from '@/lib/quiz-data';
+import { knowledgePoints } from '@/lib/knowledge-points';
+import {
+  ADDRESSING_INITIAL_QUESTION_IDS,
+  ADDRESSING_RETEST_QUESTION_IDS,
+  AI_LITERACY_QUESTION_IDS,
+} from '@/lib/lesson-tasks';
 
 describe('Quiz Data Tests', () => {
   describe('Quiz Questions Structure', () => {
@@ -9,27 +15,59 @@ describe('Quiz Data Tests', () => {
     });
 
     it('每个问题都应该有必需的字段', () => {
-    quizQuestions.forEach((question) => {
-      expect(question).toHaveProperty('id');
-      expect(question).toHaveProperty('questionText');
-      expect(question).toHaveProperty('type');
-      expect(question).toHaveProperty('correctAnswer');
-      expect(question).toHaveProperty('ka');
-      expect(question).toHaveProperty('chapter');
-      
-      expect(typeof question.id).toBe('number');
-      expect(typeof question.questionText).toBe('string');
-      expect(typeof question.type).toBe('string');
-      expect(typeof question.correctAnswer).toBe('string');
-      expect(typeof question.ka).toBe('string');
-      expect(typeof question.chapter).toBe('number');
-      
-      expect(question.questionText.trim()).not.toBe('');
-      expect(question.correctAnswer.trim()).not.toBe('');
-      expect(question.ka.trim()).not.toBe('');
-      expect(question.chapter).toBeGreaterThan(0);
+      quizQuestions.forEach((question) => {
+        expect(question).toHaveProperty('id');
+        expect(question).toHaveProperty('questionText');
+        expect(question).toHaveProperty('type');
+        expect(question).toHaveProperty('correctAnswer');
+        expect(question).toHaveProperty('ka');
+        expect(question).toHaveProperty('chapter');
+
+        expect(typeof question.id).toBe('number');
+        expect(typeof question.questionText).toBe('string');
+        expect(typeof question.type).toBe('string');
+        expect(typeof question.correctAnswer).toBe('string');
+        expect(typeof question.ka).toBe('string');
+        expect(typeof question.chapter).toBe('number');
+
+        expect(question.questionText.trim()).not.toBe('');
+        expect(question.correctAnswer.trim()).not.toBe('');
+        expect(question.ka.trim()).not.toBe('');
+        expect(question.chapter).toBeGreaterThan(0);
+      });
     });
-  });
+
+    it('每道题的知识点必须存在，且章节与知识树一致', () => {
+      const pointById = new Map(knowledgePoints.map((point) => [point.id, point]));
+
+      quizQuestions.forEach((question) => {
+        const point = pointById.get(question.ka);
+        expect(point).toBeDefined();
+        expect(question.chapter).toBe(point?.chapter);
+      });
+    });
+
+    it('综合应用题应按实际教学语义归组，不得集中挂在项目文档或调试父节点', () => {
+      const auditedMappings: Record<number, { ka: string; chapter: number }> = {
+        135: { ka: '6.3', chapter: 6 },
+        187: { ka: '2.5.3', chapter: 2 },
+        188: { ka: '9.1.2', chapter: 9 },
+        189: { ka: '2.5', chapter: 2 },
+        190: { ka: '9.3.4', chapter: 9 },
+        191: { ka: '9.1.4', chapter: 9 },
+        192: { ka: '9.1.4', chapter: 9 },
+        195: { ka: '2.7', chapter: 2 },
+        196: { ka: '2.7', chapter: 2 },
+        197: { ka: '9.1.4', chapter: 9 },
+        198: { ka: '9.1.4', chapter: 9 },
+        199: { ka: '9.3.3', chapter: 9 },
+        200: { ka: '9.3.5', chapter: 9 },
+      };
+
+      Object.entries(auditedMappings).forEach(([id, expected]) => {
+        expect(quizQuestions.find((question) => question.id === Number(id))).toMatchObject(expected);
+      });
+    });
 
     it('选择题应该有选项字段', () => {
       const multipleChoiceQuestions = quizQuestions.filter(
@@ -91,7 +129,7 @@ describe('Quiz Data Tests', () => {
         '2.2', // 存储器组织
         '2.1', // CPU结构
         '2.3', // I/O接口
-        '3.1', // 寻址方式
+        '3.1.1', // 立即寻址
         '6.2', // 定时器/计数器
         '5.2', // 中断系统
         '3.5', // 指令系统
@@ -113,16 +151,32 @@ describe('Quiz Data Tests', () => {
       });
     });
 
-    it('每个知识点应该有足够的题目', () => {
-      const kaCount = new Map<string, number>();
-      
-      quizQuestions.forEach(q => {
-        kaCount.set(q.ka, (kaCount.get(q.ka) || 0) + 1);
+    it('53个二级可考核知识点应各有至少3道关联试题', () => {
+      const pointById = new Map(knowledgePoints.map((point) => [point.id, point]));
+      const levelTwoPoints = knowledgePoints.filter((point) => point.level === 2);
+      const questionCount = new Map(levelTwoPoints.map((point) => [point.id, 0]));
+
+      const resolveAssessablePointId = (knowledgePointId: string): string | null => {
+        let point = pointById.get(knowledgePointId);
+        while (point && point.level > 2) {
+          point = point.parentId ? pointById.get(point.parentId) : undefined;
+        }
+        return point?.level === 2 ? point.id : null;
+      };
+
+      quizQuestions.forEach((question) => {
+        const assessablePointId = resolveAssessablePointId(question.ka);
+        if (!assessablePointId) return;
+        questionCount.set(assessablePointId, (questionCount.get(assessablePointId) ?? 0) + 1);
       });
-      
-      // 每个知识点至少应该有1道题
-      kaCount.forEach((count) => {
-        expect(count).toBeGreaterThanOrEqual(1);
+
+      expect(levelTwoPoints).toHaveLength(53);
+      const gaps = [...questionCount.entries()]
+        .filter(([, count]) => count < 3)
+        .map(([id, count]) => ({ id, count }));
+      expect(gaps).toEqual([]);
+      ['2.7', '8.6', '9.2', '9.4'].forEach((id) => {
+        expect(questionCount.get(id)).toBeGreaterThanOrEqual(3);
       });
     });
 
@@ -130,6 +184,25 @@ describe('Quiz Data Tests', () => {
       const types = new Set(quizQuestions.map(q => q.type));
       expect(types.has('multiple-choice')).toBe(true);
       expect(types.has('code-completion')).toBe(true);
+    });
+
+    it('寻址方式首测与复测应题目不重复且各覆盖七个子节点', () => {
+      const initialIds = new Set<number>(ADDRESSING_INITIAL_QUESTION_IDS);
+      const retestIds = new Set<number>(ADDRESSING_RETEST_QUESTION_IDS);
+      expect([...initialIds].filter((id) => retestIds.has(id))).toEqual([]);
+      const expectedKAs = ['3.1.1', '3.1.2', '3.1.3', '3.1.4', '3.1.5', '3.1.6', '3.1.7'];
+      const kasFor = (ids: Set<number>) => quizQuestions.filter((question) => ids.has(question.id)).map((question) => question.ka).sort();
+      expect(kasFor(initialIds)).toEqual(expectedKAs);
+      expect(kasFor(retestIds)).toEqual(expectedKAs);
+    });
+
+    it('AI素养测评应覆盖五个责任使用子节点', () => {
+      const ids = new Set<number>(AI_LITERACY_QUESTION_IDS);
+      const selected = quizQuestions.filter((question) => ids.has(question.id));
+      expect(selected).toHaveLength(5);
+      expect(selected.map((question) => question.ka).sort()).toEqual([
+        '10.5.1', '10.5.2', '10.5.3', '10.5.4', '10.5.5',
+      ]);
     });
   });
 
@@ -169,9 +242,11 @@ describe('Quiz Data Tests', () => {
       codeCompletionQuestions.forEach(question => {
         // 代码应该包含换行符或适当的格式
         expect(
-          question.code.includes('\n') || 
+          question.code.includes('\n') ||
           question.code.includes('MOV') ||
           question.code.includes('SETB') ||
+          question.code.includes('CLR') ||
+          question.code.includes('SJMP') ||
           question.code.includes('DJNZ')
         ).toBe(true);
       });

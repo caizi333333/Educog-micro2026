@@ -1,21 +1,25 @@
 import { NextRequest } from 'next/server';
+import { Buffer, File } from 'node:buffer';
 import { POST as LoginPOST } from '@/app/api/auth/login/route';
 import { POST as RegisterPOST } from '@/app/api/auth/register/route';
 import { GET as ProfileGET, PUT as ProfilePUT } from '@/app/api/user/profile/route';
 import { GET as UsersGET, POST as UsersPOST } from '@/app/api/users/route';
-import { GET as UserGET, PUT as UserPUT } from '@/app/api/users/[id]/route';
+import { DELETE as UserDELETE, GET as UserGET, PUT as UserPUT } from '@/app/api/users/[id]/route';
+import { POST as AvatarPOST } from '@/app/api/upload/avatar/route';
 import { setupPrismaMock, createMockNextRequest, createMockJWTPayload, setupAuthMock } from '../utils/test-mocks';
 
 
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: jest.fn(),
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn()
     },
     userActivity: {
@@ -39,13 +43,15 @@ jest.mock('@/lib/prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      count: jest.fn()
     },
     classEnrollment: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       upsert: jest.fn(),
       count: jest.fn()
     },
@@ -55,7 +61,8 @@ jest.mock('@/lib/prisma', () => ({
       findMany: jest.fn()
     },
     learningProgress: {
-      aggregate: jest.fn()
+      aggregate: jest.fn(),
+      count: jest.fn()
     },
     quizAttempt: {
       aggregate: jest.fn()
@@ -104,6 +111,10 @@ const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 describe('User Management API Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (mockPrisma.$transaction as jest.Mock).mockImplementation(async (operation: unknown) => {
+      if (typeof operation === 'function') return operation(mockPrisma);
+      return Promise.all(operation as Promise<unknown>[]);
+    });
     
     // 不要重置Prisma mocks，只清除调用历史
     // 每个测试会单独设置需要的mock返回值
@@ -158,7 +169,7 @@ describe('User Management API Routes', () => {
       });
 
       it('应该处理登录失败', async () => {
-        mockLogin.mockRejectedValue(new Error('用户名或密码错误'));
+        mockLogin.mockRejectedValue(new Error('账号或密码不正确，或账号已停用'));
 
         const request = new NextRequest('http://localhost:3000/api/auth/login', {
           method: 'POST',
@@ -173,7 +184,7 @@ describe('User Management API Routes', () => {
         const data = await response.json();
 
         expect(response.status).toBe(401);
-        expect(data.error).toBe('用户名或密码错误');
+        expect(data.error).toBe('账号或密码不正确，或账号已停用');
       });
 
       it('应该验证请求体格式', async () => {
@@ -233,7 +244,7 @@ describe('User Management API Routes', () => {
       });
 
       it('应该处理注册失败', async () => {
-        mockRegister.mockRejectedValue(new Error('邮箱已存在'));
+        mockRegister.mockRejectedValue(new Error('邮箱已被注册'));
 
         const request = new NextRequest('http://localhost:3000/api/auth/register', {
           method: 'POST',
@@ -249,7 +260,7 @@ describe('User Management API Routes', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('邮箱已存在');
+        expect(data.error).toBe('邮箱已被注册');
       });
 
       it('应该验证注册数据格式', async () => {
@@ -293,6 +304,7 @@ describe('User Management API Routes', () => {
           totalPoints: 1500,
           createdAt: new Date(),
           lastLoginAt: new Date(),
+          classEnrollments: [],
           _count: {
             sessions: 5,
             experiments: 10,
@@ -331,6 +343,7 @@ describe('User Management API Routes', () => {
         setupPrismaMock(mockPrisma, 'user', 'findUnique', mockUser);
         setupPrismaMock(mockPrisma, 'userActivity', 'findMany', mockActivities);
         setupPrismaMock(mockPrisma, 'learningProgress', 'aggregate', mockLearningStats);
+        setupPrismaMock(mockPrisma, 'learningProgress', 'count', 1);
         setupPrismaMock(mockPrisma, 'quizAttempt', 'aggregate', mockQuizStats);
         
         // Setup user lookup - already handled by setupPrismaMock above
@@ -392,8 +405,7 @@ describe('User Management API Routes', () => {
             'content-type': 'application/json'
           },
           body: JSON.stringify({
-            name: '更新的用户',
-            avatar: 'new-avatar.jpg'
+            name: '  更新的用户  '
           })
         });
 
@@ -403,8 +415,92 @@ describe('User Management API Routes', () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.user.name).toBe('更新的用户');
+        expect(data.user.password).toBeUndefined();
         expect(data.message).toBe('个人资料已更新');
         expect(mockPrisma.userActivity.create).toHaveBeenCalled();
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+          data: { name: '更新的用户' },
+          select: expect.not.objectContaining({ password: true }),
+        }));
+      });
+
+      it('不得通过个人资料接口修改身份字段或直接写入头像', async () => {
+        const mockPayload = createMockJWTPayload({
+          userId: 'user123',
+          email: 'test@example.com',
+          role: 'STUDENT',
+        });
+        setupAuthMock(mockVerifyToken, mockPayload);
+
+        const request = new NextRequest('http://localhost:3000/api/user/profile', {
+          method: 'PUT',
+          headers: {
+            authorization: 'Bearer valid-token',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ studentId: 'S999', avatar: 'data:image/png;base64,fake' }),
+        });
+
+        const response = await ProfilePUT(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('不可自行修改');
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+        expect(mockPrisma.userActivity.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('POST /api/upload/avatar', () => {
+      function avatarRequest(file: File): Request {
+        return {
+          headers: new Headers({ authorization: 'Bearer valid-token' }),
+          formData: jest.fn().mockResolvedValue({ get: () => file }),
+        } as unknown as Request;
+      }
+
+      it('应校验图片内容并将头像持久保存到用户资料', async () => {
+        setupAuthMock(mockVerifyToken, createMockJWTPayload({
+          userId: 'user123',
+          email: 'test@example.com',
+          role: 'STUDENT',
+        }));
+        setupPrismaMock(mockPrisma, 'user', 'update', { id: 'user123' } as any);
+        setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+        const file = new File([
+          Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEElEQVR4nGNgOPH/PxjDGABdggsZvNvWLQAAAABJRU5ErkJggg==', 'base64'),
+        ], 'avatar.png', { type: 'image/png' });
+
+        const response = await AvatarPOST(avatarRequest(file));
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get('cache-control')).toContain('no-store');
+        expect(data.avatar).toMatch(/^data:image\/webp;base64,/);
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+          where: { id: 'user123' },
+          data: { avatar: expect.stringMatching(/^data:image\/webp;base64,/) },
+        }));
+        expect(mockPrisma.userActivity.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ action: 'UPDATE_AVATAR' }),
+        }));
+      });
+
+      it('声明格式与图片签名不一致时不得写入', async () => {
+        setupAuthMock(mockVerifyToken, createMockJWTPayload({
+          userId: 'user123',
+          email: 'test@example.com',
+          role: 'STUDENT',
+        }));
+        const disguised = new File([
+          Uint8Array.from([0xff, 0xd8, 0xff, 0x00]),
+        ], 'fake.png', { type: 'image/png' });
+
+        const response = await AvatarPOST(avatarRequest(disguised));
+
+        expect(response.status).toBe(400);
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+        expect(mockPrisma.userActivity.create).not.toHaveBeenCalled();
       });
     });
   });
@@ -492,6 +588,20 @@ describe('User Management API Routes', () => {
         expect(response.status).toBe(403);
         expect(data.error).toBe('权限不足');
       });
+
+      it('不得通过 fields 参数读取密码等敏感字段', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        const request = new NextRequest('http://localhost:3000/api/users?fields=id,password', {
+          headers: { authorization: 'Bearer admin-token' }
+        });
+
+        const response = await UsersGET(request);
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ error: '包含不允许返回的用户字段' });
+        expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+      });
     });
 
     describe('POST /api/users', () => {
@@ -541,10 +651,100 @@ describe('User Management API Routes', () => {
         const response = await UsersPOST(request);
         const data = await response.json();
 
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(201);
         expect(data.success).toBe(true);
         expect(data.user.email).toBe('newuser@example.com');
         expect(mockPrisma.userActivity.create).toHaveBeenCalled();
+      });
+
+      it('创建用户必须显式设置符合要求的初始密码', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        const request = new NextRequest('http://localhost:3000/api/users', {
+          method: 'POST',
+          headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: 'newuser@example.com',
+            username: 'newuser',
+            name: '新用户',
+            password: '123',
+            role: 'STUDENT',
+          })
+        });
+
+        const response = await UsersPOST(request);
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ error: '初始密码长度至少为6位' });
+        expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      });
+
+      it('相同创建请求应返回原账号且不重复写入', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        const existingUser = {
+          id: 'existing-user',
+          email: 'stable@example.com',
+          username: 'stable-user',
+          name: '稳健用户',
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          studentId: null,
+          teacherId: null,
+          createdAt: new Date(),
+        };
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(existingUser);
+
+        const response = await UsersPOST(new NextRequest('http://localhost:3000/api/users', {
+          method: 'POST',
+          headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: 'stable@example.com',
+            username: 'stable-user',
+            password: 'password123',
+            name: '稳健用户',
+            requestId: 'request_12345678',
+          }),
+        }));
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ success: true, duplicate: true, user: { id: 'existing-user' } });
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('并发创建冲突后应按请求标识恢复原回执', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        const existingUser = {
+          id: 'concurrent-user',
+          email: 'concurrent@example.com',
+          username: 'concurrent-user',
+          name: '并发用户',
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          studentId: null,
+          teacherId: null,
+          createdAt: new Date(),
+        };
+        (mockPrisma.user.findUnique as jest.Mock)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(existingUser);
+        (mockPrisma.$transaction as jest.Mock).mockRejectedValueOnce({ code: 'P2002' });
+
+        const response = await UsersPOST(new NextRequest('http://localhost:3000/api/users', {
+          method: 'POST',
+          headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: 'concurrent@example.com',
+            username: 'concurrent-user',
+            password: 'password123',
+            name: '并发用户',
+            requestId: 'request_87654321',
+          }),
+        }));
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ success: true, duplicate: true, user: { id: 'concurrent-user' } });
       });
     });
 
@@ -795,6 +995,141 @@ describe('User Management API Routes', () => {
           })
         );
       });
+
+      it('管理员不能降低自己的角色', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ role: 'ADMIN', status: 'ACTIVE' });
+
+        const response = await UserPUT(
+          new NextRequest('http://localhost:3000/api/users/admin123', {
+            method: 'PUT',
+            headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+            body: JSON.stringify({ role: 'STUDENT', name: '管理员' }),
+          }),
+          { params: Promise.resolve({ id: 'admin123' }) },
+        );
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ error: '不能降低自己的管理员角色' });
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('不得移除最后一个可用管理员', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin-a', email: 'a@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ role: 'ADMIN', status: 'ACTIVE' });
+        (mockPrisma.user.count as jest.Mock).mockResolvedValueOnce(1);
+
+        const response = await UserPUT(
+          new NextRequest('http://localhost:3000/api/users/admin-b', {
+            method: 'PUT',
+            headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+            body: JSON.stringify({ role: 'TEACHER', name: '管理员B' }),
+          }),
+          { params: Promise.resolve({ id: 'admin-b' }) },
+        );
+
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({ error: '至少需要保留一个可用的管理员账号' });
+      });
+
+      it('管理员改变账号角色时应同时撤销旧令牌与刷新会话', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin-a', email: 'a@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+          role: 'STUDENT', status: 'ACTIVE', email: 'student@example.com',
+        });
+        (mockPrisma.user.update as jest.Mock).mockResolvedValueOnce({
+          id: 'student-1', email: 'student@example.com', username: 'student1', name: '学生', role: 'TEACHER', status: 'ACTIVE',
+        });
+        (mockPrisma.classEnrollment.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+        (mockPrisma.session.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+        (mockPrisma.userActivity.create as jest.Mock).mockResolvedValueOnce({});
+
+        const response = await UserPUT(
+          new NextRequest('http://localhost:3000/api/users/student-1', {
+            method: 'PUT',
+            headers: { authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+            body: JSON.stringify({ role: 'TEACHER', name: '学生' }),
+          }),
+          { params: Promise.resolve({ id: 'student-1' }) },
+        );
+
+        expect(response.status).toBe(200);
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ role: 'TEACHER', authVersion: { increment: 1 } }),
+        }));
+        expect(mockPrisma.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'student-1' } });
+      });
+    });
+
+    describe('DELETE /api/users/[id]', () => {
+      it('重复删除应返回确认回执且不重复记录活动', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'student-1', role: 'STUDENT', status: 'DELETED' });
+
+        const response = await UserDELETE(
+          new NextRequest('http://localhost:3000/api/users/student-1', {
+            method: 'DELETE',
+            headers: { authorization: 'Bearer admin-token' },
+          }),
+          { params: Promise.resolve({ id: 'student-1' }) },
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ success: true, duplicate: true });
+        expect(mockPrisma.userActivity.create).not.toHaveBeenCalled();
+      });
+
+      it('教师仍负责有效班级时拒绝删除', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'teacher-1', role: 'TEACHER', status: 'ACTIVE' });
+        (mockPrisma.classGroup.count as jest.Mock).mockResolvedValueOnce(2);
+
+        const response = await UserDELETE(
+          new NextRequest('http://localhost:3000/api/users/teacher-1', {
+            method: 'DELETE',
+            headers: { authorization: 'Bearer admin-token' },
+          }),
+          { params: Promise.resolve({ id: 'teacher-1' }) },
+        );
+
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({ error: expect.stringContaining('2 个有效班级') });
+        expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('软删除应同时撤销会话和有效班级成员身份', async () => {
+        const mockPayload = createMockJWTPayload({ userId: 'admin123', email: 'admin@example.com', role: 'ADMIN' });
+        setupAuthMock(mockVerifyToken, mockPayload);
+        (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'student-2', role: 'STUDENT', status: 'ACTIVE' });
+        (mockPrisma.user.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+        (mockPrisma.session.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+        (mockPrisma.classEnrollment.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+        (mockPrisma.userActivity.create as jest.Mock).mockResolvedValueOnce({});
+
+        const response = await UserDELETE(
+          new NextRequest('http://localhost:3000/api/users/student-2', {
+            method: 'DELETE',
+            headers: { authorization: 'Bearer admin-token' },
+          }),
+          { params: Promise.resolve({ id: 'student-2' }) },
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ success: true, duplicate: false });
+        expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+          data: { status: 'DELETED', class: null, authVersion: { increment: 1 } },
+        }));
+        expect(mockPrisma.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'student-2' } });
+        expect(mockPrisma.classEnrollment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+          where: { userId: 'student-2', status: 'ACTIVE' },
+          data: { status: 'REMOVED' },
+        }));
+      });
     });
   });
 
@@ -837,8 +1172,8 @@ describe('User Management API Routes', () => {
       const response = await UsersGET(request);
       const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBeDefined();
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('获取用户列表失败');
     });
   });
 });

@@ -57,7 +57,7 @@ export const kaMapping = [
 // --- Student's Progress in Specific Activities (for Analytics page) ---
 export const studentProgressData = [
   { activity: "阅读'第5章: 定时器/计数器'", status: '已完成', credits: 10, progress: 100, href: "/#item-5" },
-  { activity: "通过'在线综合测试'", status: '已通过', credits: 50, progress: 85, href: "/quiz" },
+  { activity: "通过'在线综合测评'", status: '已通过', credits: 50, progress: 85, href: "/quiz" },
   { activity: "完成'中断系统'相关提问", status: '已完成', credits: 5, progress: 100, href: "/ai-assistant" },
   { activity: "运行'方波生成'仿真", status: '已完成', credits: 15, progress: 100, href: "/simulation" },
   { activity: "探索'I/O端口'知识图谱", status: '进行中', credits: 2, progress: 50, href: "/knowledge-graph?node=io" },
@@ -150,7 +150,7 @@ const allAchievementsList: Achievement[] = [
     
     // 精通类
     {
-      id: "mastery_quiz", icon: "Target", title: "测验高手", description: "在综合测试中获得90%以上的分数。",
+      id: "mastery_quiz", icon: "Target", title: "测验高手", description: "在综合测评中获得90%以上的分数。",
       criteria: "在线测评最终得分高于或等于90%。", category: '精通', check: (_p, s) => Object.values(s).reduce((a, b) => a + b.score, 0) / Object.keys(s).length >= 90
     },
     {

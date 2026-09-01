@@ -1,5 +1,6 @@
 import type { ExperimentConfig } from '@/lib/experiment-config';
 import type { KnowledgePoint } from '@/lib/knowledge-points';
+import { CLIENT_READ_TIMEOUT_MS, fetchClientRequest } from '@/lib/client-fetch';
 
 export type HyperExperimentState = 'completed' | 'in-progress' | 'pending';
 
@@ -281,14 +282,19 @@ export function buildKnowledgeSummary(
   };
 }
 
-export async function fetchHyperJson<T>(url: string, token: string): Promise<HyperApiResult<T>> {
+export async function fetchHyperJson<T>(
+  url: string,
+  token: string,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<HyperApiResult<T>> {
   try {
-    const response = await fetch(url, {
+    const response = await fetchClientRequest(url, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-    });
+      signal: options.signal,
+    }, options.timeoutMs ?? CLIENT_READ_TIMEOUT_MS);
 
     if (!response.ok) {
       return { ok: false, data: null, status: response.status, error: response.statusText };

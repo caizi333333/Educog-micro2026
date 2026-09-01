@@ -42,6 +42,8 @@ describe('useAiAssistant Hook', () => {
     // Mock successful AI response
     mockAiStudyAssistant.mockResolvedValue({
       answer: '这是AI助手的回答',
+      source: 'generated',
+      mode: 'generated',
       relevantChapters: [
         {
           chapter: 'chapter-1',

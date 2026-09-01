@@ -3,17 +3,31 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+const MIN_PASSWORD_LENGTH = 12;
+
+function requireBootstrapPassword(name: string) {
+  const value = process.env[name]?.trim() ?? '';
+  if (value.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`${name} 必须配置且不少于 ${MIN_PASSWORD_LENGTH} 位`);
+  }
+  return value;
+}
 
 async function main() {
   console.log('🚀 开始初始化数据库...');
   
   try {
+    const adminPassword = requireBootstrapPassword('INIT_ADMIN_PASSWORD');
+    const teacherPassword = requireBootstrapPassword('INIT_TEACHER_PASSWORD');
+    const studentPassword = requireBootstrapPassword('INIT_STUDENT_PASSWORD');
+    const demoPassword = requireBootstrapPassword('INIT_DEMO_PASSWORD');
+
     // 创建默认用户
     const users = [
       {
         email: 'admin@educog.com',
         username: 'admin',
-        password: await bcrypt.hash('admin123456', 10),
+        password: await bcrypt.hash(adminPassword, 10),
         name: '系统管理员',
         role: 'ADMIN' as const,
         status: 'ACTIVE' as const
@@ -21,7 +35,7 @@ async function main() {
       {
         email: 'teacher@educog.com',
         username: 'teacher',
-        password: await bcrypt.hash('teacher123456', 10),
+        password: await bcrypt.hash(teacherPassword, 10),
         name: '张老师',
         role: 'TEACHER' as const,
         status: 'ACTIVE' as const,
@@ -32,7 +46,7 @@ async function main() {
       {
         email: 'student@educog.com',
         username: 'student',
-        password: await bcrypt.hash('student123456', 10),
+        password: await bcrypt.hash(studentPassword, 10),
         name: '李同学',
         role: 'STUDENT' as const,
         status: 'ACTIVE' as const,
@@ -44,7 +58,7 @@ async function main() {
       {
         email: 'demo1@educog.com',
         username: 'demo1',
-        password: await bcrypt.hash('demo123456', 10),
+        password: await bcrypt.hash(demoPassword, 10),
         name: '王小明',
         role: 'STUDENT' as const,
         status: 'ACTIVE' as const,
@@ -56,7 +70,7 @@ async function main() {
       {
         email: 'demo2@educog.com',
         username: 'demo2',
-        password: await bcrypt.hash('demo123456', 10),
+        password: await bcrypt.hash(demoPassword, 10),
         name: '张小红',
         role: 'STUDENT' as const,
         status: 'ACTIVE' as const,
@@ -149,12 +163,8 @@ async function main() {
     }
 
     console.log('\n✨ 数据库初始化完成！');
-    console.log('\n默认账号信息：');
-    console.log('管理员 - username: admin, password: admin123456');
-    console.log('教师 - username: teacher, password: teacher123456');
-    console.log('学生 - username: student, password: student123456');
-    console.log('演示学生1 - username: demo1, password: demo123456');
-    console.log('演示学生2 - username: demo2, password: demo123456');
+    console.log('\n账号已创建；密码取自 INIT_*_PASSWORD 环境变量，日志不显示明文。');
+    console.log('账号: admin / teacher / student / demo1 / demo2');
     
   } catch (error) {
     console.error('❌ 初始化失败:', error);

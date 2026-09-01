@@ -1,21 +1,26 @@
 import { prisma } from '@/lib/prisma';
-import {
-  ACHIEVEMENTS,
-  AchievementTier
-} from '@/lib/achievement-system';
+import { ALL_ACHIEVEMENTS, type Achievement } from '@/lib/achievements-v2';
 
 export interface AchievementCheck {
   achievementId: string;
-  tier: AchievementTier;
   points: number;
   unlocked: boolean;
 }
 
-// Main function to check and update achievements
+// Cooldown map: userId → lastCheckTime
+const checkCooldown = new Map<string, number>();
+const COOLDOWN_MS = 60_000; // 1 minute between checks for same user
+
 export async function checkAndUpdateAchievements(
   userId: string,
   triggeredBy: 'quiz' | 'learning' | 'experiment' | 'daily_check' = 'daily_check'
 ): Promise<AchievementCheck[]> {
+  // Cooldown check
+  const now = Date.now();
+  const lastCheck = checkCooldown.get(userId) || 0;
+  if (now - lastCheck < COOLDOWN_MS) return [];
+  checkCooldown.set(userId, now);
+
   const newAchievements: AchievementCheck[] = [];
 
   try {
@@ -26,7 +31,7 @@ export async function checkAndUpdateAchievements(
       user,
       existingAchievements,
       perfectScores,
-      completedModules
+      completedModules,
     ] = await Promise.all([
       prisma.learningProgress.aggregate({
         where: { userId },
@@ -61,7 +66,7 @@ export async function checkAndUpdateAchievements(
 
     const learningStreak = await calculateLearningStreak(userId);
 
-    const currentValues = {
+    const currentValues: Record<string, number> = {
       learning_time: learningStats._sum.timeSpent || 0,
       modules_completed: completedModules,
       learning_streak: learningStreak,
@@ -71,87 +76,115 @@ export async function checkAndUpdateAchievements(
       experiments_completed: experimentStats._count._all || 0,
       experiment_time: experimentStats._sum.timeSpent || 0,
       total_points: user?.totalPoints || 0,
-      achievements_unlocked: existingAchievements.length
+      achievements_unlocked: existingAchievements.length,
+      // V2 criteria types
+      code_runs: await prisma.userActivity.count({ where: { userId, action: 'RUN_CODE' } }),
+      debug_success: await prisma.userActivity.count({ where: { userId, action: 'DEBUG_SUCCESS' } }),
+      daily_streak: learningStreak,
+      perfect_quiz: perfectScores,
+      speed_completion: await prisma.learningProgress.count({ where: { userId, status: 'COMPLETED', timeSpent: { lt: 300 } } }),
+      night_study: 0,
+      morning_study: 0,
+      questions_answered: quizStats._count._all || 0,
+      discussions_started: await prisma.userActivity.count({ where: { userId, action: { contains: 'DISCUSSION' } } }),
+      easter_egg_found: await prisma.userActivity.count({ where: { userId, action: 'EASTER_EGG' } }),
+      bugs_reported: await prisma.userActivity.count({ where: { userId, action: 'BUG_REPORT' } }),
+      continuous_hours: 0,
     };
 
-    for (const [achievementId, definition] of Object.entries(ACHIEVEMENTS)) {
-      const currentValue = currentValues[achievementId as keyof typeof currentValues] || 0;
+    const existingSet = new Set(existingAchievements.map(a => a.achievementId));
+    const eligibleAchievements = ALL_ACHIEVEMENTS.filter((achievement) => {
+      if (existingSet.has(achievement.id)) return false;
+      const criteriaType = achievement.criteria.type as string;
+      const criteriaTarget = achievement.criteria.target as number;
+      if (!Number.isFinite(criteriaTarget) || criteriaTarget <= 0) return false;
+      return (currentValues[criteriaType] || 0) >= criteriaTarget;
+    });
 
-      for (const tier of ['bronze', 'silver', 'gold'] as AchievementTier[]) {
-        if (tier === 'platinum' && !definition.tiers[tier]) continue;
-        const tierData = definition.tiers[tier];
-        if (!tierData) continue;
-        const fullAchievementId = `${achievementId}_${tier}`;
-
-        if (currentValue >= (tierData?.threshold ?? 0)) {
-          // Fast-path: skip if already unlocked (memory check)
-          if (existingAchievements.some(a => a.achievementId === fullAchievementId)) continue;
-
-          // upsert prevents concurrent duplicate grants
-          const result = await prisma.userAchievement.upsert({
-            where: { userId_achievementId: { userId, achievementId: fullAchievementId } },
-            create: {
-              userId,
-              achievementId: fullAchievementId,
-              name: `${definition.name} - ${tier === 'bronze' ? '铜章' : tier === 'silver' ? '银章' : '金章'}`,
-              description: tierData.description,
-              icon: tier === 'bronze' ? '🥉' : tier === 'silver' ? '🥈' : '🥇',
-              category: definition.category,
-              progress: 100
-            },
-            update: {},
-          });
-
-          // Only award points if this was a new creation (check by unlockedAt recency)
-          const isNew = (Date.now() - result.unlockedAt.getTime()) < 5000;
-          if (isNew) {
-            await prisma.userPointsTransaction.create({
-              data: {
-                userId,
-                points: tierData.points,
-                type: 'ACHIEVEMENT_UNLOCK',
-                description: `解锁成就: ${definition.name} - ${tier === 'bronze' ? '铜章' : tier === 'silver' ? '银章' : '金章'}`,
-                metadata: JSON.stringify({ achievementId: fullAchievementId, tier })
-              }
-            });
-
-            await prisma.user.update({
-              where: { id: userId },
-              data: { totalPoints: { increment: tierData.points } }
-            });
-
-            await prisma.userActivity.create({
-              data: {
-                userId,
-                action: 'UNLOCK_ACHIEVEMENT',
-                details: JSON.stringify({
-                  achievementId: fullAchievementId,
-                  name: definition.name,
-                  tier,
-                  category: definition.category,
-                  triggeredBy
-                })
-              }
-            });
-
-            newAchievements.push({
-              achievementId: fullAchievementId,
-              tier,
-              points: tierData.points,
-              unlocked: true
-            });
-          }
-        }
-      }
-    }
-
-    await checkSpecialAchievements(userId, triggeredBy, currentValues, existingAchievements, newAchievements);
+    newAchievements.push(...await grantAchievementsInTransaction(userId, eligibleAchievements, triggeredBy));
 
   } catch (error) {
+    checkCooldown.delete(userId);
     console.error('Error checking achievements:', error);
   }
 
   return newAchievements;
+}
+
+async function grantAchievementsInTransaction(
+  userId: string,
+  achievements: Achievement[],
+  triggeredBy: string,
+): Promise<AchievementCheck[]> {
+  if (achievements.length === 0) return [];
+
+  return prisma.$transaction(async (tx) => {
+    const inserted = await tx.userAchievement.createManyAndReturn({
+      data: achievements.map((achievement) => ({
+        userId,
+        achievementId: achievement.id,
+        name: achievement.title,
+        description: achievement.description,
+        icon: achievement.icon,
+        category: achievement.category,
+        progress: 100,
+        points: achievement.points,
+        source: 'SYSTEM',
+      })),
+      skipDuplicates: true,
+      select: { achievementId: true },
+    });
+    if (inserted.length === 0) return [];
+
+    const insertedIds = new Set(inserted.map((row) => row.achievementId));
+    const granted = achievements.filter((achievement) => insertedIds.has(achievement.id));
+    const positivePointAchievements = granted.filter((achievement) => achievement.points > 0);
+    const totalPoints = positivePointAchievements.reduce((sum, achievement) => sum + achievement.points, 0);
+
+    if (positivePointAchievements.length > 0) {
+      await tx.userPointsTransaction.createMany({
+        data: positivePointAchievements.map((achievement) => ({
+          userId,
+          points: achievement.points,
+          type: 'ACHIEVEMENT_UNLOCK',
+          description: `解锁成就: ${achievement.title}`,
+          metadata: JSON.stringify({ achievementId: achievement.id }),
+        })),
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { totalPoints: { increment: totalPoints } },
+      });
+    }
+
+    await tx.userActivity.createMany({
+      data: granted.map((achievement) => ({
+        userId,
+        action: 'UNLOCK_ACHIEVEMENT',
+        details: JSON.stringify({
+          achievementId: achievement.id,
+          name: achievement.title,
+          category: achievement.category,
+          triggeredBy,
+        }),
+      })),
+    });
+
+    await tx.achievementAuditLog.createMany({
+      data: granted.map((achievement) => ({
+        userId,
+        achievementId: achievement.id,
+        action: 'GRANT',
+        newState: JSON.stringify({ points: achievement.points, source: 'SYSTEM', triggeredBy }),
+      })),
+    });
+
+    return granted.map((achievement) => ({
+      achievementId: achievement.id,
+      points: achievement.points,
+      unlocked: true,
+    }));
+  });
 }
 
 async function calculateLearningStreak(userId: string): Promise<number> {
@@ -192,77 +225,6 @@ async function calculateLearningStreak(userId: string): Promise<number> {
   }
 
   return streak;
-}
-
-async function grantSpecialAchievement(
-  userId: string,
-  achievementId: string,
-  name: string,
-  description: string,
-  icon: string,
-  existingAchievements: any[],
-  newAchievements: AchievementCheck[],
-  points: number = 50,
-) {
-  if (existingAchievements.some(a => a.achievementId === achievementId)) return;
-
-  const result = await prisma.userAchievement.upsert({
-    where: { userId_achievementId: { userId, achievementId } },
-    create: {
-      userId,
-      achievementId,
-      name,
-      description,
-      icon,
-      category: '特殊',
-      progress: 100,
-    },
-    update: {},
-  });
-
-  const isNew = (Date.now() - result.unlockedAt.getTime()) < 5000;
-  if (isNew) {
-    await prisma.userPointsTransaction.create({
-      data: {
-        userId,
-        points,
-        type: 'ACHIEVEMENT_UNLOCK',
-        description: `解锁成就: ${name}`,
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { totalPoints: { increment: points } },
-    });
-
-    newAchievements.push({
-      achievementId,
-      tier: 'bronze',
-      points,
-      unlocked: true,
-    });
-  }
-}
-
-async function checkSpecialAchievements(
-  userId: string,
-  triggeredBy: string,
-  currentValues: any,
-  existingAchievements: any[],
-  newAchievements: AchievementCheck[]
-) {
-  if (triggeredBy === 'quiz' && currentValues.quizzes_completed === 1) {
-    await grantSpecialAchievement(userId, 'first_quiz_special', '初试身手', '完成第一次测验', '🎯', existingAchievements, newAchievements);
-  }
-
-  if (triggeredBy === 'learning' && currentValues.modules_completed === 1) {
-    await grantSpecialAchievement(userId, 'first_module_special', '学习起步', '完成第一个学习模块', '📚', existingAchievements, newAchievements);
-  }
-
-  if (triggeredBy === 'experiment' && currentValues.experiments_completed === 1) {
-    await grantSpecialAchievement(userId, 'first_experiment_special', '实验新手', '完成第一个实验', '🔬', existingAchievements, newAchievements);
-  }
 }
 
 export async function checkAchievementsForQuiz(userId: string, _score: number, _quizId: string) {

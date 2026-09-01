@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getAccessibleClassIds } from '@/lib/classroom';
+import { getDataProvenance } from '@/lib/env';
+import { ALL_ACHIEVEMENTS } from '@/lib/achievements-v2';
+
+const CURRENT_ACHIEVEMENT_IDS = new Set(ALL_ACHIEVEMENTS.map((achievement) => achievement.id));
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,28 +18,33 @@ export async function GET(request: NextRequest) {
 
     const userId = payload.userId;
     const isTeacher = payload.role === 'TEACHER' || payload.role === 'ADMIN';
+    const asOf = new Date();
 
     // Student-facing data (parallel queries)
     const [quizHistory, learningProgress, userStats, experimentStatus] = await Promise.all([
       prisma.quizAttempt.findMany({
-        where: { userId },
+        where: { userId, completedAt: { lte: asOf } },
         select: { id: true, score: true, totalQuestions: true, completedAt: true },
         orderBy: { completedAt: 'desc' },
         take: 50,
       }),
       prisma.learningProgress.findMany({
-        where: { userId },
+        where: { userId, lastAccessAt: { lte: asOf } },
         select: { id: true, moduleId: true, chapterId: true, progress: true, timeSpent: true, lastAccessAt: true },
       }),
       prisma.user.findUnique({
         where: { id: userId },
         select: {
           totalPoints: true,
+          achievements: {
+            where: { unlockedAt: { lte: asOf } },
+            select: { achievementId: true },
+          },
           _count: { select: { experiments: true, quizAttempts: true, achievements: true, learningPaths: true } },
         },
       }),
       prisma.userExperiment.findMany({
-        where: { userId },
+        where: { userId, createdAt: { lte: asOf } },
         select: { experimentId: true, status: true },
       }),
     ]);
@@ -44,9 +53,14 @@ export async function GET(request: NextRequest) {
     const totalTimeSpent = learningProgress.reduce((sum, p) => sum + p.timeSpent, 0);
     const completedModules = learningProgress.filter(p => p.progress >= 100).length;
     const avgQuizScore = quizHistory.length > 0
-      ? Math.round(quizHistory.reduce((s, q) => s + (q.score / q.totalQuestions) * 100, 0) / quizHistory.length)
+      ? Math.round(quizHistory.reduce((s, q) => s + q.score, 0) / quizHistory.length)
       : 0;
     const completedExperiments = experimentStatus.filter(e => e.status === 'COMPLETED').length;
+    const matchedAchievementCount = new Set(
+      (userStats?.achievements ?? [])
+        .map((achievement) => achievement.achievementId)
+        .filter((achievementId) => CURRENT_ACHIEVEMENT_IDS.has(achievementId)),
+    ).size;
 
     const overview: Record<string, unknown> = {
       quizHistory,
@@ -55,7 +69,9 @@ export async function GET(request: NextRequest) {
         totalPoints: userStats?.totalPoints || 0,
         totalExperiments: userStats?._count.experiments || 0,
         totalQuizzes: userStats?._count.quizAttempts || 0,
-        totalAchievements: userStats?._count.achievements || 0,
+        // 仅统计当前成就目录中仍可识别的解锁记录，与成就页口径一致。
+        // 历史孤立 achievementId 不再造成分析页与勋章墙数字不一致。
+        totalAchievements: matchedAchievementCount,
         completedExperiments,
         completedModules,
         totalTimeSpent: Math.round(totalTimeSpent / 60),
@@ -127,7 +143,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: overview });
+    return NextResponse.json({
+      success: true,
+      dataProvenance: getDataProvenance(),
+      asOf: asOf.toISOString(),
+      sampleSize: {
+        quizAttempts: quizHistory.length,
+        learningProgressRecords: learningProgress.length,
+        experimentRecords: experimentStatus.length,
+        achievementRecords: matchedAchievementCount,
+        achievementRules: ALL_ACHIEVEMENTS.length,
+      },
+      data: overview,
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     console.error('analytics/overview error:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });

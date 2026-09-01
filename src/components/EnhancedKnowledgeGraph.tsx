@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -271,6 +271,24 @@ const userProfile: UserProfile = {
   strongAreas: ['动手实践', '逻辑思维']
 };
 
+function calculateRecommendationScore(node: KnowledgeNode) {
+  let score = 0;
+
+  if (node.difficulty === userProfile.level) score += 30;
+  else if (userProfile.level === 'beginner' && node.difficulty === 'intermediate') score += 15;
+
+  const interestMatch = node.tags.some(tag =>
+    userProfile.interests.some(interest =>
+      interest.toLowerCase().includes(tag.toLowerCase())
+    )
+  );
+  if (interestMatch) score += 25;
+  if (node.learningTime <= userProfile.availableTime / 4) score += 20;
+  score += node.popularity * 0.2;
+  score += node.completionRate * 0.1;
+  return score;
+}
+
 const EnhancedKnowledgeGraph: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -291,8 +309,7 @@ const EnhancedKnowledgeGraph: React.FC = () => {
     return matchesSearch && matchesType && matchesDifficulty;
   });
 
-  // 获取推荐节点
-  const getRecommendedNodes = () => {
+  const recommendedNodes = useMemo(() => {
     return knowledgeNodes
       .filter(node => {
         // 未完成的节点
@@ -312,34 +329,7 @@ const EnhancedKnowledgeGraph: React.FC = () => {
         return scoreB - scoreA;
       })
       .slice(0, 3);
-  };
-
-  const calculateRecommendationScore = (node: KnowledgeNode) => {
-    let score = 0;
-    
-    // 基于难度匹配
-    if (node.difficulty === userProfile.level) score += 30;
-    else if (userProfile.level === 'beginner' && node.difficulty === 'intermediate') score += 15;
-    
-    // 基于兴趣匹配
-    const interestMatch = node.tags.some(tag => 
-      userProfile.interests.some(interest => 
-        interest.toLowerCase().includes(tag.toLowerCase())
-      )
-    );
-    if (interestMatch) score += 25;
-    
-    // 基于学习时间
-    if (node.learningTime <= userProfile.availableTime / 4) score += 20; // 一周内可完成
-    
-    // 基于流行度
-    score += node.popularity * 0.2;
-    
-    // 基于完成率
-    score += node.completionRate * 0.1;
-    
-    return score;
-  };
+  }, []);
 
   // 绘制知识图谱
   useEffect(() => {
@@ -374,7 +364,7 @@ const EnhancedKnowledgeGraph: React.FC = () => {
     filteredNodes.forEach(node => {
       const isSelected = selectedNode === node.id;
       const isCompleted = userProfile.completedNodes.includes(node.id);
-      const isRecommended = getRecommendedNodes().some(n => n.id === node.id);
+      const isRecommended = recommendedNodes.some(n => n.id === node.id);
       
       // 节点颜色
       let fillColor = '#f3f4f6';
@@ -430,7 +420,7 @@ const EnhancedKnowledgeGraph: React.FC = () => {
         ctx.fillRect(barX, barY, (barWidth * node.mastery) / 100, barHeight);
       }
     });
-  }, [filteredNodes, selectedNode, viewMode]);
+  }, [filteredNodes, recommendedNodes, selectedNode, viewMode]);
 
   const getNodeIcon = (type: string) => {
     switch (type) {
@@ -491,8 +481,6 @@ const EnhancedKnowledgeGraph: React.FC = () => {
     : null;
 
   const currentPath = learningPaths.find(p => p.id === selectedPath);
-  const recommendedNodes = getRecommendedNodes();
-
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* 标题和统计 */}

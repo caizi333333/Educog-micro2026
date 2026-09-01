@@ -1,34 +1,73 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {
+  getAllowedRolesForPath,
+  getRoleMismatchReasonForPath,
+} from '@/lib/role-access';
+import { verifyEdgeAccessToken } from '@/lib/edge-jwt';
 
 // 不需要认证的公开路径
 const publicPaths = [
   '/login', 
   '/register', 
   '/welcome', 
-  '/privacy', 
-  '/terms', 
+  '/privacy',
+  '/terms',
   '/clear-auth',
-  '/auth-test',
   '/api/auth/login',
   '/api/auth/register',
-  '/api/health',
-  '/api/init',
-  '/api/auth/validate',
-  '/api/middleware-test',
+  '/api/auth/logout',
   '/api/experiments',
   '/api/quiz/questions'
 ];
 
-const publicExactPaths = ['/'];
-
-// 管理员路径
-const adminPaths = ['/admin'];
+const publicExactPaths = ['/', ...publicPaths];
+const administratorOnlyDiagnosticPaths = ['/auth-test', '/api/init', '/api/middleware-test'];
 
 // 静态资源路径
 const staticPaths = ['/_next', '/favicon.ico', '/public', '/resources', '/prinx'];
 
-export function middleware(request: NextRequest) {
+function redirectToRoleLogin(request: NextRequest, reason?: string): NextResponse {
+  const url = new URL('/login', request.url);
+  const returnSearchParams = new URLSearchParams(request.nextUrl.searchParams);
+  returnSearchParams.delete('_rsc');
+  const returnSearch = returnSearchParams.toString();
+  const returnPath = `${request.nextUrl.pathname}${returnSearch ? `?${returnSearch}` : ''}`;
+  url.searchParams.set('from', returnPath);
+  if (reason) url.searchParams.set('reason', reason);
+  return NextResponse.redirect(url);
+}
+
+function getAccessToken(request: NextRequest): string | null {
+  // 浏览器登录以 HttpOnly cookie 为准；Authorization 仅用于非浏览器客户端。
+  const cookieToken = request.cookies.get('accessToken')?.value;
+  if (cookieToken) return cookieToken;
+  const authorization = request.headers.get('authorization');
+  if (authorization?.startsWith('Bearer ')) {
+    const headerToken = authorization.slice('Bearer '.length).trim();
+    if (headerToken) return headerToken;
+  }
+  return null;
+}
+
+function continueRequest(request: NextRequest, accessToken?: string | null): NextResponse {
+  if (!accessToken || !request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+  const headers = new Headers(request.headers);
+  // 业务接口暂保留 Bearer 校验口径，真实 JWT 只在服务端中间件内注入。
+  headers.set('authorization', `Bearer ${accessToken}`);
+  return NextResponse.next({ request: { headers } });
+}
+
+function rejectUnauthenticated(request: NextRequest, message = '未授权'): NextResponse {
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: message }, { status: 401 });
+  }
+  return redirectToRoleLogin(request);
+}
+
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const { searchParams } = request.nextUrl;
 
@@ -37,100 +76,48 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 处理 Next.js 路由预取请求
-  if (searchParams.has('_rsc')) {
-    const response = NextResponse.next();
-    // 设置适当的缓存控制头，防止预取请求中断
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('X-RSC-Request', 'true');
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    // 确保RSC请求不被重定向或拦截
-    return response;
-  }
-
   // 检查是否是公开路径
   const isPublicPath =
-    publicExactPaths.includes(pathname) ||
-    publicPaths.some(path => pathname === path || pathname.startsWith(path));
+    publicExactPaths.includes(pathname);
 
-  // 获取令牌 - 优先从cookies获取，然后从headers获取
-  const refreshToken = request.cookies.get('refreshToken')?.value;
-  const accessTokenFromCookie = request.cookies.get('accessToken')?.value;
-  const authHeader = request.headers.get('authorization');
-  const accessTokenFromHeader = authHeader?.replace('Bearer ', '');
-  
-  // 优先使用cookie中的token，因为这是登录后设置的
-  const accessToken = accessTokenFromCookie || accessTokenFromHeader;
-  const hasToken = !!(refreshToken || accessToken);
-  
   // 如果是公开路径，允许访问
   if (isPublicPath) {
     // 对于登录和注册页面，暂时不做重定向，让用户可以正常访问
     // 这样可以避免token验证问题导致的重定向循环
-    return NextResponse.next();
+    return continueRequest(request, getAccessToken(request));
   }
 
-  // 如果没有令牌，重定向到登录页
-  if (!hasToken) {
-    // API路由返回401而不是重定向
+  const accessToken = getAccessToken(request);
+  if (!accessToken) return rejectUnauthenticated(request);
+
+  const payload = await verifyEdgeAccessToken(accessToken);
+  if (!payload) return rejectUnauthenticated(request, '令牌无效');
+
+  if (administratorOnlyDiagnosticPaths.includes(pathname) && payload.role !== 'ADMIN') {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: '未授权' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '仅管理员可访问' }, { status: 403 });
     }
-    
-    // 其他页面重定向到登录页
-    const url = new URL('/login', request.url);
-    url.searchParams.set('from', pathname);
-    return NextResponse.redirect(url);
+    return redirectToRoleLogin(request, 'admin-role');
   }
 
-  // 检查管理员权限 - 解析 JWT payload 验证角色（仅 accessToken 含 role 字段）
-  if (adminPaths.some(path => pathname.startsWith(path))) {
-    try {
-      // refreshToken payload 不含 role，必须用 accessToken
-      const token = accessToken || '';
-      if (!token) {
-        // 无 accessToken 但有 refreshToken：放行让前端走 refresh 流程
-        return NextResponse.next();
-      }
-      const payloadBase64 = token.split('.')[1];
-      if (!payloadBase64) throw new Error('Invalid token');
-      const payload = JSON.parse(atob(payloadBase64));
-      const role = payload.role as string;
-      if (role !== 'ADMIN' && role !== 'TEACHER') {
-        if (pathname.startsWith('/api/')) {
-          return NextResponse.json({ error: '权限不足' }, { status: 403 });
-        }
-        return NextResponse.redirect(new URL('/', request.url));
-      }
-      // /admin (system admin) requires ADMIN role specifically, except the
-      // sub-pages teachers are also meant to use: /admin/users (existing
-      // exception) and /admin/knowledge-graph (教师工作台"维护图谱"按钮指向
-      // 这里——教师侧本就该有权限用这个真编辑器，此前只是按钮链错；这里若
-      // 不放行会让按钮重新变回"点了没反应"的死链，用户已确认恢复放行)。
-      if (
-        pathname === '/admin' ||
-        (pathname.startsWith('/admin') && !pathname.startsWith('/admin/users') && !pathname.startsWith('/admin/knowledge-graph'))
-      ) {
-        if (role !== 'ADMIN') {
-          if (pathname.startsWith('/api/')) {
-            return NextResponse.json({ error: '仅管理员可访问' }, { status: 403 });
-          }
-          return NextResponse.redirect(new URL('/', request.url));
-        }
-      }
-    } catch {
-      // Token parse failure — redirect to login
+  // 教师端与管理端共用一套路径角色策略，避免页面入口和接口权限口径分离。
+  const allowedRoles = getAllowedRolesForPath(pathname);
+  if (allowedRoles) {
+    if (!allowedRoles.includes(payload.role)) {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: '令牌无效' }, { status: 401 });
+        return NextResponse.json({ error: '权限不足' }, { status: 403 });
       }
-      return NextResponse.redirect(new URL('/login', request.url));
+      return redirectToRoleLogin(request, getRoleMismatchReasonForPath(pathname));
     }
   }
 
-  return NextResponse.next();
+  const response = continueRequest(request, accessToken);
+  if (searchParams.has('_rsc')) {
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('X-RSC-Request', 'true');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+  }
+  return response;
 }
 
 export const config = {

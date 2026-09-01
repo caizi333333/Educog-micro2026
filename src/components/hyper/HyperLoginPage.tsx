@@ -1,7 +1,9 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { z } from 'zod';
 import {
   Building2,
   Check,
@@ -10,126 +12,127 @@ import {
   GraduationCap,
   Hash,
   Lock,
-  Moon,
   Shield,
-  Sun,
   BookOpen,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { LabScene } from '@/components/shared/LabScene';
+import { getAllowedRolesForPath, type ApplicationRole } from '@/lib/role-access';
+import { clearStoredAuth, storeAuth } from '@/lib/auth-storage';
+import {
+  CLIENT_WRITE_TIMEOUT_MS,
+  ClientRequestTimeoutError,
+  fetchClientRequest,
+} from '@/lib/client-fetch';
 
 type LoginRole = 'student' | 'teacher' | 'admin';
 
-function squareWavePath(phase: number) {
-  const steps: string[] = [];
-  const period = 80;
-  const hi = 40;
-  const lo = 120;
-  let y = lo;
-  const offset = (phase * 4) % period;
-  steps.push(`M${-offset} ${y}`);
-  for (let index = 0; index < 8; index += 1) {
-    const x = -offset + index * period;
-    const nextY = index % 2 === 0 ? hi : lo;
-    steps.push(`L${x} ${y} L${x} ${nextY}`);
-    y = nextY;
-  }
-  steps.push(`L${-offset + 8 * period} ${y}`);
-  return steps.join(' ');
+const loginResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    role: z.enum(['STUDENT', 'TEACHER', 'ADMIN']),
+  }).passthrough(),
+});
+const loginErrorSchema = z.object({
+  error: z.string().optional(),
+  code: z.string().optional(),
+});
+export const LOGIN_REQUEST_TIMEOUT_MS = CLIENT_WRITE_TIMEOUT_MS;
+
+const ROLE_TO_SERVER = {
+  student: 'STUDENT',
+  teacher: 'TEACHER',
+  admin: 'ADMIN',
+} as const satisfies Record<LoginRole, 'STUDENT' | 'TEACHER' | 'ADMIN'>;
+
+export function getDefaultLoginLandingPath(role: 'STUDENT' | 'TEACHER' | 'ADMIN'): string {
+  if (role === 'ADMIN') return '/admin/users';
+  if (role === 'TEACHER') return '/teacher';
+  return '/';
 }
 
-function LabScene() {
-  const [wave, setWave] = useState(0);
+export function getSafeLoginReturnPath(value: string | null): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
+  try {
+    const base = 'https://educog.local';
+    const parsed = new URL(value, base);
+    if (parsed.origin !== base || parsed.pathname === '/login' || parsed.pathname === '/register') return null;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return null;
+  }
+}
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setWave((value) => value + 1), 120);
-    return () => window.clearInterval(timer);
-  }, []);
+const SERVER_TO_LOGIN_ROLE: Record<ApplicationRole, LoginRole> = {
+  STUDENT: 'student',
+  TEACHER: 'teacher',
+  ADMIN: 'admin',
+};
 
-  return (
-    <div className="relative hidden overflow-hidden border-r border-cyan-300/15 bg-[#070a0d] lg:block">
-      <div className="absolute inset-0 circuit-grid opacity-70" />
-      <div className="absolute left-8 right-8 top-8 z-10 flex items-start justify-between gap-6">
-        <div className="flex items-center gap-3">
-          <div className="chip-mark flex h-9 w-9 items-center justify-center rounded-md">
-            <BookOpen className="h-4 w-4 text-cyan-100" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-100">EduCog·芯智育才</div>
-            <div className="font-mono text-[11px] text-slate-500">8051 MCU Teaching Platform</div>
-          </div>
-        </div>
-        <div className="text-right font-mono text-[10px] leading-5 text-slate-500">
-          <div>GUILIN UNIVERSITY OF AEROSPACE TECHNOLOGY</div>
-          <div>微控制器智慧教育平台</div>
-        </div>
-      </div>
+function getLoginRolePolicy(path: string | null, reason: string | null) {
+  const pathRoles = getAllowedRolesForPath(path);
+  const allowedServerRoles = pathRoles
+    ?? (reason === 'admin-role'
+      ? ['ADMIN'] as const
+      : reason === 'teacher-role'
+        ? ['TEACHER', 'ADMIN'] as const
+        : reason === 'student-role'
+          ? ['STUDENT'] as const
+          : null);
+  const preferredRole = allowedServerRoles?.[0] ? SERVER_TO_LOGIN_ROLE[allowedServerRoles[0]] : 'student';
+  let message = '';
+  if (allowedServerRoles?.length === 1 && allowedServerRoles[0] === 'STUDENT') {
+    message = reason === 'student-role'
+      ? '当前账号没有学生权限，请使用学生账号登录。'
+      : '该页面仅限学生访问，请使用学生账号登录。';
+  } else if (allowedServerRoles?.length === 1 && allowedServerRoles[0] === 'ADMIN') {
+    message = reason === 'admin-role'
+      ? '当前账号没有管理员权限，请使用管理员账号登录。'
+      : '该页面仅限管理员访问，请使用管理员账号登录。';
+  } else if (allowedServerRoles) {
+    message = reason === 'teacher-role'
+      ? '当前账号没有所需权限，请使用教师或管理员账号登录。'
+      : '该页面需要教师或管理员权限，请使用对应账号登录。';
+  }
+  return { allowedServerRoles, preferredRole, message };
+}
 
-      <div className="absolute inset-0 flex items-center justify-center p-10">
-        <div className="w-full max-w-[560px] space-y-4">
-          <div className="rounded-md border border-white/[0.08] bg-[#090d12] p-4 shadow-[0_18px_70px_rgba(0,0,0,0.45)]">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
-                <span className="font-mono text-[11px] text-slate-400">CH1 · 5V/DIV · 1ms/DIV</span>
-              </div>
-              <span className="font-mono text-[11px] text-slate-600">TRIGGER: AUTO</span>
-            </div>
-            <svg viewBox="0 0 480 160" className="h-40 w-full rounded bg-[#030506]">
-              <defs>
-                <pattern id="login-grid" width="48" height="20" patternUnits="userSpaceOnUse">
-                  <path d="M48 0 L0 0 0 20" fill="none" stroke="#0f3340" strokeWidth="0.5" />
-                </pattern>
-              </defs>
-              <rect width="480" height="160" fill="url(#login-grid)" />
-              <line x1="0" y1="80" x2="480" y2="80" stroke="#1a4a5c" strokeWidth="0.5" />
-              <path d={squareWavePath(wave)} fill="none" stroke="#06b6d4" strokeWidth="1.6" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }} />
-              <text x="8" y="16" fill="#0891b2" fontFamily="monospace" fontSize="9">P1.0 OUTPUT</text>
-            </svg>
-          </div>
-
-          <div className="grid gap-4 rounded-md border border-white/[0.08] bg-[#090d12] p-5 md:grid-cols-[190px_1fr]">
-            <svg viewBox="0 0 190 130" className="h-[130px] w-full rounded bg-[#0d3a2a]" aria-hidden="true">
-              <path d="M20 22 L62 22 L62 66 L106 66" fill="none" stroke="#06b6d4" strokeWidth="1.2" />
-              <path d="M168 34 L144 34 L144 76 L124 76" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
-              <rect x="70" y="42" width="56" height="44" fill="#0a0a0a" stroke="#2a2a2a" />
-              <text x="98" y="67" textAnchor="middle" fill="#e2e8f0" fontFamily="monospace" fontSize="8">AT89C52</text>
-              <circle cx="158" cy="58" r="5" fill="#ef4444" style={{ filter: wave % 2 ? 'drop-shadow(0 0 5px #ef4444)' : undefined, opacity: wave % 2 ? 1 : 0.3 }} />
-            </svg>
-            <div className="grid content-center gap-2 font-mono text-[11px]">
-              <div className="flex justify-between"><span className="text-slate-500">VCC</span><span className="text-cyan-200">5.00 V</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">XTAL</span><span className="text-cyan-200">11.0592 MHz</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">STATUS</span><span className="text-emerald-300">READY</span></div>
-              <div className="mt-2 border-t border-white/[0.08] pt-3 text-slate-500">接线完成 · 仿真内核在线 · 等待登录</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-6 left-8 right-8 flex justify-between font-mono text-[10px] text-slate-600">
-        <span>EduCog-Micro · Hyper Frontend</span>
-        <span>8051 LAB · STATION READY</span>
-      </div>
-    </div>
-  );
+function getRequestedLoginRole(
+  value: string | null,
+  allowedServerRoles: readonly ApplicationRole[] | null,
+  fallback: LoginRole,
+): LoginRole {
+  if (value !== 'student' && value !== 'teacher' && value !== 'admin') return fallback;
+  if (allowedServerRoles && !allowedServerRoles.includes(ROLE_TO_SERVER[value])) return fallback;
+  return value;
 }
 
 export function HyperLoginPage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = getSafeLoginReturnPath(searchParams?.get('from') ?? null);
+  const roleReason = searchParams?.get('reason') ?? null;
+  const rolePolicy = getLoginRolePolicy(returnPath, roleReason);
+  const preferredLoginRole = getRequestedLoginRole(
+    searchParams?.get('role') ?? null,
+    rolePolicy.allowedServerRoles,
+    rolePolicy.preferredRole,
+  );
   const { toast } = useToast();
-  const [role, setRole] = useState<LoginRole>('student');
-  const [school, setSchool] = useState('桂林航天工业学院');
+  const [role, setRole] = useState<LoginRole>(() => preferredLoginRole);
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [formError, setFormError] = useState('');
+  const [errorField, setErrorField] = useState<'account' | 'password' | 'form' | null>(null);
+  const accountInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+    setRole(preferredLoginRole);
+  }, [preferredLoginRole]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -139,72 +142,80 @@ export function HyperLoginPage() {
     const submittedPassword = String(formData.get('password') ?? password);
 
     setFormError('');
+    setErrorField(null);
     setEmailOrUsername(submittedAccount);
     setPassword(submittedPassword);
 
     if (!submittedAccount || !submittedPassword) {
       setFormError('请填写账号和密码。');
-      toast({ title: '登录信息不完整', description: '请填写账号和密码。', variant: 'destructive' });
+      if (!submittedAccount) {
+        setErrorField('account');
+        accountInputRef.current?.focus();
+      } else {
+        setErrorField('password');
+        passwordInputRef.current?.focus();
+      }
       return;
     }
 
     try {
       setLoading(true);
-      const response = await fetch('/api/auth/login', {
+      const response = await fetchClientRequest('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailOrUsername: submittedAccount, password: submittedPassword }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '账号或密码不正确');
+        body: JSON.stringify({
+          emailOrUsername: submittedAccount,
+          password: submittedPassword,
+          expectedRole: ROLE_TO_SERVER[role],
+          rememberDevice: remember,
+        }),
+      }, LOGIN_REQUEST_TIMEOUT_MS);
+      const raw: unknown = await response.json();
+      if (!response.ok) {
+        const parsedError = loginErrorSchema.safeParse(raw);
+        if (response.status === 503 || (parsedError.success && parsedError.data.code === 'AUTH_SERVICE_UNAVAILABLE')) {
+          throw new Error('登录服务暂时不可用，请稍后重试；账号与密码未被修改。');
+        }
+        throw new Error(parsedError.success ? parsedError.data.error ?? '账号或密码不正确' : '登录服务返回异常');
+      }
+      const parsed = loginResponseSchema.safeParse(raw);
+      if (!parsed.success) throw new Error('登录服务返回异常，请稍后重试');
+      const data = parsed.data;
 
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      const maxAge = remember ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
-      const secureAttr = window.location.protocol === 'https:' ? '; Secure' : '';
-      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=${maxAge}; SameSite=Lax${secureAttr}`;
+      if (data.user.role !== ROLE_TO_SERVER[role]) {
+        clearStoredAuth();
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+        throw new Error('当前账号与所选登录角色不一致，请切换正确的角色或账号');
+      }
+
+      storeAuth('', data.user, remember ? 'persistent' : 'session');
 
       toast({ title: '登录成功', description: '正在进入工作台。' });
 
-      const searchParams = new URLSearchParams(window.location.search);
-      const from = searchParams.get('from');
-      if (from && from !== '/login' && from !== '/register') {
-        window.location.href = from;
-      } else if (data.user.role === 'ADMIN') {
-        window.location.href = '/admin/users';
+      if (returnPath) {
+        window.location.href = returnPath;
       } else {
-        window.location.href = '/';
+        window.location.href = getDefaultLoginLandingPath(data.user.role);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '请稍后重试。';
+      const message = error instanceof ClientRequestTimeoutError
+        ? '登录响应超时，请检查网络后重试；请勿连续重复提交。'
+        : error instanceof Error ? error.message : '请稍后重试。';
       setFormError(message);
-      toast({
-        title: '登录失败',
-        description: message,
-        variant: 'destructive',
-      });
+      setErrorField('form');
+      window.requestAnimationFrame(() => formErrorRef.current?.focus());
     } finally {
       setLoading(false);
     }
   };
 
   const accountLabel = role === 'student' ? '学号 / 邮箱 / 用户名' : role === 'teacher' ? '工号 / 邮箱 / 用户名' : '管理员账号 / 邮箱';
+  const submitLabel = role === 'student' ? '进入学习空间' : role === 'teacher' ? '进入教师工作台' : '进入管理后台';
 
   return (
-    <div className="grid min-h-screen bg-[#070a0d] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="grid min-h-[100dvh] overflow-x-hidden bg-[#070a0d] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
       <LabScene />
-      <main className="relative flex items-center justify-center px-6 py-10">
-        <div className="absolute right-6 top-6 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
-            className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-300 hover:bg-white/[0.08]"
-          >
-            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-            主题
-          </button>
-        </div>
-
+      <main className="relative flex items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
         <div className="w-full max-w-[390px]">
           <div className="mb-8">
             <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-200">Sign in · 登录</div>
@@ -212,7 +223,7 @@ export function HyperLoginPage() {
             <p className="mt-2 text-sm text-slate-400">使用校园账号进入 8051 单片机实验平台。</p>
           </div>
 
-          <div className="mb-5 grid grid-cols-3 gap-2">
+          <div className="mb-5 grid grid-cols-3 gap-2" role="group" aria-label="登录角色">
             {[
               ['student', GraduationCap, '学生'],
               ['teacher', BookOpen, '教师'],
@@ -221,8 +232,17 @@ export function HyperLoginPage() {
               <button
                 key={key as string}
                 type="button"
-                onClick={() => setRole(key as LoginRole)}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border text-sm transition ${
+                onClick={() => {
+                  setRole(key as LoginRole);
+                  setFormError('');
+                  setErrorField(null);
+                }}
+                aria-pressed={role === key}
+                disabled={loading || (rolePolicy.allowedServerRoles
+                  ? !rolePolicy.allowedServerRoles.includes(ROLE_TO_SERVER[key as LoginRole])
+                  : false)}
+                aria-describedby={rolePolicy.message ? 'role-account-required' : undefined}
+                className={`inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md border px-1 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0d] disabled:cursor-not-allowed disabled:opacity-40 sm:gap-2 ${
                   role === key
                     ? 'border-cyan-300/40 bg-cyan-300/[0.12] text-cyan-100'
                     : 'border-white/[0.1] bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100'
@@ -234,16 +254,23 @@ export function HyperLoginPage() {
             ))}
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
+          {rolePolicy.message && (
+            <p id="role-account-required" className="mb-4 rounded-md border border-amber-300/30 bg-amber-300/[0.1] px-3 py-2 text-sm leading-6 text-amber-100" role="alert">
+              {rolePolicy.message}
+            </p>
+          )}
+
+          <form onSubmit={submit} className="space-y-4" aria-busy={loading}>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-300">学校</span>
+              <span className="mb-2 block text-sm font-medium text-slate-300">学校（当前平台）</span>
               <div className="relative">
                 <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
                   id="school"
                   name="school"
-                  value={school}
-                  onChange={(event) => setSchool(event.target.value)}
+                  value="桂林航天工业学院"
+                  readOnly
+                  aria-readonly="true"
                   autoComplete="organization"
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
                 />
@@ -255,16 +282,20 @@ export function HyperLoginPage() {
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
+                  ref={accountInputRef}
                   id="emailOrUsername"
                   name="emailOrUsername"
                   value={emailOrUsername}
                   onChange={(event) => {
                     setEmailOrUsername(event.target.value);
                     setFormError('');
+                    setErrorField(null);
                   }}
                   autoComplete="username"
-                  aria-invalid={!!formError}
-                  className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
+                  disabled={loading}
+                  aria-invalid={errorField === 'account'}
+                  aria-describedby={formError ? 'login-error' : undefined}
+                  className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder={role === 'student' ? '例如 2023050118' : '输入账号'}
                 />
               </div>
@@ -275,23 +306,30 @@ export function HyperLoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
+                  ref={passwordInputRef}
                   id="password"
                   name="password"
                   value={password}
                   onChange={(event) => {
                     setPassword(event.target.value);
                     setFormError('');
+                    setErrorField(null);
                   }}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  aria-invalid={!!formError}
-                  className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-10 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15"
+                  disabled={loading}
+                  aria-invalid={errorField === 'password'}
+                  aria-describedby={formError ? 'login-error' : undefined}
+                  className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-10 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="请输入密码"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200"
+                  disabled={loading}
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  aria-pressed={showPassword}
+                  className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -301,16 +339,25 @@ export function HyperLoginPage() {
             <button
               type="button"
               onClick={() => setRemember((value) => !value)}
-              className="flex items-center gap-2 text-sm text-slate-400"
+              disabled={loading}
+              aria-pressed={remember}
+              aria-label="在此设备保持登录"
+              aria-describedby="remember-device-description"
+              className="flex min-h-11 items-center gap-2 rounded-md text-left text-sm text-slate-300 outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0d] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className={`flex h-4 w-4 items-center justify-center rounded border ${remember ? 'border-cyan-300 bg-cyan-300 text-[#001014]' : 'border-white/[0.16]'}`}>
                 {remember && <Check className="h-3 w-3" />}
               </span>
-              记住此设备
+              <span className="flex flex-col items-start">
+                <span>在此设备保持登录</span>
+                <span id="remember-device-description" className="text-xs leading-5 text-slate-500">
+                  {remember ? '关闭浏览器后仍保持登录，最长 7 天' : '仅保留到本次浏览器会话结束'}
+                </span>
+              </span>
             </button>
 
             {formError && (
-              <p className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100" role="alert">
+              <p ref={formErrorRef} id="login-error" tabIndex={-1} className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100 outline-none focus-visible:ring-2 focus-visible:ring-red-300" role="alert">
                 {formError}
               </p>
             )}
@@ -318,11 +365,20 @@ export function HyperLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-cyan-300 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-busy={loading}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-cyan-300 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0d] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? '登录中...' : '进入工作台'}
+              {loading ? '正在验证账号…' : submitLabel}
             </button>
           </form>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-5 text-sm">
+            <Link href="/welcome" className="inline-flex min-h-11 items-center rounded px-1 text-slate-400 transition hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+              返回平台介绍
+            </Link>
+            <Link href="/register" className="inline-flex min-h-11 items-center rounded px-1 text-cyan-200 transition hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+              创建学生账号
+            </Link>
+          </div>
         </div>
       </main>
     </div>

@@ -17,13 +17,13 @@ if (!global.__mockPrisma) {
     classEnrollment: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0) },
     learningEvent: { findUnique: resolved(null), findFirst: resolved(null), findMany: resolved([]), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0) },
     userProgress: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
-    learningPath: { findFirst: resolved(null), findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
+    learningPath: { findFirst: resolved(null), findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), updateMany: resolved({ count: 0 }), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
     learningProgress: { findUnique: resolved(null), findMany: resolved([]), findFirst: resolved(null), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), updateMany: resolved({ count: 0 }), delete: resolved({}), deleteMany: resolved({ count: 0 }), upsert: resolved({}), count: resolved(0), aggregate: resolved({ _avg: { progress: 0 } }), groupBy: resolved([]) },
     quizAttempt: { findFirst: resolved(null), findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0), aggregate: resolved({ _avg: { score: 0 } }) },
-    userExperiment: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0), groupBy: resolved([]) },
+    userExperiment: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), updateMany: resolved({ count: 0 }), delete: resolved({}), upsert: resolved({}), count: resolved(0), groupBy: resolved([]) },
     userPointsTransaction: { findMany: resolved([]), create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), delete: resolved({}), groupBy: resolved([]), aggregate: resolved({}) },
     userAchievement: { findUnique: resolved(null), findMany: resolved([]), create: resolved({}), update: resolved({}), delete: resolved({}), upsert: resolved({}), count: resolved(0) },
-    userActivity: { create: resolved({}), findMany: resolved([]), count: resolved(0), aggregate: resolved({ _count: { _all: 0 } }) },
+    userActivity: { create: resolved({}), createMany: resolved({ count: 0 }), update: resolved({}), findUnique: resolved(null), findMany: resolved([]), count: resolved(0), aggregate: resolved({ _count: { _all: 0 } }) },
     achievement: { findMany: resolved([]), findUnique: resolved(null) },
     experiment: { findMany: resolved([]), findUnique: resolved(null) },
     $queryRaw: resolved([]),
@@ -147,11 +147,15 @@ global.createJestMockFunction = (returnValue) => {
 
 // Mock NextResponse and NextRequest
 const mockNextResponse = {
-  json: jest.fn().mockImplementation((data, options) => ({
-    status: options?.status || 200,
-    json: jest.fn().mockResolvedValue(data),
-    data,
-  })),
+  json: jest.fn().mockImplementation((data, options) => {
+    const headers = new Headers(options?.headers);
+    return {
+      status: options?.status || 200,
+      headers,
+      json: jest.fn().mockResolvedValue(data),
+      data,
+    };
+  }),
   next: jest.fn().mockImplementation(() => ({
     status: 200,
     headers: new Headers(),

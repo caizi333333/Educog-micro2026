@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { experiments } from '@/lib/experiment-config';
 
 export async function GET() {

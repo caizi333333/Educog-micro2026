@@ -1,5 +1,7 @@
 # Performance Optimization Analysis Report - EduCog-Micro
 
+> Historical engineering note. Recommendations below are not evidence of implementation or measured gains. References to Genkit and Google AI are outdated; the current AI architecture is documented in `docs/platform-architecture-and-features.md`.
+
 ## Executive Summary
 This report provides a comprehensive analysis of performance optimization opportunities for the EduCog-Micro project. The analysis covers bundle size, React rendering efficiency, API calls, database queries, asset optimization, and caching strategies.
 
@@ -26,7 +28,7 @@ This report provides a comprehensive analysis of performance optimization opport
 2. **Expand Code Splitting**
    - Split heavy components: Charts, Simulation components, Achievement system
    - Implement route-based code splitting for admin routes
-   - Consider splitting the Genkit AI modules which are likely large
+   - Re-check route-level splitting for the current AI modules before making changes
 
 3. **Optimize Dependencies**
    - Review large dependencies like `firebase`, `genkit`, and `@genkit-ai/googleai`
