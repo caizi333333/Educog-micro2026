@@ -1,9 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { getAccessibleClassIds } from '@/lib/classroom';
+import { experiments as experimentCatalog } from '@/lib/experiment-config';
 
-export async function GET(request: NextRequest) {
+const OFFICIAL_EXPERIMENT_IDS = new Set(experimentCatalog.map((experiment) => experiment.id));
+
+function assignedExperimentOf(
+  details: string | null | undefined,
+  teacherId: string,
+): { experimentId: string } | null {
+  if (!details) return null;
+  try {
+    const parsed: unknown = JSON.parse(details);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const record = parsed as Record<string, unknown>;
+    return record.assignedBy === teacherId && typeof record.experimentId === 'string'
+      ? { experimentId: record.experimentId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const authorization = request.headers.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
@@ -23,7 +43,7 @@ export async function GET(request: NextRequest) {
           classId: { in: accessibleClassIds },
           role: 'STUDENT',
           status: 'ACTIVE',
-          user: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
+          user: { role: 'STUDENT', status: 'ACTIVE' },
         },
         select: { userId: true },
       });
@@ -38,20 +58,47 @@ export async function GET(request: NextRequest) {
         },
         inClass: {
           totalEvents: 0, eventsByType: {}, totalDuration: 0,
-          avgDurationPerStudent: 0, recentActiveStudents: 0, dailyActivity: [], participationRate: 0,
+          avgDurationPerStudent: 0, durationRecordCount: 0,
+          recentActiveStudents: 0, dailyActivity: [], participationRate: 0,
         },
         postClass: {
           totalStudents: 0, improvedCount: 0, declinedCount: 0, stableCount: 0,
-          avgFirstHalfScore: 0, avgSecondHalfScore: 0, chapterMasteryDist: {}, topStudents: [],
+          avgFirstHalfScore: 0, avgSecondHalfScore: 0, comparableStudentCount: 0,
+          quizParticipantCount: 0, chapterMasteryDist: {}, topStudents: [],
         },
       });
     }
 
-    const [assignedExperiments, learningEvents, quizAttempts, progress] = await Promise.all([
-      prisma.userExperiment.findMany({
-        where: { userId: { in: studentIds }, status: { in: ['ASSIGNED', 'COMPLETED', 'IN_PROGRESS'] } },
-        select: { userId: true, experimentId: true, status: true, completedAt: true, startedAt: true },
-      }),
+    const assignmentActivities = await prisma.userActivity.findMany({
+      where: {
+        userId: { in: studentIds },
+        action: 'TEACHER_ASSIGN_EXPERIMENT',
+        details: { contains: `\"assignedBy\":\"${payload.userId}\"` },
+      },
+      select: { userId: true, details: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5000,
+    });
+    const assignmentPairKeys = new Set<string>();
+    const assignedExperimentIds = new Set<string>();
+    for (const activity of assignmentActivities) {
+      const assignment = assignedExperimentOf(activity.details, payload.userId);
+      if (!assignment || !OFFICIAL_EXPERIMENT_IDS.has(assignment.experimentId)) continue;
+      assignmentPairKeys.add(`${activity.userId}:${assignment.experimentId}`);
+      assignedExperimentIds.add(assignment.experimentId);
+    }
+
+    const [candidateAssignedExperiments, learningEvents, quizAttempts, progress] = await Promise.all([
+      assignedExperimentIds.size > 0
+        ? prisma.userExperiment.findMany({
+          where: {
+            userId: { in: studentIds },
+            experimentId: { in: [...assignedExperimentIds] },
+            status: { in: ['ASSIGNED', 'COMPLETED', 'IN_PROGRESS'] },
+          },
+          select: { userId: true, experimentId: true, status: true, completedAt: true, startedAt: true },
+        })
+        : Promise.resolve([]),
       prisma.learningEvent.findMany({
         where: { userId: { in: studentIds } },
         select: { userId: true, eventType: true, createdAt: true, duration: true },
@@ -68,6 +115,9 @@ export async function GET(request: NextRequest) {
         select: { userId: true, chapterId: true, progress: true },
       }),
     ]);
+    const assignedExperiments = candidateAssignedExperiments.filter((experiment) => (
+      assignmentPairKeys.has(`${experiment.userId}:${experiment.experimentId}`)
+    ));
 
     // --- Pre-class: assigned experiments ---
     const totalAssigned = assignedExperiments.length;
@@ -80,7 +130,7 @@ export async function GET(request: NextRequest) {
     // Students who completed ALL their assigned experiments
     const assignedByStudent = new Map<string, { total: number; completed: number }>();
     for (const e of assignedExperiments) {
-      const entry = assignedByStudent.get(e.userId) || { total: 0, completed: 0 };
+      const entry = assignedByStudent.get(e.userId) ?? { total: 0, completed: 0 };
       entry.total++;
       if (e.status === 'COMPLETED') entry.completed++;
       assignedByStudent.set(e.userId, entry);
@@ -92,9 +142,9 @@ export async function GET(request: NextRequest) {
     const eventsByStudent = new Map<string, number>();
     let totalDuration = 0;
     for (const event of learningEvents) {
-      eventsByType[event.eventType] = (eventsByType[event.eventType] || 0) + 1;
-      eventsByStudent.set(event.userId, (eventsByStudent.get(event.userId) || 0) + 1);
-      totalDuration += event.duration || 0;
+      eventsByType[event.eventType] = (eventsByType[event.eventType] ?? 0) + 1;
+      eventsByStudent.set(event.userId, (eventsByStudent.get(event.userId) ?? 0) + 1);
+      totalDuration += event.duration ?? 0;
     }
 
     // Active students (at least 1 event in last 7 days)
@@ -121,7 +171,7 @@ export async function GET(request: NextRequest) {
     // Students with 2+ quizzes: compare first half avg vs second half avg
     const quizzesByStudent = new Map<string, number[]>();
     for (const qa of quizAttempts) {
-      const arr = quizzesByStudent.get(qa.userId) || [];
+      const arr = quizzesByStudent.get(qa.userId) ?? [];
       arr.push(qa.score);
       quizzesByStudent.set(qa.userId, arr);
     }
@@ -150,7 +200,7 @@ export async function GET(request: NextRequest) {
     const chapterMasteryDist: Record<string, { high: number; medium: number; low: number }> = {};
     for (const lp of progress) {
       if (!lp.chapterId) continue;
-      const dist = chapterMasteryDist[lp.chapterId] || { high: 0, medium: 0, low: 0 };
+      const dist = chapterMasteryDist[lp.chapterId] ?? { high: 0, medium: 0, low: 0 };
       if (lp.progress >= 80) dist.high++;
       else if (lp.progress >= 50) dist.medium++;
       else dist.low++;
@@ -158,7 +208,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Average quiz score by student
-    const studentScores: { name: string; avgScore: number }[] = [];
+    const studentScores: { name: string; avgScore: number; attemptCount: number }[] = [];
     const students = await prisma.user.findMany({
       where: { id: { in: studentIds } },
       select: { id: true, name: true },
@@ -167,8 +217,9 @@ export async function GET(request: NextRequest) {
     for (const [userId, scores] of quizzesByStudent) {
       if (scores.length === 0) continue;
       studentScores.push({
-        name: nameMap.get(userId) || userId,
+        name: nameMap.get(userId) ?? userId,
         avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+        attemptCount: scores.length,
       });
     }
     studentScores.sort((a, b) => b.avgScore - a.avgScore);
@@ -188,6 +239,7 @@ export async function GET(request: NextRequest) {
         eventsByType,
         totalDuration,
         avgDurationPerStudent: studentIds.length > 0 ? Math.round(totalDuration / studentIds.length) : 0,
+        durationRecordCount: learningEvents.filter((event) => event.duration !== null).length,
         recentActiveStudents,
         dailyActivity,
         participationRate: studentIds.length > 0 ? Math.round((recentActiveStudents / studentIds.length) * 100) : 0,
@@ -199,6 +251,8 @@ export async function GET(request: NextRequest) {
         stableCount,
         avgFirstHalfScore: avgFirstHalf.length > 0 ? Math.round(avgFirstHalf.reduce((a, b) => a + b, 0) / avgFirstHalf.length) : 0,
         avgSecondHalfScore: avgSecondHalf.length > 0 ? Math.round(avgSecondHalf.reduce((a, b) => a + b, 0) / avgSecondHalf.length) : 0,
+        comparableStudentCount: avgFirstHalf.length,
+        quizParticipantCount: quizzesByStudent.size,
         chapterMasteryDist,
         topStudents: studentScores.slice(0, 5),
       },

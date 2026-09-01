@@ -1,4 +1,6 @@
-export type ExperimentVisualType = 'pinout' | 'wiring' | 'schematic' | 'realistic';
+// 这里只收录课程团队绘制的教学图示。实物照片和操作录屏必须作为
+// 可追溯的媒体文件另行接入，不得用 SVG 仿真图代替。
+export type ExperimentVisualType = 'pinout' | 'wiring' | 'schematic' | 'simulation';
 
 export interface ExperimentVisualAsset {
   id: string;

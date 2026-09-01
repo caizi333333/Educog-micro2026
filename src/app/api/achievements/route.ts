@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { canAccessStudentData } from '@/lib/classroom';
+import { getDataProvenance } from '@/lib/env';
+import { OFFICIAL_EXPERIMENT_IDS } from '@/lib/experiment-config';
 import {
-  ACHIEVEMENTS_V2,
-  checkAchievementUnlock,
-  type AchievementProgress
+  ACHIEVEMENTS_V2
 } from '@/lib/achievements-v2';
 
 // In-memory rate limiter: userId → [timestamps]
@@ -55,21 +56,32 @@ export async function GET(request: Request) {
       }, { status: 404 });
     }
     const user = userRecord;
+    const asOf = new Date();
 
     // 5 次并发查询取代原来 14 次：同一 userId 下按 action/status 分别 count 的查询
     // 合并成单次 findMany，在内存里派生所有统计值。Neon 连接池并发上限较低，
     // 之前 12 条查询挤在一个 Promise.all 里很容易触发 P1001 连接失败。
     const [
-      userAchievements, allActivities, allLearningProgress, allQuizAttempts
+      userAchievements, allActivities, allLearningProgress, allQuizAttempts, allExperiments
     ] = await Promise.all([
-      prisma.userAchievement.findMany({ where: { userId: payload.userId }, orderBy: { unlockedAt: 'desc' } }),
-      prisma.userActivity.findMany({ where: { userId: payload.userId }, select: { action: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
-      prisma.learningProgress.findMany({ where: { userId: payload.userId }, select: { status: true, timeSpent: true } }),
-      prisma.quizAttempt.findMany({ where: { userId: payload.userId }, select: { score: true } })
+      prisma.userAchievement.findMany({ where: { userId: payload.userId, unlockedAt: { lte: asOf } }, orderBy: { unlockedAt: 'desc' } }),
+      prisma.userActivity.findMany({ where: { userId: payload.userId, createdAt: { lte: asOf } }, select: { action: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
+      prisma.learningProgress.findMany({ where: { userId: payload.userId, lastAccessAt: { lte: asOf } }, select: { status: true, timeSpent: true } }),
+      prisma.quizAttempt.findMany({ where: { userId: payload.userId, completedAt: { lte: asOf } }, select: { score: true } }),
+      prisma.userExperiment.findMany({
+        where: {
+          userId: payload.userId,
+          createdAt: { lte: asOf },
+          experimentId: { in: [...OFFICIAL_EXPERIMENT_IDS] },
+        },
+        select: { experimentId: true, status: true, timeSpent: true },
+      }),
     ]);
 
+    const currentAchievementIds = new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id));
+    const matchedUserAchievements = userAchievements.filter((achievement) => currentAchievementIds.has(achievement.achievementId));
+
     const countByAction = (action: string) => allActivities.filter(a => a.action === action).length;
-    const experimentStats = { _count: { _all: countByAction('COMPLETE_EXPERIMENT') } };
     const codeRuns = countByAction('RUN_CODE');
     const debugSuccess = countByAction('DEBUG_SUCCESS');
     const discussionsStarted = allActivities.filter(a => a.action.includes('DISCUSSION')).length;
@@ -114,7 +126,11 @@ export async function GET(request: Request) {
           if (diffDays === 1) streak++;
           else break;
         }
-        dailyStreak = streak;
+        const latest = new Date(`${sortedDates[0]}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const daysSinceLatest = Math.round((today.getTime() - latest.getTime()) / (1000 * 60 * 60 * 24));
+        dailyStreak = daysSinceLatest >= 0 && daysSinceLatest <= 1 ? streak : 0;
       }
 
       const SESSION_GAP_MS = 30 * 60 * 1000;
@@ -139,7 +155,7 @@ export async function GET(request: Request) {
       modules_completed: completedModules,
       code_runs: codeRuns,
       debug_success: debugSuccess,
-      experiments_completed: experimentStats._count._all || 0,
+      experiments_completed: allExperiments.filter((experiment) => experiment.status === 'COMPLETED').length,
       daily_streak: dailyStreak,
       perfect_quiz: perfectScores,
       speed_completion: speedCompletionCount,
@@ -154,9 +170,9 @@ export async function GET(request: Request) {
       quizzes_completed: quizStats._count._all || 0,
       perfect_scores: perfectScores,
       quiz_average: quizStats._avg.score || 0,
-      experiment_time: experimentStats._count._all || 0,
+      experiment_time: allExperiments.reduce((sum, experiment) => sum + Math.max(0, experiment.timeSpent || 0), 0),
       total_points: user?.totalPoints || 0,
-      achievements_unlocked: userAchievements.length,
+      achievements_unlocked: matchedUserAchievements.length,
     };
 
     const achievementList: Array<{
@@ -171,8 +187,8 @@ export async function GET(request: Request) {
       const currentValue = userStats[criteriaType] || 0;
       const targetValue = achievement.criteria.target as number;
 
-      const userAch = userAchievements.find((a: { achievementId: string }) => a.achievementId === achievement.id);
-      const isUnlocked = userAch ? true : (currentValue >= targetValue);
+      const userAch = matchedUserAchievements.find((a: { achievementId: string }) => a.achievementId === achievement.id);
+      const isUnlocked = Boolean(userAch);
       const progress = userAch ? userAch.progress : (targetValue > 0 ? Math.min((currentValue / targetValue) * 100, 100) : 0);
 
       const entry: typeof achievementList[number] = {
@@ -206,6 +222,16 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      dataProvenance: getDataProvenance(),
+      asOf: asOf.toISOString(),
+      sampleSize: {
+        achievementRules: totalPossibleAchievements,
+        unlockedAchievementRecords: unlockedCount,
+        activityRecords: allActivities.length,
+        learningProgressRecords: allLearningProgress.length,
+        quizAttempts: allQuizAttempts.length,
+        experimentRecords: allExperiments.length,
+      },
       achievements: achievementList,
       stats,
       userStats
@@ -214,8 +240,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('获取成就失败:', error);
     return NextResponse.json({
-      error: '服务器内部错误',
-      details: error instanceof Error ? error.message : '未知错误'
+      error: '服务器内部错误'
     }, { status: 500 });
   }
 }
@@ -235,7 +260,7 @@ export async function POST(request: Request) {
     }
 
     // Students cannot manually grant achievements
-    if (payload.role === 'STUDENT' || !payload.role) {
+    if (payload.role !== 'TEACHER' && payload.role !== 'ADMIN') {
       return NextResponse.json({
         error: '权限不足',
         message: '学生不能手动解锁成就，请通过学习活动自动解锁'
@@ -254,7 +279,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
     }
 
-    const { achievementId, targetUserId, reason } = data;
+    const achievementId = typeof data.achievementId === 'string' ? data.achievementId.trim() : '';
+    const targetUserId = typeof data.targetUserId === 'string' ? data.targetUserId.trim() : '';
+    const reason = typeof data.reason === 'string' ? data.reason.trim().slice(0, 500) : '';
     if (!achievementId || !targetUserId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
@@ -270,20 +297,13 @@ export async function POST(request: Request) {
       where: { id: targetUserId },
       select: { id: true, role: true, status: true, class: true }
     });
-    if (!recipient || recipient.status !== 'ACTIVE') {
+    if (!recipient || recipient.status !== 'ACTIVE' || recipient.role !== 'STUDENT') {
       return NextResponse.json({ error: '用户不存在或未激活' }, { status: 404 });
     }
 
     // Teacher: can only award students in their own class
-    if (payload.role === 'TEACHER') {
-      const teacher = await prisma.user.findUnique({
-        where: { id: payload.userId },
-        select: { teachingClasses: { select: { enrollments: { where: { userId: targetUserId }, select: { id: true } } } } }
-      });
-      const isStudentOfTeacher = teacher?.teachingClasses.some(c => c.enrollments.length > 0);
-      if (!isStudentOfTeacher) {
-        return NextResponse.json({ error: '只能授予自己班级的学生' }, { status: 403 });
-      }
+    if (payload.role === 'TEACHER' && !(await canAccessStudentData(payload, targetUserId))) {
+      return NextResponse.json({ error: '只能授予自己班级的学生' }, { status: 403 });
     }
 
     // Grant in transaction
@@ -333,7 +353,7 @@ export async function POST(request: Request) {
           details: JSON.stringify({
             achievementId,
             awardedBy: payload.userId,
-            reason: typeof reason === 'string' ? reason : ''
+            reason
           })
         }
       });
@@ -360,8 +380,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('授予成就失败:', error);
     return NextResponse.json({
-      error: '服务器内部错误',
-      details: error instanceof Error ? error.message : '未知错误'
+      error: '服务器内部错误'
     }, { status: 500 });
   }
 }

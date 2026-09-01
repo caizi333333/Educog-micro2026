@@ -21,6 +21,7 @@ interface CodeEditorProps {
   onComplete?: (() => void) | undefined;
   selectedExperiment?: string | null;
   className?: string;
+  readOnly?: boolean;
 }
 
 const LINE_HEIGHT = 20;
@@ -33,6 +34,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   currentLine,
   isRunning,
   className,
+  readOnly = false,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
     // Tab insertion
     if (e.key === 'Tab') {
+      if (readOnly) return;
       e.preventDefault();
       const ta = e.currentTarget;
       const start = ta.selectionStart;
@@ -89,7 +92,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         ta.selectionStart = ta.selectionEnd = start + 4;
       });
     }
-  }, [code, onCodeChange, onBreakpointToggle, cursorLine]);
+  }, [code, onCodeChange, onBreakpointToggle, cursorLine, readOnly]);
 
   const lines = code.split('\n');
   const errorLines = new Set(validation.errors.map(e => e.line));
@@ -237,6 +240,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
+            readOnly={readOnly}
+            aria-readonly={readOnly}
           />
         </div>
       </div>

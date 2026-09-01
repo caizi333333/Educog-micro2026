@@ -100,15 +100,20 @@ export async function createHealthCheckResponse(options: { includeDatabaseInfo?:
   
   return {
     timestamp: new Date().toISOString(),
+    scope: 'INSTANTANEOUS' as const,
+    label: '即时连接探测',
+    note: '仅代表本次只读查询结果，不代表历史可用率、持续稳定性或并发容量。',
     database: {
-      ...health,
+      isConnected: health.isConnected,
+      ...(health.latency === undefined ? {} : { latency: health.latency }),
+      ...(health.isConnected ? {} : { error: '数据库连接暂不可用' }),
       ...(includeDatabaseInfo ? { info: getDatabaseInfo() } : {}),
     },
     recommendations: health.isConnected 
-      ? ['数据库连接正常'] 
+      ? ['本次只读查询已完成；如需判断持续表现，请查看独立监测窗口。']
       : [
-          '数据库连接失败，请检查以下项目：',
-          ...health.suggestions || [],
+          '请稍后手动重试，避免连续刷新增加连接压力。',
+          '若多次失败，请联系系统管理员查看服务端日志。',
         ],
   };
 }

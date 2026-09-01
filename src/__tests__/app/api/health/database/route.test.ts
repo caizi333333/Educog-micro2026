@@ -41,7 +41,8 @@ describe('/api/health/database', () => {
 
       expect(mockCreateHealthCheckResponse).toHaveBeenCalledWith({ includeDatabaseInfo: false });
       expect(mockNextResponse.json).toHaveBeenCalledWith(mockHealthCheck, {
-        status: 200
+        status: 200,
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
       });
     });
 
@@ -65,7 +66,8 @@ describe('/api/health/database', () => {
 
       expect(mockCreateHealthCheckResponse).toHaveBeenCalledWith({ includeDatabaseInfo: false });
       expect(mockNextResponse.json).toHaveBeenCalledWith(mockHealthCheck, {
-        status: 503
+        status: 503,
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
       });
     });
 
@@ -79,15 +81,21 @@ describe('/api/health/database', () => {
       expect(console.error).toHaveBeenCalledWith('健康检查失败:', mockError);
       expect(mockNextResponse.json).toHaveBeenCalledWith({
         timestamp: expect.any(String),
+        scope: 'INSTANTANEOUS',
+        label: '即时连接探测',
+        note: '本次探测未完成，不代表数据库历史状态；请稍后手动重试。',
         database: {
           isConnected: false,
-          error: '健康检查失败'
+          error: '即时连接探测失败',
         },
         recommendations: [
-          '无法执行健康检查',
-          '请联系系统管理员'
+          '请稍后手动重试，避免连续刷新增加连接压力。',
+          '若多次失败，请联系系统管理员查看服务端日志。',
         ]
-      }, { status: 503 });
+      }, {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
+      });
     });
 
     it('should handle non-Error exceptions', async () => {
@@ -100,15 +108,21 @@ describe('/api/health/database', () => {
       expect(console.error).toHaveBeenCalledWith('健康检查失败:', mockError);
       expect(mockNextResponse.json).toHaveBeenCalledWith({
         timestamp: expect.any(String),
+        scope: 'INSTANTANEOUS',
+        label: '即时连接探测',
+        note: '本次探测未完成，不代表数据库历史状态；请稍后手动重试。',
         database: {
           isConnected: false,
-          error: '健康检查失败'
+          error: '即时连接探测失败',
         },
         recommendations: [
-          '无法执行健康检查',
-          '请联系系统管理员'
+          '请稍后手动重试，避免连续刷新增加连接压力。',
+          '若多次失败，请联系系统管理员查看服务端日志。',
         ]
-      }, { status: 503 });
+      }, {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
+      });
     });
 
     it('should include valid timestamp in error response', async () => {
@@ -141,7 +155,8 @@ describe('/api/health/database', () => {
       expect(callArgs).toHaveProperty('database');
       expect(callArgs).toHaveProperty('recommendations');
       expect(callArgs.database).toHaveProperty('isConnected', false);
-      expect(callArgs.database).toHaveProperty('error', '健康检查失败');
+      expect(callArgs).toHaveProperty('scope', 'INSTANTANEOUS');
+      expect(callArgs.database).toHaveProperty('error', '即时连接探测失败');
       expect(Array.isArray(callArgs.recommendations)).toBe(true);
       expect(callArgs.recommendations).toHaveLength(2);
     });

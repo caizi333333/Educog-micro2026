@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Sparkles, Loader2, AlertCircle, AlertTriangle, CheckCircle2, BookOpen, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateAssemblyCode, type ValidationResult } from '@/lib/syntax-validator';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 
 interface Props {
   code: string;
@@ -60,7 +61,7 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
     setAnswer('');
     setAiUnavailable(false);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {

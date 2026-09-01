@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
+  AlertCircle,
   ArrowRight,
   BarChart3,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Cpu,
   FileText,
@@ -15,6 +18,7 @@ import {
   Loader2,
   Monitor,
   PlayCircle,
+  RefreshCw,
   Search,
   Settings,
   Share2,
@@ -37,13 +41,14 @@ import {
   getChildPoints,
   getPointsByLevel,
   getResourcesByChapter,
+  resolveKnowledgeResourceHref,
   type KnowledgePoint,
   type KnowledgePointResource,
 } from '@/lib/knowledge-points';
-import { quizQuestions } from '@/lib/quiz-data';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
+import { ADDRESSING_TASK_PRESET, type LearningTaskStepType } from '@/lib/lesson-tasks';
 
 const topicIcons: Record<string, LucideIcon> = {
   基础入门: ToggleRight,
@@ -54,25 +59,39 @@ const topicIcons: Record<string, LucideIcon> = {
 };
 
 type SectionMode = 'chapters' | 'labs';
+type PersonalProgressView = 'in-progress' | 'completed';
+
+function isPersonalProgressView(value: unknown): value is PersonalProgressView {
+  return value === 'in-progress' || value === 'completed';
+}
+
+export interface HyperCoursesPageProps {
+  initialFilters?: {
+    section: SectionMode;
+    query: string;
+    view: string;
+    topic: string;
+  };
+}
 
 const courseChapters = getPointsByLevel(1).sort((a, b) => a.chapter - b.chapter);
 
 const labReportMaterial = {
   title: '微控制器原理及应用技术实验报告（1-8）',
   href: '/resources/course/microcontroller-lab-report-1-8.pdf',
-  meta: 'PDF · 实验模板 · 本地教案材料已转换',
+  meta: 'PDF · 实验 1—8 记录模板 · 课程配套资料',
 };
 
 const verifiedDiagrams: { title: string; href: string; meta: string }[] = [
   {
     title: '实验1 流水灯硬件原理图',
     href: '/resources/course/diagrams/lab1-flowing-led-schematic.svg',
-    meta: 'SVG · 单片机 P1 端口 → LED1-4 连接图（本地实验素材）',
+    meta: 'SVG · 单片机 P1 端口 → LED1—4 连接图 · 课程配套图样',
   },
   {
     title: '实验1 流水灯程序流程图',
     href: '/resources/course/diagrams/lab1-flowing-led-flowchart.svg',
-    meta: 'SVG · 初始化 → 点亮 → 延时 → 循环 主流程（本地实验素材）',
+    meta: 'SVG · 初始化 → 点亮 → 延时 → 循环主流程 · 课程配套图样',
   },
 ];
 
@@ -96,6 +115,16 @@ const resourceIcons: Record<KnowledgePointResource['type'], LucideIcon> = {
   image: ImageIcon,
 };
 
+const lessonStepIcons: Record<LearningTaskStepType, LucideIcon> = {
+  CHAPTER: BookOpen,
+  GRAPH: Share2,
+  ANIMATION: PlayCircle,
+  QUIZ: CheckCircle2,
+  REMEDIATION: RefreshCw,
+  SIMULATION: Cpu,
+  RETEST: CheckCircle2,
+};
+
 function iconForTopic(topic: string): LucideIcon {
   return topicIcons[topic] || Cpu;
 }
@@ -105,8 +134,10 @@ function hrefForResource(resource: KnowledgePointResource, chapter?: number): st
   if (resource.type === 'experiment' && resource.refId) {
     return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
   }
-  // 带上章节参数，测评页按章筛题
-  if (resource.type === 'quiz') return chapter ? `/quiz?chapter=${chapter}` : '/quiz';
+  if (resource.type === 'animation' && resource.refId === 'anim-addressing-modes') {
+    return '/simulation?experiment=exp02&view=guide';
+  }
+  if (resource.type === 'quiz') return resolveKnowledgeResourceHref(resource, chapter);
   return null;
 }
 
@@ -123,16 +154,22 @@ function formatDate(value: string | null): string {
   return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
+function isExperimentRecordsPayload(value: unknown): value is { success: true; experiments: unknown[] } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return record.success === true && Array.isArray(record.experiments);
+}
+
 function Difficulty({ level }: { level: number }) {
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1" aria-label={`难度 ${level}/5`}>
       {Array.from({ length: 5 }).map((_, index) => (
         <span
           key={index}
           className={cn('h-2.5 w-1 rounded-sm', index < level ? 'bg-cyan-300' : 'bg-white/[0.12]')}
         />
       ))}
-      <span className="ml-1 font-mono text-[11px] text-slate-500">L{level}</span>
+      <span className="ml-1 font-mono text-xs text-slate-400">难度 {level}/5</span>
     </span>
   );
 }
@@ -147,8 +184,9 @@ function StatusTag({ state, label }: { state: HyperExperimentCard['state']; labe
   return <span className={cn('rounded-md border px-2 py-0.5 text-[11px]', cls)}>{label}</span>;
 }
 
-function LabThumb({ lab }: { lab: HyperExperimentCard }) {
+function LabThumb({ lab, showPersonalProgress }: { lab: HyperExperimentCard; showPersonalProgress: boolean }) {
   const Icon = iconForTopic(lab.topic);
+  const statusDot = lab.state === 'completed' ? '#10b981' : lab.state === 'in-progress' ? '#22d3ee' : '#64748b';
   return (
     <div className="relative h-32 overflow-hidden border-b border-white/[0.08] bg-[#090d12]">
       <div className="absolute inset-0 circuit-grid opacity-70" />
@@ -169,13 +207,13 @@ function LabThumb({ lab }: { lab: HyperExperimentCard }) {
         <text x="211" y="33" textAnchor="middle" fill="#22d3ee" fontSize="10" fontFamily="monospace">
           {lab.topic.includes('定时') ? 'T0' : lab.topic.includes('显示') ? '88' : 'LED'}
         </text>
-        <circle cx="54" cy="104" r="5" fill={lab.state === 'completed' ? '#10b981' : '#ef4444'} opacity={lab.state === 'pending' ? 0.35 : 1} />
+        <circle cx="54" cy="104" r="5" fill={showPersonalProgress ? statusDot : '#22d3ee'} opacity={showPersonalProgress && lab.state === 'pending' ? 0.55 : 0.9} />
       </svg>
       <div className="absolute left-3 top-3 rounded-md border border-white/[0.08] bg-black/40 px-2 py-1 font-mono text-[10px] text-slate-400">
         {lab.id.toUpperCase()}
       </div>
       <div className="absolute right-3 top-3">
-        <StatusTag state={lab.state} label={lab.stateLabel} />
+        <StatusTag state={showPersonalProgress ? lab.state : 'pending'} label={showPersonalProgress ? lab.stateLabel : '课程目录'} />
       </div>
       <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[11px] text-cyan-100">
         <Icon className="h-3 w-3" />
@@ -185,7 +223,7 @@ function LabThumb({ lab }: { lab: HyperExperimentCard }) {
   );
 }
 
-function LabCard({ lab }: { lab: HyperExperimentCard }) {
+function LabCard({ lab, showPersonalProgress }: { lab: HyperExperimentCard; showPersonalProgress: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const config = getExperimentConfig(lab.id);
   const code = config?.code?.trim() || '';
@@ -199,7 +237,7 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
         expanded ? '' : 'min-h-[264px]',
       )}
     >
-      <LabThumb lab={lab} />
+      <LabThumb lab={lab} showPersonalProgress={showPersonalProgress} />
       <div className="flex flex-col gap-2 p-4">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-100 group-hover:text-cyan-100">{lab.title}</h3>
@@ -215,39 +253,43 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
               {lab.duration} min
             </span>
           </div>
-          {lab.state === 'in-progress' && lab.progress !== null ? (
+          {showPersonalProgress && lab.state === 'in-progress' && lab.progress !== null ? (
             <div className="mt-3 flex items-center gap-2 font-mono text-[11px] text-cyan-200">
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.12]">
                 <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${lab.progress}%` }} />
               </div>
               {lab.progress}%
             </div>
+          ) : showPersonalProgress ? (
+            <div className="mt-3 font-mono text-xs text-slate-400">最近记录：{formatDate(lab.updatedAt)}</div>
           ) : (
-            <div className="mt-3 font-mono text-[11px] text-slate-500">{formatDate(lab.updatedAt)}</div>
+            <div className="mt-3 text-xs text-slate-400">学生登录后显示个人实验进度</div>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
           <button
             type="button"
+            aria-expanded={expanded}
+            aria-controls={`lab-${lab.id}-preview`}
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-black/20 px-2.5 text-[11px] text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+            className="inline-flex min-h-11 items-center gap-1 rounded-md border border-white/[0.08] bg-black/20 px-3 text-[11px] text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
           >
             {expanded ? '收起预览 ▴' : '内嵌预览 ▾'}
           </button>
           <Link
             href={lab.href}
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-cyan-300 px-2.5 text-[11px] font-semibold text-[#001014] hover:bg-cyan-200"
+            className="inline-flex min-h-11 items-center gap-1 rounded-md bg-cyan-300 px-3 text-[11px] font-semibold text-[#001014] hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
           >
             进入仿真页 →
           </Link>
         </div>
 
         {expanded && (
-          <div className="mt-2 space-y-3 border-t border-cyan-300/15 pt-3">
+          <div id={`lab-${lab.id}-preview`} className="mt-2 space-y-3 border-t border-cyan-300/15 pt-3">
             {objectives.length > 0 && (
               <div>
-                <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">实验目标</div>
+                <div className="mb-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">实验目标</div>
                 <ul className="list-disc space-y-0.5 pl-4 text-[12px] leading-5 text-slate-300">
                   {objectives.slice(0, 4).map((obj, i) => (
                     <li key={i}>{obj}</li>
@@ -257,7 +299,7 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
             )}
             {knowledgePoints.length > 0 && (
               <div>
-                <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">涉及知识点</div>
+                <div className="mb-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">涉及知识点</div>
                 <div className="flex flex-wrap gap-1.5">
                   {knowledgePoints.slice(0, 6).map((kp, i) => (
                     <span key={i} className="rounded-sm border border-white/[0.06] bg-black/20 px-1.5 py-0.5 text-[10px] text-slate-300">
@@ -270,8 +312,8 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
             {code && (
               <div>
                 <div className="mb-1 flex items-center justify-between">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">参考代码（节选）</div>
-                  <span className="font-mono text-[10px] text-slate-600">8051 ASM</span>
+                  <div className="font-mono text-xs uppercase tracking-[0.1em] text-slate-400">参考代码（节选）</div>
+                  <span className="font-mono text-xs text-slate-400">8051 ASM</span>
                 </div>
                 <pre className="max-h-[280px] overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-2 font-mono text-[10px] leading-4 text-slate-300">
                   {code}
@@ -285,6 +327,21 @@ function LabCard({ lab }: { lab: HyperExperimentCard }) {
   );
 }
 
+type CourseNavigationProps = {
+  topics: string[];
+  chapters: KnowledgePoint[];
+  activeSection: SectionMode;
+  activeView: string;
+  activeTopic: string;
+  setSection: (value: SectionMode) => void;
+  setView: (value: string) => void;
+  setTopic: (value: string) => void;
+  labs: HyperExperimentCard[];
+  isTeacher: boolean;
+  isAuthenticated: boolean;
+  showPersonalProgress: boolean;
+};
+
 function CourseSideNav({
   topics,
   chapters,
@@ -296,47 +353,39 @@ function CourseSideNav({
   setTopic,
   labs,
   isTeacher,
-}: {
-  topics: string[];
-  chapters: KnowledgePoint[];
-  activeSection: SectionMode;
-  activeView: string;
-  activeTopic: string;
-  setSection: (value: SectionMode) => void;
-  setView: (value: string) => void;
-  setTopic: (value: string) => void;
-  labs: HyperExperimentCard[];
-  isTeacher: boolean;
-}) {
+  isAuthenticated,
+  showPersonalProgress,
+}: CourseNavigationProps) {
   const navClass = (active: boolean) =>
     cn(
-      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition',
+      'flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
       active ? 'bg-cyan-300/[0.12] text-cyan-100' : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
     );
 
   return (
-    <aside className="glass-hover transition-all order-2 rounded-md border border-white/[0.08] bg-white/[0.035] p-3 lg:order-1 lg:sticky lg:top-20 lg:self-start">
+    <aside className="glass-hover order-2 hidden rounded-md border border-white/[0.08] bg-white/[0.035] p-3 transition-all lg:order-1 lg:sticky lg:top-20 lg:block lg:self-start">
       <div className="border-b border-white/[0.08] px-2 pb-3">
-        <div className="font-mono text-[11px] text-slate-500">当前课程</div>
+        <div className="font-mono text-xs text-slate-400">当前课程</div>
         <div className="mt-1 text-sm font-semibold text-slate-100">《微控制器原理及应用技术》</div>
         <div className="mt-1 text-xs text-slate-400">8051 · AT89C52 · 实验工作台</div>
       </div>
 
-      <div className="mt-3 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">导航</div>
-      <button className={navClass(activeSection === 'chapters')} onClick={() => setSection('chapters')}>
+      <nav aria-label="课程目录与筛选">
+      <div className="mt-3 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">导航</div>
+      <button type="button" aria-pressed={activeSection === 'chapters'} className={navClass(activeSection === 'chapters')} onClick={() => setSection('chapters')}>
         <BookOpen className="h-3.5 w-3.5" />
         课程章节
-        <span className="ml-auto font-mono text-[10px] text-slate-500">{chapters.length}</span>
+        <span className="ml-auto font-mono text-xs text-slate-400">{chapters.length}</span>
       </button>
-      <button className={navClass(activeSection === 'labs')} onClick={() => setSection('labs')}>
+      <button type="button" aria-pressed={activeSection === 'labs'} className={navClass(activeSection === 'labs')} onClick={() => setSection('labs')}>
         <LayoutGrid className="h-3.5 w-3.5" />
         实验工作台
-        <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.length}</span>
+        <span className="ml-auto font-mono text-xs text-slate-400">{labs.length}</span>
       </button>
 
       {activeSection === 'chapters' && (
         <>
-          <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">章节目录</div>
+          <div className="mt-4 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">章节目录</div>
           {chapters.map((chapter) => (
             <a
               key={chapter.id}
@@ -344,7 +393,7 @@ function CourseSideNav({
               className={navClass(false)}
               onClick={() => setSection('chapters')}
             >
-              <span className="font-mono text-[10px] text-cyan-200">CH{chapter.chapter}</span>
+              <span className="font-mono text-xs text-cyan-200">CH{chapter.chapter}</span>
               <span className="min-w-0 truncate">{chapter.name}</span>
             </a>
           ))}
@@ -353,56 +402,121 @@ function CourseSideNav({
 
       {activeSection === 'labs' && (
         <>
-      <button className={navClass(activeView === 'all' && activeTopic === 'all')} onClick={() => { setView('all'); setTopic('all'); }}>
+      <button type="button" aria-pressed={activeView === 'all' && activeTopic === 'all'} className={navClass(activeView === 'all' && activeTopic === 'all')} onClick={() => { setView('all'); setTopic('all'); }}>
         <LayoutGrid className="h-3.5 w-3.5" />
         全部实验
-        <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.length}</span>
+        <span className="ml-auto font-mono text-xs text-slate-400">{labs.length}</span>
       </button>
-      <button className={navClass(activeView === 'in-progress')} onClick={() => { setView('in-progress'); setTopic('all'); }}>
+      {showPersonalProgress && <button type="button" aria-pressed={activeView === 'in-progress'} className={navClass(activeView === 'in-progress')} onClick={() => { setView('in-progress'); setTopic('all'); }}>
         <PlayCircle className="h-3.5 w-3.5" />
         进行中
-        <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.filter((lab) => lab.state === 'in-progress').length}</span>
-      </button>
-      <button className={navClass(activeView === 'completed')} onClick={() => { setView('completed'); setTopic('all'); }}>
+        <span className="ml-auto font-mono text-xs text-slate-400">{labs.filter((lab) => lab.state === 'in-progress').length}</span>
+      </button>}
+      {showPersonalProgress && <button type="button" aria-pressed={activeView === 'completed'} className={navClass(activeView === 'completed')} onClick={() => { setView('completed'); setTopic('all'); }}>
         <CheckCircle2 className="h-3.5 w-3.5" />
         已完成
-        <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.filter((lab) => lab.state === 'completed').length}</span>
-      </button>
-      <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">按主题</div>
+        <span className="ml-auto font-mono text-xs text-slate-400">{labs.filter((lab) => lab.state === 'completed').length}</span>
+      </button>}
+      <div className="mt-4 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">按主题</div>
       {topics.map((topic) => {
         const Icon = iconForTopic(topic);
         return (
-          <button key={topic} className={navClass(activeTopic === topic)} onClick={() => { setView('all'); setTopic(topic); }}>
+          <button key={topic} type="button" aria-pressed={activeTopic === topic} className={navClass(activeTopic === topic)} onClick={() => { setView('all'); setTopic(topic); }}>
             <Icon className="h-3.5 w-3.5" />
             {topic}
-            <span className="ml-auto font-mono text-[10px] text-slate-500">{labs.filter((lab) => lab.topic === topic).length}</span>
+            <span className="ml-auto font-mono text-xs text-slate-400">{labs.filter((lab) => lab.topic === topic).length}</span>
           </button>
         );
       })}
         </>
       )}
 
-      <div className="mt-4 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">其他</div>
+      <div className="mt-4 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">其他</div>
       {/* 实验报告与顶部材料卡为同一份 PDF */}
       <a href={labReportMaterial.href} target="_blank" rel="noreferrer" className={navClass(false)}>
         <FileText className="h-3.5 w-3.5" />
         实验报告
       </a>
-      <Link href="/analytics" className={navClass(false)}>
+      {isAuthenticated && <Link href="/analytics" className={navClass(false)}>
         <BarChart3 className="h-3.5 w-3.5" />
         成绩与进度
-      </Link>
+      </Link>}
       {isTeacher && (
         <Link href="/teacher/classes" className={navClass(false)}>
           <Users className="h-3.5 w-3.5" />
           班级管理
         </Link>
       )}
-      <Link href="/settings" className={navClass(false)}>
+      {isAuthenticated && <Link href="/settings" className={navClass(false)}>
         <Settings className="h-3.5 w-3.5" />
         设置
-      </Link>
+      </Link>}
+      </nav>
     </aside>
+  );
+}
+
+function MobileCourseNavigation({
+  topics,
+  chapters,
+  activeSection,
+  activeView,
+  activeTopic,
+  setSection,
+  setView,
+  setTopic,
+  labs,
+  showPersonalProgress,
+}: CourseNavigationProps) {
+  const segmentClass = (active: boolean) => cn(
+    'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70',
+    active
+      ? 'border border-cyan-300/25 bg-cyan-300/[0.12] text-cyan-100'
+      : 'border border-white/[0.08] bg-white/[0.035] text-slate-300',
+  );
+  const chipClass = (active: boolean) => cn(
+    'inline-flex min-h-11 shrink-0 items-center rounded-md border px-3 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70',
+    active
+      ? 'border-cyan-300/30 bg-cyan-300/[0.1] text-cyan-100'
+      : 'border-white/[0.08] bg-black/20 text-slate-300',
+  );
+
+  return (
+    <section aria-label="课程移动导航" className="order-1 min-w-0 rounded-md border border-white/[0.08] bg-[#0c1117] p-3 lg:hidden">
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" aria-pressed={activeSection === 'chapters'} onClick={() => setSection('chapters')} className={segmentClass(activeSection === 'chapters')}>
+          <BookOpen className="h-4 w-4" aria-hidden="true" />
+          章节内容 <span className="font-mono text-[10px] opacity-70">{chapters.length}</span>
+        </button>
+        <button type="button" aria-pressed={activeSection === 'labs'} onClick={() => setSection('labs')} className={segmentClass(activeSection === 'labs')}>
+          <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+          实验内容 <span className="font-mono text-[10px] opacity-70">{labs.length}</span>
+        </button>
+      </div>
+
+      <div className="mt-3 max-w-full overflow-x-auto pb-1" role="navigation" aria-label={activeSection === 'chapters' ? '章节快捷跳转' : '实验快捷筛选'}>
+        <div className="flex min-w-max gap-2">
+          {activeSection === 'chapters' ? chapters.map((chapter) => (
+            <a key={chapter.id} href={`#item-${chapter.chapter}`} className={chipClass(false)}>
+              <span className="mr-1.5 font-mono text-[10px] text-cyan-200">CH{chapter.chapter}</span>
+              {chapter.name}
+            </a>
+          )) : (
+            <>
+              <button type="button" aria-pressed={activeView === 'all' && activeTopic === 'all'} onClick={() => { setView('all'); setTopic('all'); }} className={chipClass(activeView === 'all' && activeTopic === 'all')}>全部 {labs.length}</button>
+              {showPersonalProgress && <button type="button" aria-pressed={activeView === 'in-progress'} onClick={() => { setView('in-progress'); setTopic('all'); }} className={chipClass(activeView === 'in-progress')}>进行中 {labs.filter((lab) => lab.state === 'in-progress').length}</button>}
+              {showPersonalProgress && <button type="button" aria-pressed={activeView === 'completed'} onClick={() => { setView('completed'); setTopic('all'); }} className={chipClass(activeView === 'completed')}>已完成 {labs.filter((lab) => lab.state === 'completed').length}</button>}
+              {topics.map((topicName) => (
+                <button key={topicName} type="button" aria-pressed={activeTopic === topicName} onClick={() => { setView('all'); setTopic(topicName); }} className={chipClass(activeTopic === topicName)}>
+                  {topicName} {labs.filter((lab) => lab.topic === topicName).length}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">可左右滑动查看更多{activeSection === 'chapters' ? '章节' : '筛选条件'}</p>
+    </section>
   );
 }
 
@@ -424,6 +538,7 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
         href={resource.url}
         target="_blank"
         rel="noreferrer"
+        aria-label={`${resource.title}，在新标签打开`}
         className="group col-span-full block overflow-hidden rounded-md border border-white/[0.08] bg-[#0c1117] sm:col-span-2"
         title={`点击查看大图：${resource.title}`}
       >
@@ -434,7 +549,7 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
         </div>
         <div className="border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
           {resource.title}
-          <span className="ml-2 font-mono text-[10px] text-slate-500">{resourceLabels[resource.type]}</span>
+          <span className="ml-2 font-mono text-xs text-slate-400">{resourceLabels[resource.type]}</span>
         </div>
       </a>
     );
@@ -444,14 +559,14 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
     <>
       <Icon className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">{resource.title}</span>
-      <span className="shrink-0 rounded-sm bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+      <span className="shrink-0 rounded-sm bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-slate-400">
         {resourceLabels[resource.type]}
       </span>
     </>
   );
 
   const className =
-    'inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/25 hover:bg-cyan-300/[0.06] hover:text-cyan-100';
+    'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-2 text-xs text-slate-300 transition hover:border-cyan-300/25 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60';
 
   if (!href) {
     return (
@@ -463,7 +578,7 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 
   if (href.startsWith('http')) {
     return (
-      <a href={href} target="_blank" rel="noreferrer" className={className}>
+      <a href={href} target="_blank" rel="noreferrer" aria-label={`${resource.title}，在新标签打开`} className={className}>
         {content}
       </a>
     );
@@ -476,45 +591,160 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
   );
 }
 
+function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; role?: string | null }) {
+  const resolveHref = (href: string): string => (
+    isPublicShell ? `/login?role=student&from=${encodeURIComponent(href)}` : href
+  );
+  const isTeacherReview = role === 'TEACHER';
+  const isAdminReview = role === 'ADMIN';
+  const showStudentStepLinks = isPublicShell || role === 'STUDENT';
+  const primaryHref = isPublicShell
+    ? '/login?role=teacher&from=%2Fteacher'
+    : isAdminReview
+      ? '/admin'
+      : isTeacherReview
+        ? '/teacher'
+        : '/tasks';
+  const primaryLabel = isPublicShell
+    ? '教师登录复核样板课'
+    : isAdminReview
+      ? '返回管理工作台'
+      : isTeacherReview
+        ? '返回教师工作台'
+        : '进入我的任务';
+
+  return (
+    <section
+      id="addressing-sample"
+      aria-labelledby="addressing-sample-title"
+      className="relative mb-5 overflow-hidden rounded-lg border border-cyan-300/18 bg-[#0b1117] shadow-[0_22px_70px_rgba(0,0,0,0.28)]"
+    >
+      <div className="absolute inset-0 circuit-grid opacity-55" aria-hidden="true" />
+      <div className="relative grid gap-5 border-b border-white/[0.08] px-4 py-5 sm:px-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.13em] text-cyan-100">
+              Sample Lesson · 教学流程样板
+            </span>
+            <span className="rounded-md border border-amber-300/18 bg-amber-300/[0.06] px-2 py-1 text-[10px] text-amber-100">
+              非教学成效数据
+            </span>
+          </div>
+          <h2 id="addressing-sample-title" className="mt-3 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">
+            3.1 寻址方式专项学习任务
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+            从知识结构定位开始，完成学习、诊断、补弱、实践和复测；每一步都有完成规则，结果以服务端保存记录为准。
+          </p>
+        </div>
+        <Link
+          href={primaryHref}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1117]"
+        >
+          {primaryLabel}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>
+
+      <ol className="relative grid gap-px bg-white/[0.07] sm:grid-cols-2 xl:grid-cols-3">
+        {ADDRESSING_TASK_PRESET.steps.map((step, index) => {
+          const Icon = lessonStepIcons[step.type];
+          const stepBody = (
+            <>
+              <span className="chip-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
+                <Icon className="h-4 w-4 text-cyan-100" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-mono text-xs uppercase tracking-[0.12em] text-slate-400">STEP {String(index + 1).padStart(2, '0')}</span>
+                <span className="mt-1 block text-sm font-semibold text-slate-100 transition-colors group-hover:text-cyan-100">{step.title}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-300">目的：{step.purpose}</span>
+                <span className="mt-1.5 block border-l border-cyan-300/25 pl-2 text-xs leading-5 text-slate-400">完成条件：{step.completionRule}</span>
+                {!showStudentStepLinks && (
+                  <span className="mt-2 inline-flex rounded-md border border-white/[0.1] bg-white/[0.04] px-2 py-1 text-xs text-slate-300">学生动作预览</span>
+                )}
+              </span>
+            </>
+          );
+          return (
+            <li key={step.stepId} className="bg-[#0b1117]/95 p-4 transition-colors hover:bg-cyan-300/[0.045]">
+              {showStudentStepLinks ? (
+                <Link
+                  href={resolveHref(step.href)}
+                  aria-label={`样板课第${index + 1}步，${step.title}，${isPublicShell ? '学生登录后进入' : '进入对应页面'}`}
+                  className="group flex min-h-11 items-start gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+                >
+                  {stepBody}
+                </Link>
+              ) : (
+                <div
+                  aria-label={`样板课第${index + 1}步，${step.title}，学生动作流程预览`}
+                  className="group flex min-h-11 items-start gap-3 rounded"
+                >
+                  {stepBody}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="relative flex flex-col gap-2 border-t border-white/[0.08] bg-black/15 px-4 py-3 text-xs leading-5 text-slate-300 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <span>正式资源：CH3 · 3.1 · quiz-ch3-addressing · exp02</span>
+        <span className="font-mono text-xs text-emerald-200">AI 仅作解释辅助</span>
+      </div>
+    </section>
+  );
+}
+
 function CourseMaterialPanel() {
   const [showLabPdf, setShowLabPdf] = useState(false);
+  const [showDiagrams, setShowDiagrams] = useState(false);
   return (
-    <div className="glass-hover transition-all mb-5 space-y-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
+    <div className="glass-hover transition-all mb-5 space-y-3 rounded-md border border-emerald-300/18 bg-emerald-300/[0.045] p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Course Material · 已接入资料</div>
           <h2 className="mt-2 text-base font-semibold text-slate-50">{labReportMaterial.title}</h2>
           <p className="mt-1 text-sm text-slate-400">{labReportMaterial.meta}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setShowLabPdf((v) => !v)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-emerald-300/40 bg-emerald-300/[0.10] px-4 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/[0.18]"
+            aria-expanded={showDiagrams}
+            aria-controls="course-material-diagrams"
+            onClick={() => setShowDiagrams((value) => !value)}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.035] px-4 text-sm text-slate-200 hover:border-emerald-300/30 hover:bg-emerald-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
           >
-            <FileText className="h-4 w-4" />
+            <ImageIcon className="h-4 w-4" aria-hidden="true" />
+            {showDiagrams ? '收起图纸' : '查看图纸'}
+          </button>
+          <button
+            type="button"
+            aria-expanded={showLabPdf}
+            aria-controls="course-material-pdf"
+            onClick={() => setShowLabPdf((v) => !v)}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-300/40 bg-emerald-300/[0.10] px-4 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/[0.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
+          >
+            <FileText className="h-4 w-4" aria-hidden="true" />
             {showLabPdf ? '收起预览' : '内嵌预览'}
           </button>
           <a
             href={labReportMaterial.href}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-[#02130c] hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4" aria-hidden="true" />
             新标签打开
           </a>
         </div>
       </div>
-      {/* PDF/图纸内容本身是白纸黑字的文档，不改动——但外层直接 bg-white
-          会在深色主题里露出大片刺眼白板。统一"深色画框裱文档"处理：外层
-          容器深色+内边距，白色只出现在留白包裹的内层，让文档像被精心
-          裱在深色背景上，呼应 ResourceChip 图纸预览的同款处理。 */}
       {showLabPdf && (
-        <div className="rounded-md border border-emerald-300/20 bg-[#0c1117] p-3">
+        <div id="course-material-pdf" className="rounded-md border border-emerald-300/20 bg-[#0c1117] p-3">
           <object
             data={labReportMaterial.href}
             type="application/pdf"
+            title={labReportMaterial.title}
             className="block h-[640px] w-full rounded bg-white"
           >
             <div className="flex h-[640px] items-center justify-center rounded bg-white p-6 text-sm text-slate-700">
@@ -526,32 +756,35 @@ function CourseMaterialPanel() {
           </object>
         </div>
       )}
-      <div className="grid gap-3 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
-        {verifiedDiagrams.map((diagram) => (
-          <a
-            key={diagram.href}
-            href={diagram.href}
-            target="_blank"
-            rel="noreferrer"
-            className="group block overflow-hidden rounded-md border border-emerald-300/15 bg-[#0c1117]"
-          >
-            <div className="flex items-center justify-center p-3">
-              <div className="flex items-center justify-center rounded-md bg-white p-3 shadow-[0_1px_4px_rgba(0,0,0,0.35)]">
-                <img src={diagram.href} alt={diagram.title} className="block h-32 w-auto" loading="lazy" />
+      {showDiagrams && (
+        <div id="course-material-diagrams" className="grid gap-3 border-t border-emerald-300/15 pt-3 md:grid-cols-2">
+          {verifiedDiagrams.map((diagram) => (
+            <a
+              key={diagram.href}
+              href={diagram.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`${diagram.title}，在新标签打开`}
+              className="group block overflow-hidden rounded-md border border-emerald-300/15 bg-[#0c1117]"
+            >
+              <div className="flex items-center justify-center p-3">
+                <div className="flex items-center justify-center rounded-md bg-white p-3 shadow-[0_1px_4px_rgba(0,0,0,0.35)]">
+                  <img src={diagram.href} alt={diagram.title} className="block h-24 w-auto" loading="lazy" />
+                </div>
               </div>
-            </div>
-            <div className="border-t border-emerald-300/15 bg-[#0c1117] px-3 py-2">
-              <div className="text-[12px] font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
-              <div className="mt-0.5 text-[10px] leading-snug text-slate-500">{diagram.meta}</div>
-            </div>
-          </a>
-        ))}
-      </div>
+              <div className="border-t border-emerald-300/15 bg-[#0c1117] px-3 py-2">
+                <div className="text-[12px] font-medium text-slate-100 group-hover:text-emerald-100">{diagram.title}</div>
+                <div className="mt-0.5 text-xs leading-snug text-slate-400">{diagram.meta}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
+function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoint; forceExpanded?: boolean }) {
   const childPoints = getChildPoints(chapter.id);
   const chapterPoints = childPoints.length + 1;
   const resources = getResourcesByChapter(chapter.chapter);
@@ -560,53 +793,85 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
   const video = resources.find((resource) => resource.type === 'video' && resource.url);
   const visibleResources = linkedResources.slice(0, 10);
   const summary = buildChapterSummary(chapter, childPoints);
-  // 徽章显示题库按章真实题数，而非测验资源条目数
-  const quizCount = quizQuestions.filter((q) => q.chapter === chapter.chapter).length;
+  const hasQuiz = resources.some((resource) => resource.type === 'quiz');
   const [showTop5, setShowTop5] = useState(false);
+  const [expanded, setExpanded] = useState(chapter.chapter === 3);
   const top5 = childPoints.slice(0, 5);
+  const isOpen = forceExpanded || expanded;
+
+  useEffect(() => {
+    const openFromHash = (): void => {
+      const hash = window.location.hash;
+      if (hash === `#item-${chapter.chapter}` || hash === `#chapter-${chapter.chapter}`) {
+        setExpanded(true);
+      }
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+  }, [chapter.chapter]);
 
   return (
     <article id={`item-${chapter.chapter}`} className="glass-hover transition-all scroll-mt-24 overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
       <span id={`chapter-${chapter.chapter}`} className="sr-only" />
-      <div className="border-b border-white/[0.08] bg-[#0c1117] p-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className={cn('bg-[#0c1117] p-4', isOpen && 'border-b border-white/[0.08]')}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[11px] text-cyan-100">
             CH{chapter.chapter}
           </span>
-          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
+          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-xs text-slate-400">
             {chapterPoints} 个核心条目
           </span>
-          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-500">
+          <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-xs text-slate-400">
             {linkedResources.length} 项资源
           </span>
-          {quizCount > 0 && (
+          {hasQuiz && (
             <Link
               href={`/quiz?chapter=${chapter.chapter}`}
-              className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.08] px-2 py-1 font-mono text-[11px] text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-300/[0.14]"
+              className="inline-flex min-h-11 items-center rounded-md border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 font-mono text-[11px] text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
             >
-              {quizCount} 道测验题
+              进入章节测验
             </Link>
           )}
+            </div>
+            <h3 className="mt-3 text-lg font-semibold text-slate-50">{chapter.name}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{chapter.description}</p>
+          </div>
+          <button
+            type="button"
+            aria-label={forceExpanded
+              ? `第${chapter.chapter}章${chapter.name}搜索结果已展开`
+              : `${isOpen ? '收起' : '展开'}第${chapter.chapter}章${chapter.name}详情`}
+            aria-expanded={isOpen}
+            aria-controls={`chapter-${chapter.chapter}-details`}
+            disabled={forceExpanded}
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.07] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 disabled:cursor-default disabled:opacity-60"
+          >
+            {forceExpanded ? '搜索结果已展开' : isOpen ? '收起详情' : '展开详情'}
+            <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} aria-hidden="true" />
+          </button>
         </div>
-        <h3 className="mt-3 text-lg font-semibold text-slate-50">{chapter.name}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{chapter.description}</p>
       </div>
 
-      <div className="grid gap-4 p-4 xl:grid-cols-[1.1fr_0.9fr]">
+      {isOpen && (
+      <div id={`chapter-${chapter.chapter}-details`} className="grid gap-4 p-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="min-w-0 space-y-4">
           <div>
-            <div className="mb-2 text-sm font-semibold text-slate-100">章节概要</div>
+            <h4 className="mb-2 text-sm font-semibold text-slate-100">章节概要</h4>
             <p className="text-sm leading-6 text-slate-400">{summary}</p>
           </div>
 
           <div>
-            <div className="mb-2 text-sm font-semibold text-slate-100">二级知识点</div>
+            <h4 className="mb-2 text-sm font-semibold text-slate-100">知识点导航</h4>
             <div className="flex flex-wrap gap-2">
               {childPoints.slice(0, 8).map((point) => (
                 <Link
                   key={point.id}
-                  href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.graphNodeId || point.id)}`}
-                  className="rounded-md border border-white/[0.08] bg-black/20 px-2.5 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.08] hover:text-cyan-100"
+                  href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.id)}`}
+                  className="inline-flex min-h-11 items-center rounded-md border border-white/[0.08] bg-black/20 px-3 py-2 text-xs text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.08] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
                 >
                   {point.name}
                 </Link>
@@ -618,14 +883,16 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
             <div>
               <button
                 type="button"
+                aria-expanded={showTop5}
+                aria-controls={`chapter-${chapter.chapter}-core-points`}
                 onClick={() => setShowTop5((v) => !v)}
-                className="flex w-full items-center justify-between rounded-md border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100"
+                className="flex min-h-11 w-full items-center justify-between rounded-md border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
               >
-                <span className="font-semibold">本章核心 {top5.length} 个知识点 · 含描述</span>
-                <span className="font-mono text-[10px] text-slate-500">{showTop5 ? '收起 ▴' : '展开 ▾'}</span>
+                <span className="font-semibold">核心知识点说明 · {top5.length} 项</span>
+                <span className="font-mono text-xs text-slate-400">{showTop5 ? '收起 ▴' : '展开 ▾'}</span>
               </button>
               {showTop5 && (
-                <ul className="mt-2 space-y-1.5">
+                <ul id={`chapter-${chapter.chapter}-core-points`} className="mt-2 space-y-1.5">
                   {top5.map((point) => (
                     <li
                       key={point.id}
@@ -635,11 +902,11 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
                         <span className="font-mono text-[10px] text-cyan-300">#{point.id}</span>
                         <Link
                           href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.id)}`}
-                          className="text-sm font-medium text-slate-100 hover:text-cyan-100"
+                          className="inline-flex min-h-11 items-center text-sm font-medium text-slate-100 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
                         >
                           {point.name}
                         </Link>
-                        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-slate-400">
                           L{point.level}
                         </span>
                       </div>
@@ -654,7 +921,7 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
           )}
 
           <div>
-            <div className="mb-2 text-sm font-semibold text-slate-100">章节资源</div>
+            <h4 className="mb-2 text-sm font-semibold text-slate-100">章节资源</h4>
             <div className="grid gap-2 sm:grid-cols-2">
               {visibleResources.map((resource) => (
                 <ResourceChip key={`${resource.type}-${resource.refId || resource.url || resource.title}`} resource={resource} chapter={chapter.chapter} />
@@ -685,28 +952,38 @@ function ChapterCard({ chapter }: { chapter: KnowledgePoint }) {
                 章节内容已接入
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                本章已接入知识点、课件、测验与实验入口；课程视频资源持续补充中。
+                本章已接入知识点、课件、测验与实验入口，可按学习目的选择相应资源。
               </p>
             </div>
           )}
         </div>
       </div>
 
+      )}
+
+      {isOpen && (
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.08] px-4 py-3">
-        <Link href={`/knowledge-graph?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100">
+        <Link href={`/knowledge-graph?chapter=${chapter.chapter}`} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60">
           <Share2 className="h-3.5 w-3.5" />
           知识图谱
         </Link>
-        <Link href={`/quiz?chapter=${chapter.chapter}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition-all hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          章节测验
-        </Link>
       </div>
+      )}
     </article>
   );
 }
 
-function CourseChaptersView({ query }: { query: string }) {
+function CourseChaptersView({
+  query,
+  isPublicShell,
+  role,
+  onClearQuery,
+}: {
+  query: string;
+  isPublicShell: boolean;
+  role?: string | null;
+  onClearQuery: () => void;
+}) {
   const filteredChapters = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return courseChapters;
@@ -719,40 +996,100 @@ function CourseChaptersView({ query }: { query: string }) {
 
   return (
     <div className="order-1 min-w-0 lg:order-2">
+      <SampleLessonPanel isPublicShell={isPublicShell} role={role} />
       <CourseMaterialPanel />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-          <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></div>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+          <span className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></span>
           课程章节
-        </div>
-        <div className="font-mono text-[11px] text-slate-500">{filteredChapters.length} / {courseChapters.length} CHAPTERS</div>
+        </h2>
+        <div className="font-mono text-xs text-slate-400">{filteredChapters.length} / {courseChapters.length} CHAPTERS</div>
       </div>
 
       {filteredChapters.length > 0 ? (
         <div className="grid gap-4">
           {filteredChapters.map((chapter) => (
-            <ChapterCard key={chapter.id} chapter={chapter} />
+            <ChapterCard key={chapter.id} chapter={chapter} forceExpanded={query.trim().length > 0} />
           ))}
         </div>
       ) : (
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-10 text-center text-sm text-slate-400">
-          没有匹配的章节或资源，换个关键词试试
+        <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-8 text-center sm:p-10" role="status">
+          <Search className="mx-auto h-6 w-6 text-slate-500" aria-hidden="true" />
+          <p className="mt-3 text-sm text-slate-300">没有找到与“{query.trim()}”匹配的章节、知识点或资源。</p>
+          <button
+            type="button"
+            onClick={onClearQuery}
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+          >
+            清除搜索
+          </button>
         </div>
       )}
+
     </div>
   );
 }
 
-export function HyperCoursesPage() {
-  const { user } = useAuth();
+export function HyperCoursesPage({ initialFilters }: HyperCoursesPageProps = {}) {
+  const { user, loading: authLoading } = useAuth();
+  const showPersonalProgress = !authLoading && user?.role === 'STUDENT';
   const [experimentCatalog, setExperimentCatalog] = useState<ExperimentConfig[]>(staticExperiments);
   const [labs, setLabs] = useState<HyperExperimentCard[]>(() => buildHyperExperiments(staticExperiments, []));
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  const [section, setSection] = useState<SectionMode>('chapters');
-  const [view, setView] = useState('all');
-  const [topic, setTopic] = useState('all');
+  const [recordsError, setRecordsError] = useState<string | null>(null);
+  const [recordsReloadKey, setRecordsReloadKey] = useState(0);
+  const [query, setQuery] = useState(initialFilters?.query ?? '');
+  const [section, setSection] = useState<SectionMode>(initialFilters?.section ?? 'chapters');
+  const [view, setView] = useState<string>(isPersonalProgressView(initialFilters?.view) ? initialFilters.view : 'all');
+  const [topic, setTopic] = useState(initialFilters?.topic ?? 'all');
+  const [filtersReady, setFiltersReady] = useState(Boolean(initialFilters));
+
+  useEffect(() => {
+    const restoreFromUrl = (): void => {
+      const params = new URLSearchParams(window.location.search);
+      setSection(params.get('section') === 'labs' ? 'labs' : 'chapters');
+      setQuery(params.get('q') || '');
+      const requestedView = params.get('view');
+      setView(
+        (authLoading || showPersonalProgress) && isPersonalProgressView(requestedView)
+          ? requestedView
+          : 'all',
+      );
+      setTopic(params.get('topic') || 'all');
+      setFiltersReady(true);
+    };
+
+    if (!initialFilters) restoreFromUrl();
+    else setFiltersReady(true);
+    window.addEventListener('popstate', restoreFromUrl);
+    return () => window.removeEventListener('popstate', restoreFromUrl);
+  }, [authLoading, initialFilters, showPersonalProgress]);
+
+  useEffect(() => {
+    if (!authLoading && !showPersonalProgress && isPersonalProgressView(view)) {
+      setView('all');
+    }
+  }, [authLoading, showPersonalProgress, view]);
+
+  useEffect(() => {
+    if (!filtersReady || authLoading) return;
+    const url = new URL(window.location.href);
+    const setOptionalParam = (key: string, value: string, defaultValue: string): void => {
+      if (!value || value === defaultValue) url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+    };
+    const chapterParam = url.searchParams.get('chapter');
+    const hasChapterContext = chapterParam !== null && /^(?:[1-9]|10)$/.test(chapterParam);
+    if (chapterParam !== null && !hasChapterContext) url.searchParams.delete('chapter');
+    if (section === 'chapters' && hasChapterContext) url.searchParams.set('section', 'chapters');
+    else setOptionalParam('section', section, 'chapters');
+    if (section !== 'chapters') url.searchParams.delete('chapter');
+    setOptionalParam('q', query.trim(), '');
+    setOptionalParam('view', showPersonalProgress ? view : 'all', 'all');
+    setOptionalParam('topic', topic, 'all');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [authLoading, filtersReady, query, section, showPersonalProgress, topic, view]);
 
   // Fetch experiments from API on mount
   useEffect(() => {
@@ -776,99 +1113,193 @@ export function HyperCoursesPage() {
   useEffect(() => {
     let active = true;
     async function loadRecords() {
-      const token = localStorage.getItem('accessToken');
+      setLoading(true);
+      setRecordsError(null);
+      if (!showPersonalProgress) {
+        setLabs(buildHyperExperiments(experimentCatalog, []));
+        setLoading(false);
+        return;
+      }
+      const token = getStoredAccessToken();
       if (!token) {
+        setLabs(buildHyperExperiments(experimentCatalog, []));
+        if (user) setRecordsError('登录凭据尚未恢复，个人实验完成状态无法确认。');
         setLoading(false);
         return;
       }
       const result = await fetchHyperJson<unknown>('/api/experiments/save', token);
       if (!active) return;
+      if (!result.ok) {
+        setLabs(buildHyperExperiments(experimentCatalog, []));
+        setRecordsError(
+          result.status === 401 || result.status === 403
+            ? '登录状态已失效，个人实验完成状态无法确认。'
+            : '个人实验进度读取失败；下方仅展示课程实验目录，完成状态尚未确认。',
+        );
+        setLoading(false);
+        return;
+      }
+      if (!isExperimentRecordsPayload(result.data)) {
+        setLabs(buildHyperExperiments(experimentCatalog, []));
+        setRecordsError('个人实验进度返回格式异常；下方完成状态尚未确认。');
+        setLoading(false);
+        return;
+      }
       setLabs(buildHyperExperiments(experimentCatalog, normalizeExperimentRecords(result.data)));
       setLoading(false);
     }
-    loadRecords();
+    void loadRecords();
     return () => {
       active = false;
     };
-  }, [experimentCatalog]);
+  }, [experimentCatalog, recordsReloadKey, showPersonalProgress, user?.id]);
 
   const topics = useMemo(() => Array.from(new Set(labs.map((lab) => lab.topic))), [labs]);
   const continueLab = useMemo(() => getContinueExperiment(labs), [labs]);
 
   const filteredLabs = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const effectiveView = showPersonalProgress ? view : 'all';
     return labs.filter((lab) => {
-      if (view === 'in-progress' && lab.state !== 'in-progress') return false;
-      if (view === 'completed' && lab.state !== 'completed') return false;
+      if (effectiveView === 'in-progress' && lab.state !== 'in-progress') return false;
+      if (effectiveView === 'completed' && lab.state !== 'completed') return false;
       if (topic !== 'all' && lab.topic !== topic) return false;
       if (!q) return true;
       return `${lab.title} ${lab.description} ${lab.topic} ${lab.id}`.toLowerCase().includes(q);
     });
-  }, [labs, query, topic, view]);
+  }, [labs, query, showPersonalProgress, topic, view]);
 
   const isPublicShell = !user;
+  const ContentLandmark: 'main' | 'div' = isPublicShell ? 'main' : 'div';
 
   return (
     <div
       className={cn(
         'animate-fade-in bg-[#070a0d] text-slate-100',
-        isPublicShell ? 'min-h-screen' : '-m-6 min-h-[calc(100vh-3.5rem)] overflow-auto',
+        isPublicShell ? 'min-h-screen' : '-m-4 min-h-[calc(100vh-3.5rem)] overflow-auto sm:-m-6',
       )}
     >
       {isPublicShell && (
-        <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-3 backdrop-blur-xl md:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
+        <>
+          <a
+            href="#main-content"
+            className="fixed left-4 top-3 z-[100] inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-cyan-200 px-4 text-sm font-semibold text-[#001014] shadow-xl transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-cyan-50"
+          >
+            跳到主要内容
+          </a>
+          <header className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-3 backdrop-blur-xl md:px-6">
+          <nav aria-label="公开课程导航" className="flex items-center justify-between gap-3">
+          <Link
+            href="/"
+            className="flex min-h-11 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+          >
             <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md">
-              <Cpu className="h-[18px] w-[18px] text-primary" />
+              <Cpu aria-hidden="true" className="h-[18px] w-[18px] text-primary" />
             </div>
             <div>
               <span className="block text-base font-bold tracking-tight text-slate-50">芯智育才</span>
-              <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">8051 Lab</span>
+              <span className="block font-mono text-xs uppercase tracking-[0.16em] text-slate-400">8051 Lab</span>
             </div>
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-white/[0.1] bg-white/[0.05] px-3 text-sm text-slate-100 hover:bg-white/[0.09]"
-          >
-            登录平台
-          </Link>
-        </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/welcome"
+              className="hidden min-h-11 items-center rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:inline-flex"
+            >
+              平台介绍
+            </Link>
+            <a
+              href="#addressing-sample"
+              className="hidden min-h-11 items-center rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 md:inline-flex"
+            >
+              样板课
+            </a>
+            <Link
+              href="/login?role=teacher&from=%2Fteacher"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+            >
+              教师登录
+            </Link>
+          </div>
+          </nav>
+          </header>
+        </>
       )}
+      <ContentLandmark
+        id={isPublicShell ? 'main-content' : undefined}
+        tabIndex={isPublicShell ? -1 : undefined}
+        className={isPublicShell ? 'outline-none' : undefined}
+      >
       <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
-              <Cpu className="h-3.5 w-3.5" />
-              8051 · AT89C52 · Intel MCS-51
+              <Cpu aria-hidden="true" className="h-3.5 w-3.5" />
+              MICROCONTROLLER COURSE · 8051 · AT89C52
             </div>
             <h1 className="heading-gradient text-2xl font-semibold tracking-tight md:text-3xl">
               {section === 'chapters' ? '课程内容' : '课程实验工作台'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {section === 'chapters'
-                ? '按教学大纲组织 10 个章节，接入知识图谱、课件、测验和实验报告；课程视频资源持续补充中。'
+                ? '按教学大纲组织 10 个章节，当前资源以知识图谱、课件、测验和仿真实验为主。'
                 : '以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。'}
             </p>
           </div>
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
+              aria-label={section === 'chapters' ? '搜索课程章节、知识点或资源' : '搜索实验、主题或编号'}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={section === 'chapters' ? '搜索章节、知识点、资源...' : '搜索实验、主题、编号...'}
-              className="h-10 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
+              className="min-h-11 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
           </div>
         </div>
       </div>
 
       {!isPublicShell && (
-        <div className="px-4 pt-4 md:px-6">
+        <div className="space-y-3 px-4 pt-4 md:px-6">
+          {recordsError && (
+            <div className="flex flex-col gap-3 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-amber-50 sm:flex-row sm:items-center" role="alert">
+              <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <p className="min-w-0 flex-1 text-sm leading-6">{recordsError}</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRecordsReloadKey((value) => value + 1)}
+                  disabled={loading}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-amber-200/25 px-3 text-sm hover:bg-amber-200/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw aria-hidden="true" className={cn('h-4 w-4', loading && 'animate-spin')} />
+                  重新读取实验进度
+                </button>
+                <Link href="/login?from=%2F" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm text-cyan-100 hover:bg-white/[0.06]">
+                  重新登录
+                </Link>
+              </div>
+            </div>
+          )}
           <NextStepBanner />
         </div>
       )}
 
-      <main className="grid gap-5 px-4 py-5 lg:grid-cols-[240px_1fr] md:px-6">
+      <div className="grid gap-5 px-4 py-5 outline-none lg:grid-cols-[240px_1fr] md:px-6">
+        <MobileCourseNavigation
+          topics={topics}
+          chapters={courseChapters}
+          activeSection={section}
+          activeView={view}
+          activeTopic={topic}
+          setSection={setSection}
+          setView={setView}
+          setTopic={setTopic}
+          labs={labs}
+          isTeacher={user?.role === 'TEACHER' || user?.role === 'ADMIN'}
+          isAuthenticated={Boolean(user)}
+          showPersonalProgress={showPersonalProgress}
+        />
         <CourseSideNav
           topics={topics}
           chapters={courseChapters}
@@ -880,10 +1311,17 @@ export function HyperCoursesPage() {
           setTopic={setTopic}
           labs={labs}
           isTeacher={user?.role === 'TEACHER' || user?.role === 'ADMIN'}
+          isAuthenticated={Boolean(user)}
+          showPersonalProgress={showPersonalProgress}
         />
 
         {section === 'chapters' ? (
-          <CourseChaptersView query={query} />
+          <CourseChaptersView
+            query={query}
+            isPublicShell={isPublicShell}
+            role={user?.role}
+            onClearQuery={() => setQuery('')}
+          />
         ) : (
           <div className="order-1 min-w-0 lg:order-2">
           {continueLab && (
@@ -906,28 +1344,56 @@ export function HyperCoursesPage() {
           )}
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-              <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><LayoutGrid className="h-4 w-4 text-cyan-200" /></div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <span className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><LayoutGrid className="h-4 w-4 text-cyan-200" /></span>
               实验列表
               {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-200" />}
-            </div>
-            <div className="font-mono text-[11px] text-slate-500">{filteredLabs.length} / {labs.length} ITEMS</div>
+            </h2>
+            <div className="font-mono text-xs text-slate-400">{filteredLabs.length} / {labs.length} ITEMS</div>
           </div>
 
           {filteredLabs.length > 0 ? (
             <div className="stagger-children grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredLabs.map((lab) => (
-                <LabCard key={lab.id} lab={lab} />
+                <LabCard key={lab.id} lab={lab} showPersonalProgress={showPersonalProgress} />
               ))}
             </div>
           ) : (
-            <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-10 text-center text-sm text-slate-400">
-              没有匹配的实验，换个关键词或筛选条件试试
+            <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-8 text-center sm:p-10" role="status">
+              <Search className="mx-auto h-6 w-6 text-slate-500" aria-hidden="true" />
+              <p className="mt-3 text-sm text-slate-300">当前搜索与筛选条件下没有匹配的实验。</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setView('all');
+                  setTopic('all');
+                }}
+                className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+              >
+                清除搜索与筛选
+              </button>
             </div>
           )}
           </div>
         )}
-      </main>
+      </div>
+      </ContentLandmark>
+      {isPublicShell && (
+        <footer className="border-t border-white/[0.08] bg-[#080c11]">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <p className="font-medium text-slate-200">芯智育才 · 微控制器课程教学平台</p>
+              <p className="mt-1">公开页展示课程结构与样板流程；个人学习记录需登录后查看。</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/welcome" className="inline-flex min-h-11 items-center rounded px-1 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">平台介绍</Link>
+              <Link href="/privacy" className="inline-flex min-h-11 items-center rounded px-1 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">隐私政策</Link>
+              <Link href="/terms" className="inline-flex min-h-11 items-center rounded px-1 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">使用条款</Link>
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

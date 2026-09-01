@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACTION_CLASS =
-  'inline-flex items-center gap-1.5 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-300/[0.15]';
+  'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-2 text-xs font-medium text-cyan-100 transition-colors hover:bg-cyan-300/[0.15] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70';
 
 function EmptyStateAction({ action, className }: { action: { label: string; onClick?: () => void; href?: string }; className?: string }) {
   if (action.href) {
@@ -17,7 +17,7 @@ function EmptyStateAction({ action, className }: { action: { label: string; onCl
     );
   }
   return (
-    <button onClick={action.onClick} className={cn(ACTION_CLASS, className)}>
+    <button type="button" onClick={action.onClick} className={cn(ACTION_CLASS, className)}>
       {action.label}
     </button>
   );
@@ -50,9 +50,9 @@ export function EmptyState({ icon: Icon, title, description, action, centered, c
           className,
         )}
       >
-        {Icon && <Icon className="h-7 w-7 text-cyan-200" />}
+        {Icon && <Icon aria-hidden="true" className="h-7 w-7 text-cyan-200" />}
         <div className="mt-3 text-base font-semibold text-slate-100">{title}</div>
-        {description && <p className="mt-1 max-w-md text-sm text-slate-400">{description}</p>}
+        {description && <p className="mt-1 max-w-md text-sm leading-6 text-slate-400">{description}</p>}
         {action && <EmptyStateAction action={action} className="mt-4" />}
       </div>
     );
@@ -68,12 +68,12 @@ export function EmptyState({ icon: Icon, title, description, action, centered, c
     >
       {Icon && (
         <div className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03]">
-          <Icon className="h-4 w-4 text-slate-500" />
+          <Icon aria-hidden="true" className="h-4 w-4 text-slate-400" />
         </div>
       )}
       <div>
-        <p className="text-slate-300">{title}</p>
-        {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+        <p className="font-medium text-slate-200">{title}</p>
+        {description && <p className="mt-0.5 text-xs leading-5 text-slate-400">{description}</p>}
       </div>
       {action && <EmptyStateAction action={action} className="mt-1" />}
     </div>

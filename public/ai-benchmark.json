@@ -1,0 +1,1784 @@
+{
+  "schemaVersion": 5,
+  "generatedAt": "2026-09-01T16:48:35.220Z",
+  "codeVersion": {
+    "baseCommit": "61d422fe91156c7bd727c432dfed93f81e04721a",
+    "workspaceState": "DIRTY",
+    "runtime": "v25.3.0",
+    "sourceManifest": {
+      "algorithm": "sha256",
+      "digest": "c1d0af10b3fbeef36fd8cebc3e40b8951eb63ba17d3923b459ead04cddf63a28",
+      "files": [
+        {
+          "path": "scripts/ai-benchmark.ts",
+          "sha256": "1f30a123d040d7f4f2c9f863f858a0bc7cacc3f4a8b1a11ebbe8a85cc2846168"
+        },
+        {
+          "path": "src/ai/deepseek-client.ts",
+          "sha256": "d5cdef8da673dd061494c5635797b1717d86db1a12da2c3e87c79db94e763af0"
+        },
+        {
+          "path": "src/ai/knowledge-context.ts",
+          "sha256": "ae2ea93891fe2eafc6dfb2d455f09ccb8b16491197398efbedca13331271756c"
+        },
+        {
+          "path": "src/ai/simple-ai-client.ts",
+          "sha256": "d040e9fe90e5fbf141e09150223e45a9068a4ceeda99ae05f4c25ae54370d660"
+        },
+        {
+          "path": "src/components/ai-assistant/ErrorDiagnostic.tsx",
+          "sha256": "3754ef2128b04de1bf03b6c3afc1fa16aea660c3c346b1d4f9cac5a57b0fb7bd"
+        },
+        {
+          "path": "src/lib/experiment-config.ts",
+          "sha256": "87d7c9048bfdec50df92ab82a6d4da1cabc26dba72bbbe4a00e9a35a836d77b7"
+        },
+        {
+          "path": "src/lib/knowledge-points.ts",
+          "sha256": "1cf73a817e5bbac2ffdb303335034bcbd31191b2a7ebac4eacdff9b6c9657239"
+        },
+        {
+          "path": "src/lib/quiz-data.ts",
+          "sha256": "22786a20fa5db9d1716aeeca5f9c6ca2856c07d5e238b29eae4f81dfdafcd890"
+        }
+      ]
+    },
+    "note": "baseCommit标识基线提交；sourceManifest.digest精确锁定本次评测使用的生产代码与数据文件。"
+  },
+  "deterministic": true,
+  "formulas": {
+    "recallAt3": "目标知识点出现在前3个检索结果的题数 / 全部检索题数",
+    "meanReciprocalRank": "各题首个正确结果排名倒数的平均值",
+    "knowledgePointHitRate": "目标知识点出现在返回知识点集合中的题数 / 全部检索题数",
+    "precision": "TP / (TP + FP)",
+    "recall": "TP / (TP + FN)",
+    "f1": "2 × Precision × Recall / (Precision + Recall)",
+    "lineLocalizationAccuracy": "错误类型与预期行号均命中的样例数 / 错误样例数",
+    "fallbackTriggerSuccessRate": "本地回退返回非空回答的样例数 / 全部固定检索题数",
+    "fallbackEffectiveAnswerCoverageRate": "非空回答且目标知识点编号命中或目标章节一致的样例数 / 全部固定检索题数"
+  },
+  "corpus": {
+    "knowledgePoints": 279,
+    "experiments": 13,
+    "quizQuestions": 313,
+    "note": "知识内容为版本化课程数据；未进行模型微调。"
+  },
+  "retrieval": {
+    "sampleSize": 50,
+    "coverage": "10章×5道正式题库题；每章优先覆盖不同知识点。",
+    "queryDesign": "查询只由去除correctAnswer字段后的正式题干、未标注正误的全部选项或待补全代码构成；ka与答案仅在检索结果产生后用于评分，不传入retrieveContext或生成提示。",
+    "sourceQuestionIds": [
+      225,
+      227,
+      228,
+      230,
+      253,
+      1,
+      2,
+      3,
+      41,
+      75,
+      4,
+      13,
+      23,
+      24,
+      33,
+      263,
+      266,
+      269,
+      272,
+      275,
+      6,
+      8,
+      56,
+      161,
+      238,
+      5,
+      134,
+      158,
+      291,
+      9,
+      14,
+      28,
+      72,
+      193,
+      70,
+      7,
+      61,
+      65,
+      185,
+      248,
+      132,
+      188,
+      190,
+      191,
+      199,
+      213,
+      218,
+      220,
+      223,
+      299
+    ],
+    "caseManifest": [
+      {
+        "id": "quiz-225",
+        "chapter": 1,
+        "sourceQuestionId": 225,
+        "expectedKnowledgePointId": "1.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-227",
+        "chapter": 1,
+        "sourceQuestionId": 227,
+        "expectedKnowledgePointId": "1.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-228",
+        "chapter": 1,
+        "sourceQuestionId": 228,
+        "expectedKnowledgePointId": "1.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-230",
+        "chapter": 1,
+        "sourceQuestionId": 230,
+        "expectedKnowledgePointId": "1.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-253",
+        "chapter": 1,
+        "sourceQuestionId": 253,
+        "expectedKnowledgePointId": "1.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-1",
+        "chapter": 2,
+        "sourceQuestionId": 1,
+        "expectedKnowledgePointId": "2.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-2",
+        "chapter": 2,
+        "sourceQuestionId": 2,
+        "expectedKnowledgePointId": "2.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-3",
+        "chapter": 2,
+        "sourceQuestionId": 3,
+        "expectedKnowledgePointId": "2.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-41",
+        "chapter": 2,
+        "sourceQuestionId": 41,
+        "expectedKnowledgePointId": "2.6",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-75",
+        "chapter": 2,
+        "sourceQuestionId": 75,
+        "expectedKnowledgePointId": "2.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-4",
+        "chapter": 3,
+        "sourceQuestionId": 4,
+        "expectedKnowledgePointId": "3.1.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-13",
+        "chapter": 3,
+        "sourceQuestionId": 13,
+        "expectedKnowledgePointId": "3.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-23",
+        "chapter": 3,
+        "sourceQuestionId": 23,
+        "expectedKnowledgePointId": "3.1.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-24",
+        "chapter": 3,
+        "sourceQuestionId": 24,
+        "expectedKnowledgePointId": "3.1.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-33",
+        "chapter": 3,
+        "sourceQuestionId": 33,
+        "expectedKnowledgePointId": "3.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-263",
+        "chapter": 4,
+        "sourceQuestionId": 263,
+        "expectedKnowledgePointId": "4.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-266",
+        "chapter": 4,
+        "sourceQuestionId": 266,
+        "expectedKnowledgePointId": "4.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-269",
+        "chapter": 4,
+        "sourceQuestionId": 269,
+        "expectedKnowledgePointId": "4.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-272",
+        "chapter": 4,
+        "sourceQuestionId": 272,
+        "expectedKnowledgePointId": "4.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-275",
+        "chapter": 4,
+        "sourceQuestionId": 275,
+        "expectedKnowledgePointId": "4.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-6",
+        "chapter": 5,
+        "sourceQuestionId": 6,
+        "expectedKnowledgePointId": "5.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-8",
+        "chapter": 5,
+        "sourceQuestionId": 8,
+        "expectedKnowledgePointId": "5.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-56",
+        "chapter": 5,
+        "sourceQuestionId": 56,
+        "expectedKnowledgePointId": "5.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-161",
+        "chapter": 5,
+        "sourceQuestionId": 161,
+        "expectedKnowledgePointId": "5.2.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-238",
+        "chapter": 5,
+        "sourceQuestionId": 238,
+        "expectedKnowledgePointId": "5.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-5",
+        "chapter": 6,
+        "sourceQuestionId": 5,
+        "expectedKnowledgePointId": "6.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-134",
+        "chapter": 6,
+        "sourceQuestionId": 134,
+        "expectedKnowledgePointId": "6.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-158",
+        "chapter": 6,
+        "sourceQuestionId": 158,
+        "expectedKnowledgePointId": "6.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-291",
+        "chapter": 6,
+        "sourceQuestionId": 291,
+        "expectedKnowledgePointId": "6.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-9",
+        "chapter": 6,
+        "sourceQuestionId": 9,
+        "expectedKnowledgePointId": "6.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-14",
+        "chapter": 7,
+        "sourceQuestionId": 14,
+        "expectedKnowledgePointId": "7.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-28",
+        "chapter": 7,
+        "sourceQuestionId": 28,
+        "expectedKnowledgePointId": "7.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-72",
+        "chapter": 7,
+        "sourceQuestionId": 72,
+        "expectedKnowledgePointId": "7.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-193",
+        "chapter": 7,
+        "sourceQuestionId": 193,
+        "expectedKnowledgePointId": "7.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-70",
+        "chapter": 7,
+        "sourceQuestionId": 70,
+        "expectedKnowledgePointId": "7.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-7",
+        "chapter": 8,
+        "sourceQuestionId": 7,
+        "expectedKnowledgePointId": "8.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-61",
+        "chapter": 8,
+        "sourceQuestionId": 61,
+        "expectedKnowledgePointId": "8.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-65",
+        "chapter": 8,
+        "sourceQuestionId": 65,
+        "expectedKnowledgePointId": "8.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-185",
+        "chapter": 8,
+        "sourceQuestionId": 185,
+        "expectedKnowledgePointId": "8.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-248",
+        "chapter": 8,
+        "sourceQuestionId": 248,
+        "expectedKnowledgePointId": "8.5",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-132",
+        "chapter": 9,
+        "sourceQuestionId": 132,
+        "expectedKnowledgePointId": "9.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-188",
+        "chapter": 9,
+        "sourceQuestionId": 188,
+        "expectedKnowledgePointId": "9.1.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-190",
+        "chapter": 9,
+        "sourceQuestionId": 190,
+        "expectedKnowledgePointId": "9.3.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-191",
+        "chapter": 9,
+        "sourceQuestionId": 191,
+        "expectedKnowledgePointId": "9.1.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-199",
+        "chapter": 9,
+        "sourceQuestionId": 199,
+        "expectedKnowledgePointId": "9.3.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-213",
+        "chapter": 10,
+        "sourceQuestionId": 213,
+        "expectedKnowledgePointId": "10.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-218",
+        "chapter": 10,
+        "sourceQuestionId": 218,
+        "expectedKnowledgePointId": "10.2",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-220",
+        "chapter": 10,
+        "sourceQuestionId": 220,
+        "expectedKnowledgePointId": "10.3",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-223",
+        "chapter": 10,
+        "sourceQuestionId": 223,
+        "expectedKnowledgePointId": "10.4",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      },
+      {
+        "id": "quiz-299",
+        "chapter": 10,
+        "sourceQuestionId": 299,
+        "expectedKnowledgePointId": "10.5.1",
+        "requiredFactCount": 1,
+        "prohibitedErrors": [
+          "虚构教学成效",
+          "声称模型已微调",
+          "改变测验判定"
+        ]
+      }
+    ],
+    "recallAt3": 98,
+    "meanReciprocalRank": 0.6917,
+    "exactTop1Rate": 44,
+    "knowledgePointHitRate": 100,
+    "caseResults": [
+      {
+        "id": "quiz-225",
+        "expectedKnowledgePointId": "1.1",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "1.1.1",
+          "1.1",
+          "5.4",
+          "4.5.3",
+          "5.6.4",
+          "2.1"
+        ]
+      },
+      {
+        "id": "quiz-227",
+        "expectedKnowledgePointId": "1.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "1.2.1",
+          "1.2",
+          "1.4",
+          "4.2",
+          "4.4",
+          "4.3"
+        ]
+      },
+      {
+        "id": "quiz-228",
+        "expectedKnowledgePointId": "1.4",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "1.4.4",
+          "1.4",
+          "2.5",
+          "1.4.3",
+          "2.5.1",
+          "2.5.2"
+        ]
+      },
+      {
+        "id": "quiz-230",
+        "expectedKnowledgePointId": "1.5",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "4.1",
+          "1.5.1",
+          "1.5",
+          "4.1.1",
+          "4",
+          "1.5.4"
+        ]
+      },
+      {
+        "id": "quiz-253",
+        "expectedKnowledgePointId": "1.3",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "1.3",
+          "1.1",
+          "1.1.2",
+          "1.3.5",
+          "1",
+          "1.2"
+        ]
+      },
+      {
+        "id": "quiz-1",
+        "expectedKnowledgePointId": "2.2",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "2.2",
+          "2.2.1",
+          "2.2.2",
+          "3.2.3",
+          "3.2",
+          "2.1"
+        ]
+      },
+      {
+        "id": "quiz-2",
+        "expectedKnowledgePointId": "2.1",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "2.1.3",
+          "2.1",
+          "2.2.3",
+          "6.1",
+          "6",
+          "2.2"
+        ]
+      },
+      {
+        "id": "quiz-3",
+        "expectedKnowledgePointId": "2.3",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "2.3.4",
+          "2.3",
+          "2.3.2",
+          "2.3.3",
+          "1.4.1",
+          "2.2.3"
+        ]
+      },
+      {
+        "id": "quiz-41",
+        "expectedKnowledgePointId": "2.6",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "2.6.4",
+          "2.6",
+          "2.6.1",
+          "2.6.2",
+          "2.3.1",
+          "4.2"
+        ]
+      },
+      {
+        "id": "quiz-75",
+        "expectedKnowledgePointId": "2.5",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "2.5.4",
+          "3.1.3",
+          "2.5",
+          "6.1",
+          "2.2",
+          "2.2.3"
+        ]
+      },
+      {
+        "id": "quiz-4",
+        "expectedKnowledgePointId": "3.1.1",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "3.1",
+          "3.1.1",
+          "3.1.4",
+          "3.1.3",
+          "3",
+          "3.2"
+        ]
+      },
+      {
+        "id": "quiz-13",
+        "expectedKnowledgePointId": "3.5",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "3.5.2",
+          "3.5",
+          "3.4",
+          "3.2",
+          "3.3",
+          "3.2.1"
+        ]
+      },
+      {
+        "id": "quiz-23",
+        "expectedKnowledgePointId": "3.1.5",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "3.2.3",
+          "3.2",
+          "3.1.5",
+          "2.2",
+          "2.2.1",
+          "3.1"
+        ]
+      },
+      {
+        "id": "quiz-24",
+        "expectedKnowledgePointId": "3.1.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "3.1.4",
+          "3.1",
+          "3.1.1",
+          "3.2.1",
+          "3.1.2",
+          "3.1.3"
+        ]
+      },
+      {
+        "id": "quiz-33",
+        "expectedKnowledgePointId": "3.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "3.2.4",
+          "3.2",
+          "10.1.1",
+          "3.3",
+          "1.5.4",
+          "4.2.3"
+        ]
+      },
+      {
+        "id": "quiz-263",
+        "expectedKnowledgePointId": "4.1",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "4.1",
+          "1.5.1",
+          "1.5",
+          "4.1.1",
+          "4",
+          "1.5.4"
+        ]
+      },
+      {
+        "id": "quiz-266",
+        "expectedKnowledgePointId": "4.2",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "4.2",
+          "4.2.1",
+          "4.4",
+          "1.4",
+          "4.3",
+          "5.2"
+        ]
+      },
+      {
+        "id": "quiz-269",
+        "expectedKnowledgePointId": "4.3",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "4.3.3",
+          "4.3",
+          "1.4",
+          "4.2",
+          "4.4",
+          "5.2"
+        ]
+      },
+      {
+        "id": "quiz-272",
+        "expectedKnowledgePointId": "4.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "4.4",
+          "2.2.3",
+          "2.2",
+          "4.2",
+          "4.2.2",
+          "4.4.2"
+        ]
+      },
+      {
+        "id": "quiz-275",
+        "expectedKnowledgePointId": "4.5",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "4.5",
+          "3.4.5",
+          "4.3",
+          "4.4",
+          "4.2",
+          "7.2"
+        ]
+      },
+      {
+        "id": "quiz-6",
+        "expectedKnowledgePointId": "5.2",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "5.2",
+          "6.2",
+          "6.1",
+          "7.3",
+          "6",
+          "5"
+        ]
+      },
+      {
+        "id": "quiz-8",
+        "expectedKnowledgePointId": "5.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "5.4",
+          "5.4.3",
+          "5.2",
+          "5",
+          "4.4.1",
+          "6.1"
+        ]
+      },
+      {
+        "id": "quiz-56",
+        "expectedKnowledgePointId": "5.3",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "5.3",
+          "5.3.1",
+          "5.2",
+          "5",
+          "5.3.2",
+          "5.4"
+        ]
+      },
+      {
+        "id": "quiz-161",
+        "expectedKnowledgePointId": "5.2.1",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "5.2",
+          "5",
+          "5.2.1",
+          "7.2",
+          "5.6.4",
+          "6.1"
+        ]
+      },
+      {
+        "id": "quiz-238",
+        "expectedKnowledgePointId": "5.1",
+        "rank": 4,
+        "returnedKnowledgePointIds": [
+          "7.3.4",
+          "7.3",
+          "5.1.1",
+          "5.1",
+          "5.6.3",
+          "5.6"
+        ]
+      },
+      {
+        "id": "quiz-5",
+        "expectedKnowledgePointId": "6.2",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "6.2",
+          "7.2",
+          "7.2.4",
+          "6",
+          "7.2.3",
+          "6.1"
+        ]
+      },
+      {
+        "id": "quiz-134",
+        "expectedKnowledgePointId": "6.3",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "5.6.2",
+          "6.3",
+          "5.6",
+          "6.1",
+          "6",
+          "6.4"
+        ]
+      },
+      {
+        "id": "quiz-158",
+        "expectedKnowledgePointId": "6.1",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "6.1",
+          "6",
+          "6.3",
+          "6.1.1",
+          "6.4.1",
+          "6.2.1"
+        ]
+      },
+      {
+        "id": "quiz-291",
+        "expectedKnowledgePointId": "6.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "6.4",
+          "6.4.1",
+          "6",
+          "6.1",
+          "6.3",
+          "6.1.1"
+        ]
+      },
+      {
+        "id": "quiz-9",
+        "expectedKnowledgePointId": "6.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "2.2.3",
+          "6.2",
+          "2.2",
+          "6.1",
+          "7.2",
+          "4.4"
+        ]
+      },
+      {
+        "id": "quiz-14",
+        "expectedKnowledgePointId": "7.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "7.2.2",
+          "7.2",
+          "7",
+          "7.1.1",
+          "7.1",
+          "5.2"
+        ]
+      },
+      {
+        "id": "quiz-28",
+        "expectedKnowledgePointId": "7.3",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "7.2",
+          "7.2.1",
+          "7.3",
+          "7",
+          "7.3.2",
+          "7.1.1"
+        ]
+      },
+      {
+        "id": "quiz-72",
+        "expectedKnowledgePointId": "7.1",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "7.1",
+          "7.1.3",
+          "7.2.3",
+          "7",
+          "7.2",
+          "10.2.4"
+        ]
+      },
+      {
+        "id": "quiz-193",
+        "expectedKnowledgePointId": "7.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "7.4",
+          "7.1.4",
+          "7.1",
+          "7",
+          "9.1",
+          "7.4.4"
+        ]
+      },
+      {
+        "id": "quiz-70",
+        "expectedKnowledgePointId": "7.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "7.2.1",
+          "7.2",
+          "5.2",
+          "6.1",
+          "6.1.3",
+          "5.2.3"
+        ]
+      },
+      {
+        "id": "quiz-7",
+        "expectedKnowledgePointId": "8.1",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "8.1.1",
+          "8.1",
+          "8.1.2",
+          "8.1.5",
+          "6.4.3",
+          "6.4"
+        ]
+      },
+      {
+        "id": "quiz-61",
+        "expectedKnowledgePointId": "8.2",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "8.2.2",
+          "8.2",
+          "9.4.3",
+          "9.4",
+          "4.3",
+          "10.5.5"
+        ]
+      },
+      {
+        "id": "quiz-65",
+        "expectedKnowledgePointId": "8.3",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "8.3.4",
+          "8.3",
+          "2.2.2",
+          "2.4.3",
+          "2.6.4",
+          "9.1.1"
+        ]
+      },
+      {
+        "id": "quiz-185",
+        "expectedKnowledgePointId": "8.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "8.4",
+          "8.3.3",
+          "8.4.1",
+          "8.3",
+          "8.4.2",
+          "8.4.4"
+        ]
+      },
+      {
+        "id": "quiz-248",
+        "expectedKnowledgePointId": "8.5",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "8.5.1",
+          "8.5",
+          "1.4",
+          "2.1",
+          "4.3",
+          "2"
+        ]
+      },
+      {
+        "id": "quiz-132",
+        "expectedKnowledgePointId": "9.1",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "9.1",
+          "9.1.5",
+          "9",
+          "9.1.2",
+          "9.1.3",
+          "1.5"
+        ]
+      },
+      {
+        "id": "quiz-188",
+        "expectedKnowledgePointId": "9.1.2",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "9.1",
+          "9.1.5",
+          "9.1.2",
+          "9",
+          "8.4",
+          "8.4.4"
+        ]
+      },
+      {
+        "id": "quiz-190",
+        "expectedKnowledgePointId": "9.3.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "9.3.4",
+          "9.3",
+          "5.4.5",
+          "5.4",
+          "5.6.1",
+          "1.3.1"
+        ]
+      },
+      {
+        "id": "quiz-191",
+        "expectedKnowledgePointId": "9.1.4",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "9.1.4",
+          "9.1",
+          "4.6.3",
+          "9.3.3",
+          "9.1.3",
+          "9.3"
+        ]
+      },
+      {
+        "id": "quiz-199",
+        "expectedKnowledgePointId": "9.3.3",
+        "rank": 3,
+        "returnedKnowledgePointIds": [
+          "9.3",
+          "9.3.1",
+          "9.3.3",
+          "9.3.2",
+          "1.5.3",
+          "1.5"
+        ]
+      },
+      {
+        "id": "quiz-213",
+        "expectedKnowledgePointId": "10.1",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "10.1.1",
+          "10.1",
+          "1.1",
+          "8.4",
+          "1",
+          "1.2"
+        ]
+      },
+      {
+        "id": "quiz-218",
+        "expectedKnowledgePointId": "10.2",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "10.2",
+          "10.4.6",
+          "10.4",
+          "10.2.1",
+          "10.2.3",
+          "10"
+        ]
+      },
+      {
+        "id": "quiz-220",
+        "expectedKnowledgePointId": "10.3",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "10.3",
+          "10.3.1",
+          "10.3.3",
+          "10.3.2",
+          "10",
+          "3.3"
+        ]
+      },
+      {
+        "id": "quiz-223",
+        "expectedKnowledgePointId": "10.4",
+        "rank": 2,
+        "returnedKnowledgePointIds": [
+          "10.4.2",
+          "10.4",
+          "1.1",
+          "10.4.1",
+          "1",
+          "1.2"
+        ]
+      },
+      {
+        "id": "quiz-299",
+        "expectedKnowledgePointId": "10.5.1",
+        "rank": 1,
+        "returnedKnowledgePointIds": [
+          "10.5.1",
+          "10.5",
+          "2.2.3",
+          "3.1.3",
+          "5.2.3",
+          "6.1.2"
+        ]
+      }
+    ],
+    "latencyMs": {
+      "p50": 3.18,
+      "p95": 5.4
+    }
+  },
+  "staticDiagnostic": {
+    "sampleSize": 48,
+    "errorCases": 40,
+    "validControls": 8,
+    "categories": [
+      "C_INPUT",
+      "UNKNOWN_MNEMONIC",
+      "OPERAND_COUNT",
+      "UNDEFINED_LABEL",
+      "DUPLICATE_LABEL",
+      "INVALID_ORG",
+      "EMPTY_DATA",
+      "MISSING_END"
+    ],
+    "categoryCoverageRate": 100,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1,
+    "lineLocalizationAccuracy": 100,
+    "falsePositiveControls": 0,
+    "latencyMs": {
+      "p50": 0.01,
+      "p95": 0.11
+    }
+  },
+  "localFallback": {
+    "sampleSize": 50,
+    "triggerCondition": "固定禁用外部生成调用，直接执行生产环境同一套本地回退函数。",
+    "triggerSuccessRate": 100,
+    "effectiveAnswerCoverageRate": 78,
+    "boundaryPassRate": 100,
+    "latencyMs": {
+      "p50": 0.02,
+      "p95": 4.46
+    },
+    "caseResults": [
+      {
+        "id": "quiz-225",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-227",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-228",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-230",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-253",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-1",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-2",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-3",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-41",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-75",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-4",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-13",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-23",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-24",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-33",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-263",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-266",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-269",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-272",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-275",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-6",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-8",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-56",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-161",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-238",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-5",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-134",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-158",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-291",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-9",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-14",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-28",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-72",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-193",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-70",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-7",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-61",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-65",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-185",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-248",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-132",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-188",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-190",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-191",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-199",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-213",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-218",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-220",
+        "returnedAnswer": true,
+        "targetNodeCited": false,
+        "targetChapterAligned": false,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-223",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      },
+      {
+        "id": "quiz-299",
+        "returnedAnswer": true,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
+        "boundaryPassed": true
+      }
+    ],
+    "note": "有效回答覆盖指非空回答同时满足目标知识点编号命中或目标章节一致；不等同于开放问答事实正确率。"
+  },
+  "generative": {
+    "status": "NOT_RUN",
+    "reason": "未传入 --with-deepseek；按计划不消耗外部额度。"
+  },
+  "interpretation": {
+    "retrieval": "反映固定正式题库问题对目标知识点的检索命中，不等同于开放问答正确率。",
+    "staticDiagnostic": "结果来自确定性规则检查，不归因于DeepSeek。",
+    "localFallback": "强制禁用外部生成后执行生产同源回退；有效覆盖只表示节点或章节对齐，不等同于开放问答正确率。",
+    "generative": "只有状态为COMPLETED时才允许发布对应数值。"
+  }
+}

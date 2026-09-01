@@ -56,17 +56,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('检查成就失败:', error);
     
-    // 检查是否是数据库连接错误
-    if (error instanceof Error && error.message.includes('Database connection')) {
-      return NextResponse.json({ 
-        error: '服务器内部错误',
-        details: '数据库连接失败'
-      }, { status: 500 });
-    }
-    
-    return NextResponse.json({ 
-      error: '服务器内部错误',
-      details: error instanceof Error ? error.message : '未知错误'
-    }, { status: 500 });
+    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
   }
 }

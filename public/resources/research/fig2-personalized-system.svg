@@ -1,129 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="180" height="120" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120">
-  <!-- 定义样式 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">受控学习支持流程</title>
+  <desc id="desc">展示课程资源和服务端记录如何经过课程内容检索、提示约束、可选生成、本地回退、规则诊断与服务端判定，形成解释、下一步入口和教师复核。人工智能不直接修改成绩、实验状态或教师评价。</desc>
   <defs>
+    <marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0.5 L10,4 L0,7.5Z" fill="#244A78"/></marker>
     <style>
-      .title-text { font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; fill: #000000; }
-      .layer-text { font-family: Arial, sans-serif; font-size: 6px; font-weight: bold; fill: #000000; }
-      .module-text { font-family: Arial, sans-serif; font-size: 5px; fill: #FFFFFF; font-weight: bold; }
-      .detail-text { font-family: Arial, sans-serif; font-size: 4px; fill: #000000; }
-      
-      .input-layer { fill: #E8F4FD; stroke: #2980B9; stroke-width: 0.5; }
-      .process-layer { fill: #FEF9E7; stroke: #F39C12; stroke-width: 0.5; }
-      .output-layer { fill: #E8F8F5; stroke: #27AE60; stroke-width: 0.5; }
-      
-      .input-module { fill: #3498DB; stroke: #2980B9; stroke-width: 0.3; }
-      .process-module { fill: #E67E22; stroke: #D35400; stroke-width: 0.3; }
-      .output-module { fill: #27AE60; stroke: #229954; stroke-width: 0.3; }
-      
-      .flow-arrow { stroke: #000000; stroke-width: 0.8; fill: none; marker-end: url(#arrow); }
+      .h1{font:700 26px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#fff}
+      .h2{font:700 18px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#173454}
+      .body{font:400 15px SimSun,'Noto Serif SC',serif;fill:#1f2937}
+      .small{font:400 13px SimSun,'Noto Serif SC',serif;fill:#53657a}
+      .onDark{fill:#fff}
+      .light{fill:#dbe8f5}
     </style>
-    
-    <!-- 箭头标记 -->
-    <marker id="arrow" markerWidth="4" markerHeight="3" refX="3.5" refY="1.5" orient="auto">
-      <polygon points="0,0 0,3 4,1.5" fill="#000000"/>
-    </marker>
   </defs>
-  
-  <!-- 背景 -->
-  <rect width="180" height="120" fill="#FFFFFF"/>
-  
-  <!-- 标题 -->
-  <text x="90" y="8" text-anchor="middle" class="title-text">Personalized Learning Support System</text>
-  
-  <!-- 输入层 -->
-  <rect x="5" y="15" width="45" height="90" rx="2" class="input-layer"/>
-  <text x="27.5" y="22" text-anchor="middle" class="layer-text">INPUT</text>
-  
-  <!-- 静态特征 -->
-  <rect x="8" y="25" width="39" height="18" rx="1" class="input-module"/>
-  <text x="27.5" y="31" text-anchor="middle" class="module-text">Static Features</text>
-  <text x="27.5" y="36" text-anchor="middle" class="module-text">Demographics</text>
-  <text x="27.5" y="40" text-anchor="middle" class="module-text">Knowledge Base</text>
-  
-  <!-- 动态行为 -->
-  <rect x="8" y="45" width="39" height="18" rx="1" class="input-module"/>
-  <text x="27.5" y="51" text-anchor="middle" class="module-text">Dynamic Behaviors</text>
-  <text x="27.5" y="56" text-anchor="middle" class="module-text">Login Patterns</text>
-  <text x="27.5" y="60" text-anchor="middle" class="module-text">Resource Access</text>
-  
-  <!-- 认知状态 -->
-  <rect x="8" y="65" width="39" height="18" rx="1" class="input-module"/>
-  <text x="27.5" y="71" text-anchor="middle" class="module-text">Cognitive States</text>
-  <text x="27.5" y="76" text-anchor="middle" class="module-text">Understanding</text>
-  <text x="27.5" y="80" text-anchor="middle" class="module-text">Mastery Level</text>
-  
-  <!-- 数据标注 -->
-  <text x="27.5" y="90" text-anchor="middle" class="detail-text">Multi-dimensional</text>
-  <text x="27.5" y="94" text-anchor="middle" class="detail-text">Data Collection</text>
-  <text x="27.5" y="98" text-anchor="middle" class="detail-text">n=320 learners</text>
-  
-  <!-- 处理层 -->
-  <rect x="67" y="15" width="45" height="90" rx="2" class="process-layer"/>
-  <text x="89.5" y="22" text-anchor="middle" class="layer-text">PROCESSING</text>
-  
-  <!-- K-means聚类 -->
-  <ellipse cx="89.5" cy="32" rx="18" ry="8" class="process-module"/>
-  <text x="89.5" y="30" text-anchor="middle" class="module-text">K-means++</text>
-  <text x="89.5" y="35" text-anchor="middle" class="module-text">Clustering</text>
-  
-  <!-- Dijkstra路径 -->
-  <ellipse cx="89.5" cy="47" rx="18" ry="8" class="process-module"/>
-  <text x="89.5" y="45" text-anchor="middle" class="module-text">Dijkstra</text>
-  <text x="89.5" y="50" text-anchor="middle" class="module-text">Path Planning</text>
-  
-  <!-- MAB推荐 -->
-  <ellipse cx="89.5" cy="62" rx="18" ry="8" class="process-module"/>
-  <text x="89.5" y="60" text-anchor="middle" class="module-text">MAB-UCB</text>
-  <text x="89.5" y="65" text-anchor="middle" class="module-text">Recommendation</text>
-  
-  <!-- RAG答疑 -->
-  <ellipse cx="89.5" cy="77" rx="18" ry="8" class="process-module"/>
-  <text x="89.5" y="75" text-anchor="middle" class="module-text">RAG</text>
-  <text x="89.5" y="80" text-anchor="middle" class="module-text">Q&amp;A System</text>
-  
-  <!-- 算法标注 -->
-  <text x="89.5" y="90" text-anchor="middle" class="detail-text">AI Algorithms</text>
-  <text x="89.5" y="94" text-anchor="middle" class="detail-text">Real-time</text>
-  <text x="89.5" y="98" text-anchor="middle" class="detail-text">Processing</text>
-  
-  <!-- 输出层 -->
-  <rect x="129" y="15" width="45" height="90" rx="2" class="output-layer"/>
-  <text x="151.5" y="22" text-anchor="middle" class="layer-text">OUTPUT</text>
-  
-  <!-- 路径推荐 -->
-  <rect x="132" y="25" width="39" height="18" rx="1" class="output-module"/>
-  <text x="151.5" y="31" text-anchor="middle" class="module-text">Learning Path</text>
-  <text x="151.5" y="36" text-anchor="middle" class="module-text">Recommendation</text>
-  <text x="151.5" y="40" text-anchor="middle" class="module-text">Adaptive Routes</text>
-  
-  <!-- 资源推送 -->
-  <rect x="132" y="45" width="39" height="18" rx="1" class="output-module"/>
-  <text x="151.5" y="51" text-anchor="middle" class="module-text">Smart Resources</text>
-  <text x="151.5" y="56" text-anchor="middle" class="module-text">Content Delivery</text>
-  <text x="151.5" y="60" text-anchor="middle" class="module-text">Multi-media</text>
-  
-  <!-- 智能答疑 -->
-  <rect x="132" y="65" width="39" height="18" rx="1" class="output-module"/>
-  <text x="151.5" y="71" text-anchor="middle" class="module-text">Intelligent</text>
-  <text x="151.5" y="76" text-anchor="middle" class="module-text">Tutoring</text>
-  <text x="151.5" y="80" text-anchor="middle" class="module-text">Socratic Method</text>
-  
-  <!-- 服务标注 -->
-  <text x="151.5" y="90" text-anchor="middle" class="detail-text">Personalized</text>
-  <text x="151.5" y="94" text-anchor="middle" class="detail-text">Services</text>
-  <text x="151.5" y="98" text-anchor="middle" class="detail-text">24/7 Available</text>
-  
-  <!-- 数据流箭头 -->
-  <line x1="50" y1="34" x2="67" y2="34" class="flow-arrow"/>
-  <line x1="50" y1="54" x2="67" y2="54" class="flow-arrow"/>
-  <line x1="50" y1="74" x2="67" y2="74" class="flow-arrow"/>
-  
-  <line x1="112" y1="34" x2="129" y2="34" class="flow-arrow"/>
-  <line x1="112" y1="54" x2="129" y2="54" class="flow-arrow"/>
-  <line x1="112" y1="74" x2="129" y2="74" class="flow-arrow"/>
-  
-  <!-- 反馈回路 -->
-  <path d="M 151.5 105 Q 90 110 27.5 105" stroke="#666666" stroke-width="0.5" stroke-dasharray="1,1" fill="none" marker-end="url(#arrow)"/>
-  <text x="90" y="113" text-anchor="middle" class="detail-text">Feedback Loop</text>
+  <rect width="900" height="600" fill="#fff"/>
+  <rect x="12" y="12" width="876" height="576" rx="2" fill="none" stroke="#244A78" stroke-width="1.8"/>
+  <rect x="12" y="12" width="876" height="70" fill="#244A78"/>
+  <text x="450" y="48" text-anchor="middle" class="h1">受控学习支持流程</text>
+  <text x="450" y="70" text-anchor="middle" class="small light">实际实现模块与教学判定边界</text>
+
+  <g id="input">
+    <rect x="42" y="118" width="220" height="302" rx="2" fill="#eef4fa" stroke="#244A78" stroke-width="1.2"/>
+    <rect x="42" y="118" width="220" height="42" fill="#d6e2f0"/>
+    <text x="152" y="145" text-anchor="middle" class="h2">输入</text>
+    <rect x="62" y="184" width="180" height="58" rx="1" fill="#fff" stroke="#8fa9c2"/>
+    <text x="152" y="208" text-anchor="middle" class="body">正式课程资源</text>
+    <text x="152" y="229" text-anchor="middle" class="small">知识点 · 实验 · 题库</text>
+    <rect x="62" y="258" width="180" height="58" rx="1" fill="#fff" stroke="#8fa9c2"/>
+    <text x="152" y="282" text-anchor="middle" class="body">教学任务实例</text>
+    <text x="152" y="303" text-anchor="middle" class="small">主题 · 步骤 · 完成规则</text>
+    <rect x="62" y="332" width="180" height="58" rx="1" fill="#fff" stroke="#8fa9c2"/>
+    <text x="152" y="356" text-anchor="middle" class="body">服务端过程记录</text>
+    <text x="152" y="377" text-anchor="middle" class="small">作答 · 步骤 · 实验事件</text>
+  </g>
+
+  <g id="processing">
+    <rect x="340" y="102" width="220" height="358" rx="2" fill="#edf7f5" stroke="#0F766E" stroke-width="1.2"/>
+    <rect x="340" y="102" width="220" height="42" fill="#d7ece8"/>
+    <text x="450" y="129" text-anchor="middle" class="h2">处理与判定</text>
+    <rect x="360" y="165" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
+    <text x="450" y="193" text-anchor="middle" class="body">课程内容检索与提示约束</text>
+    <rect x="360" y="223" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
+    <text x="450" y="242" text-anchor="middle" class="body">DeepSeek可选生成</text>
+    <text x="450" y="260" text-anchor="middle" class="small">失败时进入本地回退</text>
+    <rect x="360" y="281" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
+    <text x="450" y="309" text-anchor="middle" class="body">8051确定性静态诊断</text>
+    <rect x="360" y="339" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
+    <text x="450" y="357" text-anchor="middle" class="body">测评判分与完成规则</text>
+    <text x="450" y="377" text-anchor="middle" class="small">由服务端执行</text>
+    <rect x="360" y="397" width="180" height="42" rx="1" fill="#0F766E"/>
+    <text x="450" y="423" text-anchor="middle" class="body onDark">AI只提供解释与提示</text>
+  </g>
+
+  <g id="output">
+    <rect x="638" y="118" width="220" height="302" rx="2" fill="#fff7e8" stroke="#9A6700" stroke-width="1.2"/>
+    <rect x="638" y="118" width="220" height="42" fill="#f5e6bf"/>
+    <text x="748" y="145" text-anchor="middle" class="h2">输出与行动</text>
+    <rect x="658" y="184" width="180" height="58" rx="1" fill="#fff" stroke="#cfb36f"/>
+    <text x="748" y="208" text-anchor="middle" class="body">解释与诊断建议</text>
+    <text x="748" y="229" text-anchor="middle" class="small">不直接替代作答</text>
+    <rect x="658" y="258" width="180" height="58" rx="1" fill="#fff" stroke="#cfb36f"/>
+    <text x="748" y="282" text-anchor="middle" class="body">下一学习入口</text>
+    <text x="748" y="303" text-anchor="middle" class="small">补学 · 实验 · 再次测评</text>
+    <rect x="658" y="332" width="180" height="58" rx="1" fill="#fff" stroke="#cfb36f"/>
+    <text x="748" y="356" text-anchor="middle" class="body">教师复核与补充干预</text>
+    <text x="748" y="377" text-anchor="middle" class="small">数据不足时不形成结论</text>
+  </g>
+
+  <line x1="262" y1="270" x2="332" y2="270" stroke="#244A78" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="560" y1="270" x2="630" y2="270" stroke="#244A78" stroke-width="1.5" marker-end="url(#arr)"/>
+  <polyline points="748,420 748,500 152,500 152,428" fill="none" stroke="#244A78" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arr)"/>
+  <text x="450" y="523" text-anchor="middle" class="small">教师复核结果用于调整后续任务，不回写或篡改既有作答记录</text>
+  <rect x="42" y="548" width="816" height="26" rx="1" fill="#eef4fa" stroke="#b8c9dc"/>
+  <text x="450" y="566" text-anchor="middle" class="small">边界：未实施模型微调；不使用K-means、Dijkstra或MAB等未落地算法包装当前能力</text>
 </svg>

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { GET as getAchievementsHandler } from '@/app/api/achievements/route';
+import { GET as getAchievementsHandler, POST as grantAchievementHandler } from '@/app/api/achievements/route';
 import { POST as checkAchievementsHandler } from '@/app/api/achievements/check/route';
+import { OFFICIAL_EXPERIMENT_IDS } from '@/lib/experiment-config';
 
 // Mock dependencies
 jest.mock('@/lib/prisma', () => {
@@ -14,6 +15,10 @@ jest.mock('@/lib/prisma', () => {
 
 jest.mock('@/lib/auth', () => ({
   verifyToken: jest.fn(),
+}));
+
+jest.mock('@/lib/classroom', () => ({
+  canAccessStudentData: jest.fn(),
 }));
 
 jest.mock('@/lib/achievement-system', () => ({
@@ -66,6 +71,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { getAchievementTier, calculateAchievementProgress, getNextTierThreshold } from '@/lib/achievement-system';
 import { checkAllAchievements } from '@/lib/achievement-checker';
+import { canAccessStudentData } from '@/lib/classroom';
 
 const mockPrisma = jest.mocked(prisma);
 const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
@@ -73,6 +79,7 @@ const mockGetAchievementTier = getAchievementTier as jest.MockedFunction<typeof 
 const mockCalculateAchievementProgress = calculateAchievementProgress as jest.MockedFunction<typeof calculateAchievementProgress>;
 const mockGetNextTierThreshold = getNextTierThreshold as jest.MockedFunction<typeof getNextTierThreshold>;
 const mockCheckAllAchievements = checkAllAchievements as jest.MockedFunction<typeof checkAllAchievements>;
+const mockCanAccessStudentData = canAccessStudentData as jest.MockedFunction<typeof canAccessStudentData>;
 
 describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
   beforeEach(() => {
@@ -94,6 +101,8 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
       grade: null,
       major: null,
       teacherId: null,
+      creationRequestKey: null,
+      authVersion: 0,
       department: null,
       title: null,
       totalPoints: 0,
@@ -119,6 +128,9 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
           category: 'special',
           unlockedAt: new Date('2024-01-01'),
           progress: 1,
+          source: 'SYSTEM',
+          points: 10,
+          awardedBy: null,
         },
         {
           id: 'ua-2',
@@ -130,6 +142,9 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
           category: 'learning',
           unlockedAt: new Date('2024-01-15'),
           progress: 5,
+          source: 'SYSTEM',
+          points: 10,
+          awardedBy: null,
         },
       ];
 
@@ -208,6 +223,9 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
           category: 'special',
           unlockedAt: new Date(),
           progress: 1,
+          source: 'SYSTEM',
+          points: 10,
+          awardedBy: null,
         },
         {
           id: 'ua-2',
@@ -219,6 +237,9 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
           category: 'learning',
           unlockedAt: new Date(),
           progress: 1,
+          source: 'SYSTEM',
+          points: 20,
+          awardedBy: null,
         },
       ];
 
@@ -344,6 +365,8 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
       grade: null,
       major: null,
       teacherId: null,
+      creationRequestKey: null,
+      authVersion: 0,
       department: null,
       title: null,
       totalPoints: 0,
@@ -517,6 +540,8 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
         grade: null,
         major: null,
         teacherId: null,
+        creationRequestKey: null,
+        authVersion: 0,
         department: null,
         title: null,
         totalPoints: 0,
@@ -574,6 +599,8 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
         grade: null,
         major: null,
         teacherId: null,
+        creationRequestKey: null,
+        authVersion: 0,
         department: null,
         title: null,
         totalPoints: 0,
@@ -617,6 +644,8 @@ describe.skip('Achievements API Routes（旧实现，已跳过）', () => {
         grade: null,
         major: null,
         teacherId: null,
+        creationRequestKey: null,
+        authVersion: 0,
         department: null,
         title: null,
         totalPoints: 0,
@@ -736,11 +765,87 @@ describe('Achievements API Routes（V2 最小回归）', () => {
     expect(Array.isArray(data.achievements)).toBe(true);
     expect(data.stats).toBeDefined();
     expect(data.userStats).toBeDefined();
+    expect(data.dataProvenance.mode).toMatch(/^(DEMO|REAL|MIXED)$/);
+    expect(data.asOf).toEqual(expect.any(String));
+    expect(data.sampleSize.achievementRules).toBe(data.stats.totalAchievements);
+    expect(data.sampleSize.unlockedAchievementRecords).toBe(data.stats.unlockedAchievements);
+  });
+
+  it('GET /api/achievements：实验数量、时长和解锁状态均以服务端记录为准', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com', role: 'STUDENT' } as any);
+    const prisma = (globalThis as any).__mockPrisma;
+
+    prisma.user.findUnique.mockResolvedValue({ id: '1', totalPoints: 0 });
+    prisma.userAchievement.findMany.mockResolvedValue([]);
+    prisma.userActivity.findMany.mockResolvedValue([]);
+    prisma.learningProgress.findMany.mockResolvedValue([]);
+    prisma.quizAttempt.findMany.mockResolvedValue([]);
+    prisma.userExperiment.findMany.mockResolvedValue([
+      { experimentId: 'exp01', status: 'COMPLETED', timeSpent: 2400 },
+      { experimentId: 'proj01', status: 'IN_PROGRESS', timeSpent: 1200 },
+      { experimentId: 'proj04', status: 'COMPLETED', timeSpent: -30 },
+    ]);
+
+    const req = new NextRequest('http://localhost:3000/api/achievements', {
+      method: 'GET',
+      headers: { authorization: 'Bearer valid-token' },
+    });
+    const res = await getAchievementsHandler(req as any);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(prisma.userExperiment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        experimentId: { in: [...OFFICIAL_EXPERIMENT_IDS] },
+      }),
+      select: { experimentId: true, status: true, timeSpent: true },
+    }));
+    expect(OFFICIAL_EXPERIMENT_IDS).not.toEqual(expect.arrayContaining([
+      'proj05', 'proj06', 'proj07', 'proj08',
+    ]));
+    expect(data.userStats.experiments_completed).toBe(2);
+    expect(data.userStats.experiment_time).toBe(3600);
+    const bronze = data.achievements.find((item: any) => item.id === 'experiment_time_bronze');
+    expect(bronze.progressPercentage).toBe(100);
+    expect(bronze.isUnlocked).toBe(false);
   });
 
   it('POST /api/achievements/check：未授权应返回 401', async () => {
     const req = new NextRequest('http://localhost:3000/api/achievements/check', { method: 'POST' });
     const res = await checkAchievementsHandler(req as any);
     expect(res.status).toBe(401);
+  });
+
+  it('POST /api/achievements：教师不能把成就授予非学生账号', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: 'teacher-1', email: 't@example.com', role: 'TEACHER' } as any);
+    const prisma = (globalThis as any).__mockPrisma;
+    prisma.user.findUnique.mockResolvedValue({ id: 'teacher-2', role: 'TEACHER', status: 'ACTIVE', class: null });
+
+    const req = new NextRequest('http://localhost:3000/api/achievements', {
+      method: 'POST',
+      headers: { authorization: 'Bearer valid-token' },
+      body: JSON.stringify({ achievementId: 'first_steps', targetUserId: 'teacher-2' }),
+    });
+    const res = await grantAchievementHandler(req);
+
+    expect(res.status).toBe(404);
+    expect(mockCanAccessStudentData).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/achievements：教师不能越过班级范围授予成就', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: 'teacher-3', email: 't3@example.com', role: 'TEACHER' } as any);
+    mockCanAccessStudentData.mockResolvedValue(false);
+    const prisma = (globalThis as any).__mockPrisma;
+    prisma.user.findUnique.mockResolvedValue({ id: 'student-9', role: 'STUDENT', status: 'ACTIVE', class: null });
+
+    const req = new NextRequest('http://localhost:3000/api/achievements', {
+      method: 'POST',
+      headers: { authorization: 'Bearer valid-token' },
+      body: JSON.stringify({ achievementId: 'first_steps', targetUserId: 'student-9' }),
+    });
+    const res = await grantAchievementHandler(req);
+
+    expect(res.status).toBe(403);
+    expect(mockCanAccessStudentData).toHaveBeenCalledWith(expect.objectContaining({ userId: 'teacher-3' }), 'student-9');
   });
 });

@@ -3,6 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { type KnowledgePoint } from '@/lib/knowledge-points';
 import { fetchKnowledgePoints } from '@/lib/knowledge-source';
+import { canAccessStudentData } from '@/lib/classroom';
+
+async function authenticate(request: NextRequest) {
+  const authorization = request.headers.get('authorization');
+  const token = authorization?.startsWith('Bearer ')
+    ? authorization.substring(7)
+    : request.cookies?.get('accessToken')?.value;
+  return token ? verifyToken(token) : null;
+}
 
 function mapLevelToDifficulty(level: KnowledgePoint['level']) {
   if (level === 1) return 'beginner';
@@ -26,7 +35,7 @@ function resourceCounts(point: KnowledgePoint) {
   };
 }
 
-function toKnowledgeNode(point: KnowledgePoint, index: number, all: KnowledgePoint[]) {
+function toKnowledgeNode(point: KnowledgePoint, all: KnowledgePoint[]) {
   const children = all.filter((p) => p.parentId === point.id);
   const learningTime = point.resources?.reduce((sum, item) => sum + (item.duration ?? 0), 0) || 30 + point.level * 15;
 
@@ -42,7 +51,8 @@ function toKnowledgeNode(point: KnowledgePoint, index: number, all: KnowledgePoi
     connections: children.map((child) => child.id),
     learningTime,
     completionRate: 0,
-    popularity: Math.max(20, 100 - Math.floor(index / 8)),
+    popularity: 0,
+    popularityDataSufficient: false,
     tags: [`第${point.chapter}章`, `L${point.level}`],
     resources: resourceCounts(point),
     position: {
@@ -68,7 +78,8 @@ function buildLearningPaths(points: KnowledgePoint[]) {
       difficulty: 'beginner',
       completionRate: 0,
       enrolledUsers: 0,
-      rating: 4.5,
+      rating: 0,
+      ratingDataSufficient: false,
       tags: ['入门', '硬件结构', '指令系统']
     },
     {
@@ -80,7 +91,8 @@ function buildLearningPaths(points: KnowledgePoint[]) {
       difficulty: 'intermediate',
       completionRate: 0,
       enrolledUsers: 0,
-      rating: 4.5,
+      rating: 0,
+      ratingDataSufficient: false,
       tags: ['实验', '中断', '接口技术']
     }
   ];
@@ -88,9 +100,36 @@ function buildLearningPaths(points: KnowledgePoint[]) {
 
 export async function GET(request: NextRequest) {
   try {
+    const payload = await authenticate(request);
+    if (!payload) {
+      return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const userId = searchParams.get('userId');
+    const requestedUserId = searchParams.get('userId')?.trim();
+    const userId = requestedUserId || payload.userId;
+    if ((type === 'progress' || type === 'recommendations') && !(await canAccessStudentData(payload, userId))) {
+      return NextResponse.json({ success: false, error: '无权查看该学生数据' }, { status: 403 });
+    }
+
+    if (type === 'stats') {
+      const { points, source } = await fetchKnowledgePoints();
+      const experimentIds = [...new Set(points.flatMap((point) => point.appliedIn ?? []))].sort();
+      const response = NextResponse.json({
+        success: true,
+        data: {
+          totalNodes: points.length,
+          level1: points.filter((point) => point.level === 1).length,
+          level2: points.filter((point) => point.level === 2).length,
+          level3: points.filter((point) => point.level === 3).length,
+          experimentCount: experimentIds.length,
+          experimentIds,
+        },
+        source,
+      });
+      response.headers.set('Cache-Control', 'no-store, max-age=0');
+      return response;
+    }
 
     // 获取知识图谱节点（原始 KnowledgePoint 格式，供前端知识图谱页面使用）
     if (type === 'raw') {
@@ -105,7 +144,7 @@ export async function GET(request: NextRequest) {
     // 获取知识图谱节点（图表可视化格式）
     if (type === 'nodes') {
       const { points, source } = await fetchKnowledgePoints();
-      const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
+      const nodes = points.map((point) => toKnowledgeNode(point, points));
       return NextResponse.json({
         success: true,
         data: nodes,
@@ -123,33 +162,30 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取用户进度
-    if (type === 'progress' && userId) {
+    if (type === 'progress') {
       try {
-        const [userProgress, sourceResult, completedRecords] = await Promise.all([
-          prisma.userProgress.findUnique({
-            where: { userId },
-            select: {
-              modulesCompleted: true,
-              totalTimeSpent: true,
-              averageScore: true,
-            },
-          }),
+        const [sourceResult, completedRecords] = await Promise.all([
           fetchKnowledgePoints(),
           prisma.learningProgress.findMany({
-            where: { userId, progress: { gte: 100 } },
-            select: { moduleId: true },
+            where: { userId, status: 'COMPLETED' },
+            select: { chapterId: true },
           }),
         ]);
 
         const points = sourceResult.points;
-        const completedNodes = completedRecords.map((r) => r.moduleId);
+        const chapterNodes = points.filter((point) => point.level === 1);
+        const completedChapterIds = new Set(completedRecords.map((record) => record.chapterId.replace(/^ch/i, '')));
+        const completedNodes = chapterNodes
+          .filter((point) => completedChapterIds.has(point.id))
+          .map((point) => point.id);
 
         return NextResponse.json({
           success: true,
           data: {
             completedNodes,
-            totalNodes: points.length,
-            completionRate: points.length > 0 ? (completedNodes.length / points.length) * 100 : 0,
+            totalNodes: chapterNodes.length,
+            completionRate: chapterNodes.length > 0 ? (completedNodes.length / chapterNodes.length) * 100 : 0,
+            granularity: 'CHAPTER',
           },
         });
       } catch (error) {
@@ -162,26 +198,29 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取推荐节点
-    if (type === 'recommendations' && userId) {
+    if (type === 'recommendations') {
       try {
         const [sourceResult, completedRecords] = await Promise.all([
           fetchKnowledgePoints(),
           prisma.learningProgress.findMany({
-            where: { userId, progress: { gte: 100 } },
-            select: { moduleId: true },
+            where: { userId, status: 'COMPLETED' },
+            select: { chapterId: true },
           }),
         ]);
 
         const points = sourceResult.points;
-        const nodes = points.map((p, i) => toKnowledgeNode(p, i, points));
-        const completedNodes = completedRecords.map((r) => r.moduleId);
+        const nodes = points.map((point) => toKnowledgeNode(point, points));
+        const completedChapterIds = new Set(completedRecords.map((record) => record.chapterId.replace(/^ch/i, '')));
+        const completedNodes = points
+          .filter((point) => point.level === 1 && completedChapterIds.has(point.id))
+          .map((point) => point.id);
 
         const recommendations = nodes
           .filter((node) => {
             if (completedNodes.includes(node.id)) return false;
             return node.prerequisites.every((prereq) => completedNodes.includes(prereq));
           })
-          .sort((a, b) => b.popularity - a.popularity)
+          .sort((a, b) => a.chapter - b.chapter || a.level - b.level)
           .slice(0, 5);
 
         return NextResponse.json({
@@ -212,90 +251,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { action, nodeId, pathId } = body;
-
-    // 标记节点为已完成
-    if (action === 'complete_node' && nodeId) {
-      try {
-        // 更新用户进度统计
-        await prisma.userProgress.upsert({
-          where: {
-            userId: decoded.userId
-          },
-          update: {
-            modulesCompleted: {
-              increment: 1
-            },
-            lastActiveDate: new Date()
-          },
-          create: {
-            userId: decoded.userId,
-            modulesCompleted: 1,
-            totalTimeSpent: 0,
-            streakDays: 1,
-            lastActiveDate: new Date()
-          }
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: 'Node marked as completed'
-        });
-      } catch (error) {
-        console.error('Error updating node progress:', error);
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to update progress'
-        }, { status: 500 });
-      }
-    }
-
-    // 开始学习路径
-    if (action === 'start_path' && pathId) {
-      try {
-        // 这里可以记录用户开始学习路径的信息
-        // 暂时返回成功响应
-        return NextResponse.json({
-          success: true,
-          message: 'Learning path started'
-        });
-      } catch (error) {
-        console.error('Error starting learning path:', error);
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to start learning path'
-        }, { status: 500 });
-      }
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid action'
-    }, { status: 400 });
-
-  } catch (error) {
-    console.error('Knowledge graph POST API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+  const payload = await authenticate(request);
+  if (!payload) {
+    return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
   }
+  return NextResponse.json({
+    success: false,
+    error: '知识图谱旧写入口已停用，请通过正式学习任务记录进度',
+  }, { status: 405, headers: { Allow: 'GET' } });
 }

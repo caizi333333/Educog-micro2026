@@ -22,6 +22,8 @@ const envSchema = z.object({
   // 应用配置
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  // 教学数据身份。当前竞赛演示环境必须显式标注为 DEMO，避免把种子数据写成真实成效。
+  PLATFORM_DATA_MODE: z.enum(['DEMO', 'REAL', 'MIXED']).default('DEMO'),
   
   // NextAuth 配置
   NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET must be at least 32 characters long').optional(),
@@ -86,12 +88,6 @@ export function getJwtSecret(): string {
     '12345678901234567890123456789012'
   ];
   
-  // 开发环境调试信息
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Current JWT_SECRET:', env.JWT_SECRET.substring(0, 8) + '...');
-    console.log('Is unsafe key?', unsafeKeys.includes(env.JWT_SECRET));
-  }
-  
   if (unsafeKeys.includes(env.JWT_SECRET)) {
     throw new Error(
       'JWT_SECRET 使用了不安全的默认值。' +
@@ -120,6 +116,42 @@ export function getGoogleAiKey(): string | undefined {
 export function getPepper(): string {
   const env = validateEnv();
   return env.PEPPER || 'default-pepper-change-in-production';
+}
+
+export type DataProvenanceMode = 'DEMO' | 'REAL' | 'MIXED';
+
+export type DataProvenance = {
+  mode: DataProvenanceMode;
+  label: string;
+  note: string;
+};
+
+/**
+ * 返回服务端统一的数据身份说明。环境变量缺失或值无效时安全回落到 DEMO，
+ * 以免演示数据被前端静默解释为真实教学数据。
+ */
+export function getDataProvenance(): DataProvenance {
+  const raw = process.env.PLATFORM_DATA_MODE?.trim().toUpperCase();
+  const mode: DataProvenanceMode = raw === 'REAL' || raw === 'MIXED' ? raw : 'DEMO';
+  if (mode === 'REAL') {
+    return {
+      mode,
+      label: '真实教学数据',
+      note: '仅汇总已授权班级在正式教学过程中产生的记录。',
+    };
+  }
+  if (mode === 'MIXED') {
+    return {
+      mode,
+      label: '混合数据',
+      note: '同时包含正式教学记录与演示记录，查看结论时须按数据身份区分。',
+    };
+  }
+  return {
+    mode,
+    label: '演示数据',
+    note: '当前为竞赛功能演示环境，包含种子学生与模拟学习记录，不用于证明教学成效。',
+  };
 }
 
 // 在应用启动时调用此函数进行验证

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/pagination';
 
 describe('utils', () => {
   describe('cn', () => {
@@ -90,6 +91,23 @@ describe('utils', () => {
         'hover:bg-green-500'
       );
       expect(result).toBe('text-white bg-blue-500 p-2 hover:bg-green-500');
+    });
+  });
+
+  describe('pagination parameters', () => {
+    it('falls back when page and limit are not finite integers', () => {
+      const params = getPaginationParams(new URLSearchParams('page=abc&limit=NaN&sortOrder=unexpected'));
+
+      expect(params).toEqual({ page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' });
+    });
+
+    it('clamps the range and accepts only ascending or descending order', () => {
+      expect(getPaginationParams(new URLSearchParams('page=-2&limit=999&sortOrder=asc'))).toEqual({
+        page: 1,
+        limit: 100,
+        sortBy: 'createdAt',
+        sortOrder: 'asc',
+      });
     });
   });
 });

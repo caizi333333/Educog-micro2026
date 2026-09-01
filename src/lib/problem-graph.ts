@@ -4,6 +4,8 @@
 // 4个一级分类 + ~40个二级问题域 + ~160个三级具体问题
 // ============================================================================
 
+import { ADDRESSING_TASK_PRESET } from '@/lib/lesson-tasks';
+
 export interface ProblemNode {
   id: string;           // e.g. 'P1', 'P1.1', 'P1.1.1'
   name: string;
@@ -11,11 +13,30 @@ export interface ProblemNode {
   parentId?: string;
   category: 'concept' | 'coding' | 'experiment' | 'project';
   relatedKnowledgePoints: string[];  // Links to knowledge-points.ts IDs
+  /** Explicit remediation anchor when more than one knowledge point is related. */
+  primaryKnowledgePointId?: string;
+  /** Honest boundary when the current course taxonomy has no exact knowledge point. */
+  taxonomyGapNote?: string;
   difficulty: 'easy' | 'medium' | 'hard';
   description?: string;
   solution?: string;     // Brief solution hint
   commonMistakes?: string[];
 }
+
+export type ProblemRemediationAction = {
+  id: 'review' | 'verify' | 'practice' | 'retest';
+  title: string;
+  purpose: string;
+  href: string;
+  knowledgePointId?: string;
+};
+
+export type ProblemRemediationPlan = {
+  actions: ProblemRemediationAction[];
+  completionRule: string;
+  stateBoundary: string;
+  taskHref: string;
+};
 
 export const problemGraph: ProblemNode[] = [
   // ========================================================================
@@ -38,6 +59,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P1.1.1', name: '混淆ROM和RAM的地址空间', level: 3, parentId: 'P1.1', category: 'concept',
     relatedKnowledgePoints: ['2.2.1', '2.2.2'],
+    primaryKnowledgePointId: '2.2.1',
     difficulty: 'easy',
     description: '将程序存储器(ROM)和数据存储器(RAM)的地址空间混为一谈',
     solution: '明确哈佛结构：程序存储器和数据存储器各自独立编址，使用不同的访问指令(MOVC vs MOVX)',
@@ -46,6 +68,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P1.1.2', name: '内部RAM分区不清', level: 3, parentId: 'P1.1', category: 'concept',
     relatedKnowledgePoints: ['2.2.2', '2.2.4'],
+    primaryKnowledgePointId: '2.2.2',
     difficulty: 'medium',
     description: '不理解内部RAM 128字节的四个分区及其用途',
     solution: '牢记分区：00H-1FH工作寄存器区(4组)、20H-2FH位寻址区、30H-7FH通用数据区、80H-FFH SFR区',
@@ -77,7 +100,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.2.1', name: '直接寻址与间接寻址混淆', level: 3, parentId: 'P1.2', category: 'concept',
-    relatedKnowledgePoints: ['3.1.2', '3.1.3'],
+    relatedKnowledgePoints: ['3.1.2', '3.1.4'],
+    primaryKnowledgePointId: '3.1.2',
     difficulty: 'easy',
     description: '不能区分MOV A, 30H（直接寻址）和MOV A, @R0（间接寻址）的本质区别',
     solution: '直接寻址的地址在指令中直接给出；间接寻址通过寄存器R0/R1间接提供地址',
@@ -101,7 +125,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.2.4', name: '位寻址范围不清', level: 3, parentId: 'P1.2', category: 'concept',
-    relatedKnowledgePoints: ['3.1.6', '2.2.4'],
+    relatedKnowledgePoints: ['3.1.7', '2.2.4'],
+    primaryKnowledgePointId: '3.1.7',
     difficulty: 'medium',
     description: '不清楚哪些区域支持位寻址操作',
     solution: '两个位寻址区域：内部RAM 20H-2FH(位地址00H-7FH)和部分SFR(地址能被8整除的)',
@@ -117,7 +142,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.3.1', name: '中断优先级误解', level: 3, parentId: 'P1.3', category: 'concept',
-    relatedKnowledgePoints: ['5.2', '5.2.3'],
+    relatedKnowledgePoints: ['5.2.3', '5.5.1'],
+    primaryKnowledgePointId: '5.2.3',
     difficulty: 'medium',
     description: '混淆自然优先级和设置优先级（IP寄存器）的关系',
     solution: 'IP寄存器设置高/低两级优先级；同级中断按自然优先级(INT0>T0>INT1>T1>串口)排列',
@@ -125,7 +151,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.3.2', name: '中断响应条件不清', level: 3, parentId: 'P1.3', category: 'concept',
-    relatedKnowledgePoints: ['5.3', '5.3.1'],
+    relatedKnowledgePoints: ['5.4.2', '5.2.2'],
+    primaryKnowledgePointId: '5.4.2',
     difficulty: 'medium',
     description: '不清楚中断响应需要满足的全部条件',
     solution: '三个条件：①中断源有请求(标志位置1)；②对应中断使能(IE中EA和各位)；③无同级或更高级中断在服务',
@@ -133,7 +160,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.3.3', name: '外部中断触发方式混淆', level: 3, parentId: 'P1.3', category: 'concept',
-    relatedKnowledgePoints: ['5.1.1', '5.1.2'],
+    relatedKnowledgePoints: ['5.3.1', '5.3.2'],
+    primaryKnowledgePointId: '5.3.1',
     difficulty: 'easy',
     description: '不理解电平触发和边沿触发的区别及TCON中IT0/IT1的设置',
     solution: 'IT0/IT1=0为低电平触发（需保持到响应）；=1为下降沿触发（自动清标志位）',
@@ -141,7 +169,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.3.4', name: '中断向量地址记忆错误', level: 3, parentId: 'P1.3', category: 'concept',
-    relatedKnowledgePoints: ['5.3.2'],
+    relatedKnowledgePoints: ['5.2.4'],
     difficulty: 'easy',
     description: '记错5个中断源对应的向量地址',
     solution: '从0003H开始，每隔8字节：INT0=0003H, T0=000BH, INT1=0013H, T1=001BH, 串口=0023H',
@@ -158,6 +186,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P1.4.1', name: '模式0/1/2/3区别不清', level: 3, parentId: 'P1.4', category: 'concept',
     relatedKnowledgePoints: ['6.2.1', '6.2.2', '6.2.3', '6.2.4'],
+    primaryKnowledgePointId: '6.2.1',
     difficulty: 'medium',
     description: '不理解四种工作模式的计数器位数和特点',
     solution: '模式0: 13位；模式1: 16位；模式2: 8位自动重装；模式3: T0拆分为两个8位计数器',
@@ -173,7 +202,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.4.3', name: '初值计算错误', level: 3, parentId: 'P1.4', category: 'concept',
-    relatedKnowledgePoints: ['6.3'],
+    relatedKnowledgePoints: ['6.1.4'],
     difficulty: 'medium',
     description: '定时器初值的计算方法不正确',
     solution: '初值 = 最大计数值 - 需要计数次数。如模式1: 初值 = 65536 - (定时时间/机器周期)',
@@ -197,7 +226,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.5.1', name: '波特率计算错误', level: 3, parentId: 'P1.5', category: 'concept',
-    relatedKnowledgePoints: ['7.3'],
+    relatedKnowledgePoints: ['7.2.3', '6.2.3'],
+    primaryKnowledgePointId: '7.2.3',
     difficulty: 'hard',
     description: '串口波特率与定时器T1初值的关系计算错误',
     solution: '方式1波特率 = (2^SMOD / 32) × (T1溢出率)。T1用模式2, 初值 = 256 - (fosc/(384×波特率))(SMOD=0)',
@@ -205,7 +235,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.5.2', name: '串口工作方式区别不清', level: 3, parentId: 'P1.5', category: 'concept',
-    relatedKnowledgePoints: ['7.2'],
+    relatedKnowledgePoints: ['7.2.4'],
     difficulty: 'medium',
     description: '不理解串口4种工作方式(方式0-3)的数据格式和波特率特点',
     solution: '方式0: 同步移位，固定fosc/12；方式1: 8位UART可变波特率；方式2/3: 9位UART，方式2固定、方式3可变',
@@ -213,7 +243,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.5.3', name: 'SBUF双缓冲概念不清', level: 3, parentId: 'P1.5', category: 'concept',
-    relatedKnowledgePoints: ['7.1'],
+    relatedKnowledgePoints: ['7.2.2'],
     difficulty: 'medium',
     description: '不理解发送SBUF和接收SBUF是两个物理寄存器共用一个地址',
     solution: '写SBUF自动送发送缓冲区开始发送；读SBUF自动取接收缓冲区数据。地址相同但物理独立',
@@ -221,7 +251,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.5.4', name: 'TI/RI标志位处理不当', level: 3, parentId: 'P1.5', category: 'concept',
-    relatedKnowledgePoints: ['7.2', '7.4'],
+    relatedKnowledgePoints: ['7.2.1', '7.3.2', '7.3.3'],
+    primaryKnowledgePointId: '7.2.1',
     difficulty: 'easy',
     description: '不清楚TI和RI标志位需要软件清零',
     solution: 'TI(发送完成)和RI(接收完成)必须由软件清零，硬件只负责置位',
@@ -246,6 +277,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P1.6.2', name: '逻辑运算与算术运算混淆', level: 3, parentId: 'P1.6', category: 'concept',
     relatedKnowledgePoints: ['3.3', '3.4'],
+    primaryKnowledgePointId: '3.3',
     difficulty: 'easy',
     description: '不清楚ANL/ORL/XRL与ADD/SUBB/MUL/DIV对标志位的影响',
     solution: '算术运算影响CY、AC、OV标志位；逻辑运算(ANL/ORL/XRL)不影响任何标志位',
@@ -271,7 +303,7 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P1.7 总线与时序概念模糊 ----------
   {
     id: 'P1.7', name: '总线与时序概念模糊', level: 2, parentId: 'P1', category: 'concept',
-    relatedKnowledgePoints: ['2.4', '2.5'],
+    relatedKnowledgePoints: ['2.4', '2.6'],
     difficulty: 'hard',
     description: '对总线结构、时序分析、机器周期等概念理解不清',
   },
@@ -285,7 +317,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.7.2', name: '地址/数据总线分时复用不理解', level: 3, parentId: 'P1.7', category: 'concept',
-    relatedKnowledgePoints: ['2.3.1', '2.5'],
+    relatedKnowledgePoints: ['2.6', '2.6.4'],
+    primaryKnowledgePointId: '2.6.4',
     difficulty: 'hard',
     description: '不理解P0口在访问外部存储器时的地址/数据分时复用机制',
     solution: 'P0口先输出低8位地址(ALE下降沿锁存到74HC573)，然后切换为数据总线',
@@ -293,7 +326,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.7.3', name: '读写时序分析困难', level: 3, parentId: 'P1.7', category: 'concept',
-    relatedKnowledgePoints: ['2.4.3'],
+    relatedKnowledgePoints: ['2.6.4', '2.4.3'],
+    primaryKnowledgePointId: '2.6.4',
     difficulty: 'hard',
     description: '不能正确分析外部存储器读写操作的时序波形',
     solution: '掌握关键时序：ALE锁存地址→PSEN/RD/WR控制读写→数据在总线上稳定→采样数据',
@@ -309,7 +343,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.8.1', name: 'BCD码与二进制混淆', level: 3, parentId: 'P1.8', category: 'concept',
-    relatedKnowledgePoints: ['3.3.4'],
+    relatedKnowledgePoints: ['3.3.5'],
     difficulty: 'easy',
     description: '不理解压缩BCD码的表示方法和DA A(十进制调整)指令',
     solution: 'BCD码每4位表示一个十进制数(0-9)；加法后需用DA A指令进行十进制调整',
@@ -334,6 +368,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P1.8.4', name: 'ASCII码与数值转换混淆', level: 3, parentId: 'P1.8', category: 'concept',
     relatedKnowledgePoints: ['3.2', '7.4'],
+    primaryKnowledgePointId: '3.2',
     difficulty: 'easy',
     description: '串口传输时数字的ASCII码与实际数值混淆，如字符"1"(0x31)和数值1(0x01)',
     solution: '数字字符ASCII = 数值 + 0x30。如数值5对应ASCII码0x35(字符"5")',
@@ -357,7 +392,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P1.9.2', name: '寄存器组在中断中的作用不理解', level: 3, parentId: 'P1.9', category: 'concept',
-    relatedKnowledgePoints: ['5.4', '5.4.1'],
+    relatedKnowledgePoints: ['4.4.1', '5.4.3'],
+    primaryKnowledgePointId: '4.4.1',
     difficulty: 'medium',
     description: '不理解为何中断服务程序中要切换工作寄存器组',
     solution: '中断中切换到不同寄存器组可避免压栈保护R0-R7，提高中断响应速度',
@@ -417,13 +453,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P2.1 C语言数据类型问题 ----------
   {
     id: 'P2.1', name: 'C语言数据类型问题', level: 2, parentId: 'P2', category: 'coding',
-    relatedKnowledgePoints: ['4.1'],
+    relatedKnowledgePoints: ['4.2'],
     difficulty: 'medium',
     description: 'Keil C51中数据类型的选择和使用不当',
   },
   {
     id: 'P2.1.1', name: '数据类型溢出', level: 3, parentId: 'P2.1', category: 'coding',
-    relatedKnowledgePoints: ['4.1'],
+    relatedKnowledgePoints: ['4.2.1'],
     difficulty: 'easy',
     description: '运算结果超出数据类型范围导致溢出',
     solution: '注意unsigned char范围0-255，unsigned int范围0-65535。大数运算使用unsigned long',
@@ -431,7 +467,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.1.2', name: 'C51特有数据类型不熟悉', level: 3, parentId: 'P2.1', category: 'coding',
-    relatedKnowledgePoints: ['4.1'],
+    relatedKnowledgePoints: ['4.2'],
     difficulty: 'medium',
     description: '不了解bit、sbit、sfr、sfr16等C51扩展数据类型',
     solution: 'bit定义位变量；sbit定义特殊功能寄存器位；sfr定义字节SFR；sfr16定义双字节SFR',
@@ -439,7 +475,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.1.3', name: '存储器类型修饰符使用不当', level: 3, parentId: 'P2.1', category: 'coding',
-    relatedKnowledgePoints: ['4.1', '2.2'],
+    relatedKnowledgePoints: ['4.2.2', '2.2'],
+    primaryKnowledgePointId: '4.2.2',
     difficulty: 'hard',
     description: '不正确使用data、idata、xdata、code等存储类型关键字',
     solution: 'data: 直接寻址区(00-7FH); idata: 间接寻址区(00-FFH); xdata: 外部RAM; code: ROM',
@@ -447,7 +484,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.1.4', name: '指针使用错误', level: 3, parentId: 'P2.1', category: 'coding',
-    relatedKnowledgePoints: ['4.1'],
+    relatedKnowledgePoints: ['4.2.3'],
     difficulty: 'hard',
     description: 'C51中通用指针(3字节)和特定存储器指针(1-2字节)的区别导致错误',
     solution: '通用指针(3字节)效率低；指定存储空间的指针(如data char *)效率高但只能访问特定区域',
@@ -463,7 +500,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.2.1', name: 'ISR中执行耗时操作', level: 3, parentId: 'P2.2', category: 'coding',
-    relatedKnowledgePoints: ['5.4.1'],
+    relatedKnowledgePoints: ['5.4.3', '4.4.1'],
+    primaryKnowledgePointId: '5.4.3',
     difficulty: 'medium',
     description: '在中断服务程序中进行延时、LCD显示等耗时操作',
     solution: '中断中只做标志置位和紧急处理，复杂逻辑放在主循环中根据标志执行',
@@ -471,7 +509,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.2.2', name: '中断号与中断源不匹配', level: 3, parentId: 'P2.2', category: 'coding',
-    relatedKnowledgePoints: ['5.4'],
+    relatedKnowledgePoints: ['4.4.1', '5.2.4'],
+    primaryKnowledgePointId: '4.4.1',
     difficulty: 'easy',
     description: 'interrupt关键字后的中断号写错导致进入错误的中断',
     solution: 'interrupt 0=INT0, 1=T0, 2=INT1, 3=T1, 4=串口。using指定寄存器组',
@@ -479,7 +518,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.2.3', name: '共享变量未用volatile修饰', level: 3, parentId: 'P2.2', category: 'coding',
-    relatedKnowledgePoints: ['5.4', '4.1'],
+    relatedKnowledgePoints: ['4.2.1', '4.4.1'],
+    primaryKnowledgePointId: '4.2.1',
     difficulty: 'hard',
     description: '主程序与ISR共享的变量未声明为volatile，编译器优化导致逻辑错误',
     solution: '凡是ISR中修改、主程序中读取(或反之)的变量都必须加volatile关键字',
@@ -487,7 +527,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.2.4', name: '中断嵌套导致堆栈溢出', level: 3, parentId: 'P2.2', category: 'coding',
-    relatedKnowledgePoints: ['5.2.3', '2.2.2'],
+    relatedKnowledgePoints: ['5.5', '3.2.4', '2.2.2'],
+    primaryKnowledgePointId: '5.5',
     difficulty: 'hard',
     description: '多级中断嵌套时堆栈消耗过多导致溢出',
     solution: '限制中断嵌套层数；每层中断约消耗2字节(PC)+寄存器保护开销；合理设置SP初值',
@@ -503,7 +544,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.3.1', name: '软件延时循环不精确', level: 3, parentId: 'P2.3', category: 'coding',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.5.1', '2.4.2'],
+    primaryKnowledgePointId: '4.5.1',
     difficulty: 'easy',
     description: '使用for循环延时时间不够精确，受编译器优化和指令周期影响',
     solution: '精确延时应使用定时器或汇编级_nop_()。软件延时需要反汇编确认实际周期数',
@@ -519,7 +561,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.3.3', name: '晶振频率对延时的影响不考虑', level: 3, parentId: 'P2.3', category: 'coding',
-    relatedKnowledgePoints: ['2.4.1', '6.3'],
+    relatedKnowledgePoints: ['2.4.1', '4.5.1', '6.1.4'],
+    primaryKnowledgePointId: '2.4.1',
     difficulty: 'easy',
     description: '更换不同频率晶振后未调整延时参数',
     solution: '延时时间直接和晶振频率相关。更换晶振需重新计算定时器初值和软件延时参数',
@@ -561,13 +604,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P2.5 位操作编程错误 ----------
   {
     id: 'P2.5', name: '位操作编程错误', level: 2, parentId: 'P2', category: 'coding',
-    relatedKnowledgePoints: ['3.6', '4.2'],
+    relatedKnowledgePoints: ['3.6', '4.4.3'],
     difficulty: 'medium',
     description: '位操作指令或C语言位运算使用不当',
   },
   {
     id: 'P2.5.1', name: 'sbit定义与头文件冲突', level: 3, parentId: 'P2.5', category: 'coding',
-    relatedKnowledgePoints: ['4.1'],
+    relatedKnowledgePoints: ['4.4.3'],
     difficulty: 'easy',
     description: '自定义sbit与reg51.h/reg52.h中已定义的位名冲突',
     solution: '先查看头文件中已有的位定义，自定义时使用不同的名称或直接引用头文件中的定义',
@@ -575,7 +618,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.5.2', name: '位运算符与逻辑运算符混淆', level: 3, parentId: 'P2.5', category: 'coding',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.4.3'],
     difficulty: 'easy',
     description: '&和&&、|和||、~和!的混淆导致逻辑错误',
     solution: '&是按位与，&&是逻辑与；|是按位或，||是逻辑或；~是按位取反，!是逻辑非',
@@ -583,7 +626,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.5.3', name: '位域操作移位方向错误', level: 3, parentId: 'P2.5', category: 'coding',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.4.3', '3.4.5'],
+    primaryKnowledgePointId: '4.4.3',
     difficulty: 'medium',
     description: '位移操作的方向或位数搞错导致控制逻辑出错',
     solution: '左移<<向高位移(相当于乘2)；右移>>向低位移(相当于除2)。注意有符号数右移的符号扩展',
@@ -591,7 +635,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.5.4', name: '特定位的置位/清零方法不熟', level: 3, parentId: 'P2.5', category: 'coding',
-    relatedKnowledgePoints: ['3.6', '4.2'],
+    relatedKnowledgePoints: ['4.4.3', '3.6.4'],
+    primaryKnowledgePointId: '4.4.3',
     difficulty: 'easy',
     description: '不熟悉对寄存器特定位进行置位、清零、取反的标准写法',
     solution: '置位: reg |= (1<<n); 清零: reg &= ~(1<<n); 取反: reg ^= (1<<n); 读取: (reg>>n)&1',
@@ -623,7 +668,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.6.3', name: 'code关键字遗漏导致表格放在RAM', level: 3, parentId: 'P2.6', category: 'coding',
-    relatedKnowledgePoints: ['4.1', '2.2.1'],
+    relatedKnowledgePoints: ['4.2.2', '2.2.1'],
+    primaryKnowledgePointId: '4.2.2',
     difficulty: 'medium',
     description: 'C语言中常量表忘记加code关键字，表格被放在RAM中浪费宝贵空间',
     solution: '只读查找表应声明为code类型，如: unsigned char code seg_table[] = {...};',
@@ -655,7 +701,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.7.3', name: '按键消抖处理不完善', level: 3, parentId: 'P2.7', category: 'coding',
-    relatedKnowledgePoints: ['8.2', '4.3'],
+    relatedKnowledgePoints: ['8.2.3', '4.3'],
+    primaryKnowledgePointId: '8.2.3',
     difficulty: 'easy',
     description: '按键去抖动处理方法不当导致按键识别不可靠',
     solution: '硬件消抖(RC滤波)或软件消抖(延时10-20ms后再次确认)。推荐定时器扫描方式',
@@ -663,7 +710,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.7.4', name: '定时器时间片分配不当', level: 3, parentId: 'P2.7', category: 'coding',
-    relatedKnowledgePoints: ['6.3', '4.3'],
+    relatedKnowledgePoints: ['6.3.1', '4.3'],
+    primaryKnowledgePointId: '6.3.1',
     difficulty: 'hard',
     description: '使用定时器中断实现简单时间片调度时分配不合理',
     solution: '基准定时(如1ms)，不同任务按不同周期调度：按键扫描20ms、显示刷新5ms、通信100ms',
@@ -713,13 +761,14 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P2.9 串口通信编程问题 ----------
   {
     id: 'P2.9', name: '串口通信编程问题', level: 2, parentId: 'P2', category: 'coding',
-    relatedKnowledgePoints: ['7.4'],
+    relatedKnowledgePoints: ['7.3'],
     difficulty: 'hard',
     description: '串口通信程序的初始化、收发和协议处理中的常见问题',
   },
   {
     id: 'P2.9.1', name: '串口初始化配置不完整', level: 3, parentId: 'P2.9', category: 'coding',
-    relatedKnowledgePoints: ['7.2', '7.3'],
+    relatedKnowledgePoints: ['7.3.1', '7.2.1', '7.2.3'],
+    primaryKnowledgePointId: '7.3.1',
     difficulty: 'medium',
     description: '串口初始化时遗漏必要的寄存器配置步骤',
     solution: '完整初始化：SCON设置方式→TMOD配T1为模式2→TH1/TL1赋波特率初值→TR1启动→可选开中断',
@@ -727,7 +776,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.9.2', name: '串口收发数据丢失', level: 3, parentId: 'P2.9', category: 'coding',
-    relatedKnowledgePoints: ['7.4'],
+    relatedKnowledgePoints: ['7.3.2', '7.3.3', '7.3.4'],
+    primaryKnowledgePointId: '7.3.2',
     difficulty: 'hard',
     description: '接收数据来不及处理或发送间隔过短导致数据丢失',
     solution: '使用环形缓冲区存储接收数据；发送前检查TI标志确认上一字节发送完成',
@@ -735,7 +785,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.9.3', name: '多机通信地址识别错误', level: 3, parentId: 'P2.9', category: 'coding',
-    relatedKnowledgePoints: ['7.2.3'],
+    relatedKnowledgePoints: ['7.2.4'],
     difficulty: 'hard',
     description: '方式2/3的多机通信中SM2、TB8、RB8的配合使用不当',
     solution: 'SM2=1时只接收RB8=1(地址帧)；匹配地址后SM2=0接收后续数据帧(RB8=0)',
@@ -743,7 +793,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.9.4', name: '串口调试助手参数不匹配', level: 3, parentId: 'P2.9', category: 'coding',
-    relatedKnowledgePoints: ['7.3', '7.4'],
+    relatedKnowledgePoints: ['7.3.1', '7.1.4'],
+    primaryKnowledgePointId: '7.3.1',
     difficulty: 'easy',
     description: 'PC端串口调试助手的波特率、数据位、停止位设置与MCU不一致',
     solution: '确保两端参数完全一致：波特率、数据位(8)、停止位(1)、校验位(无)。常用9600,8,N,1',
@@ -767,7 +818,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.10.2', name: '函数声明与定义不一致', level: 3, parentId: 'P2.10', category: 'coding',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.3.4'],
     difficulty: 'easy',
     description: '函数原型声明与实际定义的参数类型、返回值不匹配',
     solution: '在头文件或文件开头声明函数原型，确保与定义完全一致',
@@ -775,7 +826,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.10.3', name: 'DATA/XDATA空间溢出', level: 3, parentId: 'P2.10', category: 'coding',
-    relatedKnowledgePoints: ['2.2.2', '4.1'],
+    relatedKnowledgePoints: ['2.2.2', '4.2.2'],
+    primaryKnowledgePointId: '4.2.2',
     difficulty: 'medium',
     description: '链接时报DATA或XDATA段空间不足的错误',
     solution: '优化变量分配：大数组用xdata、只读数据用code、减少全局变量、利用overlay优化',
@@ -826,6 +878,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P3.1.4', name: '晶振电路连接错误', level: 3, parentId: 'P3.1', category: 'experiment',
     relatedKnowledgePoints: ['1.4.3', '2.4.1'],
+    primaryKnowledgePointId: '1.4.3',
     difficulty: 'medium',
     description: '晶振和负载电容连接方式或参数不正确导致不起振',
     solution: '晶振接XTAL1(19脚)和XTAL2(18脚)之间，两端各接30pF瓷片电容到地。引线尽短',
@@ -866,6 +919,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P3.2.4', name: '调试断点和单步执行问题', level: 3, parentId: 'P3.2', category: 'experiment',
     relatedKnowledgePoints: ['1.5.1', '1.5.3'],
+    primaryKnowledgePointId: '1.5.1',
     difficulty: 'medium',
     description: 'Keil调试模式下断点设置、单步执行和变量观察操作不熟练',
     solution: '编译后进入Debug模式，在代码行号处点击设断点，F10单步(不进入)，F11单步(进入函数)',
@@ -881,7 +935,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.3.1', name: '探头衰减比设置错误', level: 3, parentId: 'P3.3', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '示波器探头衰减比(1X/10X)与通道设置不匹配导致读数偏差',
     solution: '实验中一般使用10X探头，示波器通道需对应设置为10X衰减(Probe → 10X)',
@@ -889,7 +943,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.3.2', name: '触发条件设置不当', level: 3, parentId: 'P3.3', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'medium',
     description: '波形不稳定或抓不到信号，触发电平和触发方式设置不合理',
     solution: '设置合理的触发电平(信号幅度中间位置)；边沿触发选上升沿；复杂信号用模式触发',
@@ -897,7 +951,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.3.3', name: '时基和幅度量程选择不当', level: 3, parentId: 'P3.3', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1', '9.3.4'],
+    primaryKnowledgePointId: '9.3.1',
     difficulty: 'easy',
     description: '时间轴(Time/div)或电压轴(Volts/div)设置不当导致波形看不清',
     solution: '根据信号频率调整时基：看2-3个完整周期。根据信号幅度调整量程：占屏幕2/3高度最佳',
@@ -913,7 +968,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.4.1', name: '电源电压不稳定', level: 3, parentId: 'P3.4', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.1.3', '9.3.1'],
+    primaryKnowledgePointId: '9.1.3',
     difficulty: 'medium',
     description: '电源纹波过大或电压不在芯片工作范围内',
     solution: '89C51工作电压4.0-5.5V。使用稳压电源或7805稳压模块，输出端加滤波电容',
@@ -985,7 +1041,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.6.1', name: 'ADC/DAC连接与配置错误', level: 3, parentId: 'P3.6', category: 'experiment',
-    relatedKnowledgePoints: ['9.1'],
+    relatedKnowledgePoints: ['8.3.1', '8.3.2'],
+    primaryKnowledgePointId: '8.3.1',
     difficulty: 'medium',
     description: 'ADC0809或DAC0832的接口时序和控制信号连接错误',
     solution: '注意ADC的START、EOC、OE信号时序；DAC的CS、WR信号配合。参考数据手册时序图',
@@ -993,7 +1050,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.6.2', name: '温度传感器DS18B20通信失败', level: 3, parentId: 'P3.6', category: 'experiment',
-    relatedKnowledgePoints: ['9.2'],
+    relatedKnowledgePoints: ['8.4.1'],
     difficulty: 'hard',
     description: 'DS18B20单总线时序要求严格，初始化或读写时序不满足',
     solution: '严格按时序：复位480us→等待60us→检测存在脉冲60-240us。读/写位时序需精确到us级',
@@ -1001,7 +1058,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.6.3', name: 'I2C/SPI通信时序错误', level: 3, parentId: 'P3.6', category: 'experiment',
-    relatedKnowledgePoints: ['9.3'],
+    relatedKnowledgePoints: ['7.4.3', '7.4.4'],
+    primaryKnowledgePointId: '7.4.3',
     difficulty: 'hard',
     description: '软件模拟I2C或SPI协议时时序不满足设备要求',
     solution: 'I2C注意起始/停止条件、ACK应答、地址格式(7位+读写位)。SPI注意CPOL/CPHA模式匹配',
@@ -1009,7 +1067,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.6.4', name: '电机驱动电路问题', level: 3, parentId: 'P3.6', category: 'experiment',
-    relatedKnowledgePoints: ['9.4'],
+    relatedKnowledgePoints: ['8.5', '8.5.1', '8.5.2'],
+    primaryKnowledgePointId: '8.5',
     difficulty: 'medium',
     description: '步进电机或直流电机驱动电路连接和控制错误',
     solution: '步进电机需正确相序(如四相八拍)；直流电机用H桥或L298N模块，注意续流二极管',
@@ -1025,7 +1084,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.7.1', name: '虚焊与桥接', level: 3, parentId: 'P3.7', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.2.4'],
     difficulty: 'easy',
     description: '焊接质量不佳导致虚焊(接触不良)或桥接(引脚短路)',
     solution: '虚焊：焊点应光亮圆润、充分浸润焊盘。桥接：相邻引脚间用吸锡带清除多余焊锡',
@@ -1033,7 +1092,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.7.2', name: '元器件方向装反', level: 3, parentId: 'P3.7', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.2.1', '9.2.4'],
+    primaryKnowledgePointId: '9.2.1',
     difficulty: 'easy',
     description: '有极性元器件(电解电容、二极管、IC)方向装反',
     solution: 'IC看缺口/圆点标记对准1脚；电解电容长脚为正极；LED长脚为正极；二极管有标记端为阴极',
@@ -1041,7 +1101,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.7.3', name: '布线不合理导致信号干扰', level: 3, parentId: 'P3.7', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.2.2'],
     difficulty: 'hard',
     description: 'PCB走线过细、过长或并行走线导致信号串扰',
     solution: '数字信号线和模拟信号线分开走；电源线加粗；关键信号线旁加地线保护',
@@ -1049,7 +1109,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.7.4', name: '贴片元件焊接困难', level: 3, parentId: 'P3.7', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.2.4'],
     difficulty: 'medium',
     description: 'SMD元件(0805/0603)手工焊接技术不熟练导致虚焊或偏移',
     solution: '先在一个焊盘上锡，用镊子固定元件焊好一端，再焊另一端。使用助焊剂提高润湿性',
@@ -1059,13 +1119,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P3.8 万用表使用问题 ----------
   {
     id: 'P3.8', name: '万用表使用问题', level: 2, parentId: 'P3', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '使用数字万用表进行电路测量时的常见操作错误',
   },
   {
     id: 'P3.8.1', name: '量程选择错误', level: 3, parentId: 'P3.8', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '测量时选错量程或测量类型导致读数不准或损坏仪表',
     solution: '先估计被测量范围选择合适量程。不确定时先用最大量程。注意DC/AC的切换',
@@ -1073,7 +1133,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.8.2', name: '测量方式错误(串联/并联)', level: 3, parentId: 'P3.8', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '电压应并联测量、电流应串联测量，测量方式搞反',
     solution: '电压表并联在被测两端；电流表串联在回路中。测电阻时电路必须断电',
@@ -1081,7 +1141,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.8.3', name: '在线测量时参考点选择不当', level: 3, parentId: 'P3.8', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '测量电路中各点电压时参考地线选择不正确',
     solution: '测量以电源负极(GND)为参考点，红表笔接被测点，黑表笔接地',
@@ -1123,13 +1183,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P3.10 实验安全与规范 ----------
   {
     id: 'P3.10', name: '实验安全与规范', level: 2, parentId: 'P3', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1', '9.4.1'],
     difficulty: 'easy',
     description: '实验操作中的安全注意事项和规范问题',
   },
   {
     id: 'P3.10.1', name: '带电操作接插元器件', level: 3, parentId: 'P3.10', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '在电路通电状态下插拔芯片或连接线',
     solution: '所有元器件的插拔和电路修改必须在断电状态下进行。CMOS器件需防静电',
@@ -1137,7 +1197,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.10.2', name: '实验记录不完整', level: 3, parentId: 'P3.10', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.4', '9.4.1'],
+    primaryKnowledgePointId: '9.3.4',
     difficulty: 'easy',
     description: '实验过程中未及时记录数据、现象和问题',
     solution: '实验前写好预习报告；实验中记录每步操作和结果；出现问题记录现象和解决过程',
@@ -1145,7 +1206,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.10.3', name: '实验台收拾不规范', level: 3, parentId: 'P3.10', category: 'experiment',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.1'],
     difficulty: 'easy',
     description: '实验结束后未正确关闭电源、整理器材',
     solution: '实验结束：关闭电源→断开连线→整理元器件→清洁实验台→关闭仪器',
@@ -1165,13 +1226,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.1 需求分析与方案设计问题 ----------
   {
     id: 'P4.1', name: '需求分析与方案设计问题', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['10'],
+    relatedKnowledgePoints: ['9.1'],
     difficulty: 'hard',
     description: '项目初期的需求理解和总体方案设计中的问题',
   },
   {
     id: 'P4.1.1', name: '需求理解不完整', level: 3, parentId: 'P4.1', category: 'project',
-    relatedKnowledgePoints: ['10'],
+    relatedKnowledgePoints: ['9.1.1'],
     difficulty: 'medium',
     description: '未全面理解项目功能需求和性能指标，遗漏关键约束条件',
     solution: '列出功能需求清单和非功能需求(精度、速度、功耗、成本)，与指导老师确认',
@@ -1187,7 +1248,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.1.3', name: '系统框图设计不合理', level: 3, parentId: 'P4.1', category: 'project',
-    relatedKnowledgePoints: ['10'],
+    relatedKnowledgePoints: ['9.1.2', '9.1.4', '9.1.5'],
+    primaryKnowledgePointId: '9.1.2',
     difficulty: 'hard',
     description: '系统总体框图中模块划分不清、接口定义不明确',
     solution: '明确每个模块的输入/输出信号、电平标准和通信协议。画出完整的系统框图和信号流',
@@ -1195,7 +1257,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.1.4', name: '项目进度规划不合理', level: 3, parentId: 'P4.1', category: 'project',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.1', '9.1.1'],
+    primaryKnowledgePointId: '9.1.1',
     difficulty: 'medium',
     description: '项目时间分配不当，预留调试时间不足',
     solution: '按"设计30%、编码30%、调试40%"分配时间。调试阶段通常需要最多时间',
@@ -1219,7 +1282,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.2.2', name: '多设备总线冲突', level: 3, parentId: 'P4.2', category: 'project',
-    relatedKnowledgePoints: ['9.3'],
+    relatedKnowledgePoints: ['7.4.3', '7.4.4'],
+    primaryKnowledgePointId: '7.4.3',
     difficulty: 'hard',
     description: 'I2C或SPI总线上多设备同时通信导致冲突',
     solution: 'I2C通过地址区分设备，注意地址不能冲突。SPI使用独立CS线选择设备',
@@ -1237,13 +1301,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.3 功耗优化不足 ----------
   {
     id: 'P4.3', name: '功耗优化不足', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['10.2'],
+    relatedKnowledgePoints: ['2.7', '9.1.3'],
     difficulty: 'hard',
     description: '电池供电或低功耗应用场景下的功耗管理不到位',
   },
   {
     id: 'P4.3.1', name: '未使用低功耗模式', level: 3, parentId: 'P4.3', category: 'project',
-    relatedKnowledgePoints: ['10.2.1'],
+    relatedKnowledgePoints: ['2.7'],
     difficulty: 'medium',
     description: '空闲时未让MCU进入空闲(Idle)或掉电(Power Down)模式',
     solution: '无任务时进入Idle模式(PCON.IDL=1)，仍可被中断唤醒。深度休眠用Power Down模式',
@@ -1251,7 +1315,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.3.2', name: '外围电路功耗过大', level: 3, parentId: 'P4.3', category: 'project',
-    relatedKnowledgePoints: ['10.2'],
+    relatedKnowledgePoints: ['2.7', '9.1.3'],
+    primaryKnowledgePointId: '9.1.3',
     difficulty: 'medium',
     description: '传感器、显示器等外围设备持续工作消耗过多电能',
     solution: '不使用时关闭传感器电源；LCD背光按需开启；LED亮度通过PWM调节',
@@ -1259,7 +1324,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.3.3', name: '时钟频率选择不当', level: 3, parentId: 'P4.3', category: 'project',
-    relatedKnowledgePoints: ['2.4.1', '10.2'],
+    relatedKnowledgePoints: ['2.4.1'],
     difficulty: 'medium',
     description: '使用了不必要的高频时钟，未根据实际需求降低时钟频率',
     solution: '功耗与时钟频率近似线性关系。不需要高速处理时可选用低频晶振(如3.579MHz)',
@@ -1269,13 +1334,14 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.4 抗干扰设计缺失 ----------
   {
     id: 'P4.4', name: '抗干扰设计缺失', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.1.3', '9.2.2', '9.3.4'],
+    taxonomyGapNote: '当前课程知识分类未单列通用抗干扰与电磁兼容专题，关联节点仅提供硬件设计、布局布线和稳定性测试基础。',
     difficulty: 'hard',
     description: '产品级设计中缺少必要的抗干扰和可靠性措施',
   },
   {
     id: 'P4.4.1', name: '软件看门狗未使用', level: 3, parentId: 'P4.4', category: 'project',
-    relatedKnowledgePoints: ['10.3.1'],
+    relatedKnowledgePoints: ['2.5.3'],
     difficulty: 'medium',
     description: '程序跑飞后无法自动复位恢复',
     solution: '启用看门狗定时器(WDT)，主循环中定期喂狗。超时自动复位。STC系列有内置WDT',
@@ -1283,7 +1349,9 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.4.2', name: '输入信号未滤波', level: 3, parentId: 'P4.4', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['8.3.4', '8.2.3'],
+    primaryKnowledgePointId: '8.3.4',
+    taxonomyGapNote: '当前课程知识分类未单列通用数字与模拟滤波；关联节点仅覆盖采样质量和按键消抖，不能替代滤波原理教学。',
     difficulty: 'medium',
     description: '外部输入信号(按键、传感器)未做硬件或软件滤波',
     solution: '硬件：输入端加RC低通滤波(100R+0.1uF)。软件：多次采样取平均或中值滤波',
@@ -1291,7 +1359,9 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.4.3', name: '电源抗干扰措施不足', level: 3, parentId: 'P4.4', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.1.3', '9.2.2'],
+    primaryKnowledgePointId: '9.1.3',
+    taxonomyGapNote: '当前课程知识分类未单列电源完整性与电磁兼容；关联节点仅覆盖硬件设计和布局布线基础。',
     difficulty: 'hard',
     description: '电源线上的噪声干扰影响系统稳定性',
     solution: '电源入口加TVS保护；每个IC旁加0.1uF去耦电容；模拟/数字电源分开',
@@ -1299,7 +1369,9 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.4.4', name: '冗余设计和容错处理缺失', level: 3, parentId: 'P4.4', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.1.2', '9.3.4'],
+    primaryKnowledgePointId: '9.1.2',
+    taxonomyGapNote: '当前课程知识分类未单列冗余与容错设计；关联节点仅覆盖方案设计和稳定性测试基础。',
     difficulty: 'hard',
     description: '关键功能缺少冗余检查和异常恢复机制',
     solution: '关键数据多份存储并校验；通信加重发机制；程序异常入口加跳转到复位向量',
@@ -1323,7 +1395,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.5.2', name: '缺少调试输出手段', level: 3, parentId: 'P4.5', category: 'project',
-    relatedKnowledgePoints: ['7.4'],
+    relatedKnowledgePoints: ['9.3.2'],
     difficulty: 'easy',
     description: '没有利用LED指示灯或串口打印来输出调试信息',
     solution: '预留一个LED作状态指示；使用串口printf输出关键变量值到PC端串口助手',
@@ -1339,7 +1411,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.5.4', name: '问题复现和记录不规范', level: 3, parentId: 'P4.5', category: 'project',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.5', '9.4.1'],
+    primaryKnowledgePointId: '9.3.5',
     difficulty: 'easy',
     description: '遇到偶发故障时不能有效复现和记录问题特征',
     solution: '记录故障的触发条件、频率、表现。尝试简化系统逐步排除变量来复现',
@@ -1349,13 +1422,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.6 代码架构与可维护性问题 ----------
   {
     id: 'P4.6', name: '代码架构与可维护性问题', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['4'],
+    relatedKnowledgePoints: ['4.6'],
     difficulty: 'hard',
     description: '项目代码组织混乱、缺乏模块化和文档',
   },
   {
     id: 'P4.6.1', name: '所有代码放在一个文件中', level: 3, parentId: 'P4.6', category: 'project',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.6.3'],
     difficulty: 'easy',
     description: '不进行文件分模块，所有功能代码堆在main.c中',
     solution: '按功能分文件：uart.c/h、timer.c/h、lcd.c/h、key.c/h。main.c只做初始化和主循环调度',
@@ -1363,7 +1436,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.6.2', name: '硬件依赖未抽象', level: 3, parentId: 'P4.6', category: 'project',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.6.3'],
     difficulty: 'hard',
     description: '硬件引脚和寄存器操作散布在业务逻辑代码中',
     solution: '用宏定义或函数封装硬件操作。如#define LED P1^0, void LED_On(void){LED=0;}',
@@ -1371,7 +1444,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.6.3', name: '魔术数字和缺少注释', level: 3, parentId: 'P4.6', category: 'project',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.6.1', '4.6.2'],
+    primaryKnowledgePointId: '4.6.1',
     difficulty: 'easy',
     description: '代码中大量使用未定义的常数，缺少有意义的注释',
     solution: '用#define或const定义有意义的常量名。关键算法和复杂逻辑处添加注释',
@@ -1379,7 +1453,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.6.4', name: '版本管理缺失', level: 3, parentId: 'P4.6', category: 'project',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.4.3'],
     difficulty: 'easy',
     description: '不使用版本管理工具，靠文件夹复制备份代码',
     solution: '学习使用Git进行版本管理。每个稳定版本打标签，功能开发在分支上进行',
@@ -1411,7 +1485,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.7.3', name: '报警与状态反馈缺失', level: 3, parentId: 'P4.7', category: 'project',
-    relatedKnowledgePoints: ['8'],
+    relatedKnowledgePoints: ['8.6', '8.1'],
+    primaryKnowledgePointId: '8.6',
     difficulty: 'easy',
     description: '系统异常时没有声光报警，正常运行时没有状态指示',
     solution: '运行指示灯周期闪烁表示正常；异常用蜂鸣器报警+LED快闪；显示错误代码',
@@ -1421,13 +1496,13 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.8 文档与报告编写问题 ----------
   {
     id: 'P4.8', name: '文档与报告编写问题', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.4', '9.2', '9.1.4'],
     difficulty: 'medium',
     description: '项目报告和技术文档编写质量不达标',
   },
   {
     id: 'P4.8.1', name: '原理图绘制不规范', level: 3, parentId: 'P4.8', category: 'project',
-    relatedKnowledgePoints: ['8'],
+    relatedKnowledgePoints: ['9.2.1'],
     difficulty: 'medium',
     description: '电路原理图符号不标准、连线混乱、缺少标注',
     solution: '使用标准元器件符号；信号流从左到右、从上到下；标注元件参数值和关键信号名',
@@ -1435,7 +1510,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.8.2', name: '流程图与程序不一致', level: 3, parentId: 'P4.8', category: 'project',
-    relatedKnowledgePoints: ['4.3'],
+    relatedKnowledgePoints: ['9.1.4', '4.3'],
+    primaryKnowledgePointId: '9.1.4',
     difficulty: 'easy',
     description: '报告中的程序流程图与实际代码逻辑不一致',
     solution: '先画流程图再编码，或代码完成后更新流程图。流程图要能反映实际的分支和循环逻辑',
@@ -1443,7 +1519,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.8.3', name: '测试数据分析不充分', level: 3, parentId: 'P4.8', category: 'project',
-    relatedKnowledgePoints: [],
+    relatedKnowledgePoints: ['9.3.4', '9.4.1'],
+    primaryKnowledgePointId: '9.3.4',
     difficulty: 'medium',
     description: '只给出测试数据但缺少分析和结论',
     solution: '记录多组测试数据，计算误差、标准差。分析数据趋势和异常点。与理论值对比',
@@ -1453,13 +1530,15 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.9 可靠性与量产问题 ----------
   {
     id: 'P4.9', name: '可靠性与量产问题', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.1', '9.3.4'],
+    taxonomyGapNote: '当前课程知识分类未单列环境可靠性与量产工程专题，关联节点仅提供系统设计和性能测试基础。',
     difficulty: 'hard',
     description: '从实验样机到可靠产品的过渡中遇到的问题',
   },
   {
     id: 'P4.9.1', name: '温度对系统影响未考虑', level: 3, parentId: 'P4.9', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.3.4'],
+    taxonomyGapNote: '当前课程知识分类未单列温度降额与环境可靠性；9.3.4仅覆盖性能测试方法。',
     difficulty: 'hard',
     description: '未考虑温度变化对晶振频率、传感器精度和电路参数的影响',
     solution: '关注器件的工作温度范围。关键参数的温漂需在软件中补偿或选用低温漂元器件',
@@ -1475,7 +1554,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.9.3', name: '静电防护不足', level: 3, parentId: 'P4.9', category: 'project',
-    relatedKnowledgePoints: ['10.3'],
+    relatedKnowledgePoints: ['9.1.3'],
+    taxonomyGapNote: '当前课程知识分类未单列静电放电防护；9.1.3仅覆盖硬件设计流程。',
     difficulty: 'medium',
     description: '产品外接端口缺少ESD保护',
     solution: '所有对外接口(按键、传感器、通信口)加TVS或ESD保护二极管',
@@ -1485,13 +1565,14 @@ export const problemGraph: ProblemNode[] = [
   // ---------- P4.10 综合项目常见设计缺陷 ----------
   {
     id: 'P4.10', name: '综合项目常见设计缺陷', level: 2, parentId: 'P4', category: 'project',
-    relatedKnowledgePoints: ['10'],
+    relatedKnowledgePoints: ['9'],
     difficulty: 'hard',
     description: '课程设计和毕业设计中常见的系统级设计缺陷',
   },
   {
     id: 'P4.10.1', name: 'PWM控制精度不足', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['6.3', '9.4'],
+    relatedKnowledgePoints: ['6.3.3', '9.3.4'],
+    primaryKnowledgePointId: '6.3.3',
     difficulty: 'medium',
     description: '软件PWM分辨率和频率不满足电机或LED调光的需求',
     solution: '利用定时器中断产生PWM。提高定时器中断频率可提高分辨率，但会增加CPU负担',
@@ -1499,7 +1580,9 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.2', name: 'PID控制参数整定困难', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['10.1'],
+    relatedKnowledgePoints: ['9.3.4', '6.3.3'],
+    primaryKnowledgePointId: '9.3.4',
+    taxonomyGapNote: '当前课程知识分类未单列PID控制；关联节点仅覆盖性能测试与执行器PWM基础，不能替代PID原理和整定方法教学。',
     difficulty: 'hard',
     description: '温度控制或电机速度控制中PID参数调整困难',
     solution: '先只用P，再加I消除稳态误差，最后加D改善动态特性。可用试凑法或Ziegler-Nichols法',
@@ -1507,7 +1590,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.3', name: '多路ADC采集通道切换问题', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['9.1'],
+    relatedKnowledgePoints: ['8.3.3', '8.3.4'],
+    primaryKnowledgePointId: '8.3.3',
     difficulty: 'medium',
     description: '多通道ADC切换时前一通道电压影响当前通道读数(串扰)',
     solution: '切换通道后丢弃第一次转换结果，或加延时等待采样保持电容充电完成',
@@ -1515,7 +1599,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.4', name: '数据存储与断电保持问题', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['9.5'],
+    relatedKnowledgePoints: ['7.4.4', '9.1'],
+    primaryKnowledgePointId: '7.4.4',
     difficulty: 'medium',
     description: '需要断电保存的参数(如校准值、用户设置)未正确存储',
     solution: '使用外部EEPROM(如AT24C02)或MCU内部Flash保存。写入前校验、读出后校验',
@@ -1523,7 +1608,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.5', name: '实时时钟(RTC)精度不足', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['6', '9.5'],
+    relatedKnowledgePoints: ['6.3.5', '2.4.1', '9.3.4'],
+    primaryKnowledgePointId: '6.3.5',
     difficulty: 'medium',
     description: '使用定时器软件实现的时钟长期运行后误差累积过大',
     solution: '使用专用RTC芯片(DS1302/DS1307)和32.768KHz晶振。或用网络授时校准',
@@ -1539,7 +1625,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.7', name: '步进电机失步问题', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['9.4'],
+    relatedKnowledgePoints: ['8.5.2', '6.3.1'],
+    primaryKnowledgePointId: '8.5.2',
     difficulty: 'hard',
     description: '步进电机在加减速过程中丢步导致位置不准确',
     solution: '采用梯形或S型加减速曲线。不要瞬间高速启动，需从低速逐步加速到目标速度',
@@ -1547,7 +1634,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.10.8', name: '无线通信模块集成问题', level: 3, parentId: 'P4.10', category: 'project',
-    relatedKnowledgePoints: ['7.4', '10.4'],
+    relatedKnowledgePoints: ['10.1.2', '7.4.3', '7.3'],
+    primaryKnowledgePointId: '10.1.2',
     difficulty: 'hard',
     description: 'NRF24L01/HC-05等无线模块与MCU通信时数据丢包或连接不稳定',
     solution: '确认SPI/UART参数匹配；增加应答和重发机制；天线远离干扰源；注意3.3V/5V电平转换',
@@ -1555,7 +1643,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.1.5', name: '电源方案设计不合理', level: 3, parentId: 'P4.1', category: 'project',
-    relatedKnowledgePoints: ['1.4.3', '10.2'],
+    relatedKnowledgePoints: ['1.4.3', '2.7', '9.1.3'],
+    primaryKnowledgePointId: '9.1.3',
     difficulty: 'medium',
     description: '混合电压系统(3.3V和5V)的电源分配和电平转换设计不当',
     solution: '先用5V再用LDO(如AMS1117)产生3.3V。不同电压域之间用电平转换芯片(如TXS0108)',
@@ -1564,6 +1653,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P4.2.4', name: '中断驱动与轮询混用不当', level: 3, parentId: 'P4.2', category: 'project',
     relatedKnowledgePoints: ['5.4', '4.3'],
+    primaryKnowledgePointId: '5.4',
     difficulty: 'hard',
     description: '系统中部分功能用中断、部分用轮询，但两者配合不当导致数据竞争',
     solution: '明确每个功能的响应时间需求决定用中断还是轮询。共享资源需关中断保护或使用标志位通信',
@@ -1571,7 +1661,7 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P4.6.5', name: '头文件交叉包含', level: 3, parentId: 'P4.6', category: 'project',
-    relatedKnowledgePoints: ['4.2'],
+    relatedKnowledgePoints: ['4.6.3'],
     difficulty: 'medium',
     description: '多个.h文件互相包含导致编译错误或符号重定义',
     solution: '每个.h文件使用#ifndef/#define/#endif防止重复包含。减少头文件间的交叉依赖',
@@ -1580,6 +1670,7 @@ export const problemGraph: ProblemNode[] = [
   {
     id: 'P4.7.4', name: '多级菜单导航困难', level: 3, parentId: 'P4.7', category: 'project',
     relatedKnowledgePoints: ['8.1.3', '8.2'],
+    primaryKnowledgePointId: '8.1.3',
     difficulty: 'medium',
     description: '项目中菜单层级过多，用户容易迷失在哪一层',
     solution: '菜单不超过3层；LCD第一行显示当前菜单层级/路径；提供"返回上一级"和"回到主页"快捷键',
@@ -1587,7 +1678,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P3.6.5', name: '蜂鸣器驱动方式不当', level: 3, parentId: 'P3.6', category: 'experiment',
-    relatedKnowledgePoints: ['8', '2.3'],
+    relatedKnowledgePoints: ['8.6.1', '2.3.5'],
+    primaryKnowledgePointId: '8.6.1',
     difficulty: 'easy',
     description: '有源蜂鸣器和无源蜂鸣器使用方式混淆或驱动电流不足',
     solution: '有源蜂鸣器给电平就响；无源蜂鸣器需要方波驱动(频率决定音调)。均需三极管驱动',
@@ -1595,7 +1687,8 @@ export const problemGraph: ProblemNode[] = [
   },
   {
     id: 'P2.5.5', name: '中断标志位的手动清除遗漏', level: 3, parentId: 'P2.5', category: 'coding',
-    relatedKnowledgePoints: ['5.4', '6.1'],
+    relatedKnowledgePoints: ['7.2.1', '6.1.3', '5.3.2'],
+    primaryKnowledgePointId: '7.2.1',
     difficulty: 'medium',
     description: '部分中断标志位需要手动清除(如串口TI/RI)，遗漏导致重复进入中断',
     solution: '定时器溢出标志TF0/TF1由硬件自动清除；串口TI/RI必须软件清除；外部中断边沿触发自动清除',
@@ -1662,6 +1755,94 @@ export function getProblemPath(id: string): ProblemNode[] {
  */
 export function getProblemsByDifficulty(difficulty: ProblemNode['difficulty']): ProblemNode[] {
   return problemGraph.filter((p) => p.level === 3 && p.difficulty === difficulty);
+}
+
+/**
+ * Resolve the remediation anchor without treating array position as meaning.
+ * A single related point is unambiguous; multi-point problems must declare an
+ * explicit primaryKnowledgePointId that is also present in the related set.
+ */
+export function getProblemPrimaryKnowledgePointId(problem: ProblemNode): string | undefined {
+  const relatedIds = problem.relatedKnowledgePoints
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const explicitId = problem.primaryKnowledgePointId?.trim();
+
+  if (explicitId) return relatedIds.includes(explicitId) ? explicitId : undefined;
+  return relatedIds.length === 1 ? relatedIds[0] : undefined;
+}
+
+/**
+ * Translate a concrete diagnostic node into an executable, evidence-producing
+ * remediation sequence. The problem graph itself is navigation only: quiz,
+ * experiment and task state remain authoritative at their destination pages.
+ */
+export function getProblemRemediationPlan(problem: ProblemNode): ProblemRemediationPlan | null {
+  const primaryKnowledgePointId = getProblemPrimaryKnowledgePointId(problem);
+  if (problem.level !== 3 || !primaryKnowledgePointId) return null;
+
+  const chapter = Number(primaryKnowledgePointId.split('.')[0]);
+  if (!Number.isInteger(chapter) || chapter < 1 || chapter > 10) return null;
+
+  const isAddressingProblem = problem.relatedKnowledgePoints.some((id) => (
+    id === '3.1' || id.startsWith('3.1.')
+  ));
+  const reviewAction: ProblemRemediationAction = {
+    id: 'review',
+    title: `回到 KP ${primaryKnowledgePointId} 补学`,
+    purpose: '核对概念、例句、适用范围和常见误区。',
+    href: `/knowledge-graph?chapter=${chapter}&node=${encodeURIComponent(primaryKnowledgePointId)}`,
+    knowledgePointId: primaryKnowledgePointId,
+  };
+
+  if (!isAddressingProblem) {
+    return {
+      actions: [
+        reviewAction,
+        {
+          id: 'verify',
+          title: `完成第 ${chapter} 章测评`,
+          purpose: '提交完整答卷，由服务端保存得分和知识点结果。',
+          href: `/quiz?chapter=${chapter}`,
+        },
+      ],
+      completionRule: `查看 KP ${primaryKnowledgePointId}，并成功提交第 ${chapter} 章测评；测评结果以服务端回执为准。`,
+      stateBoundary: '问题图谱只提供诊断与入口，不直接修改知识掌握度、任务进度或测评分数。',
+      taskHref: '/tasks',
+    };
+  }
+
+  const initialQuizStep = ADDRESSING_TASK_PRESET.steps.find((step) => step.type === 'QUIZ');
+  const experimentStep = ADDRESSING_TASK_PRESET.steps.find((step) => step.type === 'SIMULATION');
+  const retestStep = ADDRESSING_TASK_PRESET.steps.find((step) => step.type === 'RETEST');
+  if (!initialQuizStep || !experimentStep || !retestStep) return null;
+
+  return {
+    actions: [
+      reviewAction,
+      {
+        id: 'verify',
+        title: '完成 3.1 专项测评',
+        purpose: '用固定题集验证七种寻址方式，薄弱点由服务端判定。',
+        href: initialQuizStep.href,
+      },
+      {
+        id: 'practice',
+        title: '完成 exp02 仿真实践',
+        purpose: '通过指令执行和内存变化验证规定的五种数据寻址方式。',
+        href: experimentStep.href,
+      },
+      {
+        id: 'retest',
+        title: '完成同口径再次测评',
+        purpose: '使用同一 quizId 的独立题组检验补学后的变化。',
+        href: retestStep.href,
+      },
+    ],
+    completionRule: `查看 KP ${primaryKnowledgePointId}，提交 3.1 专项测评，完成 exp02 服务端回执，再提交同一 quizId 的再次测评。`,
+    stateBoundary: '这里的入口用于自主补弱；每项结果由对应页面和服务端记录。若正在执行教师布置任务，请从“我的任务”按当前解锁步骤进入，问题图谱不会静默推进任务。',
+    taskHref: '/tasks',
+  };
 }
 
 // ============================================================================

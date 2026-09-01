@@ -547,9 +547,14 @@ function SerialTerminal({ uart }: { uart: SimulatorState['uart'] | undefined }) 
 
 // ─────────────────────────── 位状态面板（proj02/03/04） ───────────────────────────
 /** 通用位面板：每一项都来自实验配置里与代码注释核对过的端口位声明 */
-function BitPanel({ state, cfg }: { state: SimulatorState | null; cfg: PeripheralConfig }) {
+function BitPanel({ state, cfg, active }: {
+  state: SimulatorState | null;
+  cfg: PeripheralConfig;
+  active: boolean;
+}) {
   const entries = cfg.bitMap ?? [];
   const isOn = (e: BitMapEntry) => {
+    if (!active || !state) return false;
     const level = (portValue(state, e.port) >> e.bit) & 1;
     return e.activeLow ? level === 0 : level === 1;
   };
@@ -557,16 +562,20 @@ function BitPanel({ state, cfg }: { state: SimulatorState | null; cfg: Periphera
   // 小车行驶状态：由 L298N 四路控制位按代码子程序的真值组合推导
   let motionText: string | null = null;
   if (cfg.motion) {
-    const bitOf = (pb: [PortName, number]) => ((portValue(state, pb[0]) >> pb[1]) & 1);
-    const key = `${bitOf(cfg.motion.lf)}${bitOf(cfg.motion.lr)}${bitOf(cfg.motion.rf)}${bitOf(cfg.motion.rr)}`;
-    motionText = ({
-      '1010': '前进', '0101': '后退', '0010': '左转', '1000': '右转', '0000': '停止',
-    } as Record<string, string>)[key] ?? '组合输出';
+    if (!active || !state) {
+      motionText = '待运行';
+    } else {
+      const bitOf = (pb: [PortName, number]) => ((portValue(state, pb[0]) >> pb[1]) & 1);
+      const key = `${bitOf(cfg.motion.lf)}${bitOf(cfg.motion.lr)}${bitOf(cfg.motion.rf)}${bitOf(cfg.motion.rr)}`;
+      motionText = ({
+        '1010': '前进', '0101': '后退', '0010': '左转', '1000': '右转', '0000': '停止',
+      } as Record<string, string>)[key] ?? '组合输出';
+    }
   }
 
   // 串口上报尾巴（proj04 JSON），取真实发送缓冲最后两行
   const uartTail = cfg.showUartTail
-    ? (state?.uart?.transmitBuffer ?? '').split(/\r?\n/).filter(Boolean).slice(-2)
+    ? (active ? state?.uart?.transmitBuffer ?? '' : '').split(/\r?\n/).filter(Boolean).slice(-2)
     : [];
 
   return (
@@ -574,15 +583,15 @@ function BitPanel({ state, cfg }: { state: SimulatorState | null; cfg: Periphera
       {motionText && (
         <div className={cn(
           'flex items-center gap-2 rounded-lg border px-3 py-2',
-          motionText === '停止'
+          motionText === '停止' || motionText === '待运行'
             ? 'border-white/[0.08] bg-white/[0.03]'
             : 'border-cyan-300/30 bg-cyan-300/[0.08]',
         )}>
-          <Car className={cn('h-5 w-5', motionText === '停止' ? 'text-slate-500' : 'text-cyan-300')} />
+          <Car className={cn('h-5 w-5', motionText === '停止' || motionText === '待运行' ? 'text-slate-500' : 'text-cyan-300')} />
           <span className="text-[12px] text-slate-300">行驶状态（由 IN1~IN4 组合推导）</span>
           <span className={cn(
             'ml-auto font-mono text-sm font-semibold',
-            motionText === '停止' ? 'text-slate-400' : 'text-cyan-200',
+            motionText === '停止' || motionText === '待运行' ? 'text-slate-400' : 'text-cyan-200',
           )}>
             {motionText}
           </span>
@@ -615,7 +624,7 @@ function BitPanel({ state, cfg }: { state: SimulatorState | null; cfg: Periphera
                 'rounded px-1.5 py-0.5 font-mono text-[10px]',
                 on ? 'bg-cyan-300/15 text-cyan-200' : 'bg-white/[0.05] text-slate-500',
               )}>
-                {on ? e.onText ?? '有效' : e.offText ?? '无效'}
+                {!active || !state ? '待运行' : on ? e.onText ?? '有效' : e.offText ?? '无效'}
               </span>
             </div>
           );
@@ -844,7 +853,13 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           : null;
       case 'bitpanel':
         return peripheralCfg
-          ? <BitPanel state={simulatorState} cfg={peripheralCfg} />
+          ? (
+              <BitPanel
+                state={simulatorState}
+                cfg={peripheralCfg}
+                active={isRunning || (simulatorState?.pc ?? 0) > 0 || simulatorState?.terminated === true}
+              />
+            )
           : null;
       default:
         return null;
@@ -857,12 +872,16 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
     : null;
 
   return (
-    <section className="hidden min-w-[360px] flex-[1.05] flex-col overflow-hidden border-l border-white/[0.08] bg-[#0b1014] xl:flex">
+    <section
+      id="experiment-live-canvas"
+      aria-labelledby="experiment-live-canvas-title"
+      className="order-first flex h-[360px] min-h-[360px] w-full min-w-0 flex-shrink-0 scroll-mt-3 flex-col overflow-hidden border-b border-white/[0.08] bg-[#0b1014] lg:order-none lg:h-auto lg:min-h-[420px] lg:w-[360px] lg:min-w-[360px] lg:border-b-0 lg:border-l xl:flex-[1.05]"
+    >
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0e1317] px-3">
         <div className="flex items-center gap-2">
           <Waypoints className="h-4 w-4 text-cyan-200" />
           <div>
-            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-100">Experiment View</div>
+            <div id="experiment-live-canvas-title" className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-100">Experiment View</div>
             <div className="text-[10px] text-slate-500">实验画布 · 接线与运行状态</div>
           </div>
         </div>
@@ -876,7 +895,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           {isLed && (
             <div className="flex rounded-md border border-white/[0.1] bg-white/[0.04] p-0.5">
               {[
-                ['real', Camera, '真实图'],
+                ['real', Camera, '板级仿真'],
                 ['schematic', Waypoints, '接线图'],
               ].map(([key, Icon, label]) => (
                 <button
@@ -930,21 +949,24 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           <button
             onClick={() => setZoom(z => Math.min(2, +(z + 0.2).toFixed(2)))}
             title="放大"
-            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+            aria-label="放大接线画布"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))}
             title="缩小"
-            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+            aria-label="缩小接线画布"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setZoom(1)}
             title="重置视图"
-            className="rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 hover:text-slate-100"
+            aria-label="重置接线画布视图"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </button>

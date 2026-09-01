@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { GET } from '@/app/api/user/stats/route';
+import { DELETE, GET, PATCH, POST, PUT } from '@/app/api/user/stats/route';
 import { verifyToken } from '@/lib/auth';
 import { createMockNextRequest } from '../utils/test-mocks';
 
@@ -72,5 +72,24 @@ describe('/api/user/stats', () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
   });
-});
 
+  it.each([
+    ['POST', POST],
+    ['PUT', PUT],
+    ['PATCH', PATCH],
+    ['DELETE', DELETE],
+  ])('%s 不得伪装成统计写入成功', async (method, handler) => {
+    const req = createMockNextRequest('http://localhost:3000/api/user/stats', {
+      method,
+      headers: { authorization: 'Bearer valid-token' },
+    }) as unknown as NextRequest;
+
+    const res = await handler(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(405);
+    expect(res.headers.get('allow')).toBe('GET');
+    expect(res.headers.get('cache-control')).toContain('no-store');
+    expect(data.error).toContain('不支持客户端修改');
+  });
+});

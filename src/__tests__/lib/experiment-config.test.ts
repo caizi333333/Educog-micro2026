@@ -1,9 +1,13 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   experiments,
+  OFFICIAL_EXPERIMENT_IDS,
   getExperimentConfig,
   getExperimentsByCategory,
   checkPrerequisites
 } from '@/lib/experiment-config';
+import { knowledgePoints, resolveKnowledgeResourceHref } from '@/lib/knowledge-points';
 
 describe('Experiment Configuration', () => {
   describe('experiments array', () => {
@@ -35,6 +39,41 @@ describe('Experiment Configuration', () => {
       const ids = experiments.map(exp => exp.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(ids.length);
+    });
+
+    it('正式实验目录应与可执行配置一致且不含孤儿项目', () => {
+      expect(OFFICIAL_EXPERIMENT_IDS).toEqual(experiments.map((experiment) => experiment.id));
+      expect(OFFICIAL_EXPERIMENT_IDS).toEqual([
+        'exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09',
+        'proj01', 'proj02', 'proj03', 'proj04',
+      ]);
+      expect(OFFICIAL_EXPERIMENT_IDS.some((id) => /^proj0[5-8]$/.test(id))).toBe(false);
+    });
+
+    it('实验报告模板入口应指向已有可访问文件', () => {
+      const resource = knowledgePoints
+        .flatMap((point) => point.resources ?? [])
+        .find((item) => item.refId === 'doc-report-template');
+
+      expect(resource).toBeDefined();
+      expect(resource?.url).toBe('/resources/course/microcontroller-lab-report-1-8.pdf');
+      expect(resolveKnowledgeResourceHref(resource!, 9)).toBe(resource?.url);
+      expect(existsSync(join(process.cwd(), 'public', resource!.url!.slice(1)))).toBe(true);
+    });
+
+    it('知识资源中的实验入口应全部归属正式目录', () => {
+      const experimentResources = knowledgePoints
+        .flatMap((point) => point.resources ?? [])
+        .filter((resource) => resource.type === 'experiment');
+
+      expect(experimentResources).toHaveLength(31);
+      experimentResources.forEach((resource) => {
+        expect(resource.refId).toBeDefined();
+        expect(OFFICIAL_EXPERIMENT_IDS).toContain(resource.refId);
+        expect(resolveKnowledgeResourceHref(resource)).toBe(
+          `/simulation?experiment=${resource.refId}`,
+        );
+      });
     });
 
     it('应该包含不同难度级别的实验', () => {

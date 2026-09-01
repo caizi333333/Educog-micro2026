@@ -1,4 +1,5 @@
 import { ApiResponse, CacheEntry, PendingRequest, RequestConfig } from '@/types';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 
 class ApiClient {
   private baseURL: string;
@@ -64,7 +65,7 @@ class ApiClient {
 
   private getAuthToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('accessToken');
+    return getStoredAccessToken();
   }
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {

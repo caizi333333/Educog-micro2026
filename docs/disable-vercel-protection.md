@@ -23,7 +23,7 @@ vercel --prod
 
 部署完成后，您应该能够直接访问：
 - 主页：https://educog-micro-ilyiv2qj7-yancai-suns-projects.vercel.app
-- 初始化 API：https://educog-micro-ilyiv2qj7-yancai-suns-projects.vercel.app/api/init?secret=init-educog-2024
+- 初始化 API：通过 `POST /api/init` 调用，并在 `x-init-secret` 请求头中传入部署环境的 `INIT_SECRET`
 
 ## 注意事项
 

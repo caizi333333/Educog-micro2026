@@ -20,16 +20,16 @@ const sourceCodePro = Source_Code_Pro({
 
 
 export const metadata: Metadata = {
-  title: '芯智育才',
-  description: '"芯智育才"——基于AI大模型的微控制器课程智能化教学辅助平台',
+  title: '芯智育才｜微控制器课程教学平台',
+  description: '面向《微控制器原理及应用技术》的教学辅助平台，组织知识图谱、专项测评、仿真实践、补弱学习与教师复核。',
   keywords: '微控制器,8051,教学,AI,智能化教学,实验仿真,知识图谱',
   authors: [{ name: '芯智育才团队' }],
   creator: '芯智育才',
   publisher: '芯智育才',
   robots: 'index, follow',
   openGraph: {
-    title: '芯智育才',
-    description: '"芯智育才"——基于AI大模型的微控制器课程智能化教学辅助平台',
+    title: '芯智育才｜微控制器课程教学平台',
+    description: '以可核验的学习记录组织知识图谱、专项测评、仿真实践、补弱学习与教师复核。',
     type: 'website',
     locale: 'zh_CN',
   },
@@ -38,7 +38,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  themeColor: '#070a0d',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({

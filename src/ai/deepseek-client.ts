@@ -2,13 +2,14 @@
  * DeepSeek API 客户端
  * 用于与 DeepSeek API 进行通信
  */
+import { z } from 'zod';
 
-interface DeepSeekMessage {
+export interface DeepSeekMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-interface DeepSeekResponse {
+export interface DeepSeekResponse {
   id: string;
   object: string;
   created: number;
@@ -25,6 +26,31 @@ interface DeepSeekResponse {
   };
 }
 
+const responseMessageSchema = z.object({
+  role: z.enum(['system', 'user', 'assistant']).default('assistant'),
+  content: z.string().optional().default(''),
+});
+
+const deepSeekResponseSchema = z.object({
+  id: z.string(),
+  object: z.string(),
+  created: z.number(),
+  model: z.string(),
+  choices: z.array(z.object({
+    index: z.number(),
+    message: responseMessageSchema.nullish().transform((message) => message ?? {
+      role: 'assistant' as const,
+      content: '',
+    }),
+    finish_reason: z.string(),
+  })),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  }).optional(),
+});
+
 export class DeepSeekClient {
   private apiKey: string;
   private baseUrl: string = 'https://api.deepseek.com/v1';
@@ -34,6 +60,10 @@ export class DeepSeekClient {
   }
 
   async chat(messages: DeepSeekMessage[], model: string = 'deepseek-chat'): Promise<DeepSeekResponse> {
+    if (!this.apiKey.trim()) {
+      throw new Error('DEEPSEEK_API_KEY is not configured');
+    }
+
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒超时，真实提问常超过10秒
@@ -61,7 +91,12 @@ export class DeepSeekClient {
         throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
       }
 
-      return response.json();
+      const data: unknown = await response.json();
+      const parsed = deepSeekResponseSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new Error('DeepSeek API returned an invalid response');
+      }
+      return parsed.data;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
@@ -81,11 +116,11 @@ export class DeepSeekClient {
     messages.push({ role: 'user', content: prompt });
 
     const response = await this.chat(messages);
-    return response.choices[0]?.message?.content || '';
+    return response.choices[0]?.message?.content ?? '';
   }
 }
 
 // 创建单例实例
 export const deepseekClient = new DeepSeekClient(
-  process.env.DEEPSEEK_API_KEY || ''
+  process.env.DEEPSEEK_API_KEY ?? ''
 );

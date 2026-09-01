@@ -1,7 +1,7 @@
 name: CI
 
-# 部署本身由 Vercel 的 Git 集成处理（push 到 main → 自动 production；push 到分支 → 自动 preview）。
-# 这个 workflow 只做代码质量门槛（typecheck + 测试）。
+# 这个 workflow 是发布前置检查。仓库和 Vercel 项目还必须将 quality 设为 main
+# 的必需检查，并等待同一 SHA 检查通过后才允许生产发布。
 
 on:
   push:
@@ -14,11 +14,20 @@ env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
   NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+  JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     name: 代码质量
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: 检出代码
@@ -27,7 +36,7 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: 安装依赖
@@ -36,8 +45,14 @@ jobs:
       - name: 运行类型检查
         run: npm run typecheck
 
-      # 测试当前存在 ~50 个 pre-existing 失败（mock 漂移 / 断言陈旧）。
-      # 设为 non-blocking：失败显示警告但不阻塞 CI。修复测试是单独的技术债工单。
+      - name: 运行代码检查
+        run: npm run lint
+
       - name: 运行测试
-        run: npm test --if-present
-        continue-on-error: true
+        run: npm test -- --runInBand
+
+      - name: 检查依赖安全
+        run: npm audit --audit-level=high
+
+      - name: 验证生产构建
+        run: npm run build

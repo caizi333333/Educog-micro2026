@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { processAchievementResponse } from './use-achievement-notifications';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 
 export function useAchievementCheck() {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export function useAchievementCheck() {
     // Check achievements on app load
     const checkAchievements = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = getStoredAccessToken();
         if (!token) return;
 
         const response = await fetch('/api/achievements/check', {

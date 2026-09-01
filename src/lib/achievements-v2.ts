@@ -1,11 +1,9 @@
 /**
- * Enhanced Achievement System V2
- * 
- * 更吸引人的成就系统，具有：
- * - 渐进式成就（铜/银/金）
- * - 隐藏成就
- * - 连续性成就
- * - 特殊挑战成就
+ * Enhanced Achievement System V2 (Unified)
+ *
+ * Single source of truth for all achievement definitions.
+ * Legacy tiered achievements from achievement-system.ts are expanded
+ * into flat entries and merged here.
  */
 
 import type { Achievement, AchievementCategory, AchievementRarity } from '../types/global';
@@ -13,8 +11,81 @@ import type { Achievement, AchievementCategory, AchievementRarity } from '../typ
 // Re-export Achievement type for other modules
 export type { Achievement };
 
-// 成就定义
-export const ACHIEVEMENTS_V2: Achievement[] = [
+// Legacy tiered achievements expanded into flat entries
+export const ACHIEVEMENTS_LEGACY_FLAT: Achievement[] = [
+  // learning_time tiers
+  { id: 'learning_time_bronze', title: '学习达人 · 铜章', description: '累计学习1小时', icon: '🥉', category: 'progress', criteria: { type: 'learning_time', target: 3600 }, points: 50, rarity: 'common' },
+  { id: 'learning_time_silver', title: '学习达人 · 银章', description: '累计学习10小时', icon: '🥈', category: 'progress', criteria: { type: 'learning_time', target: 36000 }, points: 100, rarity: 'rare' },
+  { id: 'learning_time_gold', title: '学习达人 · 金章', description: '累计学习100小时', icon: '🥇', category: 'progress', criteria: { type: 'learning_time', target: 360000 }, points: 200, rarity: 'epic' },
+
+  // modules_completed tiers
+  { id: 'modules_completed_bronze', title: '知识探索者 · 铜章', description: '完成1个学习模块', icon: '🥉', category: 'progress', criteria: { type: 'modules_completed', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'modules_completed_silver', title: '知识探索者 · 银章', description: '完成5个学习模块', icon: '🥈', category: 'progress', criteria: { type: 'modules_completed', target: 5 }, points: 100, rarity: 'rare' },
+  { id: 'modules_completed_gold', title: '知识探索者 · 金章', description: '完成10个学习模块', icon: '🥇', category: 'progress', criteria: { type: 'modules_completed', target: 10 }, points: 200, rarity: 'epic' },
+
+  // learning_streak tiers
+  { id: 'learning_streak_bronze', title: '坚持不懈 · 铜章', description: '连续学习3天', icon: '🥉', category: 'social', criteria: { type: 'learning_streak', target: 3 }, points: 50, rarity: 'common' },
+  { id: 'learning_streak_silver', title: '坚持不懈 · 银章', description: '连续学习7天', icon: '🥈', category: 'social', criteria: { type: 'learning_streak', target: 7 }, points: 100, rarity: 'rare' },
+  { id: 'learning_streak_gold', title: '坚持不懈 · 金章', description: '连续学习30天', icon: '🥇', category: 'social', criteria: { type: 'learning_streak', target: 30 }, points: 200, rarity: 'epic' },
+
+  // quizzes_completed tiers
+  { id: 'quizzes_completed_bronze', title: '测验达人 · 铜章', description: '完成1次测验', icon: '🥉', category: 'quiz', criteria: { type: 'quizzes_completed', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'quizzes_completed_silver', title: '测验达人 · 银章', description: '完成10次测验', icon: '🥈', category: 'quiz', criteria: { type: 'quizzes_completed', target: 10 }, points: 100, rarity: 'rare' },
+  { id: 'quizzes_completed_gold', title: '测验达人 · 金章', description: '完成50次测验', icon: '🥇', category: 'quiz', criteria: { type: 'quizzes_completed', target: 50 }, points: 200, rarity: 'epic' },
+
+  // perfect_scores tiers
+  { id: 'perfect_scores_bronze', title: '满分大师 · 铜章', description: '获得1次满分', icon: '🥉', category: 'quiz', criteria: { type: 'perfect_scores', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'perfect_scores_silver', title: '满分大师 · 银章', description: '获得5次满分', icon: '🥈', category: 'quiz', criteria: { type: 'perfect_scores', target: 5 }, points: 100, rarity: 'rare' },
+  { id: 'perfect_scores_gold', title: '满分大师 · 金章', description: '获得20次满分', icon: '🥇', category: 'quiz', criteria: { type: 'perfect_scores', target: 20 }, points: 200, rarity: 'epic' },
+
+  // quiz_average tiers
+  { id: 'quiz_average_bronze', title: '优秀学员 · 铜章', description: '平均分达到70分', icon: '🥉', category: 'quiz', criteria: { type: 'quiz_average', target: 70 }, points: 50, rarity: 'common' },
+  { id: 'quiz_average_silver', title: '优秀学员 · 银章', description: '平均分达到85分', icon: '🥈', category: 'quiz', criteria: { type: 'quiz_average', target: 85 }, points: 100, rarity: 'rare' },
+  { id: 'quiz_average_gold', title: '优秀学员 · 金章', description: '平均分达到95分', icon: '🥇', category: 'quiz', criteria: { type: 'quiz_average', target: 95 }, points: 200, rarity: 'epic' },
+
+  // experiments_completed tiers
+  { id: 'experiments_completed_bronze', title: '实验专家 · 铜章', description: '完成1个实验', icon: '🥉', category: 'experiment', criteria: { type: 'experiments_completed', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'experiments_completed_silver', title: '实验专家 · 银章', description: '完成5个实验', icon: '🥈', category: 'experiment', criteria: { type: 'experiments_completed', target: 5 }, points: 100, rarity: 'rare' },
+  { id: 'experiments_completed_gold', title: '实验专家 · 金章', description: '完成所有实验', icon: '🥇', category: 'experiment', criteria: { type: 'experiments_completed', target: 8 }, points: 200, rarity: 'epic' },
+
+  // experiment_time tiers
+  { id: 'experiment_time_bronze', title: '实验研究员 · 铜章', description: '实验时长达到1小时', icon: '🥉', category: 'experiment', criteria: { type: 'experiment_time', target: 3600 }, points: 50, rarity: 'common' },
+  { id: 'experiment_time_silver', title: '实验研究员 · 银章', description: '实验时长达到5小时', icon: '🥈', category: 'experiment', criteria: { type: 'experiment_time', target: 18000 }, points: 100, rarity: 'rare' },
+  { id: 'experiment_time_gold', title: '实验研究员 · 金章', description: '实验时长达到10小时', icon: '🥇', category: 'experiment', criteria: { type: 'experiment_time', target: 36000 }, points: 200, rarity: 'epic' },
+
+  // total_points tiers
+  { id: 'total_points_bronze', title: '积分收集者 · 铜章', description: '累计获得500积分', icon: '🥉', category: 'progress', criteria: { type: 'total_points', target: 500 }, points: 50, rarity: 'common' },
+  { id: 'total_points_silver', title: '积分收集者 · 银章', description: '累计获得2000积分', icon: '🥈', category: 'progress', criteria: { type: 'total_points', target: 2000 }, points: 100, rarity: 'rare' },
+  { id: 'total_points_gold', title: '积分收集者 · 金章', description: '累计获得5000积分', icon: '🥇', category: 'progress', criteria: { type: 'total_points', target: 5000 }, points: 200, rarity: 'epic' },
+
+  // achievements_unlocked tiers
+  { id: 'achievements_unlocked_bronze', title: '成就猎人 · 铜章', description: '解锁5个成就', icon: '🥉', category: 'progress', criteria: { type: 'achievements_unlocked', target: 5 }, points: 50, rarity: 'common' },
+  { id: 'achievements_unlocked_silver', title: '成就猎人 · 银章', description: '解锁15个成就', icon: '🥈', category: 'progress', criteria: { type: 'achievements_unlocked', target: 15 }, points: 100, rarity: 'rare' },
+  { id: 'achievements_unlocked_gold', title: '成就猎人 · 金章', description: '解锁30个成就', icon: '🥇', category: 'progress', criteria: { type: 'achievements_unlocked', target: 30 }, points: 200, rarity: 'epic' },
+
+  // Special achievements
+  { id: 'first_quiz_special', title: '初试身手', description: '完成第一次测验', icon: '🎯', category: 'quiz', criteria: { type: 'quizzes_completed', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'first_module_special', title: '学习起步', description: '完成第一个学习模块', icon: '📚', category: 'progress', criteria: { type: 'modules_completed', target: 1 }, points: 50, rarity: 'common' },
+  { id: 'first_experiment_special', title: '实验新手', description: '完成第一个实验', icon: '🔬', category: 'experiment', criteria: { type: 'experiments_completed', target: 1 }, points: 50, rarity: 'common' },
+];
+
+// V2 original achievements (kept as-is)
+const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
+  // === 账号入门 ===
+  // 注册与首次登录流程会持久化 first_login。将它纳入统一目录，避免
+  // 学情分析按数据库记录显示 1 项，而勋章墙因目录缺项显示 0 项。
+  // 该记录只确认账户生命周期事件，不代表学习投入或任务完成，因此
+  // 与 auth.ts 的落库语义保持一致，不发放学习积分。
+  {
+    id: 'first_login',
+    title: '初次登录',
+    description: '完成账号注册或首次登录',
+    icon: '🎯',
+    category: 'progress',
+    criteria: { type: 'achievements_unlocked', target: 1 },
+    points: 0,
+    rarity: 'common',
+  },
   // === 学习成就 ===
   {
     id: 'first_steps',
@@ -248,6 +319,15 @@ export const ACHIEVEMENTS_V2: Achievement[] = [
   },
 ];
 
+// Unified list: V2 originals + legacy flat entries (deduplicated by id)
+const _v2Ids = new Set(ACHIEVEMENTS_V2_ORIGINAL.map(a => a.id));
+const _mergedLegacy = ACHIEVEMENTS_LEGACY_FLAT.filter(a => !_v2Ids.has(a.id));
+
+export const ALL_ACHIEVEMENTS: Achievement[] = [...ACHIEVEMENTS_V2_ORIGINAL, ..._mergedLegacy];
+
+// Backward-compatible alias: ACHIEVEMENTS_V2 now points to the unified list
+export { ALL_ACHIEVEMENTS as ACHIEVEMENTS_V2 };
+
 // 成就进度追踪
 export interface AchievementProgress {
   achievementId: string;
@@ -310,7 +390,7 @@ export function shouldShowHiddenAchievement(
   }
 
   // 检查是否已解锁同类别的高级成就
-  const categoryAchievements = ACHIEVEMENTS_V2.filter(
+  const categoryAchievements = ACHIEVEMENTS_V2_ORIGINAL.filter(
     a => a.category === achievement.category && !a.hidden
   );
   
@@ -487,7 +567,7 @@ export const RARITY_STYLES = {
 
 // Get achievements by category
 export function getAchievementsByCategory(category: string): Achievement[] {
-  return ACHIEVEMENTS_V2.filter(achievement => achievement.category === category);
+  return ALL_ACHIEVEMENTS.filter(achievement => achievement.category === category);
 }
 
 interface UserProgressStats {

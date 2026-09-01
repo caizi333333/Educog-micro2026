@@ -20,6 +20,14 @@ export type CodeCompletionQuestion = {
 };
 
 export type Question = MultipleChoiceQuestion | CodeCompletionQuestion;
+export type PublicQuestion =
+  | Omit<MultipleChoiceQuestion, 'correctAnswer'>
+  | Omit<CodeCompletionQuestion, 'correctAnswer'>;
+
+export function toPublicQuestion(question: Question): PublicQuestion {
+  const { correctAnswer: _correctAnswer, ...publicQuestion } = question;
+  return publicQuestion;
+}
 
 export const quizQuestions: Question[] = [
   {
@@ -55,7 +63,7 @@ export const quizQuestions: Question[] = [
     questionText: '指令 `MOV A, #30H` 采用的是哪种寻址方式？',
     options: ['直接寻址', '寄存器寻址', '立即寻址', '寄存器间接寻址'],
     correctAnswer: '立即寻址',
-    ka: '3.1',
+    ka: '3.1.1',
     chapter: 3,
   },
   {
@@ -245,7 +253,7 @@ LOOP_HERE:
     questionText: '指令 `MOVC A, @A+DPTR` 主要用于什么场合？',
     options: ['访问内部RAM', '访问外部RAM', '从程序存储器查表', '访问特殊功能寄存器'],
     correctAnswer: '从程序存储器查表',
-    ka: '3.1',
+    ka: '3.1.5',
     chapter: 3,
   },
   {
@@ -255,7 +263,7 @@ LOOP_HERE:
     code: `MOV R0, #40H
 ___`,
     correctAnswer: 'MOV A, @R0',
-    ka: '3.1',
+    ka: '3.1.4',
     chapter: 3,
   },
   {
@@ -497,7 +505,7 @@ LOOP_START:
     questionText: '访问内部RAM地址为60H的单元，属于哪种寻址方式？',
     options: ['立即寻址', '直接寻址', '寄存器寻址', '间接寻址'],
     correctAnswer: '直接寻址',
-    ka: '3.1',
+    ka: '3.1.2',
     chapter: 3,
   },
   {
@@ -557,7 +565,7 @@ ___ ; 开始计时
     questionText: '中断响应后，CPU会自动将哪个寄存器的内容压入堆栈？',
     options: ['A', 'PSW', 'PC', 'SP'],
     correctAnswer: 'PC',
-    ka: '5.3',
+    ka: '5.4',
     chapter: 5,
   },
   {
@@ -932,10 +940,10 @@ ACALL SEND_CHAR`,
   {
     id: 95,
     type: 'multiple-choice',
-    questionText: '`MOV A, @R0` 指令中，R0可以寻址的内部RAM范围是多少？',
-    options: ['00H - 1FH', '00H - 2FH', '00H - 7FH', '80H - FFH'],
-    correctAnswer: '00H - 7FH',
-    ka: '3.1',
+    questionText: '指令 `MOV A, R3` 中源操作数采用的寻址方式是？',
+    options: ['立即寻址', '直接寻址', '寄存器寻址', '寄存器间接寻址'],
+    correctAnswer: '寄存器寻址',
+    ka: '3.1.3',
     chapter: 3,
   },
   {
@@ -969,13 +977,11 @@ ___       ; 执行后 A = 00000011B`,
   {
     id: 99,
     type: 'code-completion',
-    questionText: '补全代码，查表获取字符\'A\'（十六进制值为10）的共阴极段码（77H）。',
-    code: `SEG_TABLE: DB ..., 77H, ...
-MOV A, #10
-MOV DPTR, #SEG_TABLE
+    questionText: '补全代码，将位地址 20H 对应的位清零。',
+    code: `; 使用位操作指令清除位地址20H
 ___`,
-    correctAnswer: 'MOVC A, @A+DPTR',
-    ka: '3.1',
+    correctAnswer: 'CLR 20H',
+    ka: '3.1.7',
     chapter: 3,
   },
   {
@@ -1162,20 +1168,20 @@ ADC_TO_BCD:
   {
     id: 115,
     type: 'multiple-choice',
-    questionText: '8051有几种寻址方式？',
-    options: ['4种', '5种', '6种', '7种'],
-    correctAnswer: '7种',
-    ka: '3.1',
+    questionText: '`SJMP LOOP` 的目标地址由当前PC与偏移量共同形成，这属于哪种寻址方式？',
+    options: ['立即寻址', '直接寻址', '相对寻址', '位寻址'],
+    correctAnswer: '相对寻址',
+    ka: '3.1.6',
     chapter: 3,
   },
   {
     id: 116,
     type: 'code-completion',
-    questionText: '补全代码，使用寄存器间接寻址读取内部RAM 30H单元的内容。',
-    code: `MOV R0, #30H     ; R0指向30H地址
-___              ; 将30H单元内容读入累加器`,
-    correctAnswer: 'MOV A, @R0',
-    ka: '3.1',
+    questionText: '补全代码，将P1.0置1，要求使用位寻址指令。',
+    code: `; 使用位操作指令将P1.0置1
+___`,
+    correctAnswer: 'SETB P1.0',
+    ka: '3.1.7',
     chapter: 3,
   },
   {
@@ -1184,29 +1190,27 @@ ___              ; 将30H单元内容读入累加器`,
     questionText: '指令"MOV A, #20H"使用的是什么寻址方式？',
     options: ['直接寻址', '立即寻址', '寄存器寻址', '间接寻址'],
     correctAnswer: '立即寻址',
-    ka: '3.1',
+    ka: '3.1.1',
     chapter: 3,
   },
   {
     id: 118,
     type: 'code-completion',
-    questionText: '补全代码，使用变址寻址读取程序存储器中的数据表。',
-    code: `DPTR_TABLE: DB 10H, 20H, 30H, 40H
-    ...
-    MOV A, #2       ; 读取第3个数据(30H)
-    MOV DPTR, #DPTR_TABLE
+    questionText: '补全短跳转指令，使程序以相对寻址方式跳回 LOOP。',
+    code: `LOOP:
+    INC A
     ___`,
-    correctAnswer: 'MOVC A, @A+DPTR',
-    ka: '3.1',
+    correctAnswer: 'SJMP LOOP',
+    ka: '3.1.6',
     chapter: 3,
   },
   {
     id: 119,
     type: 'multiple-choice',
-    questionText: '"MOV @R1, A"指令中的@R1属于什么寻址方式？',
+    questionText: '指令 `ADD A, R6` 中的 R6 采用什么寻址方式？',
     options: ['直接寻址', '寄存器寻址', '寄存器间接寻址', '相对寻址'],
-    correctAnswer: '寄存器间接寻址',
-    ka: '3.1',
+    correctAnswer: '寄存器寻址',
+    ka: '3.1.3',
     chapter: 3,
   },
 
@@ -1419,8 +1423,9 @@ SKIP:
     POP ACC
     RETI`,
     correctAnswer: '0',
-    ka: '9.3',
-    chapter: 9,
+    // 由定时中断驱动的轮询调度，归入“定时器应用”，不误标为系统调试。
+    ka: '6.3',
+    chapter: 6,
   },
 
   // === 扩展题目 (136-200) ===
@@ -1683,7 +1688,7 @@ ___  TF1, T1_OVERFLOW  ; 如果TF1=1则跳转`,
     questionText: '8051共有几个中断源？',
     options: ['3个', '4个', '5个', '6个'],
     correctAnswer: '5个',
-    ka: '5.1',
+    ka: '5.2.1',
     chapter: 5,
   },
   {
@@ -1953,16 +1958,16 @@ CALL DELAY_1MS
 CLR WDT_PIN
 RET`,
     correctAnswer: 'SETB',
-    ka: '9.4',
-    chapter: 9,
+    ka: '2.5.3',
+    chapter: 2,
   },
   {
     id: 188,
     type: 'multiple-choice',
-    questionText: '在多传感器数据采集系统中，如何提高系统可靠性？',
-    options: ['增加采样频率', '使用多重校验', '提高处理速度', '增加存储容量'],
-    correctAnswer: '使用多重校验',
-    ka: '9.4',
+    questionText: '系统方案设计阶段，为提高多传感器采集的可靠性，应优先采取哪项措施？',
+    options: ['只提高采样频率', '定义校验、异常值处理和冗余策略', '只增加存储容量', '取消传感器状态检查'],
+    correctAnswer: '定义校验、异常值处理和冗余策略',
+    ka: '9.1.2',
     chapter: 9,
   },
   {
@@ -1975,16 +1980,16 @@ MOV SP, #07H     ; 重置堆栈指针
 MOV PSW, #00H    ; 清除状态字
 ___  MAIN        ; 跳转到主程序`,
     correctAnswer: 'LJMP',
-    ka: '9.4',
-    chapter: 9,
+    ka: '2.5',
+    chapter: 2,
   },
   {
     id: 190,
     type: 'multiple-choice',
-    questionText: '在实时控制系统中，最重要的性能指标是什么？',
+    questionText: '对具有明确截止时间的实时控制系统，性能测试时首先要核对哪项指标？',
     options: ['处理速度', '存储容量', '响应时间', '功耗'],
     correctAnswer: '响应时间',
-    ka: '9.3',
+    ka: '9.3.4',
     chapter: 9,
   },
 
@@ -1992,26 +1997,24 @@ ___  MAIN        ; 跳转到主程序`,
   {
     id: 191,
     type: 'multiple-choice',
-    questionText: '在工业控制中，PID控制算法的三个参数分别代表什么？',
-    options: ['比例、积分、微分', '功率、电流、电压', '频率、相位、幅度', '输入、输出、反馈'],
-    correctAnswer: '比例、积分、微分',
-    ka: '9.3',
+    questionText: '系统软件按“采集—判断—执行”拆分为独立模块，主要工程目的是什么？',
+    options: ['降低模块耦合，便于独立测试与联调', '提高晶振频率', '增加存储器容量', '取消软硬件接口定义'],
+    correctAnswer: '降低模块耦合，便于独立测试与联调',
+    ka: '9.1.4',
     chapter: 9,
   },
   {
     id: 192,
     type: 'code-completion',
-    questionText: '补全代码，实现简单的PID控制算法。',
-    code: `; PID控制计算
-MOV A, SETPOINT
-SUBB A, FEEDBACK  ; 计算误差
-MOV ERROR, A
-; 比例项计算
-MOV B, KP
-___               ; 误差×比例系数
-MOV P_TERM, A`,
-    correctAnswer: 'MUL AB',
-    ka: '9.3',
+    questionText: '补全主循环代码，按模块顺序调用采集、控制和显示任务。',
+    code: `; 模块化主循环
+MAIN_LOOP:
+LCALL SAMPLE_TASK
+LCALL CONTROL_TASK
+___ DISPLAY_TASK
+SJMP MAIN_LOOP`,
+    correctAnswer: 'LCALL',
+    ka: '9.1.4',
     chapter: 9,
   },
   {
@@ -2041,11 +2044,11 @@ RET`,
   {
     id: 195,
     type: 'multiple-choice',
-    questionText: '在嵌入式系统设计中，低功耗设计的主要方法有哪些？',
-    options: ['降低时钟频率', '使用睡眠模式', '优化算法', '以上都是'],
+    questionText: '在8051应用中，降低运行功耗并在空闲时节能的方法有哪些？',
+    options: ['降低时钟频率', '进入空闲或掉电模式', '减少无效轮询', '以上都是'],
     correctAnswer: '以上都是',
-    ka: '9.4',
-    chapter: 9,
+    ka: '2.7',
+    chapter: 2,
   },
   {
     id: 196,
@@ -2054,8 +2057,8 @@ RET`,
     code: `; 进入空闲模式
 MOV PCON, #___H   ; 设置IDL位`,
     correctAnswer: '01',
-    ka: '9.4',
-    chapter: 9,
+    ka: '2.7',
+    chapter: 2,
   },
   {
     id: 197,
@@ -2063,7 +2066,7 @@ MOV PCON, #___H   ; 设置IDL位`,
     questionText: '在多任务系统中，任务调度的基本原则是什么？',
     options: ['先来先服务', '优先级调度', '时间片轮转', '根据系统需求选择'],
     correctAnswer: '根据系统需求选择',
-    ka: '9.3',
+    ka: '9.1.4',
     chapter: 9,
   },
   {
@@ -2080,7 +2083,7 @@ POP PSW
 POP ACC
 RET`,
     correctAnswer: 'CALL',
-    ka: '9.3',
+    ka: '9.1.4',
     chapter: 9,
   },
   {
@@ -2089,7 +2092,7 @@ RET`,
     questionText: '在系统调试中，最有效的调试方法是什么？',
     options: ['单步执行', '断点调试', '逻辑分析仪', '综合使用多种方法'],
     correctAnswer: '综合使用多种方法',
-    ka: '9.2',
+    ka: '9.3.3',
     chapter: 9,
   },
   {
@@ -2108,7 +2111,7 @@ TEST_OK:
 MOV A, #00H       ; 测试成功标志
 RET`,
     correctAnswer: 'JC',
-    ka: '9.2',
+    ka: '9.3.5',
     chapter: 9,
   },
 
@@ -2408,7 +2411,7 @@ RET`,
     questionText: '指令 `MOV A, 30H` 中操作数 30H 采用的寻址方式是？',
     options: ['立即寻址', '直接寻址', '寄存器寻址', '寄存器间接寻址'],
     correctAnswer: '直接寻址',
-    ka: '3.1',
+    ka: '3.1.2',
     chapter: 3,
   },
   {
@@ -2417,7 +2420,7 @@ RET`,
     questionText: '指令 `MOV A, @R0` 中 @R0 表示？',
     options: ['立即数', '直接地址', 'R0 中存放的是操作数地址（间接寻址）', '寄存器 R0 本身的内容'],
     correctAnswer: 'R0 中存放的是操作数地址（间接寻址）',
-    ka: '3.1',
+    ka: '3.1.4',
     chapter: 3,
   },
   {
@@ -2426,7 +2429,7 @@ RET`,
     questionText: '查 ROM 表时常用 `MOVC A, @A+DPTR`，这种寻址方式称为？',
     options: ['寄存器寻址', '相对寻址', '变址寻址（基址 + 变址）', '位寻址'],
     correctAnswer: '变址寻址（基址 + 变址）',
-    ka: '3.1',
+    ka: '3.1.5',
     chapter: 3,
   },
   {
@@ -3011,5 +3014,161 @@ RET`,
     correctAnswer: '人工智能与物联网的融合',
     ka: '10.4',
     chapter: 10,
-  }
+  },
+  {
+    id: 299,
+    type: 'multiple-choice',
+    questionText: 'AI助教给出一个8051寄存器结论时，最合适的处理是？',
+    options: ['直接复制进报告', '用教材或数据手册核对，并通过仿真验证关键结果', '只看回答是否流畅', '让AI再次回答相同问题即可'],
+    correctAnswer: '用教材或数据手册核对，并通过仿真验证关键结果',
+    ka: '10.5.1',
+    chapter: 10,
+  },
+  {
+    id: 300,
+    type: 'multiple-choice',
+    questionText: '下列哪项不应提交给外部AI服务？',
+    options: ['公开的8051指令名称', '已脱敏的示例代码', '平台登录令牌和学生身份信息', '教材中的公开概念'],
+    correctAnswer: '平台登录令牌和学生身份信息',
+    ka: '10.5.2',
+    chapter: 10,
+  },
+  {
+    id: 301,
+    type: 'multiple-choice',
+    questionText: '为了让AI辅助分析更可控，提示中最应包含什么？',
+    options: ['明确对象、输入输出、约束和验收条件', '只写“帮我做好”', '要求模型保证百分之百正确', '省略课程和硬件条件'],
+    correctAnswer: '明确对象、输入输出、约束和验收条件',
+    ka: '10.5.3',
+    chapter: 10,
+  },
+  {
+    id: 302,
+    type: 'multiple-choice',
+    questionText: 'AI解释一段程序“没有错误”，最终应以什么作为正确性依据？',
+    options: ['AI的语气是否肯定', '编译、仿真、测试记录和教师评价', '代码行数', '生成速度'],
+    correctAnswer: '编译、仿真、测试记录和教师评价',
+    ka: '10.5.4',
+    chapter: 10,
+  },
+  {
+    id: 303,
+    type: 'multiple-choice',
+    questionText: '在课程项目中使用AI辅助后，符合学术诚信的做法是？',
+    options: ['隐去AI参与并直接提交', '保留个人推理、核验记录并说明AI辅助范围', '让AI代替全部实验', '删除所有版本记录'],
+    correctAnswer: '保留个人推理、核验记录并说明AI辅助范围',
+    ka: '10.5.5',
+    chapter: 10,
+  },
+
+  // === 2026 备赛覆盖补题：53 个二级知识点每个至少 3 题 ===
+  {
+    id: 304,
+    type: 'multiple-choice',
+    questionText: '标准8051进入空闲模式后，下列哪项描述正确？',
+    options: ['CPU停止执行而中断等外设可继续工作', '内部RAM立即丢失数据', '所有外设时钟都被关闭', '只能断电后才能退出'],
+    correctAnswer: 'CPU停止执行而中断等外设可继续工作',
+    ka: '2.7',
+    chapter: 2,
+  },
+  {
+    id: 305,
+    type: 'multiple-choice',
+    questionText: '用8051控制无源蜂鸣器演奏不同音高时，程序应主要改变哪个参数？',
+    options: ['输出方波的频率', '单片机的复位时间', '蜂鸣器的安装方向', '程序存储器容量'],
+    correctAnswer: '输出方波的频率',
+    ka: '8.6',
+    chapter: 8,
+  },
+  {
+    id: 306,
+    type: 'multiple-choice',
+    questionText: '下列哪项最准确地区分有源蜂鸣器和无源蜂鸣器的控制方式？',
+    options: ['有源型通断控制即可发声，无源型需外部方波激励', '两者都只能输出固定音高', '有源型必须使用ADC驱动', '无源型加直流电平即可持续发出指定音高'],
+    correctAnswer: '有源型通断控制即可发声，无源型需外部方波激励',
+    ka: '8.6',
+    chapter: 8,
+  },
+  {
+    id: 307,
+    type: 'multiple-choice',
+    questionText: '蜂鸣器所需电流超过8051 I/O口安全驱动能力时，较合理的接口方案是？',
+    options: ['用带限流电阻的三极管或MOS管做开关驱动', '直接并联多个I/O口提供电流', '去掉所有限流元件', '将蜂鸣器接到晶振引脚'],
+    correctAnswer: '用带限流电阻的三极管或MOS管做开关驱动',
+    ka: '8.6',
+    chapter: 8,
+  },
+  {
+    id: 308,
+    type: 'multiple-choice',
+    questionText: '在生成Gerber文件前执行PCB设计规则检查（DRC），其主要目的是？',
+    options: ['检查线宽、间距、未连接网络等是否违反制造规则', '自动证明所有软件功能正确', '替代原理图的电气设计', '确定程序的执行时间'],
+    correctAnswer: '检查线宽、间距、未连接网络等是否违反制造规则',
+    ka: '9.2',
+    chapter: 9,
+  },
+  {
+    id: 309,
+    type: 'multiple-choice',
+    questionText: '在8051最小系统PCB布局中，0.1 μF去耦电容应优先如何放置？',
+    options: ['紧靠芯片电源与地引脚，使回路尽量短', '统一放在PCB边缘', '与晶振走线并行走长线', '放在大电流电机驱动器旁'],
+    correctAnswer: '紧靠芯片电源与地引脚，使回路尽量短',
+    ka: '9.2',
+    chapter: 9,
+  },
+  {
+    id: 310,
+    type: 'multiple-choice',
+    questionText: '为使单片机项目测试结果可复核，技术报告至少应同时记录什么？',
+    options: ['软硬件版本、测试条件、步骤、期望与实际结果', '只记录最终结论', '只放置成功截图', '删除与预期不一致的记录'],
+    correctAnswer: '软硬件版本、测试条件、步骤、期望与实际结果',
+    ka: '9.4',
+    chapter: 9,
+  },
+  {
+    id: 311,
+    type: 'multiple-choice',
+    questionText: '团队协作开发中，哪种版本记录最有利于追溯问题？',
+    options: ['每次提交聚焦一项变更，写明原因并关联测试结果', '所有成员长期直接覆盖同一文件', '只在答辩前一次性备份', '发现失败即删除对应历史'],
+    correctAnswer: '每次提交聚焦一项变更，写明原因并关联测试结果',
+    ka: '9.4',
+    chapter: 9,
+  },
+  {
+    id: 312,
+    type: 'multiple-choice',
+    questionText: '项目答辩时现场演示出现与预期不一致的现象，较规范的处理方式是？',
+    options: ['说明当前现象、展示原始测试记录并给出已验证的备用演示', '隐藏问题并声称功能正常', '临时修改数据使画面符合预期', '删除报告中的相关验证条件'],
+    correctAnswer: '说明当前现象、展示原始测试记录并给出已验证的备用演示',
+    ka: '9.4',
+    chapter: 9,
+  },
+  {
+    id: 313,
+    type: 'multiple-choice',
+    questionText: '按中断请求的来源分类，8051定时器溢出中断属于哪一类？',
+    options: ['内部中断', '外部中断', '不可屏蔽中断', '软件复位'],
+    correctAnswer: '内部中断',
+    ka: '5.1.2',
+    chapter: 5,
+  },
 ];
+
+export const COMPREHENSIVE_QUESTIONS_PER_CHAPTER = 2;
+
+/**
+ * 综合测评使用固定、可复现的章节抽样卷，避免把整套题库直接当作一次测评。
+ * 每章按正式题库顺序选取前两题；题库变更后仍保持相同的选题规则。
+ */
+export function getComprehensiveQuestions(): Question[] {
+  const selectedByChapter = new Map<number, Question[]>();
+  for (const question of quizQuestions) {
+    const selected = selectedByChapter.get(question.chapter) ?? [];
+    if (selected.length >= COMPREHENSIVE_QUESTIONS_PER_CHAPTER) continue;
+    selected.push(question);
+    selectedByChapter.set(question.chapter, selected);
+  }
+  return [...selectedByChapter.entries()]
+    .sort(([chapterA], [chapterB]) => chapterA - chapterB)
+    .flatMap(([, questions]) => questions);
+}

@@ -3,6 +3,11 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { normalizeLearningEventInput } from '@/lib/classroom';
 
+// New class codes are eight characters, while the shipped demo classes use
+// seven-character legacy codes (for example EDU2401). Keep those existing
+// classes joinable without weakening the character whitelist.
+const CLASS_INVITE_CODE_PATTERN = /^[A-Z0-9]{7,8}$/;
+
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get('authorization');
@@ -19,10 +24,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只有学生账号可以加入班级' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const inviteCode = typeof body.classInviteCode === 'string' ? body.classInviteCode.trim() : '';
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+    }
+    const inviteCode = typeof body.classInviteCode === 'string'
+      ? body.classInviteCode.trim().toUpperCase()
+      : '';
     if (!inviteCode) {
       return NextResponse.json({ error: '班级邀请码不能为空' }, { status: 400 });
+    }
+    if (!CLASS_INVITE_CODE_PATTERN.test(inviteCode)) {
+      return NextResponse.json({ error: '班级邀请码格式无效' }, { status: 400 });
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
@@ -89,6 +104,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('加入班级失败:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : '加入班级失败' }, { status: 400 });
+    if (error instanceof Error && error.message === '班级邀请码无效或已停用') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    return NextResponse.json({ error: '加入班级失败，请稍后重试' }, { status: 500 });
   }
 }

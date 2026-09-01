@@ -1,33 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getModuleIdForChapter, parseLearningTaskSteps } from '@/lib/lesson-tasks';
+import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 
-function safeParseJSON(raw: string, fallback: unknown = []): unknown {
-  try { return JSON.parse(raw); } catch { return fallback; }
-}
-
-interface UserProgressData {
-  userId: string;
-  nodeId: string;
-  pathId?: string;
-  progress: number; // 0-100
-  timeSpent: number; // minutes
-  lastAccessed: string;
-  completed: boolean;
-  mastery: number; // 0-100
+function getNodeQuizIds(point: KnowledgePoint | undefined): string[] {
+  const quizIds = new Set<string>();
+  let current = point;
+  while (current) {
+    current.resources?.forEach((resource) => {
+      if (resource.type === 'quiz' && resource.refId) quizIds.add(resource.refId);
+    });
+    const parentId = current.parentId;
+    current = parentId
+      ? knowledgePoints.find((candidate) => candidate.id === parentId)
+      : undefined;
+  }
+  return [...quizIds];
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
+    const authorization = request.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
       }, { status: 401 });
     }
 
-    const decoded = await verifyToken(token);
+    const decoded = await verifyToken(authorization.substring(7));
     if (!decoded) {
       return NextResponse.json({
         success: false,
@@ -39,18 +41,29 @@ export async function GET(request: NextRequest) {
     const nodeId = searchParams.get('nodeId');
     const pathId = searchParams.get('pathId');
     const userId = decoded.userId;
+    if ((nodeId && !/^[A-Za-z0-9._-]{1,128}$/.test(nodeId)) || (pathId && !/^[A-Za-z0-9._-]{1,128}$/.test(pathId))) {
+      return NextResponse.json({ success: false, error: 'Invalid query parameter' }, { status: 400 });
+    }
 
     // Get progress for a specific node
     if (nodeId) {
+      const point = knowledgePoints.find((candidate) => candidate.id === nodeId);
+      const resolvedModuleId = point ? getModuleIdForChapter(point.chapter) : nodeId;
+      const resolvedChapterId = point ? `ch${point.chapter}` : undefined;
       const record = await prisma.learningProgress.findFirst({
-        where: { userId, moduleId: nodeId },
+        where: {
+          userId,
+          moduleId: resolvedModuleId ?? nodeId,
+          ...(resolvedChapterId ? { chapterId: resolvedChapterId } : {}),
+        },
       });
 
       // Fetch quiz attempts for this node to derive mastery
+      const quizIds = getNodeQuizIds(point);
       const quizAttempts = await prisma.quizAttempt.findMany({
         where: {
           userId,
-          quizId: { startsWith: nodeId },
+          quizId: point ? { in: quizIds } : { startsWith: nodeId },
         },
         orderBy: { createdAt: 'desc' },
         take: 5,
@@ -61,19 +74,14 @@ export async function GET(request: NextRequest) {
         : (record?.progress ?? 0);
 
       // Find related nodes the user hasn't started yet as recommendations
-      const allProgress = await prisma.learningProgress.findMany({
-        where: { userId },
-        select: { moduleId: true },
-      });
-      const completedModules = new Set(allProgress.map(p => p.moduleId));
-
       // Simple recommendation: suggest chapter-adjacent modules not yet started
-      const chapterId = record?.chapterId ?? '1';
-      const chapterNum = parseInt(chapterId, 10) || 1;
+      const chapterId = resolvedChapterId ?? record?.chapterId ?? 'ch1';
+      const chapterMatch = /^ch([1-9]|10)$/i.exec(chapterId);
+      const normalizedChapterId = chapterMatch ? `ch${Number(chapterMatch[1])}` : 'ch1';
       const recommendations = await prisma.learningProgress.findMany({
         where: {
           userId,
-          chapterId: String(chapterNum),
+          chapterId: normalizedChapterId,
           status: 'NOT_STARTED',
         },
         select: { moduleId: true },
@@ -108,8 +116,8 @@ export async function GET(request: NextRequest) {
 
     // Get progress for a specific learning path
     if (pathId) {
-      const path = await prisma.learningPath.findUnique({
-        where: { id: pathId },
+      const path = await prisma.learningPath.findFirst({
+        where: { id: pathId, userId },
         include: {
           progress: {
             where: { userId },
@@ -125,41 +133,56 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
 
-      const modules: string[] = safeParseJSON(path.modules, []) as string[];
-      const nodeProgressList = path.progress.map(p => ({
-        nodeId: p.moduleId,
-        progress: p.progress,
-        mastery: p.progress, // Use progress as mastery proxy
-        completed: p.status === 'COMPLETED',
-      }));
-
-      const completedNodes = nodeProgressList
-        .filter(p => p.completed)
-        .map(p => p.nodeId);
+      const steps = parseLearningTaskSteps(path.modules);
+      const completedStepCount = path.status === 'COMPLETED'
+        ? steps.length
+        : Math.max(0, Math.min(path.currentModule, steps.length));
+      const completedNodes = steps.slice(0, completedStepCount).map((step) => step.stepId);
+      const nodeProgressList = steps.map((step, index) => {
+        const record = path.progress.find((item) => (
+          item.moduleId === step.moduleId
+          && (!step.chapterId || item.chapterId === step.chapterId)
+        ));
+        const completed = index < completedStepCount;
+        const progress = completed ? 100 : record?.progress ?? 0;
+        return {
+          nodeId: step.stepId,
+          targetId: step.targetId,
+          title: step.title,
+          progress,
+          mastery: progress,
+          completed,
+        };
+      });
 
       const totalTimeSpent = path.progress.reduce((sum, p) => sum + p.timeSpent, 0);
-      const overallProgress = modules.length > 0
-        ? Math.round((completedNodes.length / modules.length) * 100)
+      const overallProgress = steps.length > 0
+        ? Math.round((completedStepCount / steps.length) * 100)
         : 0;
 
-      // Find current node: first module not yet completed
-      const completedSet = new Set(completedNodes);
-      const currentNode = modules.find(m => !completedSet.has(m)) ?? modules[modules.length - 1] ?? null;
+      const currentNode = path.status === 'COMPLETED'
+        ? null
+        : steps[completedStepCount]?.stepId ?? null;
 
       // Estimated remaining time based on average pace
       const avgTimePerNode = completedNodes.length > 0
         ? totalTimeSpent / completedNodes.length
         : 60;
-      const remainingNodes = modules.length - completedNodes.length;
+      const remainingNodes = steps.length - completedStepCount;
       const estimatedTimeRemaining = Math.round(avgTimePerNode * remainingNodes);
 
-      // Build milestones from modules
-      const milestones = modules.map(moduleId => {
-        const prog = path.progress.find(p => p.moduleId === moduleId);
+      const milestones = steps.map((step, index) => {
+        const prog = path.progress.find((item) => (
+          item.moduleId === step.moduleId
+          && (!step.chapterId || item.chapterId === step.chapterId)
+        ));
         return {
-          name: moduleId,
-          completed: prog?.status === 'COMPLETED',
-          date: prog?.completedAt?.toISOString().split('T')[0] ?? null,
+          name: step.title,
+          stepId: step.stepId,
+          completed: index < completedStepCount,
+          date: index < completedStepCount
+            ? prog?.completedAt?.toISOString().split('T')[0] ?? null
+            : null,
         };
       });
 
@@ -211,11 +234,11 @@ export async function GET(request: NextRequest) {
     });
 
     const activePathData = activePaths.map(path => {
-      const modules: string[] = safeParseJSON(path.modules, []) as string[];
-      const completed = path.progress.filter(p => p.status === 'COMPLETED').length;
+      const steps = parseLearningTaskSteps(path.modules);
+      const completed = Math.max(0, Math.min(path.currentModule, steps.length));
       return {
         pathId: path.id,
-        progress: modules.length > 0 ? Math.round((completed / modules.length) * 100) : 0,
+        progress: steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0,
         title: path.name,
       };
     });
@@ -282,280 +305,21 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
-
-export async function POST(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const progressData: UserProgressData = await request.json();
-    progressData.userId = decoded.userId;
-
-    // Validate required fields
-    if (!progressData.nodeId || progressData.progress === undefined) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields'
-      }, { status: 400 });
-    }
-
-    // Validate progress range
-    if (progressData.progress < 0 || progressData.progress > 100) {
-      return NextResponse.json({
-        success: false,
-        error: 'Progress must be between 0 and 100'
-      }, { status: 400 });
-    }
-
-    const isCompleted = progressData.progress >= 100;
-    const status = isCompleted ? 'COMPLETED' : progressData.progress > 0 ? 'IN_PROGRESS' : 'NOT_STARTED';
-
-    // Derive chapterId from nodeId (e.g., "1.2.3" -> chapter "1")
-    const chapterId = progressData.nodeId.split('.')[0] || '0';
-
-    // Upsert the progress record
-    const record = await prisma.learningProgress.upsert({
-      where: {
-        userId_moduleId_chapterId: {
-          userId: decoded.userId,
-          moduleId: progressData.nodeId,
-          chapterId,
-        },
-      },
-      update: {
-        progress: progressData.progress,
-        timeSpent: { increment: progressData.timeSpent ?? 0 },
-        status,
-        lastAccessAt: new Date(),
-        completedAt: isCompleted ? new Date() : undefined,
-        pathId: progressData.pathId ?? undefined,
-      },
-      create: {
-        userId: decoded.userId,
-        moduleId: progressData.nodeId,
-        chapterId,
-        pathId: progressData.pathId ?? undefined,
-        progress: progressData.progress,
-        timeSpent: progressData.timeSpent ?? 0,
-        status,
-        startedAt: new Date(),
-        lastAccessAt: new Date(),
-        completedAt: isCompleted ? new Date() : undefined,
-      },
-    });
-
-    // If this progress is part of a path, update the path's currentModule
-    if (progressData.pathId) {
-      const path = await prisma.learningPath.findUnique({
-        where: { id: progressData.pathId },
-      });
-      if (path) {
-        const modules: string[] = safeParseJSON(path.modules, []) as string[];
-        const nodeIndex = modules.indexOf(progressData.nodeId);
-        if (nodeIndex >= 0 && nodeIndex >= path.currentModule) {
-          await prisma.learningPath.update({
-            where: { id: progressData.pathId },
-            data: {
-              currentModule: isCompleted ? Math.min(nodeIndex + 1, modules.length) : nodeIndex,
-              completedAt: isCompleted && nodeIndex === modules.length - 1 ? new Date() : undefined,
-              status: isCompleted && nodeIndex === modules.length - 1 ? 'COMPLETED' : undefined,
-            },
-          });
-        }
-      }
-    }
-
-    // Check for new achievements
-    const achievements: string[] = [];
-    if (isCompleted) {
-      achievements.push('node-completed');
-
-      // Check if this is their first completed node
-      const completedCount = await prisma.learningProgress.count({
-        where: { userId: decoded.userId, status: 'COMPLETED' },
-      });
-      if (completedCount === 1) {
-        achievements.push('first-steps');
-      }
-    }
-    if (progressData.timeSpent && progressData.timeSpent <= 30 && isCompleted) {
-      achievements.push('quick-learner');
-    }
-
-    const responseData: Record<string, unknown> = {
-      userId: decoded.userId,
-      nodeId: progressData.nodeId,
-      pathId: progressData.pathId ?? null,
-      progress: record.progress,
-      timeSpent: record.timeSpent,
-      lastAccessed: record.lastAccessAt.toISOString(),
-      completed: record.status === 'COMPLETED',
-      mastery: record.progress,
-    };
-
-    if (achievements.length > 0) {
-      responseData.newAchievements = achievements;
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Progress updated successfully',
-      data: responseData
-    });
-
-  } catch (error) {
-    console.error('User progress POST API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+async function rejectLegacyProgressWrite(request: NextRequest) {
+  const authorization = request.headers.get('authorization');
+  const token = authorization?.startsWith('Bearer ')
+    ? authorization.substring(7)
+    : request.cookies?.get('accessToken')?.value;
+  const payload = token ? await verifyToken(token) : null;
+  if (!payload) {
+    return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
   }
+  return NextResponse.json({
+    success: false,
+    error: '旧进度写入口已停用，请通过正式学习进度或任务接口操作',
+  }, { status: 405, headers: { Allow: 'GET' } });
 }
 
-export async function PUT(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const progressData: UserProgressData = await request.json();
-    progressData.userId = decoded.userId;
-
-    if (!progressData.nodeId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Node ID is required'
-      }, { status: 400 });
-    }
-
-    // Find existing record
-    const existing = await prisma.learningProgress.findFirst({
-      where: {
-        userId: decoded.userId,
-        moduleId: progressData.nodeId,
-      },
-    });
-
-    if (!existing) {
-      return NextResponse.json({
-        success: false,
-        error: 'Progress record not found'
-      }, { status: 404 });
-    }
-
-    const isCompleted = (progressData.progress ?? existing.progress) >= 100;
-    const status = isCompleted ? 'COMPLETED' : (progressData.progress ?? existing.progress) > 0 ? 'IN_PROGRESS' : 'NOT_STARTED';
-
-    const updated = await prisma.learningProgress.update({
-      where: { id: existing.id },
-      data: {
-        progress: progressData.progress ?? existing.progress,
-        timeSpent: progressData.timeSpent != null
-          ? existing.timeSpent + progressData.timeSpent
-          : existing.timeSpent,
-        status,
-        lastAccessAt: new Date(),
-        completedAt: isCompleted && !existing.completedAt ? new Date() : existing.completedAt,
-        pathId: progressData.pathId ?? existing.pathId,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Progress updated successfully',
-      data: {
-        userId: decoded.userId,
-        nodeId: progressData.nodeId,
-        pathId: updated.pathId,
-        progress: updated.progress,
-        timeSpent: updated.timeSpent,
-        lastAccessed: updated.lastAccessAt.toISOString(),
-        completed: updated.status === 'COMPLETED',
-        mastery: updated.progress,
-      }
-    });
-
-  } catch (error) {
-    console.error('User progress PUT API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const nodeId = searchParams.get('nodeId');
-    const pathId = searchParams.get('pathId');
-
-    if (!nodeId && !pathId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Node ID or Path ID is required'
-      }, { status: 400 });
-    }
-
-    const whereClause: Record<string, string> = { userId: decoded.userId };
-    if (nodeId) whereClause.moduleId = nodeId;
-    if (pathId) whereClause.pathId = pathId;
-
-    const deleted = await prisma.learningProgress.deleteMany({
-      where: whereClause,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `${deleted.count} progress record(s) deleted successfully`
-    });
-
-  } catch (error) {
-    console.error('User progress DELETE API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
-  }
-}
+export const POST = rejectLegacyProgressWrite;
+export const PUT = rejectLegacyProgressWrite;
+export const DELETE = rejectLegacyProgressWrite;

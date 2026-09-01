@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logout, verifyToken } from '@/lib/auth';
+import { getLogoutCookieOptions } from '@/lib/auth-storage';
 
 function createLogoutResponse(): NextResponse {
   const response = NextResponse.json({
@@ -8,8 +9,8 @@ function createLogoutResponse(): NextResponse {
     message: '登出成功'
   });
   response.headers?.set?.('Cache-Control', 'no-store, max-age=0');
-  response.cookies?.delete('accessToken');
-  response.cookies?.delete('refreshToken');
+  response.cookies?.set('accessToken', '', getLogoutCookieOptions());
+  response.cookies?.set('refreshToken', '', getLogoutCookieOptions());
   return response;
 }
 
@@ -22,11 +23,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       : request.cookies?.get('accessToken')?.value;
     
     const refreshToken = request.cookies?.get('refreshToken')?.value;
-    if (accessToken) {
-      const payload = await verifyToken(accessToken);
-      if (payload) {
-        await logout(payload.userId, refreshToken);
-      }
+    const payload = accessToken ? await verifyToken(accessToken) : null;
+    if (payload || refreshToken) {
+      await logout(payload?.userId, refreshToken, payload?.sid);
     }
 
     return createLogoutResponse();

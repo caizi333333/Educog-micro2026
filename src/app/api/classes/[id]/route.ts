@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { canManageTeachingData, getAccessibleClassIds } from '@/lib/classroom';
+import { getDataProvenance } from '@/lib/env';
 
 async function authorize(request: NextRequest, classId: string) {
   const authorization = request.headers.get('authorization');
@@ -56,7 +57,11 @@ export async function GET(
     });
     if (!classGroup) return NextResponse.json({ error: '班级不存在' }, { status: 404 });
 
-    return NextResponse.json({ success: true, class: classGroup });
+    return NextResponse.json({
+      success: true,
+      dataProvenance: getDataProvenance(),
+      class: classGroup,
+    });
   } catch (err) {
     console.error('class detail GET error:', err);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });

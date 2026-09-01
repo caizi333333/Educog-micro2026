@@ -7,7 +7,7 @@
  * - AiStudyAssistantOutput - The return type for the flow.
  */
 import { videoLibrary } from '@/lib/video-library';
-import { SimpleAiClient } from '@/ai/simple-ai-client';
+import { SimpleAiClient, type AiAnswerMode } from '@/ai/simple-ai-client';
 import {
   chaptersFromContext,
   formatContextForPrompt,
@@ -36,8 +36,13 @@ const AiStudyAssistantInputSchema = z.object({
 });
 export type AiStudyAssistantInput = z.infer<typeof AiStudyAssistantInputSchema>;
 
+const AI_ANSWER_MODES = ['generated', 'retrieved', 'fallback'] as const satisfies readonly AiAnswerMode[];
+const AiAnswerModeSchema = z.enum(AI_ANSWER_MODES);
+
 const AiStudyAssistantOutputSchema = z.object({
     answer: z.string().describe('The AI assistant\'s direct answer to the question.'),
+    source: AiAnswerModeSchema.describe('Stable public provenance for the answer text.'),
+    mode: AiAnswerModeSchema.describe('How the answer text was produced.'),
     relevantChapters: z.array(z.object({
         chapter: z.string(),
         title: z.string(),
@@ -55,6 +60,12 @@ const AiStudyAssistantOutputSchema = z.object({
 });
 export type AiStudyAssistantOutput = z.infer<typeof AiStudyAssistantOutputSchema>;
 
+function assertMatchingProvenance(source: unknown, mode: unknown): asserts source is AiAnswerMode {
+  if (!AI_ANSWER_MODES.includes(source as AiAnswerMode) || source !== mode) {
+    throw new Error('SimpleAiClient returned invalid answer provenance');
+  }
+}
+
 // 使用 DeepSeek 替代 Genkit prompt
 // DeepSeekClient is now handled within SimpleAiClient
 
@@ -66,7 +77,8 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
     // RAG: pull the most relevant knowledge points + experiments from the
     // canonical course content and inject them into the AI's system prompt
     // so the answer is grounded.
-    const ctx = retrieveContext(userMessage);
+    // 学生端只展示最相关的三个节点和一个实验，避免把低相关结果包装成推荐。
+    const ctx = retrieveContext(userMessage, { maxKnowledge: 3, maxExperiments: 1 });
     const courseContext = formatContextForPrompt(ctx);
 
     // 把最近几轮对话转成 DeepSeek 消息格式，支持多轮追问
@@ -77,24 +89,29 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
 
     const aiClient = new SimpleAiClient();
     const response = await aiClient.chat(userMessage, courseContext, history);
+    assertMatchingProvenance(response.source, response.mode);
 
     // relevantChapters now reflects the actual retrieval hit set instead of
     // the previous stale 9-chapter keyword map.
     const relevantChapters = chaptersFromContext(ctx);
     const relevantVideos = findRelevantVideos(userMessage);
-    const relatedNodes = ctx.knowledgePoints.map((p) => ({
-      id: p.id,
-      name: p.name,
-      chapter: p.chapter,
-      level: p.level,
-    }));
+    const relatedNodes = response.mode === 'fallback'
+      ? []
+      : ctx.knowledgePoints.map((p) => ({
+          id: p.id,
+          name: p.name,
+          chapter: p.chapter,
+          level: p.level,
+        }));
 
-    return {
+    return AiStudyAssistantOutputSchema.parse({
       answer: response.answer,
+      source: response.source,
+      mode: response.mode,
       relevantChapters,
       relevantVideos,
       relatedNodes,
-    };
+    });
   } catch (error) {
     console.error('SimpleAiClient error:', error);
     throw error;
@@ -124,6 +141,8 @@ SETB TR1          ; 启动定时器1
 \`\`\`
 
 如需更详细信息，建议阅读第6章相关内容。`,
+            source: 'fallback',
+            mode: 'fallback',
             relevantChapters: [{ chapter: '6', title: '第 6 章：定时器/计数器' }],
             relevantVideos: []
         };
@@ -157,6 +176,8 @@ ORG 000BH  ; T0中断向量
 \`\`\`
 
 建议查看第5章了解详细的中断编程。`,
+            source: 'fallback',
+            mode: 'fallback',
             relevantChapters: [{ chapter: '5', title: '第 5 章：中断系统' }],
             relevantVideos: []
         };
@@ -181,6 +202,8 @@ CLR P1.0         ; P1.0输出低电平
 \`\`\`
 
 详细内容请参考第2章 2.3 I/O 接口与第8章接口技术。`,
+            source: 'fallback',
+            mode: 'fallback',
             relevantChapters: [{ chapter: '2', title: '第 2 章：硬件结构' }],
             relevantVideos: []
         };
@@ -211,6 +234,8 @@ SETB TR1          ; 启动T1
 \`\`\`
 
 建议学习第7章获得完整的串行通信知识。`,
+            source: 'fallback',
+            mode: 'fallback',
             relevantChapters: [{ chapter: '7', title: '第 7 章：串行通信' }],
             relevantVideos: []
         };
@@ -230,6 +255,8 @@ SETB TR1          ; 启动T1
 - 通过仿真页面进行实际操作
 
 常见主题包括：CPU结构、存储器、I/O端口、指令系统、定时器、中断、LED显示、串行通信等。`,
+        source: 'fallback',
+        mode: 'fallback',
         relevantChapters: [],
         relevantVideos: []
     };

@@ -26,9 +26,9 @@ export function createLazyComponent<T extends ComponentType<any>>(
   // 带重试机制的导入函数
   const importWithRetry = async (attempt = 1): Promise<{ default: T }> => {
     try {
-      const module = await importFn();
+      const importedModule = await importFn();
       trackModuleLoad(name);
-      return module;
+      return importedModule;
     } catch (error) {
       if (attempt < retryCount) {
         console.warn(`Failed to load ${name}, retrying... (${attempt}/${retryCount})`);

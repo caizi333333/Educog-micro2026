@@ -309,18 +309,18 @@ const PreClassQuiz: React.FC<PreClassQuizProps> = ({ experimentId, onPass, onSki
               答对 {score}/{totalQ} 题，{passed ? '可以开始实验了' : `需要 ${quiz.passingScore}% 以上才能通过`}
             </p>
           </div>
-          <div className="flex justify-center gap-3 pt-2">
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
             {passed ? (
-              <Button onClick={onPass} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={onPass} className="min-h-11 bg-emerald-600 hover:bg-emerald-700">
                 <Beaker className="w-4 h-4 mr-1.5" /> 开始实验
               </Button>
             ) : (
-              <Button onClick={handleRetry} variant="outline">
+              <Button onClick={handleRetry} variant="outline" className="min-h-11">
                 <RotateCcw className="w-4 h-4 mr-1.5" /> 重新测试
               </Button>
             )}
             {onSkip && (
-              <Button onClick={onSkip} variant="ghost" size="sm" className="text-muted-foreground">
+              <Button onClick={onSkip} variant="ghost" size="sm" className="min-h-11 text-muted-foreground">
                 跳过测试
               </Button>
             )}
@@ -341,7 +341,7 @@ const PreClassQuiz: React.FC<PreClassQuizProps> = ({ experimentId, onPass, onSki
             {quiz.title}
           </CardTitle>
           {onSkip && (
-            <Button onClick={onSkip} variant="ghost" size="sm" className="text-xs text-muted-foreground h-7">
+            <Button onClick={onSkip} variant="ghost" size="sm" className="min-h-11 text-xs text-muted-foreground">
               跳过
             </Button>
           )}
@@ -363,7 +363,7 @@ const PreClassQuiz: React.FC<PreClassQuizProps> = ({ experimentId, onPass, onSki
                 onClick={() => handleAnswer(i)}
                 disabled={answered}
                 className={cn(
-                  'w-full text-left p-3 rounded-lg border text-sm transition-all flex items-start gap-2.5',
+                  'flex min-h-11 w-full items-start gap-2.5 rounded-lg border p-3 text-left text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
                   !answered && 'hover:bg-[#313244]/50 hover:border-[#45475a] cursor-pointer border-[#313244]',
                   answered && isCorrect && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
                   answered && isSelected && !isCorrect && 'bg-red-500/10 border-red-500/30 text-red-300',
@@ -396,7 +396,7 @@ const PreClassQuiz: React.FC<PreClassQuizProps> = ({ experimentId, onPass, onSki
 
         {answered && (
           <div className="flex justify-end">
-            <Button onClick={handleNext} size="sm">
+            <Button onClick={handleNext} size="sm" className="min-h-11">
               {currentQ < totalQ - 1 ? '下一题' : '查看结果'}
               <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </Button>

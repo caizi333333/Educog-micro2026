@@ -1,5 +1,22 @@
 import type {NextConfig} from 'next';
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://placehold.co",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "media-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "frame-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  ...(process.env.NODE_ENV === 'production' ? ['upgrade-insecure-requests'] : []),
+].join('; ');
+
 const nextConfig: NextConfig = {
   outputFileTracingRoot: __dirname,
   // 允许开发环境从非 localhost 的来源（例如局域网/容器转发地址）加载 /_next 资源
@@ -29,7 +46,7 @@ const nextConfig: NextConfig = {
     ppr: false,
   },
   // 优化路由预取行为
-  serverExternalPackages: ['@genkit-ai/firebase', '@prisma/client'],
+  serverExternalPackages: ['@prisma/client'],
   // 添加路由预取配置
   async headers() {
     return [
@@ -55,7 +72,27 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: contentSecurityPolicy,
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
           },
         ],
       },
@@ -94,7 +131,6 @@ const nextConfig: NextConfig = {
     if (!isServer) {
       config.externals.push({
         'handlebars': 'commonjs handlebars',
-        '@genkit-ai/firebase': 'commonjs @genkit-ai/firebase',
       });
     }
 

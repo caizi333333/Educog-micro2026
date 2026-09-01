@@ -1,235 +1,164 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Clock, Database, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useApiCall, errorHandlerPresets } from '@/lib/api-error-handler';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock3, Database, RefreshCw, ShieldCheck } from 'lucide-react';
+import { getStoredAccessToken } from '@/lib/auth-storage';
+import { cn } from '@/lib/utils';
 
 interface DatabaseHealth {
   timestamp: string;
+  scope: 'INSTANTANEOUS';
+  label: string;
+  note: string;
   database: {
     isConnected: boolean;
     latency?: number;
     error?: string;
-    info: {
-      provider: string;
-      host: string;
-      port: string;
-      database: string;
-      hasCredentials: boolean;
-    };
   };
   recommendations: string[];
 }
 
+type HealthState = 'idle' | 'loading' | 'ready' | 'error';
+
+function parseHealthPayload(value: unknown): DatabaseHealth {
+  if (!value || typeof value !== 'object') throw new Error('健康接口返回格式不完整。');
+  const record = value as Record<string, unknown>;
+  const database = record.database;
+  if (!database || typeof database !== 'object' || typeof (database as Record<string, unknown>).isConnected !== 'boolean') {
+    throw new Error('健康接口缺少连接状态。');
+  }
+  return value as DatabaseHealth;
+}
+
+/**
+ * 评委可见的按需健康探测。组件不自动轮询，避免页面浏览本身增加数据库压力；
+ * 单次结果只回答“此刻能否完成只读查询”，不代表历史或长期可用率。
+ */
 export function DatabaseStatus() {
   const [health, setHealth] = useState<DatabaseHealth | null>(null);
-  const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  
-  const { loading, error, execute } = useApiCall<DatabaseHealth>({
-    ...errorHandlerPresets.userAction,
-    onRetry: (attempt) => {
-      setRetryCount(attempt);
-    },
-    onError: (apiError) => {
-      // 设置错误状态的健康数据
-      setHealth({
-        timestamp: new Date().toISOString(),
-        database: {
-          isConnected: false,
-          error: apiError.message,
-          info: {
-            provider: '未知',
-            host: '未知',
-            port: '未知',
-            database: '未知',
-            hasCredentials: false,
-          },
-        },
-        recommendations: [
-          '检查应用程序是否正常运行',
-          '确认API端点可访问',
-          '检查网络连接状态'
-        ],
-      });
-    },
-  });
+  const [state, setState] = useState<HealthState>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+  const requestRef = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const checkHealth = async () => {
-    setRetryCount(0);
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  const checkHealth = useCallback(async () => {
+    const requestId = ++requestRef.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
+    setState('loading');
+    setErrorMessage('');
+
     try {
-      const data = await execute(async () => {
-        const response = await fetch('/api/health/database');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
+      const token = getStoredAccessToken();
+      const response = await fetch('/api/health/database', {
+        cache: 'no-store',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        signal: controller.signal,
       });
-      
-      setHealth(data);
-      setLastChecked(new Date());
-    } catch (err) {
-      // Error is already handled by useApiCall
-      console.error('Health check failed:', err);
+      const body = await response.json().catch(() => null) as unknown;
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) throw new Error('登录状态已失效，请重新登录后检查。');
+        const publicError = body && typeof body === 'object'
+          ? (body as { database?: { error?: unknown } }).database?.error
+          : null;
+        throw new Error(typeof publicError === 'string' ? publicError : `即时探测失败（${response.status}）。`);
+      }
+      const parsed = parseHealthPayload(body);
+      if (requestId !== requestRef.current) return;
+      setHealth(parsed);
+      setState('ready');
+    } catch (error) {
+      if (requestId !== requestRef.current) return;
+      setHealth(null);
+      setState('error');
+      setErrorMessage(controller.signal.aborted ? '即时探测超时，请稍后重试。' : error instanceof Error ? error.message : '即时探测失败。');
+    } finally {
+      window.clearTimeout(timeoutId);
+      if (requestId === requestRef.current) controllerRef.current = null;
     }
-  };
-
-  useEffect(() => {
-    checkHealth();
-    // 每30秒自动检查一次
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
   }, []);
 
-  // const getStatusColor = () => {
-  //   if (!health) return 'gray';
-  //   return health.database.isConnected ? 'green' : 'red';
-  // };
-
-  const getStatusIcon = () => {
-    if (loading) return <RefreshCw className="h-4 w-4 animate-spin" />;
-    if (error) return <AlertCircle className="h-4 w-4 text-red-500" />;
-    if (!health) return <Database className="h-4 w-4" />;
-    return health.database.isConnected ? (
-      <CheckCircle className="h-4 w-4 text-green-500" />
-    ) : (
-      <AlertCircle className="h-4 w-4 text-red-500" />
-    );
-  };
-
-  const formatLatency = (latency?: number) => {
-    if (!latency) return 'N/A';
-    if (latency < 100) return `${latency}ms (优秀)`;
-    if (latency < 300) return `${latency}ms (良好)`;
-    if (latency < 1000) return `${latency}ms (一般)`;
-    return `${latency}ms (较慢)`;
-  };
+  const connected = state === 'ready' && health?.database.isConnected === true;
+  const statusLabel = state === 'idle' ? '尚未执行' : state === 'loading' ? '检查中' : connected ? '本次通过' : '本次失败';
+  const statusStyle = state === 'idle'
+    ? 'border-white/[0.1] bg-white/[0.04] text-slate-300'
+    : connected
+      ? 'border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-100'
+      : state === 'loading'
+        ? 'border-cyan-300/25 bg-cyan-300/[0.07] text-cyan-100'
+        : 'border-red-300/25 bg-red-300/[0.08] text-red-100';
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {getStatusIcon()}
-          数据库连接状态
-        </CardTitle>
-        <CardDescription>
-          实时监控数据库连接健康状态
-          {lastChecked && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              最后检查: {lastChecked.toLocaleTimeString()}
-            </span>
-          )}
-          {retryCount > 0 && (
-            <span className="ml-2 text-xs text-yellow-600">
-              重试次数: {retryCount}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {health && (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">连接状态:</span>
-              <Badge variant={health.database.isConnected ? 'default' : 'destructive'}>
-                {health.database.isConnected ? '已连接' : '连接失败'}
-              </Badge>
-            </div>
+    <div className="overflow-hidden rounded-md border border-white/[0.08] bg-[#0c1117] text-slate-100">
+      <div className="flex flex-col gap-3 border-b border-white/[0.07] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-cyan-300/20 bg-cyan-300/[0.07]">
+            <Database className="h-4 w-4 text-cyan-100" aria-hidden="true" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-100">数据库即时连接探测</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">执行一条只读查询；不展示主机、端口、库名或凭据状态。</p>
+          </div>
+        </div>
+        <span role="status" aria-live="polite" className={cn('inline-flex w-fit items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px]', statusStyle)}>
+          {state === 'loading' ? <RefreshCw className="h-3 w-3 animate-spin" /> : connected ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+          {statusLabel}
+        </span>
+      </div>
 
-            {health.database.isConnected && health.database.latency && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">响应延迟:</span>
-                <span className="text-sm">{formatLatency(health.database.latency)}</span>
-              </div>
-            )}
+      <div className="grid gap-px bg-white/[0.06] sm:grid-cols-3">
+        <div className="bg-[#0c1117] px-4 py-3">
+          <div className="font-mono text-[9px] tracking-[0.14em] text-slate-600">SCOPE</div>
+          <div className="mt-1 text-xs font-semibold text-slate-200">即时 · 只读</div>
+        </div>
+        <div className="bg-[#0c1117] px-4 py-3">
+          <div className="font-mono text-[9px] tracking-[0.14em] text-slate-600">DB LATENCY</div>
+          <div className="mt-1 font-mono text-xs font-semibold text-slate-200">
+            {health?.database.latency === undefined ? '—' : `${health.database.latency} ms`}
+          </div>
+        </div>
+        <div className="bg-[#0c1117] px-4 py-3">
+          <div className="font-mono text-[9px] tracking-[0.14em] text-slate-600">CHECKED AT</div>
+          <div className="mt-1 text-xs font-semibold text-slate-200">
+            {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString('zh-CN', { hour12: false }) : '—'}
+          </div>
+        </div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">数据库类型:</span>
-                <p className="text-muted-foreground">{health.database.info.provider}</p>
-              </div>
-              <div>
-                <span className="font-medium">主机:</span>
-                <p className="text-muted-foreground truncate">{health.database.info.host}</p>
-              </div>
-              <div>
-                <span className="font-medium">端口:</span>
-                <p className="text-muted-foreground">{health.database.info.port}</p>
-              </div>
-              <div>
-                <span className="font-medium">数据库:</span>
-                <p className="text-muted-foreground">{health.database.info.database}</p>
-              </div>
-            </div>
+      <div className="space-y-3 border-t border-white/[0.07] px-4 py-4">
+        <div className="flex items-start gap-2 rounded-md border border-amber-300/18 bg-amber-300/[0.055] px-3 py-2.5 text-xs leading-5 text-amber-100">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{health?.note ?? '单次通过只说明当前请求成功；长期稳定性须依据独立监测窗口判断。'}</span>
+        </div>
 
-            {(health.database.error || error) && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>错误详情:</strong> {health.database.error || error?.message}
-                  {error?.status && (
-                    <span className="ml-2 text-xs">
-                      (状态码: {error.status})
-                    </span>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {health.recommendations.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium">
-                  {health.database.isConnected ? '状态正常' : '建议操作'}:
-                </span>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  {health.recommendations.map((rec, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-xs mt-1">•</span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
+        {state === 'error' && (
+          <div role="alert" className="flex items-start gap-2 rounded-md border border-red-300/20 bg-red-300/[0.07] px-3 py-2.5 text-xs leading-5 text-red-100">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{errorMessage}</span>
+          </div>
         )}
 
-        <div className="flex gap-2">
-          <Button
-            onClick={checkHealth}
-            disabled={loading}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                检查中...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-3 w-3" />
-                重新检查
-              </>
-            )}
-          </Button>
-          
-          {((health && !health.database.isConnected) || error) && (
-            <Button
-              onClick={() => window.open('/TROUBLESHOOTING.md', '_blank')}
-              variant="outline"
-              size="sm"
-            >
-              查看故障排除指南
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        {health?.recommendations?.length ? (
+          <div className="flex items-start gap-2 text-xs leading-5 text-slate-500">
+            <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{health.recommendations.join('；')}</span>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => void checkHealth()}
+          disabled={state === 'loading'}
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:cursor-wait disabled:opacity-60"
+        >
+          <RefreshCw className={cn('h-4 w-4', state === 'loading' && 'animate-spin')} aria-hidden="true" />
+          {state === 'idle' ? '执行即时探测' : state === 'loading' ? '正在探测…' : '重新探测'}
+        </button>
+      </div>
+    </div>
   );
 }

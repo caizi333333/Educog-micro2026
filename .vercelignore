@@ -29,6 +29,7 @@ docs/
 .vscode/
 .idx/
 .claude/
+ccpm-demo/
 
 # Config files that aren't needed for deployment
 *.yaml
@@ -40,8 +41,8 @@ windsurf_deployment.yaml
 # Scripts
 scripts/
 
-# Prisma migrations (use schema only)
-prisma/migrations/
+# Prisma seed data is not required at runtime. Migration history must remain
+# available because `vercel-build` runs `prisma migrate deploy`.
 prisma/seed.ts
 
 # Large assets

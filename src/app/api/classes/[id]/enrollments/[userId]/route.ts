@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { canManageTeachingData, getAccessibleClassIds } from '@/lib/classroom';
+import { canManageTeachingData, getAccessibleClassIds, normalizeLearningEventInput } from '@/lib/classroom';
 
 export async function DELETE(
   request: NextRequest,
@@ -37,13 +37,43 @@ export async function DELETE(
     if (enrollment.role === 'TEACHER') {
       return NextResponse.json({ error: '不能从班级中移除教师角色，请先变更角色' }, { status: 400 });
     }
+    if (enrollment.status === 'REMOVED') {
+      return NextResponse.json({ success: true, removed: { classId, userId }, duplicate: true });
+    }
 
-    await prisma.classEnrollment.update({
-      where: { classId_userId: { classId, userId } },
-      data: { status: 'REMOVED' },
+    await prisma.$transaction(async (tx) => {
+      await tx.classEnrollment.update({
+        where: { classId_userId: { classId, userId } },
+        data: { status: 'REMOVED' },
+      });
+      const remainingEnrollment = await tx.classEnrollment.findFirst({
+        where: { userId, role: 'STUDENT', status: 'ACTIVE' },
+        include: { classGroup: { select: { name: true } } },
+        orderBy: { joinedAt: 'desc' },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { class: remainingEnrollment?.classGroup?.name ?? null },
+      });
+      await tx.userActivity.create({
+        data: {
+          userId: payload.userId,
+          action: 'REMOVE_STUDENT_FROM_CLASS',
+          details: JSON.stringify({ classId, studentUserId: userId }),
+        },
+      });
+      const event = normalizeLearningEventInput({
+        eventType: 'LEAVE_CLASS',
+        targetType: 'CLASS',
+        targetId: classId,
+        metadata: { source: 'teacher-enrollment-api', classId },
+      }, classId);
+      if (event) {
+        await tx.learningEvent.create({ data: { userId, classId, ...event } });
+      }
     });
 
-    return NextResponse.json({ success: true, removed: { classId, userId } });
+    return NextResponse.json({ success: true, removed: { classId, userId }, duplicate: false });
   } catch (err) {
     console.error('class enrollment DELETE error:', err);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });

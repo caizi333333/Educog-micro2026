@@ -45,6 +45,15 @@ describe('DeepSeekClient', () => {
       }
     };
 
+    it('should fail before making a request when the API key is missing', async () => {
+      const clientWithoutKey = new DeepSeekClient('');
+
+      await expect(clientWithoutKey.chat(mockMessages))
+        .rejects
+        .toThrow('DEEPSEEK_API_KEY is not configured');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
     it('should make successful chat request with default model', async () => {
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -65,7 +74,7 @@ describe('DeepSeekClient', () => {
             model: 'deepseek-chat',
             messages: mockMessages,
             temperature: 0.7,
-            max_tokens: 2000
+            max_tokens: 1024
           }),
           // 允许实现里使用 AbortController
           signal: expect.any(Object),

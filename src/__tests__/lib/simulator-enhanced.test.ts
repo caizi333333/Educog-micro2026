@@ -1,4 +1,10 @@
 import { Simulator } from '@/lib/simulator';
+import {
+  getExperimentConfig,
+  hasProj04TelemetryFrame,
+  PROJ04_MIN_OBSERVATION_STEPS,
+} from '@/lib/experiment-config';
+import { getTeachingContent } from '@/lib/teaching-content';
 
 describe('Simulator Enhanced Tests', () => {
   let simulator: Simulator;
@@ -834,6 +840,42 @@ describe('Simulator Enhanced Tests', () => {
   });
 
   describe('性能和稳定性测试', () => {
+    it('proj04 教学口径应与当前实现和4学时一致', () => {
+      const project = getExperimentConfig('proj04');
+      const teaching = getTeachingContent('proj04');
+
+      expect(project?.duration).toBe(240);
+      expect(teaching.syllabusMapping?.hours).toBe(4);
+      expect(project?.description).toContain('LCD仅保留未实现接口');
+      expect(project?.description).toContain('EEPROM属于后续扩展');
+      expect(project?.code).toMatch(/UPDATE_LCD:\s*; 空接口：LCD驱动尚未集成[^\n]*\s*RET/);
+      expect(project?.expectedResults).toEqual(expect.arrayContaining([
+        expect.stringContaining('程序持续循环'),
+      ]));
+      expect(teaching.projectBrief?.prerequisiteGate).toContain('exp09');
+      expect(teaching.projectBrief?.completionNextStep).toContain('教师复核');
+      expect(teaching.projectBrief?.simulationBoundary).toContain('LCD 驱动尚未实现');
+      expect(teaching.projectBrief?.milestones.find((item) => item.id === 'implementation')?.completionRule)
+        .not.toContain('采集、显示');
+      expect(teaching.theory.find((item) => item.title.includes('AT24C02'))?.title).toContain('扩展参考');
+    });
+
+    it('proj04 持续循环程序应在不终止的情况下形成可复核遥测帧', () => {
+      const project = getExperimentConfig('proj04');
+      expect(project).toBeDefined();
+      simulator.updateCode(project?.code ?? '');
+
+      let executed = 0;
+      for (let batch = 0; batch < 250 && !hasProj04TelemetryFrame(simulator.state.uart.transmitBuffer); batch += 1) {
+        executed += simulator.stepBatch(2000).executed;
+      }
+
+      expect(executed).toBeGreaterThanOrEqual(PROJ04_MIN_OBSERVATION_STEPS);
+      expect(hasProj04TelemetryFrame(simulator.state.uart.transmitBuffer)).toBe(true);
+      expect(simulator.state.uart.transmitBuffer).toContain('{"temp":25,"humi":65}');
+      expect(simulator.state.terminated).toBe(false);
+    });
+
     it('应该能处理大量指令', () => {
       let code = 'ORG 0000H\n';
       for (let i = 0; i < 100; i++) {

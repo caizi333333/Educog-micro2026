@@ -96,6 +96,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    scroll-padding-top: 4.5rem;
   }
 
   body {
@@ -131,6 +132,21 @@
 
   .light ::-webkit-scrollbar-thumb:hover {
     background: hsl(214 32% 60% / 0.8);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:focus-within {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -446,4 +462,83 @@
   .stagger-children > *:nth-child(6) { animation-delay: 300ms; }
   .stagger-children > *:nth-child(7) { animation-delay: 360ms; }
   .stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+  /* ── Round 2 utility classes ─────────────────────────────── */
+
+  /* Stat number glow — use on large numeric displays */
+  .stat-glow {
+    text-shadow: 0 0 20px hsl(184 82% 48% / 0.35), 0 0 40px hsl(184 82% 48% / 0.15);
+  }
+
+  .stat-glow-amber {
+    text-shadow: 0 0 20px hsl(42 92% 58% / 0.35), 0 0 40px hsl(42 92% 58% / 0.15);
+  }
+
+  .stat-glow-emerald {
+    text-shadow: 0 0 20px hsl(154 62% 48% / 0.35), 0 0 40px hsl(154 62% 48% / 0.15);
+  }
+
+  /* Pulse-dot — live status indicator */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.4); }
+  }
+
+  .pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* Shimmer loading skeleton */
+  @keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(220 18% 11%) 25%,
+      hsl(220 18% 16%) 37%,
+      hsl(220 18% 11%) 63%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Text selection */
+  ::selection {
+    background: hsl(184 82% 48% / 0.3);
+    color: hsl(190 32% 94%);
+  }
+
+  /* Focus ring for keyboard navigation */
+  .focus-ring:focus-visible {
+    outline: 2px solid hsl(184 82% 48%);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Gradient border on hover */
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(184 82% 48% / 0.4), hsl(42 92% 58% / 0.2));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .gradient-border:hover::after {
+    opacity: 1;
+  }
 }

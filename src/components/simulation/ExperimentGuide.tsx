@@ -3,20 +3,32 @@
 import React, { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
   ChevronDown, BookOpen, Cpu, ListChecks, Zap, AlertTriangle,
   Lightbulb, Globe, CircuitBoard, HelpCircle, GraduationCap, Clock, MapPin,
-  Flag, Gauge, Star, Target,
+  Flag, Gauge, Star, Target, Loader2, CheckCircle2, ImageOff, MonitorPlay,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getTeachingContent, type TeachingContent } from '@/lib/teaching-content';
+import { getTeachingContent } from '@/lib/teaching-content';
 import { getExperimentVisualAssets, toSvgDataUri } from '@/lib/experiment-visual-assets';
-import type { ExperimentConfig } from '@/lib/experiment-config';
+import {
+  emptyProj04CompletionEvidence,
+  type ExperimentConfig,
+  type Proj04CompletionEvidence,
+  type Proj04MilestoneId,
+} from '@/lib/experiment-config';
 import AnimationRenderer from './animations/AnimationRegistry';
 import PreClassQuiz from './PreClassQuiz';
 
 interface Props {
   experiment: ExperimentConfig | null;
+  projectCompletion?: Proj04CompletionEvidence;
+  isLoadingProjectCompletion?: boolean;
+  isSavingProjectCompletion?: boolean;
+  projectCompletionError?: string | null;
+  projectCompletionBlockedReason?: string | null;
+  onProjectMilestoneChange?: (milestoneId: Proj04MilestoneId, confirmed: boolean) => Promise<void>;
 }
 
 // 星级评分（速度/灵活性量化）
@@ -59,7 +71,7 @@ function Section({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#313244]/30 rounded-md transition-colors group">
+      <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 transition-colors hover:bg-[#313244]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200">
         <ChevronDown className={cn('w-3 h-3 text-[#585b70] transition-transform', !open && '-rotate-90')} />
         <Icon className={cn('w-3.5 h-3.5', colors[accent])} />
         <span className="text-xs font-semibold text-[#cdd6f4]">{title}</span>
@@ -71,7 +83,17 @@ function Section({
   );
 }
 
-export default function ExperimentGuide({ experiment }: Props) {
+export default function ExperimentGuide({
+  experiment,
+  projectCompletion = emptyProj04CompletionEvidence(),
+  isLoadingProjectCompletion = false,
+  isSavingProjectCompletion = false,
+  projectCompletionError = null,
+  projectCompletionBlockedReason = null,
+  onProjectMilestoneChange,
+}: Props) {
+  const [quizStatus, setQuizStatus] = useState<'PENDING' | 'PASSED' | 'SKIPPED'>('PENDING');
+
   if (!experiment) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-[#6c7086] gap-2 p-6">
@@ -84,7 +106,32 @@ export default function ExperimentGuide({ experiment }: Props) {
   const tc = getTeachingContent(experiment.id);
   const hasContent = tc.theory.length > 0 || tc.stepByStep.length > 0;
   const visualAssets = getExperimentVisualAssets(experiment.id);
-  const [quizPassed, setQuizPassed] = useState(false);
+  const completedProjectMilestones = projectCompletion.milestones
+    .filter((item) => item.confirmed && item.confirmedAt).length;
+
+  const recordQuizStatus = (status: 'PASSED' | 'SKIPPED') => {
+    setQuizStatus(status);
+    if (typeof window === 'undefined') return;
+    const token = getStoredAccessToken();
+    if (!token) return;
+    const params = new URLSearchParams(window.location.search);
+    const pathId = params.get('taskPathId');
+    const stepId = params.get('taskStepId');
+    fetch('/api/learning-events/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        events: [{
+          clientEventId: `preclass-quiz:${experiment.id}:${pathId || 'standalone'}:${status.toLowerCase()}`,
+          eventType: status === 'PASSED' ? 'PRECLASS_QUIZ_PASSED' : 'PRECLASS_QUIZ_SKIPPED',
+          targetType: 'EXPERIMENT',
+          targetId: experiment.id,
+          experimentId: experiment.id,
+          metadata: { source: 'experiment-guide', pathId, stepId, status },
+        }],
+      }),
+    }).catch(() => { /* 状态提示仍保留在当前页面 */ });
+  };
 
   // 三维教学目标：知识/能力优先取结构化字段，否则由知识点/学习目标自动派生；思政取自思政卡主题
   const knowledgeGoals = tc.objectives3D?.knowledge ?? experiment.knowledgePoints.slice(0, 3).map((k) => `理解并掌握${k}`);
@@ -99,13 +146,18 @@ export default function ExperimentGuide({ experiment }: Props) {
     <ScrollArea className="h-full">
       <div className="space-y-1 py-2">
         {/* ── 课前预习测试 ── */}
-        {experiment.id.startsWith('exp') && !quizPassed && (
+        {experiment.id.startsWith('exp') && quizStatus === 'PENDING' && (
           <div className="mx-3 mb-2">
             <PreClassQuiz
               experimentId={experiment.id}
-              onPass={() => setQuizPassed(true)}
-              onSkip={() => setQuizPassed(true)}
+              onPass={() => recordQuizStatus('PASSED')}
+              onSkip={() => recordQuizStatus('SKIPPED')}
             />
+          </div>
+        )}
+        {quizStatus === 'SKIPPED' && (
+          <div className="mx-3 mb-2 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-[11px] leading-5 text-amber-100">
+            已跳过课前检测：可以继续查看实验指导，但本次不记为“预习达标”。
           </div>
         )}
 
@@ -122,7 +174,7 @@ export default function ExperimentGuide({ experiment }: Props) {
                 <Clock className="w-3 h-3 text-[#f9e2af] flex-shrink-0" />
                 <span className="text-[10px] text-[#a6adc8]">
                   <span className="text-[#f9e2af] font-semibold">{tc.syllabusMapping.week}</span>
-                  {' · '}{tc.syllabusMapping.hours}学时
+                  {' · '}{tc.syllabusMapping.hours > 0 ? `${tc.syllabusMapping.hours}学时` : '学时待核实'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -266,6 +318,120 @@ export default function ExperimentGuide({ experiment }: Props) {
           </div>
         </Section>
 
+        {tc.projectBrief && (
+          <Section title="综合项目任务书（内置模板）" icon={Target} accent="cyan">
+            <div className="space-y-3">
+              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-3">
+                <div className="text-xs font-semibold text-amber-100">{tc.projectBrief.evidenceStatus}</div>
+                <p className="mt-1 text-[11px] leading-5 text-amber-50/85">{tc.projectBrief.simulationBoundary}</p>
+              </div>
+              <div className="grid gap-2">
+                <div className="rounded-md border border-sky-300/15 bg-sky-300/[0.05] p-2.5">
+                  <div className="text-[11px] font-semibold text-sky-100">开始前</div>
+                  <p className="mt-1 text-[11px] leading-5 text-sky-50/80">{tc.projectBrief.prerequisiteGate}</p>
+                </div>
+                <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.05] p-2.5">
+                  <div className="text-[11px] font-semibold text-emerald-100">完成后</div>
+                  <p className="mt-1 text-[11px] leading-5 text-emerald-50/80">{tc.projectBrief.completionNextStep}</p>
+                </div>
+              </div>
+              <div
+                className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.06] p-3"
+                role={projectCompletionError ? 'alert' : 'status'}
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold text-cyan-100">
+                  {isLoadingProjectCompletion || isSavingProjectCompletion
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : completedProjectMilestones === 5
+                      ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                      : <ListChecks className="h-3.5 w-3.5" />}
+                  <span>项目证据自检 · {completedProjectMilestones}/5</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-5 text-cyan-50/80">
+                  逐项确认已形成对应材料；每次确认由服务端保存，刷新或重新登录后可恢复。确认只代表证据自检，不替代教师评价。
+                </p>
+                {projectCompletion.updatedAt && (
+                  <p className="mt-1 text-[11px] text-cyan-100/75">
+                    最近保存：{new Date(projectCompletion.updatedAt).toLocaleString('zh-CN', { hour12: false })}
+                  </p>
+                )}
+                {projectCompletionError && (
+                  <p className="mt-1 text-[11px] leading-5 text-red-100">{projectCompletionError}</p>
+                )}
+                {!projectCompletionError && projectCompletionBlockedReason && (
+                  <p className="mt-1 text-[11px] leading-5 text-amber-100">{projectCompletionBlockedReason}</p>
+                )}
+              </div>
+              <div>
+                <div className="mb-1.5 text-xs font-semibold text-[#d7def7]">跨专业角色</div>
+                <div className="grid gap-1.5">
+                  {tc.projectBrief.roles.map((item) => (
+                    <div key={item.role} className="rounded-md border border-[#313244] bg-[#181825] p-2">
+                      <div className="text-[11px] font-semibold text-cyan-200">{item.role}</div>
+                      <p className="mt-1 text-[11px] leading-5 text-[#bac2de]">{item.responsibility}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1.5 text-xs font-semibold text-[#d7def7]">五个里程碑与完成规则</div>
+                <div className="space-y-1.5">
+                  {tc.projectBrief.milestones.map((item) => (
+                    <div key={item.title} className="rounded-md border border-[#313244] bg-[#181825] px-2.5 py-2">
+                      <div className="text-[11px] font-semibold text-emerald-200">{item.title}</div>
+                      <p className="mt-0.5 text-[11px] leading-5 text-[#bac2de]">{item.completionRule}</p>
+                      {((): React.JSX.Element => {
+                        const evidence = projectCompletion.milestones.find((entry) => entry.id === item.id);
+                        const confirmed = evidence?.confirmed === true && evidence.confirmedAt !== null;
+                        return (
+                          <label className="mt-1.5 flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-white/[0.10] bg-white/[0.035] px-2 py-1.5 text-[11px] leading-4 text-[#c5d3d5] transition-colors hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-cyan-200 has-[:disabled]:cursor-wait has-[:disabled]:opacity-60">
+                            <input
+                              type="checkbox"
+                              checked={confirmed}
+                              disabled={isLoadingProjectCompletion || isSavingProjectCompletion || Boolean(projectCompletionBlockedReason) || !onProjectMilestoneChange}
+                              onChange={(event) => {
+                                if (onProjectMilestoneChange) void onProjectMilestoneChange(item.id, event.target.checked);
+                              }}
+                              className="h-4 w-4 shrink-0 accent-cyan-300"
+                              aria-label={`确认${item.title}的提交证据已完成自检`}
+                            />
+                            <span className={confirmed ? 'text-emerald-200' : ''}>
+                              {confirmed ? '已确认并由服务端保存' : '确认已形成并核对本项提交证据'}
+                            </span>
+                          </label>
+                        );
+                      })()}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1.5 text-xs font-semibold text-[#d7def7]">提交证据</div>
+                <ul className="space-y-1">
+                  {tc.projectBrief.deliverables.map((item) => (
+                    <li key={item} className="flex gap-2 text-[11px] leading-5 text-[#bac2de]">
+                      <span aria-hidden="true" className="text-cyan-200">□</span>{item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="mb-1.5 text-xs font-semibold text-[#d7def7]">评价量规</div>
+                <div className="overflow-hidden rounded-md border border-[#313244]">
+                  {tc.projectBrief.rubric.map((item) => (
+                    <div key={item.dimension} className="grid grid-cols-[66px_36px_minmax(0,1fr)] gap-1.5 border-b border-[#313244] bg-[#181825] px-2 py-2 text-[11px] leading-4 last:border-b-0">
+                      <span className="font-semibold text-[#d7def7]">{item.dimension}</span>
+                      <span className="font-mono text-amber-200">{item.weight}%</span>
+                      <span className="text-[#bac2de]">{item.evidence}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Section>
+        )}
+
         {/* ── 寻址方式星级对比（教学锚点） ── */}
         {tc.addressingComparison && tc.addressingComparison.length > 0 && (
           <Section title="寻址方式对比" icon={Gauge} accent="amber">
@@ -320,27 +486,53 @@ export default function ExperimentGuide({ experiment }: Props) {
           </Section>
         )}
 
-        {/* ── 实验配图 ── */}
-        {visualAssets.length > 0 && (
-          <Section title="实验配图" icon={CircuitBoard} accent="cyan">
-            <div className="space-y-3">
-              {visualAssets.map((asset) => (
-                <figure key={asset.id} className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
-                  <img
-                    src={toSvgDataUri(asset.svg)}
-                    alt={asset.title}
-                    loading="lazy"
-                    className="block w-full bg-[#080d12]"
-                  />
-                  <figcaption className="border-t border-cyan-300/10 bg-white/[0.035] px-2.5 py-2">
+        {/* ── 实验图示与素材状态 ── */}
+        <Section title="实验图示与素材状态" icon={CircuitBoard} accent="cyan">
+          <div className="space-y-3">
+            {visualAssets.length > 0 ? visualAssets.map((asset) => (
+              <figure key={asset.id} className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
+                <img
+                  src={toSvgDataUri(asset.svg)}
+                  alt={`${asset.title}（教学示意图）`}
+                  loading="lazy"
+                  className="block w-full bg-[#080d12]"
+                />
+                <figcaption className="border-t border-cyan-300/10 bg-white/[0.035] px-2.5 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     <div className="text-[10px] font-semibold text-[#89dceb]">{asset.title}</div>
-                    <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
-                  </figcaption>
-                </figure>
-              ))}
+                    <span className="rounded border border-slate-400/20 bg-slate-300/[0.05] px-1.5 py-0.5 text-[8px] text-slate-400">
+                      教学示意图 · 非实物照片
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
+                </figcaption>
+              </figure>
+            )) : (
+              <div className="rounded-md border border-dashed border-slate-400/25 bg-slate-300/[0.04] p-3" role="note">
+                <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300">
+                  <ImageOff className="h-3.5 w-3.5" aria-hidden="true" />
+                  本实验的接线图尚未发布
+                </div>
+                <p className="mt-1 text-[9px] leading-5 text-slate-500">素材缺失期间保留明确占位，不使用生成图或示意图冒充实物证据。</p>
+              </div>
+            )}
+
+            <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-3" role="note">
+              <div className="flex flex-wrap items-center gap-2">
+                <MonitorPlay className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" />
+                <span className="text-[10px] font-semibold text-amber-100">实物操作录屏</span>
+                <span className="rounded border border-amber-200/20 bg-amber-200/[0.06] px-1.5 py-0.5 text-[8px] text-amber-200">素材待补充</span>
+              </div>
+              <p className="mt-1 text-[9px] leading-5 text-amber-100/65">当前未发布实物实验录屏；动态仿真只用于展示程序与外设状态，不替代真实学生操作证据。</p>
+              <a
+                href="#experiment-live-canvas"
+                className="mt-2 inline-flex min-h-11 items-center rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-3 py-2 text-[10px] font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+              >
+                先查看当前动态仿真
+              </a>
             </div>
-          </Section>
-        )}
+          </div>
+        </Section>
 
         {/* ── 硬件电路 ── */}
         {tc.circuitDescription && (

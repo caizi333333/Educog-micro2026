@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/.playwright-cli/
+/output/
+/tmp/
+/public/uploads/
 
 # next.js
 /.next/
@@ -45,6 +49,7 @@ yarn-error.log*
 next-env.d.ts
 
 .genkit/*
+.claude/worktrees/
 .env*
 
 # firebase

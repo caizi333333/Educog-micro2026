@@ -16,6 +16,12 @@ echo "$JWT_SECRET" | vercel env add JWT_SECRET production
 echo "设置 NEXTAUTH_SECRET..."
 echo "$NEXTAUTH_SECRET" | vercel env add NEXTAUTH_SECRET production
 
+echo "设置初始化入口与账号密码..."
+echo "$INIT_SECRET" | vercel env add INIT_SECRET production
+echo "$INIT_ADMIN_PASSWORD" | vercel env add INIT_ADMIN_PASSWORD production
+echo "$INIT_TEACHER_PASSWORD" | vercel env add INIT_TEACHER_PASSWORD production
+echo "$INIT_STUDENT_PASSWORD" | vercel env add INIT_STUDENT_PASSWORD production
+
 echo "✅ 环境变量设置完成！"
 echo ""
 echo "现在需要重新部署以使环境变量生效："

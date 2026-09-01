@@ -1,79 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="180" height="140" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 140">
-  <!-- 定义样式 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">三类图谱与正式课程资源口径</title>
+  <desc id="desc">展示专业知识图谱279个节点、问题图谱197个节点、思政图谱6个主题和21个教学元素，以及17周显式映射如何共同支持知识定位、问题诊断和价值判断。数据日期为2026年8月4日。</desc>
   <defs>
-    <style>
-      .title-text { font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; fill: #000000; }
-      .label-text { font-family: Arial, sans-serif; font-size: 6px; font-weight: normal; fill: #000000; }
-      .small-text { font-family: Arial, sans-serif; font-size: 5px; fill: #000000; }
-      .module-kg { fill: #2C3E50; stroke: #000000; stroke-width: 0.5; }
-      .module-pg { fill: #27AE60; stroke: #000000; stroke-width: 0.5; }
-      .module-ig { fill: #E67E22; stroke: #000000; stroke-width: 0.5; }
-      .center-circle { fill: #FFFFFF; stroke: #000000; stroke-width: 1; }
-      .arrow { stroke: #000000; stroke-width: 1; fill: none; marker-end: url(#arrowhead); }
-      .connection { stroke: #666666; stroke-width: 0.8; stroke-dasharray: 2,1; fill: none; }
-    </style>
-    
-    <!-- 箭头标记 -->
-    <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-      <polygon points="0,0 0,4 6,2" fill="#000000"/>
+    <marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0.5 L10,4 L0,7.5Z" fill="#244A78"/>
     </marker>
+    <style>
+      .h1{font:700 26px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#fff}
+      .h2{font:700 19px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#173454}
+      .body{font:400 15px SimSun,'Noto Serif SC',serif;fill:#1f2937}
+      .metric{font:700 30px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#173454}
+      .small{font:400 13px SimSun,'Noto Serif SC',serif;fill:#53657a}
+      .tag{font:700 12px SimHei,'Noto Sans SC','Microsoft YaHei',sans-serif;fill:#fff}
+      .light{fill:#dbe8f5}
+      .white{fill:#fff}
+    </style>
   </defs>
-  
-  <!-- 背景 -->
-  <rect width="180" height="140" fill="#FFFFFF"/>
-  
-  <!-- 知识图谱 (左上) -->
-  <rect x="10" y="20" width="50" height="35" rx="2" class="module-kg"/>
-  <text x="35" y="30" text-anchor="middle" class="label-text" fill="#FFFFFF">Knowledge</text>
-  <text x="35" y="37" text-anchor="middle" class="label-text" fill="#FFFFFF">Graph</text>
-  <text x="35" y="47" text-anchor="middle" class="small-text" fill="#FFFFFF">270 nodes</text>
-  <text x="35" y="52" text-anchor="middle" class="small-text" fill="#FFFFFF">4 layers</text>
-  
-  <!-- 问题图谱 (右上) -->
-  <rect x="120" y="20" width="50" height="35" rx="2" class="module-pg"/>
-  <text x="145" y="30" text-anchor="middle" class="label-text" fill="#FFFFFF">Problem</text>
-  <text x="145" y="37" text-anchor="middle" class="label-text" fill="#FFFFFF">Graph</text>
-  <text x="145" y="47" text-anchor="middle" class="small-text" fill="#FFFFFF">826 cases</text>
-  <text x="145" y="52" text-anchor="middle" class="small-text" fill="#FFFFFF">5 categories</text>
-  
-  <!-- 思政图谱 (下方) -->
-  <rect x="65" y="100" width="50" height="35" rx="2" class="module-ig"/>
-  <text x="90" y="110" text-anchor="middle" class="label-text" fill="#FFFFFF">Ideological</text>
-  <text x="90" y="117" text-anchor="middle" class="label-text" fill="#FFFFFF">Graph</text>
-  <text x="90" y="127" text-anchor="middle" class="small-text" fill="#FFFFFF">128 points</text>
-  <text x="90" y="132" text-anchor="middle" class="small-text" fill="#FFFFFF">3 dimensions</text>
-  
-  <!-- 中心系统 -->
-  <circle cx="90" cy="70" r="18" class="center-circle"/>
-  <text x="90" y="67" text-anchor="middle" class="small-text">Teaching</text>
-  <text x="90" y="73" text-anchor="middle" class="small-text">System</text>
-  
-  <!-- 连接箭头 -->
-  <line x1="60" y1="37" x2="72" y2="65" class="arrow"/>
-  <line x1="120" y1="37" x2="108" y2="65" class="arrow"/>
-  <line x1="90" y1="100" x2="90" y2="88" class="arrow"/>
-  
-  <!-- 融合连接线 -->
-  <path d="M 60 30 Q 90 10 120 30" class="connection"/>
-  <path d="M 35 55 Q 35 80 65 110" class="connection"/>
-  <path d="M 145 55 Q 145 80 115 110" class="connection"/>
-  
-  <!-- 标题 -->
-  <text x="90" y="8" text-anchor="middle" class="title-text">Three-Graph Fusion Teaching Model</text>
-  
-  <!-- 图例 -->
-  <g transform="translate(10, 60)">
-    <rect x="0" y="0" width="8" height="6" class="module-kg"/>
-    <text x="10" y="5" class="small-text">KG</text>
-    
-    <rect x="0" y="8" width="8" height="6" class="module-pg"/>
-    <text x="10" y="13" class="small-text">PG</text>
-    
-    <rect x="0" y="16" width="8" height="6" class="module-ig"/>
-    <text x="10" y="21" class="small-text">IG</text>
-    
-    <line x1="0" y1="26" x2="8" y2="26" class="connection"/>
-    <text x="10" y="29" class="small-text">Fusion</text>
+  <rect width="900" height="520" fill="#fff"/>
+  <rect x="12" y="12" width="876" height="496" rx="2" fill="none" stroke="#244A78" stroke-width="1.8"/>
+  <rect x="12" y="12" width="876" height="70" fill="#244A78"/>
+  <text x="450" y="48" text-anchor="middle" class="h1">三类图谱与正式课程资源口径</text>
+  <text x="450" y="70" text-anchor="middle" class="small light">当前平台结构，不表示教学成效</text>
+
+  <g id="knowledge-graph">
+    <rect x="42" y="116" width="246" height="218" rx="2" fill="#eef4fa" stroke="#244A78" stroke-width="1.2"/>
+    <rect x="42" y="116" width="246" height="42" fill="#d6e2f0"/>
+    <text x="165" y="143" text-anchor="middle" class="h2">专业知识图谱</text>
+    <text x="165" y="207" text-anchor="middle" class="metric">279</text>
+    <text x="165" y="232" text-anchor="middle" class="body">正式课程知识节点</text>
+    <line x1="72" y1="252" x2="258" y2="252" stroke="#9fb4ca" stroke-width="0.8"/>
+    <text x="165" y="280" text-anchor="middle" class="body">L1 10 · L2 53 · L3 216</text>
+    <text x="165" y="307" text-anchor="middle" class="small">章节层级、先修关系、资源与实验入口</text>
   </g>
+
+  <g id="problem-graph">
+    <rect x="327" y="116" width="246" height="218" rx="2" fill="#edf7f5" stroke="#0F766E" stroke-width="1.2"/>
+    <rect x="327" y="116" width="246" height="42" fill="#d7ece8"/>
+    <text x="450" y="143" text-anchor="middle" class="h2">问题图谱</text>
+    <text x="450" y="207" text-anchor="middle" class="metric" fill="#0F5E58">197</text>
+    <text x="450" y="232" text-anchor="middle" class="body">课程问题与易错节点</text>
+    <line x1="357" y1="252" x2="543" y2="252" stroke="#9fc9c4" stroke-width="0.8"/>
+    <text x="450" y="280" text-anchor="middle" class="body">L1 4 · L2 40 · L3 153</text>
+    <text x="450" y="307" text-anchor="middle" class="small">概念、编程、实验与项目问题域</text>
+  </g>
+
+  <g id="ideological-graph">
+    <rect x="612" y="116" width="246" height="218" rx="2" fill="#fff7e8" stroke="#9A6700" stroke-width="1.2"/>
+    <rect x="612" y="116" width="246" height="42" fill="#f5e6bf"/>
+    <text x="735" y="143" text-anchor="middle" class="h2">思政图谱</text>
+    <text x="735" y="207" text-anchor="middle" class="metric" fill="#7A5200">6 + 21</text>
+    <text x="735" y="232" text-anchor="middle" class="body">一级主题 + 二级教学元素</text>
+    <line x1="642" y1="252" x2="828" y2="252" stroke="#d9bd78" stroke-width="0.8"/>
+    <text x="735" y="280" text-anchor="middle" class="body">17周 · 每周显式指向具体节点</text>
+    <text x="735" y="307" text-anchor="middle" class="small">不再用共享知识点推测思政主题</text>
+  </g>
+
+  <line x1="165" y1="334" x2="367" y2="390" stroke="#244A78" stroke-width="1.4" marker-end="url(#arr)"/>
+  <line x1="450" y1="334" x2="450" y2="384" stroke="#244A78" stroke-width="1.4" marker-end="url(#arr)"/>
+  <line x1="735" y1="334" x2="533" y2="390" stroke="#244A78" stroke-width="1.4" marker-end="url(#arr)"/>
+  <rect x="305" y="392" width="290" height="62" rx="2" fill="#244A78"/>
+  <text x="450" y="418" text-anchor="middle" class="h2 white">统一课程教学入口</text>
+  <text x="450" y="442" text-anchor="middle" class="body white">知识定位 → 问题诊断 → 价值判断 → 学习行动</text>
+
+  <rect x="42" y="474" width="12" height="12" rx="1" fill="#0F766E"/>
+  <text x="62" y="485" class="small">已实现并纳入当前平台</text>
+  <text x="858" y="485" text-anchor="end" class="small">数据日期：2026-08-04｜来源：平台版本化课程数据</text>
 </svg>

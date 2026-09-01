@@ -92,20 +92,20 @@ vercel --prod
 
 ### 4. 在生产环境初始化数据
 
-访问以下 URL 初始化默认账号：
+在本地终端执行以下命令初始化账号：
 ```
-https://your-domain.vercel.app/api/init?secret=init-educog-2024
+curl -X POST -H 'x-init-secret: <INIT_SECRET>' 'https://your-domain.vercel.app/api/init'
 ```
 
 ## 默认测试账号
 
-| 角色 | 用户名 | 密码 | 说明 |
-|------|--------|------|------|
-| 管理员 | admin | admin123456 | 系统管理员 |
-| 教师 | teacher | teacher123456 | 张老师 |
-| 学生 | student | student123456 | 李同学 |
-| 演示学生1 | demo1 | demo123456 | 王小明 |
-| 演示学生2 | demo2 | demo123456 | 张小红 |
+| 角色 | 用户名 | 密码来源 | 说明 |
+|------|--------|----------|------|
+| 管理员 | admin | `INIT_ADMIN_PASSWORD` | 系统管理员 |
+| 教师 | teacher | `INIT_TEACHER_PASSWORD` | 张老师 |
+| 学生 | student | `INIT_STUDENT_PASSWORD` | 李同学 |
+| 演示学生1 | demo1 | `INIT_DEMO_PASSWORD` | 王小明 |
+| 演示学生2 | demo2 | `INIT_DEMO_PASSWORD` | 张小红 |
 
 ## 个性化功能使用流程
 

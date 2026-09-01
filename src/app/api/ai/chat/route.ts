@@ -8,6 +8,9 @@ import { prisma } from '@/lib/prisma';
 import { aiStudyAssistant, type AiStudyAssistantInput } from '@/ai/flows/ai-study-assistant';
 
 export const maxDuration = 30; // DeepSeek round-trip can be slow
+const MAX_QUESTION_LENGTH = 2000;
+const MAX_HISTORY_ITEMS = 6;
+const MAX_HISTORY_TEXT_LENGTH = 2000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,12 +21,32 @@ export async function POST(request: NextRequest) {
     const payload = await verifyToken(authorization.substring(7));
     if (!payload) return NextResponse.json({ error: '令牌无效' }, { status: 401 });
 
-    const body = (await request.json()) as Partial<AiStudyAssistantInput>;
+    let body: Partial<AiStudyAssistantInput>;
+    try {
+      body = (await request.json()) as Partial<AiStudyAssistantInput>;
+    } catch {
+      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+    }
     const question = typeof body.question === 'string' ? body.question.trim() : '';
     if (!question) {
       return NextResponse.json({ error: '问题不能为空' }, { status: 400 });
     }
-    const history = Array.isArray(body.history) ? body.history : undefined;
+    if (question.length > MAX_QUESTION_LENGTH) {
+      return NextResponse.json({ error: `问题不能超过${MAX_QUESTION_LENGTH}个字符` }, { status: 400 });
+    }
+    const history = Array.isArray(body.history)
+      ? body.history.slice(-MAX_HISTORY_ITEMS).flatMap((item) => {
+          if (!item || (item.role !== 'user' && item.role !== 'model') || !Array.isArray(item.content)) {
+            return [];
+          }
+          const content = item.content.flatMap((part) => (
+            part && typeof part.text === 'string'
+              ? [{ text: part.text.slice(0, MAX_HISTORY_TEXT_LENGTH) }]
+              : []
+          ));
+          return content.length > 0 ? [{ role: item.role, content }] : [];
+        })
+      : undefined;
 
     const result = await aiStudyAssistant({ question, history });
 
@@ -41,9 +64,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (err) {
     console.error('ai/chat POST error:', err);
-    return NextResponse.json(
-      { error: '服务器错误', details: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: '智能助教暂时不可用，请稍后重试' }, { status: 500 });
   }
 }

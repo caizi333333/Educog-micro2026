@@ -28,15 +28,12 @@
 
 ### 2. 初始化数据库
 
-一旦可以访问网站，使用以下 URL 初始化数据库：
+一旦可以访问网站，在本地终端初始化数据库：
 ```
-https://educog-micro-gym9fdds4-yancai-suns-projects.vercel.app/api/init?secret=init-educog-2024
+curl -X POST -H 'x-init-secret: <INIT_SECRET>' 'https://<部署域名>/api/init'
 ```
 
-这将创建默认的测试账号：
-- 管理员: username: `admin`, password: `admin123456`
-- 教师: username: `teacher`, password: `teacher123456`
-- 学生: username: `student`, password: `student123456`
+这将创建 `admin`、`teacher`、`student` 三类账号。密码分别取自部署环境中的 `INIT_*_PASSWORD`，接口不会返回明文密码。
 
 ### 3. 登录系统
 

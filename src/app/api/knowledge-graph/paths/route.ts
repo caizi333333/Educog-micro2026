@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { canAccessStudentData } from '@/lib/classroom';
+import { parseLearningTaskSteps } from '@/lib/lesson-tasks';
 
-function safeParseJSON(raw: string, fallback: unknown = []): unknown {
-  try { return JSON.parse(raw); } catch { return fallback; }
-}
-
-interface LearningPathData {
-  id: string;
-  title: string;
-  description: string;
-  nodes: string[];
-  estimatedTime: number;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  tags: string[];
-  isPublic: boolean;
-  createdBy?: string;
-}
-
-function inferDifficulty(modules: string[]): 'beginner' | 'intermediate' | 'advanced' {
+function inferDifficulty(modules: readonly unknown[]): 'beginner' | 'intermediate' | 'advanced' {
   // Heuristic: short paths are beginner, medium intermediate, long advanced
   if (modules.length <= 3) return 'beginner';
   if (modules.length <= 6) return 'intermediate';
@@ -27,9 +13,20 @@ function inferDifficulty(modules: string[]): 'beginner' | 'intermediate' | 'adva
 
 export async function GET(request: NextRequest) {
   try {
+    const authorization = request.headers.get('authorization');
+    const token = authorization?.startsWith('Bearer ')
+      ? authorization.substring(7)
+      : request.cookies?.get('accessToken')?.value;
+    const payload = token ? await verifyToken(token) : null;
+    if (!payload) {
+      return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const pathId = searchParams.get('id');
     const difficulty = searchParams.get('difficulty');
+    if (difficulty && !['beginner', 'intermediate', 'advanced'].includes(difficulty)) {
+      return NextResponse.json({ success: false, error: '难度筛选值无效' }, { status: 400 });
+    }
 
     // Fetch a single learning path by ID
     if (pathId) {
@@ -47,29 +44,20 @@ export async function GET(request: NextRequest) {
           error: 'Learning path not found'
         }, { status: 404 });
       }
+      if (!(await canAccessStudentData(payload, path.userId))) {
+        return NextResponse.json({ success: false, error: '无权查看该学习路径' }, { status: 403 });
+      }
 
-      const modules: string[] = safeParseJSON(path.modules, []) as string[];
-      const completedModules = path.progress.filter(p => p.status === 'COMPLETED').length;
-      const completionRate = modules.length > 0
-        ? Math.round((completedModules / modules.length) * 100)
+      const steps = parseLearningTaskSteps(path.modules);
+      const completedSteps = path.status === 'COMPLETED'
+        ? steps.length
+        : Math.max(0, Math.min(path.currentModule, steps.length));
+      const completionRate = steps.length > 0
+        ? Math.round((completedSteps / steps.length) * 100)
         : 0;
 
-      // Count distinct enrolled users for this path
-      const enrolledUsers = await prisma.learningProgress.groupBy({
-        by: ['userId'],
-        where: { pathId: path.id },
-      });
-
-      // Average quiz scores as a proxy for rating
-      const avgScore = await prisma.quizAttempt.aggregate({
-        where: {
-          userId: path.userId,
-        },
-        _avg: { score: true },
-      });
-
       const totalTimeSpent = path.progress.reduce((sum, p) => sum + p.timeSpent, 0);
-      const estimatedTime = totalTimeSpent > 0 ? totalTimeSpent : modules.length * 60;
+      const estimatedTime = totalTimeSpent > 0 ? totalTimeSpent : steps.length * 60;
 
       return NextResponse.json({
         success: true,
@@ -77,14 +65,16 @@ export async function GET(request: NextRequest) {
           id: path.id,
           title: path.name,
           description: path.description ?? '',
-          nodes: modules,
+          nodes: steps.map((step) => step.targetId),
+          steps,
           estimatedTime,
-          difficulty: inferDifficulty(modules),
+          difficulty: inferDifficulty(steps),
           completionRate,
-          enrolledUsers: enrolledUsers.length,
-          rating: avgScore._avg.score ? Math.min(5, (avgScore._avg.score / 20)) : 4.5,
+          enrolledUsers: 1,
+          rating: 0,
+          ratingDataSufficient: false,
           tags: [path.status.toLowerCase()],
-          isPublic: true,
+          isPublic: false,
           createdBy: path.user.username,
           status: path.status,
           currentModule: path.currentModule,
@@ -96,7 +86,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all learning paths
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, unknown> = payload.role === 'ADMIN'
+      ? {}
+      : { userId: payload.userId };
     if (difficulty) {
       // We filter after query since difficulty is derived, not stored
     }
@@ -112,10 +104,12 @@ export async function GET(request: NextRequest) {
     });
 
     let result = paths.map(path => {
-      const modules: string[] = safeParseJSON(path.modules, []) as string[];
-      const completedModules = path.progress.filter(p => p.status === 'COMPLETED').length;
-      const completionRate = modules.length > 0
-        ? Math.round((completedModules / modules.length) * 100)
+      const steps = parseLearningTaskSteps(path.modules);
+      const completedSteps = path.status === 'COMPLETED'
+        ? steps.length
+        : Math.max(0, Math.min(path.currentModule, steps.length));
+      const completionRate = steps.length > 0
+        ? Math.round((completedSteps / steps.length) * 100)
         : 0;
       const totalTimeSpent = path.progress.reduce((sum, p) => sum + p.timeSpent, 0);
 
@@ -123,14 +117,16 @@ export async function GET(request: NextRequest) {
         id: path.id,
         title: path.name,
         description: path.description ?? '',
-        nodes: modules,
-        estimatedTime: totalTimeSpent > 0 ? totalTimeSpent : modules.length * 60,
-        difficulty: inferDifficulty(modules),
+        nodes: steps.map((step) => step.targetId),
+        steps,
+        estimatedTime: totalTimeSpent > 0 ? totalTimeSpent : steps.length * 60,
+        difficulty: inferDifficulty(steps),
         completionRate,
-        enrolledUsers: path._count.progress,
-        rating: 4.5,
+        enrolledUsers: 1,
+        rating: 0,
+        ratingDataSufficient: false,
         tags: [path.status.toLowerCase()],
-        isPublic: true,
+        isPublic: false,
         createdBy: path.user.username,
       };
     });
@@ -153,202 +149,20 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
-
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const pathData: LearningPathData = await request.json();
-
-    // Validate required fields
-    if (!pathData.title || !pathData.nodes || pathData.nodes.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields'
-      }, { status: 400 });
-    }
-
-    const created = await prisma.learningPath.create({
-      data: {
-        userId: decoded.userId,
-        name: pathData.title,
-        description: pathData.description ?? null,
-        modules: JSON.stringify(pathData.nodes),
-        totalModules: pathData.nodes.length,
-        currentModule: 0,
-        status: 'ACTIVE',
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Learning path created successfully',
-      data: {
-        ...pathData,
-        id: created.id,
-        createdBy: decoded.userId,
-      }
-    });
-
-  } catch (error) {
-    console.error('Learning paths POST API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+  const authorization = request.headers.get('authorization');
+  const token = authorization?.startsWith('Bearer ')
+    ? authorization.substring(7)
+    : request.cookies?.get('accessToken')?.value;
+  const payload = token ? await verifyToken(token) : null;
+  if (!payload) {
+    return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
   }
+  return NextResponse.json({
+    success: false,
+    error: '旧学习路径写入口已停用，请通过正式学习任务接口操作',
+  }, { status: 405, headers: { Allow: 'GET' } });
 }
 
-export async function PUT(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const pathData: LearningPathData = await request.json();
-
-    if (!pathData.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Path ID is required'
-      }, { status: 400 });
-    }
-
-    // Verify ownership
-    const existing = await prisma.learningPath.findUnique({
-      where: { id: pathData.id },
-    });
-
-    if (!existing) {
-      return NextResponse.json({
-        success: false,
-        error: 'Learning path not found'
-      }, { status: 404 });
-    }
-
-    if (existing.userId !== decoded.userId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Forbidden'
-      }, { status: 403 });
-    }
-
-    const updated = await prisma.learningPath.update({
-      where: { id: pathData.id },
-      data: {
-        name: pathData.title ?? existing.name,
-        description: pathData.description ?? existing.description,
-        modules: pathData.nodes ? JSON.stringify(pathData.nodes) : existing.modules,
-        totalModules: pathData.nodes ? pathData.nodes.length : existing.totalModules,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Learning path updated successfully',
-      data: {
-        ...pathData,
-        id: updated.id,
-      }
-    });
-
-  } catch (error) {
-    console.error('Learning paths PUT API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid token'
-      }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const pathId = searchParams.get('id');
-
-    if (!pathId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Path ID is required'
-      }, { status: 400 });
-    }
-
-    // Verify ownership
-    const existing = await prisma.learningPath.findUnique({
-      where: { id: pathId },
-    });
-
-    if (!existing) {
-      return NextResponse.json({
-        success: false,
-        error: 'Learning path not found'
-      }, { status: 404 });
-    }
-
-    if (existing.userId !== decoded.userId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Forbidden'
-      }, { status: 403 });
-    }
-
-    // Cascade delete handles progress records via Prisma schema
-    await prisma.learningPath.delete({
-      where: { id: pathId },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Learning path deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Learning paths DELETE API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
-  }
-}
+export const PUT = POST;
+export const DELETE = POST;

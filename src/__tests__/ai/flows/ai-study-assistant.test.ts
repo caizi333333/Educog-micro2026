@@ -48,6 +48,8 @@ describe('AI Study Assistant', () => {
 
     const mockAiResponse = {
       answer: '8051微控制器内置2个16位定时器/计数器（T0和T1）',
+      source: 'generated' as const,
+      mode: 'generated' as const,
       relevantChapters: [],
       relevantVideos: []
     };
@@ -57,8 +59,9 @@ describe('AI Study Assistant', () => {
 
       const result = await aiStudyAssistant(mockInput);
 
-      expect(mockSimpleAiClient.chat).toHaveBeenCalledWith('什么是8051定时器？', expect.any(String));
+      expect(mockSimpleAiClient.chat).toHaveBeenCalledWith('什么是8051定时器？', expect.any(String), []);
       expect(result.answer).toBe('8051微控制器内置2个16位定时器/计数器（T0和T1）');
+      expect(result).toMatchObject({ source: 'generated', mode: 'generated' });
       // 真实 syllabus：CH6 是 定时器/计数器
       expect(result.relevantChapters).toContainEqual({ chapter: '6', title: '第 6 章：定时器/计数器' });
       // 验证能找到相关视频（如果视频库中有匹配的）
@@ -84,7 +87,14 @@ describe('AI Study Assistant', () => {
 
       const result = await aiStudyAssistant(inputWithHistory);
 
-      expect(mockSimpleAiClient.chat).toHaveBeenCalledWith('定时器如何配置？', expect.any(String));
+      expect(mockSimpleAiClient.chat).toHaveBeenCalledWith(
+        '定时器如何配置？',
+        expect.any(String),
+        [
+          { role: 'user', content: '什么是8051？' },
+          { role: 'assistant', content: '8051是一种微控制器' },
+        ],
+      );
       expect(result.answer).toBe('8051微控制器内置2个16位定时器/计数器（T0和T1）');
     });
 
@@ -95,13 +105,14 @@ describe('AI Study Assistant', () => {
 
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: '8051中断系统包含5个中断源',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
 
       const result = await aiStudyAssistant(interruptInput);
 
-      console.log('Interrupt search result:', result);
       // 真实 syllabus：CH5 是 中断系统
       expect(result.relevantChapters).toContainEqual(
         { chapter: '5', title: '第 5 章：中断系统' }
@@ -117,6 +128,8 @@ describe('AI Study Assistant', () => {
 
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: 'P0端口是开漏输出',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
@@ -138,6 +151,8 @@ describe('AI Study Assistant', () => {
 
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: '8051采用哈佛结构',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
@@ -160,6 +175,8 @@ describe('AI Study Assistant', () => {
 
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: '这不是关于8051的问题',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
@@ -168,6 +185,38 @@ describe('AI Study Assistant', () => {
 
       expect(result.relevantChapters).toEqual([]);
       expect(result.relevantVideos).toEqual([]);
+    });
+
+    it('should preserve a direct course-retrieval response as retrieved', async () => {
+      mockSimpleAiClient.chat.mockResolvedValueOnce({
+        answer: '当前外部生成服务不可用，以下内容由平台课程检索直接返回：\n\n- [#2.1] CPU结构',
+        source: 'retrieved',
+        mode: 'retrieved',
+        relevantChapters: [],
+        relevantVideos: [],
+      });
+
+      const result = await aiStudyAssistant({ question: '8051微控制器的基本架构是什么？' });
+
+      expect(result).toMatchObject({ source: 'retrieved', mode: 'retrieved' });
+      expect(result.relatedNodes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: '2.1' }),
+      ]));
+    });
+
+    it('should preserve a fixed client fallback and withhold unrelated retrieval nodes', async () => {
+      mockSimpleAiClient.chat.mockResolvedValueOnce({
+        answer: '关于8051定时器：\n\n当前为固定回退说明。',
+        source: 'fallback',
+        mode: 'fallback',
+        relevantChapters: [{ chapter: '6', title: '第 6 章：定时器/计数器' }],
+        relevantVideos: [],
+      });
+
+      const result = await aiStudyAssistant({ question: '定时器怎么设置' });
+
+      expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
+      expect(result.relatedNodes).toEqual([]);
     });
   });
 
@@ -229,6 +278,8 @@ describe('AI Study Assistant', () => {
         .mockRejectedValueOnce(new Error('Network timeout'))
         .mockResolvedValueOnce({
           answer: '重试成功的回答',
+          source: 'generated',
+          mode: 'generated',
           relevantChapters: [],
           relevantVideos: []
         });
@@ -237,6 +288,7 @@ describe('AI Study Assistant', () => {
 
       expect(mockSimpleAiClient.chat).toHaveBeenCalledTimes(2);
       expect(result.answer).toBe('重试成功的回答');
+      expect(result).toMatchObject({ source: 'generated', mode: 'generated' });
       
       consoleSpy.mockRestore();
     });
@@ -253,6 +305,7 @@ describe('AI Study Assistant', () => {
 
       expect(mockSimpleAiClient.chat).toHaveBeenCalledTimes(2);
       expect(result.answer).toContain('关于8051定时器的问题');
+      expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
       
       consoleSpy.mockRestore();
     });
@@ -341,13 +394,14 @@ describe('AI Study Assistant', () => {
       // Mock SimpleAiClient to return a basic response
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: '定时器相关回答',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
       
       const result = await aiStudyAssistant({ question: '定时器' });
       
-      console.log('Timer search result:', result);
       // 真实 syllabus：CH6 定时器/计数器
       expect(result.relevantChapters).toBeDefined();
       expect(result.relevantChapters!.some(ch => ch.chapter === '6')).toBe(true);
@@ -357,13 +411,14 @@ describe('AI Study Assistant', () => {
       // Mock SimpleAiClient to return a basic response
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: '存储器相关回答',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });
       
       const result = await aiStudyAssistant({ question: '8051 存储器' });
       
-      console.log('Memory search result:', result);
       // Should find memory-related chapters
       expect(result.relevantChapters).toBeDefined();
       expect(result.relevantChapters!.some(ch => ch.chapter === '2')).toBe(true);
@@ -373,6 +428,8 @@ describe('AI Study Assistant', () => {
       // Mock SimpleAiClient to return a basic response
       mockSimpleAiClient.chat.mockResolvedValueOnce({
         answer: 'IO端口相关回答',
+        source: 'generated',
+        mode: 'generated',
         relevantChapters: [],
         relevantVideos: []
       });

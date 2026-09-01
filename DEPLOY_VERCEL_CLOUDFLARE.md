@@ -36,6 +36,9 @@ git push -u origin main
    - `JWT_SECRET` = 强随机字符串（长度 32+）
    - `JWT_REFRESH_SECRET` = 强随机字符串（长度 32+）
    - `INIT_SECRET` = 强随机字符串（用于首次初始化账号，不要用默认值）
+   - `INIT_ADMIN_PASSWORD` = 管理员初始化密码（长度 12+）
+   - `INIT_TEACHER_PASSWORD` = 教师初始化密码（长度 12+）
+   - `INIT_STUDENT_PASSWORD` = 学生初始化密码（长度 12+）
    - `NEXT_PUBLIC_APP_URL` = `https://www.sunyancai.top`
 4. 点击 Deploy
 
@@ -46,13 +49,13 @@ git push -u origin main
 ---
 
 ## 四、首次初始化账号（上线后执行一次）
-部署完成后，访问：
+部署完成后，在本地终端执行：
 ```
-https://www.sunyancai.top/api/init?secret=<INIT_SECRET>
+curl -X POST -H 'x-init-secret: <INIT_SECRET>' 'https://www.sunyancai.top/api/init'
 ```
 
-成功后会返回默认账号（admin/teacher/student）。  
-安全建议：初始化成功后，你可以把 `INIT_SECRET` 改掉，或在 Vercel 里临时删除该环境变量以禁用初始化入口。
+成功后会返回账号名（admin/teacher/student），不会返回密码；密码取自上述环境变量。
+安全建议：初始化成功后删除 `INIT_SECRET` 以禁用初始化入口，并在首次登录后轮换初始化密码。
 
 ---
 
@@ -86,4 +89,3 @@ https://www.sunyancai.top/api/init?secret=<INIT_SECRET>
 ### 2）我不想用 db push，希望用 migrate
 可以，但需要生成标准 Prisma migrations（目录 `prisma/migrations/<timestamp>_xxx/`）。  
 你确认后我可以把迁移体系补齐，然后把 `vercel-build` 改回 `prisma migrate deploy`。
-

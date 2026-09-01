@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useToast } from './use-toast';
 import { calculateLearningCompletion, type LearningMetrics } from '@/lib/learning-completion';
 import { processAchievementResponse } from '@/hooks/use-achievement-notifications';
+import { clearStoredAuth, getStoredAccessToken } from '@/lib/auth-storage';
 
 // 扩展Error类型以支持自定义属性
 interface ExtendedError extends Error {
@@ -83,6 +84,7 @@ type ServerLearningProgressRecord = {
 };
 
 type PendingLearningEvent = {
+  clientEventId: string;
   eventType: string;
   targetType: string;
   targetId: string;
@@ -149,13 +151,11 @@ export function useTrackProgress(options: TrackProgressOptions) {
   // 最近一次“有效活动”时间；初始化为 0 以确保首次交互能被记录
   const lastActiveTimeRef = useRef<number>(0);
   const lastSaveTimeRef = useRef<number>(0);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isActiveRef = useRef<boolean>(true);
   const hasUnsavedChangesRef = useRef<boolean>(false);
   const progressRef = useRef<number>(0);
   const completionDetailsRef = useRef<Record<string, unknown> | null>(null);
   const saveRetryCountRef = useRef(0);
-  const maxRetries = 3;
 
   // Calculate progress based on comprehensive learning metrics
   const calculateProgress = useCallback(() => {
@@ -200,6 +200,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
   const isRequestInProgressRef = useRef<boolean>(false);
   const requestQueueRef = useRef<Array<{ timeSpent: number; progress?: number; resolve: () => void; reject: (error: Error) => void; abortController?: AbortController; status?: string }>>([]);
   const eventQueueRef = useRef<PendingLearningEvent[]>([]);
+  const saveProgressInternalRef = useRef<(timeSpent: number, progress?: number) => Promise<void>>(async () => {});
   
   // Circuit breaker for error handling
   const circuitBreakerRef = useRef({
@@ -254,7 +255,11 @@ export function useTrackProgress(options: TrackProgressOptions) {
   }, []);
 
   const enqueueLearningEvent = useCallback((eventType: string, metadata: Record<string, unknown> = {}) => {
+    const eventId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     eventQueueRef.current.push({
+      clientEventId: `progress:${eventId}`,
       eventType,
       targetType: 'CHAPTER',
       targetId: chapterIdRef.current,
@@ -276,7 +281,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
 
   const flushLearningEvents = useCallback(async () => {
     if (typeof window === 'undefined' || eventQueueRef.current.length === 0) return;
-    const token = localStorage.getItem('accessToken');
+    const token = getStoredAccessToken();
     if (!token) return;
 
     const events = eventQueueRef.current.splice(0, 100);
@@ -314,7 +319,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
     if (!request) return;
     
     try {
-      await saveProgressInternal(request.timeSpent, request.progress);
+      await saveProgressInternalRef.current(request.timeSpent, request.progress);
       request.resolve();
     } catch (error) {
       const standardError = error instanceof Error ? error : new Error('Unknown error');
@@ -360,7 +365,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
       });
     }
     
-    return saveProgressInternal(timeSpent, progress);
+    return saveProgressInternalRef.current(timeSpent, progress);
   }, [state.isTracking]);
   
   // Internal save function with actual implementation
@@ -395,7 +400,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
     setState(prev => ({ ...prev, isSaving: true }));
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
       if (!token || token.trim() === '') {
         console.warn('用户未登录或token无效，跳过进度保存');
         setState(prev => ({ ...prev, isSaving: false }));
@@ -627,7 +632,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
           // Authentication errors - don't retry, clear token
           console.warn('用户认证失效，清除本地token');
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken');
+            clearStoredAuth();
           }
           toast({
             title: "认证失效",
@@ -697,32 +702,9 @@ export function useTrackProgress(options: TrackProgressOptions) {
         }
       }
     }
-  }, [state.isSaving, state.interactions]); // 简化依赖
+  }, [calculateProgress, checkCircuitBreaker, processRequestQueue, state.isSaving, state.interactions, state.isTracking, toast]);
 
-  // 防抖保存：把频繁触发收敛为一次保存（真正的“保存裁决”由 saveProgress 负责）
-  const debouncedSave = useCallback((timeSpent: number) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Adaptive delay based on circuit breaker state
-    const baseDelay = 2000; // 2 seconds（可快速响应“无感保存”）
-    const breaker = circuitBreakerRef.current;
-    const delay = breaker.state === 'OPEN' ? baseDelay * 5 : baseDelay;
-
-    saveTimeoutRef.current = setTimeout(() => {
-      if (!isRequestInProgressRef.current && 
-          hasUnsavedChangesRef.current && 
-          state.isTracking) {
-        if (checkCircuitBreaker()) {
-          saveProgress(timeSpent).catch(error => {
-            console.error('Debounced save failed:', error);
-            // Don't show toast for debounced save failures to avoid spam
-          });
-        }
-      }
-    }, delay);
-  }, [saveProgress, state.isTracking, checkCircuitBreaker]);
+  saveProgressInternalRef.current = saveProgressInternal;
 
   // 更严格的用户活动跟踪
   const trackActivity = useCallback((event?: Event) => {
@@ -773,7 +755,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
     const timeSpent = Date.now() - startTimeRef.current;
     if (timeSpent >= minReadingTimeRef.current || hasUnsavedChangesRef.current) {
       // Try to save progress on page unload
-      const token = localStorage.getItem('accessToken');
+      const token = getStoredAccessToken();
       if (token && typeof navigator !== 'undefined' && navigator.sendBeacon) {
         try {
           const data = {
@@ -805,7 +787,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
       }
     }
     if (eventQueueRef.current.length > 0) {
-      const token = localStorage.getItem('accessToken');
+      const token = getStoredAccessToken();
       if (token && typeof navigator !== 'undefined' && navigator.sendBeacon) {
         const events = eventQueueRef.current.splice(0, 100);
         const blob = new Blob([JSON.stringify({ token, events })], { type: 'application/json' });
@@ -814,18 +796,35 @@ export function useTrackProgress(options: TrackProgressOptions) {
     }
   }, [calculateProgress]);
 
+  // Long-lived listeners and timers are registered once. These refs keep them
+  // connected to the latest render without re-registering or using stale state.
+  const stateRef = useRef(state);
+  const calculateProgressRef = useRef(calculateProgress);
+  const flushLearningEventsRef = useRef(flushLearningEvents);
+  const handleBeforeUnloadRef = useRef(handleBeforeUnload);
+  const handleVisibilityChangeRef = useRef(handleVisibilityChange);
+  const saveProgressRef = useRef(saveProgress);
+  const trackActivityRef = useRef(trackActivity);
+  stateRef.current = state;
+  calculateProgressRef.current = calculateProgress;
+  flushLearningEventsRef.current = flushLearningEvents;
+  handleBeforeUnloadRef.current = handleBeforeUnload;
+  handleVisibilityChangeRef.current = handleVisibilityChange;
+  saveProgressRef.current = saveProgress;
+  trackActivityRef.current = trackActivity;
+
   // 简化的滚动处理防抖
   const throttledScrollHandler = useRef(
     throttle(() => {
       const previousProgress = progressRef.current;
-      const newProgress = calculateProgress();
+      const newProgress = calculateProgressRef.current();
       // 简化的进度变化检查，减少不必要的活动跟踪
       if (Math.abs(newProgress - previousProgress) > 15) { // 进一步提高阈值到15%
         enqueueLearningEvent('SCROLL_PROGRESS', {
           action: 'SCROLL_PROGRESS',
           component: 'learning-content',
         });
-        trackActivity();
+        trackActivityRef.current();
       }
     }, 10000) // 增加到10秒，大幅减少频率
   ).current;
@@ -835,7 +834,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
     // Only run in browser environment
     if (typeof window === 'undefined') return;
     
-    // Component is now mounted and ready
+    const minimumReadingTime = minReadingTimeRef.current;
     
     // Track initial page view
     setState(prev => ({ ...prev, pageViews: prev.pageViews + 1 }));
@@ -849,7 +848,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
         breaker.failureCount = Math.max(0, breaker.failureCount - 1); // Reduce failure count
       }
       
-      if (hasUnsavedChangesRef.current && !isRequestInProgressRef.current && state.isTracking) {
+      if (hasUnsavedChangesRef.current && !isRequestInProgressRef.current && stateRef.current.isTracking) {
         // Reset retry counter for fresh start
         saveRetryCountRef.current = 0;
         const timeSpent = Date.now() - startTimeRef.current;
@@ -859,8 +858,8 @@ export function useTrackProgress(options: TrackProgressOptions) {
           if (hasUnsavedChangesRef.current && 
               !isRequestInProgressRef.current && 
               navigator.onLine && 
-              state.isTracking) {
-            saveProgressInternal(timeSpent).catch(error => {
+              stateRef.current.isTracking) {
+            saveProgressInternalRef.current(timeSpent).catch(error => {
               console.error('Network recovery save failed:', error);
               // Don't show toast immediately after network recovery to avoid spam
             });
@@ -878,18 +877,22 @@ export function useTrackProgress(options: TrackProgressOptions) {
 
     // Set up activity tracking
     const activityEvents = ['mousedown', 'keydown', 'touchstart'];
+    const handleActivityEvent = (event: Event) => trackActivityRef.current(event);
     activityEvents.forEach(event => {
-      document.addEventListener(event, trackActivity);
+      document.addEventListener(event, handleActivityEvent);
     });
     
     // Set up scroll tracking for progress calculation with throttling
-    window.addEventListener('scroll', throttledScrollHandler);
+    const handleScroll = () => throttledScrollHandler();
+    window.addEventListener('scroll', handleScroll);
 
     // Set up visibility tracking
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const handleVisibility = () => handleVisibilityChangeRef.current();
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // Set up unload tracking
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    const handleUnload = (event: BeforeUnloadEvent) => handleBeforeUnloadRef.current(event);
+    window.addEventListener('beforeunload', handleUnload);
 
     // 自动保存机制（默认 30 分钟，可由 options.autoSaveInterval 覆盖）
     const intervalMs = autoSaveIntervalRef.current;
@@ -902,10 +905,10 @@ export function useTrackProgress(options: TrackProgressOptions) {
         // 检查条件：距离上次保存超过 interval + 有足够的学习时间
         if (timeSinceLastSave > intervalMs) {
           const timeSpent = now - startTimeRef.current;
-          if (timeSpent >= minReadingTimeRef.current) {
+          if (timeSpent >= minimumReadingTime) {
             // interval 本身已经很稀疏 + saveProgress 内部有 30s 最小间隔裁决
             // 这里直接保存，避免 interval 太小导致“防抖永远触发不到”的问题
-            saveProgress(timeSpent).catch(() => {
+            saveProgressRef.current(timeSpent).catch(() => {
               // silent
             });
           }
@@ -926,7 +929,7 @@ export function useTrackProgress(options: TrackProgressOptions) {
     }, 900000); // 15 minutes
 
     const learningEventFlushInterval = setInterval(() => {
-      flushLearningEvents().catch(() => {
+      flushLearningEventsRef.current().catch(() => {
         // silent
       });
     }, 60000);
@@ -939,16 +942,16 @@ export function useTrackProgress(options: TrackProgressOptions) {
       
       // Save any remaining progress (but don't wait for it)
       const timeSpent = Date.now() - startTimeRef.current;
-      if (timeSpent >= minReadingTimeRef.current) {
+      if (timeSpent >= minimumReadingTime) {
         // Use a synchronous approach for cleanup save
         try {
-          const token = localStorage.getItem('accessToken');
+          const token = getStoredAccessToken();
           if (token) {
             const data = {
               pathId: pathIdRef.current,
               moduleId: moduleIdRef.current,
               chapterId: chapterIdRef.current,
-              progress: calculateProgress(),
+              progress: calculateProgressRef.current(),
               timeSpent: Math.round(timeSpent / 1000),
               action: 'TRACK_PROGRESS',
               metadata: metadataRef.current,
@@ -967,11 +970,11 @@ export function useTrackProgress(options: TrackProgressOptions) {
 
       // Clear all event listeners
       activityEvents.forEach(event => {
-        document.removeEventListener(event, trackActivity);
+        document.removeEventListener(event, handleActivityEvent);
       });
-      window.removeEventListener('scroll', throttledScrollHandler);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleUnload);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
 
@@ -979,11 +982,8 @@ export function useTrackProgress(options: TrackProgressOptions) {
       clearInterval(autoSaveIntervalId);
       clearInterval(healthCheckInterval);
       clearInterval(learningEventFlushInterval);
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
     };
-  }, []); // 移除所有依赖以防止无限重新渲染，使用ref存储动态值
+  }, [throttledScrollHandler]);
 
   // Public methods
   const pauseTracking = useCallback(() => {
