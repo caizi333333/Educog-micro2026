@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 const SENSITIVE_ERROR_MESSAGE_PATTERN = /(?:password|secret|token|api[_-]?key|authorization)\s*(?:=|:)\s*\S+|bearer\s+[A-Za-z0-9._~-]+/i;
 const SENSITIVE_FIELD_NAME_PATTERN = /^(?:password|secret|token|api[_-]?key|authorization)$/i;
-const SENSITIVE_STACK_PATTERN = /\/Users\/[^/]+\/|\/sessions\/[^/]+\/[^/]+\/|password|secret|token/gi;
+const SENSITIVE_STACK_PATTERN = /\/Users\/[^/]+\/|\/home\/[^/]+\/|\/sessions\/[^/]+\/[^/]+\/|password|secret|token/gi;
 
 function publicErrorMessage(message: string): string {
   return SENSITIVE_ERROR_MESSAGE_PATTERN.test(message) ? 'Internal server error' : message;
