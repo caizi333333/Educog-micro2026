@@ -1,7 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SimulationPage from '@/app/simulation/page';
-import { emptyProj04CompletionEvidence } from '@/lib/experiment-config';
+import { createExperimentObservation, emptyProj04CompletionEvidence } from '@/lib/experiment-config';
+import StackPushPopAnim from '@/components/simulation/animations/StackPushPopAnim';
 
 const mockLoadExperiment = jest.fn();
 const mockLoadExperimentDraft = jest.fn(async () => undefined);
@@ -66,13 +67,102 @@ jest.mock('lucide-react', () => {
     Sparkles: Icon, X: Icon, Lightbulb: Icon, Waypoints: Icon, Timer: Icon,
     Monitor: Icon, Keyboard: Icon, Volume2: Icon, Cog: Icon, Radio: Icon,
     Boxes: Icon, Loader2: Icon, Cloud: Icon, CloudOff: Icon, RefreshCw: Icon,
-    GitCompareArrows: Icon,
+    GitCompareArrows: Icon, ArrowDown: Icon, ArrowUp: Icon,
   };
+});
+
+describe('StackPushPopAnim step consistency', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('pushes low and high return bytes into distinct addresses and pops them in reverse order', () => {
+    render(<StackPushPopAnim />);
+    fireEvent.click(screen.getByRole('button', { name: 'LCALL' }));
+    expect(screen.getByText('SP = 8H')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toHaveTextContent('PUSH PCL (30H) → [8H]');
+    act(() => jest.advanceTimersByTime(300));
+    expect(screen.getByText('SP = 9H')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toHaveTextContent('PUSH PCH (00H) → [9H]');
+    act(() => jest.advanceTimersByTime(300));
+    expect(screen.getByRole('log')).toHaveTextContent('PC = 0100H');
+
+    fireEvent.click(screen.getByRole('button', { name: 'RET' }));
+    expect(screen.getByText('SP = 8H')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toHaveTextContent('POP ← [9H] = 00H (PCH)');
+    act(() => jest.advanceTimersByTime(300));
+    expect(screen.getByText('SP = 7H')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toHaveTextContent('POP ← [8H] = 30H (PCL)');
+    act(() => jest.advanceTimersByTime(300));
+    expect(screen.getByRole('log')).toHaveTextContent('PC = 0030H');
+    expect(screen.getByRole('button', { name: 'POP' })).toBeDisabled();
+  });
+
+  it('ignores overlapping actions until both timed steps complete', () => {
+    render(<StackPushPopAnim />);
+    const call = screen.getByRole('button', { name: 'LCALL' });
+    act(() => {
+      fireEvent.click(call);
+      fireEvent.click(call);
+      fireEvent.click(screen.getByRole('button', { name: 'PUSH' }));
+      fireEvent.click(screen.getByRole('button', { name: 'POP' }));
+    });
+    ['LCALL', 'RET', 'PUSH', 'POP'].forEach((name) => {
+      expect(screen.getByRole('button', { name })).toBeDisabled();
+    });
+    act(() => jest.advanceTimersByTime(600));
+    expect(screen.getByText('SP = 9H')).toBeInTheDocument();
+    expect(screen.getByRole('log').children).toHaveLength(3);
+    expect(call).toBeEnabled();
+  });
+
+  it('cancels stale steps on reset and does not contaminate a new sequence', () => {
+    render(<StackPushPopAnim />);
+    fireEvent.click(screen.getByRole('button', { name: 'LCALL' }));
+    act(() => jest.advanceTimersByTime(100));
+    fireEvent.click(screen.getByRole('button', { name: '重置' }));
+    expect(screen.queryByRole('log')).not.toBeInTheDocument();
+    expect(screen.getByText('SP = 7H')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'LCALL' }));
+    act(() => jest.advanceTimersByTime(600));
+    expect(screen.getByText('SP = 9H')).toBeInTheDocument();
+    expect(screen.getByRole('log').children).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole('button', { name: 'RET' }));
+    fireEvent.click(screen.getByRole('button', { name: '重置' }));
+    act(() => jest.runAllTimers());
+    expect(screen.queryByRole('log')).not.toBeInTheDocument();
+    expect(screen.getByText('SP = 7H')).toBeInTheDocument();
+  });
+
+  it('reserves two cells for LCALL and restores RET from the actual top two bytes', () => {
+    render(<StackPushPopAnim />);
+    const push = screen.getByRole('button', { name: 'PUSH' });
+    for (let i = 0; i < 7; i += 1) fireEvent.click(push);
+    expect(screen.getByText('SP = EH')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'LCALL' })).toBeDisabled();
+    fireEvent.click(push);
+    expect(screen.getByText('SP = FH')).toBeInTheDocument();
+    expect(push).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'RET' }));
+    act(() => jest.advanceTimersByTime(600));
+    expect(screen.getByText('SP = DH')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toHaveTextContent('PC = 5555H');
+    expect(screen.getByRole('button', { name: 'LCALL' })).toBeEnabled();
+  });
+
+  it('clears scheduled callbacks when the animation is unmounted', () => {
+    const view = render(<StackPushPopAnim />);
+    fireEvent.click(screen.getByRole('button', { name: 'LCALL' }));
+    expect(jest.getTimerCount()).toBe(2);
+    view.unmount();
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });
 
 function createHookState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     code: 'MOV A, #01H', setCode: jest.fn(), simulatorState: null, previousState: null,
+    observation: createExperimentObservation(), executedCode: 'MOV A, #01H', ownerId: 'student-1', identityBlocked: false,
     traceLog: [], executionCount: 0, isRunning: false, isCompletingExperiment: false,
     fault: '', result: null, selectedExperiment: '', experimentStatus: {},
     isLoadingStatus: false, experimentStatusError: null,
@@ -191,7 +281,7 @@ describe('SimulationPage experiment loading context', () => {
     render(<SimulationPage />);
 
     expect(screen.getByText('里程碑 0/5')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '完成项目' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toBeDisabled();
   });
 
   it('enables proj04 completion for a stopped continuous run with telemetry and five saved milestones', () => {
@@ -220,7 +310,7 @@ describe('SimulationPage experiment loading context', () => {
 
     expect(screen.getByText('遥测 已观察')).toBeInTheDocument();
     expect(screen.getByText('里程碑 5/5')).toBeInTheDocument();
-    const completeButton = screen.getByRole('button', { name: '完成项目' });
+    const completeButton = screen.getByRole('button', { name: '保存运行记录' });
     expect(completeButton).toBeEnabled();
     fireEvent.click(completeButton);
     expect(completeExperiment).toHaveBeenCalledTimes(1);
@@ -248,7 +338,7 @@ describe('SimulationPage experiment loading context', () => {
     render(<SimulationPage />);
 
     expect(screen.getByText('遥测 待观察')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '完成项目' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toBeDisabled();
   });
 
   it('keeps the completion action visible and explains what exp02 still requires', () => {
@@ -262,8 +352,30 @@ describe('SimulationPage experiment loading context', () => {
     render(<SimulationPage />);
 
     expect(screen.getByText('先成功运行，并累计执行至少 20 条指令')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '完成实验' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '完成实验' })).toHaveAttribute('aria-describedby', 'experiment-completion-guidance');
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toHaveAttribute('aria-describedby', 'experiment-completion-guidance');
+  });
+
+  it('allows a stopped LED loop with the required output observations to save a run record', () => {
+    const observation = createExperimentObservation();
+    observation.steps = 80000;
+    observation.portValues.P1 = [0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f];
+    mockHookState = createHookState({ selectedExperiment: 'exp01', result: { success: true }, executionCount: 80000, observation, simulatorState: { terminated: false } });
+    render(<SimulationPage />);
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toBeEnabled();
+    expect(screen.getByText(/本轮仿真输出观测已满足/)).toHaveTextContent('学习目标与实物性能仍需另行评价');
+  });
+
+  it.each([
+    { name: 'an END-only run', executedCode: 'MOV A, #01H', identityBlocked: false, ownerId: 'student-1' },
+    { name: 'edited code', executedCode: 'OLD CODE', identityBlocked: false, ownerId: 'student-1' },
+    { name: 'a changed account', executedCode: 'MOV A, #01H', identityBlocked: true, ownerId: 'student-1' },
+    { name: 'an anonymous session', executedCode: 'MOV A, #01H', identityBlocked: false, ownerId: null },
+  ])('keeps $name from saving an experiment run', (state) => {
+    mockHookState = createHookState({ ...state, selectedExperiment: 'exp01', result: { success: true }, executionCount: 1, simulatorState: { terminated: true } });
+    render(<SimulationPage />);
+    expect(screen.getByRole('button', { name: '保存运行记录' })).toBeDisabled();
+    if (state.identityBlocked) expect(screen.getByRole('button', { name: '运行程序' })).toBeDisabled();
   });
 
   it('shows the next-step entry when the server already confirms completion', () => {

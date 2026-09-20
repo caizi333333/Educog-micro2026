@@ -840,12 +840,13 @@ describe('Simulator Enhanced Tests', () => {
   });
 
   describe('性能和稳定性测试', () => {
-    it('proj04 教学口径应与当前实现和4学时一致', () => {
+    it('proj04 应区分平台预计用时和大纲学时，并与当前实现一致', () => {
       const project = getExperimentConfig('proj04');
       const teaching = getTeachingContent('proj04');
 
       expect(project?.duration).toBe(240);
-      expect(teaching.syllabusMapping?.hours).toBe(4);
+      expect(teaching.syllabusMapping?.hours).toBe(0);
+      expect(teaching.syllabusMapping?.hoursLabel).toBe('平台拓展项目');
       expect(project?.description).toContain('LCD仅保留未实现接口');
       expect(project?.description).toContain('EEPROM属于后续扩展');
       expect(project?.code).toMatch(/UPDATE_LCD:\s*; 空接口：LCD驱动尚未集成[^\n]*\s*RET/);

@@ -51,6 +51,8 @@ const deepSeekResponseSchema = z.object({
   }).optional(),
 });
 
+const DEEPSEEK_REQUEST_TIMEOUT_MS = 25_000;
+
 export class DeepSeekClient {
   private apiKey: string;
   private baseUrl: string = 'https://api.deepseek.com/v1';
@@ -66,10 +68,16 @@ export class DeepSeekClient {
 
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒超时，真实提问常超过10秒
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(new Error('DeepSeek API request timeout'));
+      }, DEEPSEEK_REQUEST_TIMEOUT_MS);
+    });
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await Promise.race([fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,27 +90,28 @@ export class DeepSeekClient {
           max_tokens: 1024, // 精炼回答，降低超时概率
         }),
         signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+      }), deadline]);
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
+        // Provider error bodies may echo private prompts or submitted work.
+        // Status is sufficient for recovery; do not read or log those bodies.
+        throw new Error(`DeepSeek API error: ${response.status}`);
       }
 
-      const data: unknown = await response.json();
+      const data: unknown = await Promise.race([response.json(), deadline]);
       const parsed = deepSeekResponseSchema.safeParse(data);
       if (!parsed.success) {
         throw new Error('DeepSeek API returned an invalid response');
       }
       return parsed.data;
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
         throw new Error('DeepSeek API request timeout');
       }
       throw error;
+    } finally {
+      // Response headers may arrive long before the body has finished streaming.
+      clearTimeout(timeoutId!);
     }
   }
 

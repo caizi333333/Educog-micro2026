@@ -171,6 +171,8 @@ export class Simulator {
   private buzzerPin: string | null = null; // 实验声明的蜂鸣器输出引脚（如 P2.0），跨 reset 保持
   // 瞬时按键的待恢复队列：拉低若干条指令（模型时间）后自动回高
   private pendingPulses: { port: 'P0' | 'P1' | 'P2' | 'P3'; bit: number; remaining: number }[] = [];
+  // 8051 的同地址 SBUF 读写对应不同缓冲器，发送不能覆盖尚待程序读取的接收字节。
+  private receivedSbuf: number | null = null;
   // Standard 8051 SFR address map (no duplicates, correct addresses per datasheet)
   private sfrMap: Map<number, string> = new Map([
     [0x80, 'P0'], [0x81, 'SP'], [0x82, 'DPL'], [0x83, 'DPH'],
@@ -206,6 +208,7 @@ export class Simulator {
     this.instrCount = 0;
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
+    this.receivedSbuf = null;
     this.xram.fill(0xFF);
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
   }
@@ -222,6 +225,7 @@ export class Simulator {
     this.instrCount = 0;
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
+    this.receivedSbuf = null;
     this.xram.fill(0xFF);
     this.state = this.getInitialState();
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
@@ -412,7 +416,7 @@ export class Simulator {
       case 'TH0': return this.state.timers.TH0;
       case 'TH1': return this.state.timers.TH1;
       case 'SCON': return this.state.uart.SCON;
-      case 'SBUF': return this.state.uart.SBUF;
+      case 'SBUF': return this.receivedSbuf ?? this.state.uart.SBUF;
       case 'IE': return this.state.interrupts.IE;
       case 'IP': return this.state.interrupts.IP;
       case 'PSW': return this.getPSWValue();
@@ -912,11 +916,17 @@ export class Simulator {
    * 只动 portValues，不触碰执行引擎——程序里的 MOV A,P3 / JNB P3.x 会读到新电平。
    */
   public setPortBit(port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean): void {
-    if (bit < 0 || bit > 7) return;
+    if (!['P0', 'P1', 'P2', 'P3'].includes(port) || !Number.isInteger(bit) || bit < 0 || bit > 7 || typeof level !== 'boolean') return;
+    const wasHigh = (this.state.portValues[port] & (1 << bit)) !== 0;
     if (level) {
       this.state.portValues[port] |= (1 << bit);
     } else {
       this.state.portValues[port] &= ~(1 << bit);
+    }
+    // INT0/INT1 的下降沿由外部输入产生；电平触发在指令边界读取。
+    if (port === 'P3' && wasHigh && !level && (bit === 2 || bit === 3)) {
+      const modeBit = bit === 2 ? 0x01 : 0x04;
+      if (this.state.timers.TCON & modeBit) this.state.timers.TCON |= modeBit << 1;
     }
   }
 
@@ -926,7 +936,8 @@ export class Simulator {
    * 单击只触发一次（与真实硬件快速点按一致）。
    */
   public pulsePortBit(port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, durationInstr: number = 2500): void {
-    if (bit < 0 || bit > 7) return;
+    if (!['P0', 'P1', 'P2', 'P3'].includes(port) || !Number.isInteger(bit) || bit < 0 || bit > 7
+      || !Number.isSafeInteger(durationInstr) || durationInstr < 1 || durationInstr > 200000) return;
     this.setPortBit(port, bit, false);
     const existing = this.pendingPulses.find(p => p.port === port && p.bit === bit);
     if (existing) {
@@ -934,6 +945,19 @@ export class Simulator {
     } else {
       this.pendingPulses.push({ port, bit, remaining: durationInstr });
     }
+  }
+
+  /** 单字节模拟串口接收；由原程序读取 SBUF 和清除 RI，不直接改写应用变量。 */
+  public receiveUartByte(value: number): boolean {
+    const uart = this.state.uart;
+    if (!Number.isInteger(value) || value < 0 || value > 255 || this.state.terminated
+      || !(uart.SCON & 0x10) || uart.RI || this.inInterrupt) return false;
+    uart.SBUF = value;
+    this.receivedSbuf = value;
+    uart.RI = true;
+    uart.SCON |= 0x01;
+    uart.receiveBuffer = (uart.receiveBuffer + String.fromCharCode(value)).slice(-4000);
+    return true;
   }
 
   /** 声明蜂鸣器输出引脚（来自实验配置，如 exp07 的 P2.0），跨 reset/updateCode 保持 */
@@ -1027,9 +1051,19 @@ export class Simulator {
     const t = this.state.timers;
     if (!it.EA || this.inInterrupt) return;
 
-    // 自然优先级：外部0 → 定时器0 → 外部1 → 定时器1 → 串口
+    // 自然优先级：外部0 → 定时器0 → 外部1 → 定时器1 → 串口。
+    // 下降沿触发在受理时清标志；低电平触发在输入保持低时可再次受理。
+    const externalPending = (number: 0 | 1): boolean => {
+      const modeBit = number === 0 ? 0x01 : 0x04;
+      return (t.TCON & modeBit) !== 0
+        ? (t.TCON & (modeBit << 1)) !== 0
+        : (this.state.portValues.P3 & (1 << (number + 2))) === 0;
+    };
+    if (it.EX0 && externalPending(0)) { t.TCON &= ~0x02; this.enterInterrupt(0x0003); return; }
     if (it.ET0 && t.TF0) { t.TF0 = false; this.enterInterrupt(0x000b); return; }
+    if (it.EX1 && externalPending(1)) { t.TCON &= ~0x08; this.enterInterrupt(0x0013); return; }
     if (it.ET1 && t.TF1) { t.TF1 = false; this.enterInterrupt(0x001b); return; }
+    if (it.ES && (this.state.uart.RI || this.state.uart.TI)) this.enterInterrupt(0x0023);
   }
 
   private enterInterrupt(vector: number): void {
@@ -1606,7 +1640,7 @@ export class Simulator {
         case 'TH1': return this.state.timers.TH1;
         case 'TL1': return this.state.timers.TL1;
         case 'SCON': return this.state.uart.SCON;
-        case 'SBUF': return this.state.uart.SBUF;
+        case 'SBUF': return this.receivedSbuf ?? this.state.uart.SBUF;
         case 'IE': return this.state.interrupts.IE;
         case 'IP': return this.state.interrupts.IP;
         case 'ACC': return this.state.registers.A;

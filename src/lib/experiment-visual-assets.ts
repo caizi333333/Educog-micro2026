@@ -204,8 +204,8 @@ export const experimentVisualAssets: Record<string, ExperimentVisualAsset[]> = {
     {
       id: 'exp05-keypad',
       type: 'wiring',
-      title: '4×4 矩阵键盘接线图',
-      description: '行线逐行扫描，列线读取输入并通过上拉电阻保持高电平。',
+      title: '拓展阅读：4×4矩阵键盘接线图',
+      description: '此图用于矩阵扫描拓展。当前预置程序采用P3.0–P3.3四路独立按键，不使用图中的行列联动；独立按键连接见下方“硬件电路”。',
       svg: keypadWiring,
     },
   ],

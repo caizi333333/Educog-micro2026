@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { POST, GET } from '@/app/api/experiments/save/route';
 import { verifyToken } from '@/lib/auth';
 import { ADDRESSING_TASK_PRESET } from '@/lib/lesson-tasks';
-import { emptyProj04CompletionEvidence, PROJ04_MIN_OBSERVATION_STEPS } from '@/lib/experiment-config';
+import { emptyProj04CompletionEvidence, PROJ04_MIN_OBSERVATION_STEPS, getExperimentConfig } from '@/lib/experiment-config';
 
 jest.mock('@/lib/auth', () => ({
   verifyToken: jest.fn(),
@@ -10,6 +10,33 @@ jest.mock('@/lib/auth', () => ({
 
 describe('/api/experiments/save', () => {
   const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
+
+  // Existing route tests focus on persistence and replay. Attach the current
+  // client identity and actual-run code contract; explicit invalid values stay
+  // untouched so the rejection tests exercise the route itself.
+  function experimentBody(input: Record<string, any>): string {
+    const execution = input.results?.execution;
+    return JSON.stringify({
+      expectedUserId: '1',
+      ...input,
+      ...(execution ? { results: {
+        ...input.results,
+        execution: { executedCode: input.code, ...execution },
+      } } : {}),
+    });
+  }
+
+  const ledCode = 'ORG 0000H\nLOOP: MOV P1,#0FEH\nMOV P1,#0FDH\nMOV P1,#0FBH\nMOV P1,#0F7H\nMOV P1,#0EFH\nMOV P1,#0DFH\nMOV P1,#0BFH\nMOV P1,#07FH\nSJMP LOOP\nEND';
+  const ledResults = {
+    success: true,
+    execution: { terminated: false, traceSteps: 200, faultFree: true },
+    observation: {
+      version: 1, steps: 200,
+      portValues: { P0: [], P1: [0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f], P2: [], P3: [] },
+      ramValues: { '20': [], '21': [], '30': [], '32': [] },
+      timerOverflows: { T0: 0, T1: 0 }, uartText: '', buzzerFrequencyHz: 0, adcPwmPairs: [],
+    },
+  };
 
   function completedProj04Evidence(): ReturnType<typeof emptyProj04CompletionEvidence> {
     const evidence = emptyProj04CompletionEvidence();
@@ -55,6 +82,65 @@ describe('/api/experiments/save', () => {
   });
 
   describe('POST', () => {
+    it('循环程序具有对应LED观测时可保存，不能以是否到达END代替观测', async () => {
+      mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
+      const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
+        method: 'POST', headers: { Authorization: 'Bearer valid-token' },
+        body: experimentBody({ experimentId: 'exp01', status: 'COMPLETED', completionKey: 'experiment:led-observed-loop', code: ledCode, results: ledResults }),
+      }));
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({ success: true, ownerId: '1' });
+    });
+
+    it.each(['missing-output', 'step-mismatch', 'terminated-only'])('拒绝不足的运行记录：%s', async (failure) => {
+      mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
+      const results = JSON.parse(JSON.stringify(ledResults));
+      if (failure === 'missing-output') results.observation.portValues.P1 = [0xff];
+      if (failure === 'step-mismatch') results.observation.steps += 1;
+      if (failure === 'terminated-only') {
+        results.execution.terminated = true;
+        delete results.observation;
+      }
+      const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
+        method: 'POST', headers: { Authorization: 'Bearer valid-token' },
+        body: experimentBody({ experimentId: 'exp01', status: 'COMPLETED', completionKey: `experiment:invalid:${failure}`, code: ledCode, results }),
+      }));
+      expect(res.status).toBe(400);
+      const prisma = (globalThis as any).__mockPrisma;
+      expect(prisma.userExperiment.upsert).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, 'another-user'])('身份缺失或错配时拒绝写入：%s', async (expectedUserId) => {
+      mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
+      const prisma = (globalThis as any).__mockPrisma;
+      const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
+        method: 'POST', headers: { Authorization: 'Bearer valid-token' },
+        body: experimentBody({ expectedUserId, experimentId: 'exp01', intent: 'DRAFT', code: 'MOV A,#01H\nEND' }),
+      }));
+      expect(res.status).toBe(409);
+      await expect(res.json()).resolves.toMatchObject({ code: 'ACCOUNT_CHANGED' });
+      expect(prisma.userExperiment.findUnique).not.toHaveBeenCalled();
+      expect(prisma.userExperiment.create).not.toHaveBeenCalled();
+      expect(prisma.userExperiment.update).not.toHaveBeenCalled();
+    });
+
+    it('新代码不得沿用旧代码的运行记录', async () => {
+      mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
+      const prisma = (globalThis as any).__mockPrisma;
+      const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
+        method: 'POST', headers: { Authorization: 'Bearer valid-token' },
+        body: experimentBody({
+          experimentId: 'exp01', status: 'COMPLETED', completionKey: 'experiment:changed-code',
+          code: 'BROKEN_OPCODE\nEND',
+          results: { success: true, execution: { executedCode: 'MOV P1,#00H\nEND', terminated: true, traceSteps: 100, faultFree: true } },
+        }),
+      }));
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('实际运行代码不一致') });
+      expect(prisma.userExperiment.upsert).not.toHaveBeenCalled();
+      expect(prisma.userExperiment.update).not.toHaveBeenCalled();
+    });
+
     it('损坏的 JSON 应返回参数错误而不是服务器错误', async () => {
       mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
@@ -69,7 +155,7 @@ describe('/api/experiments/save', () => {
     it('缺少认证令牌应返回 401', async () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: experimentBody({}),
       });
       const res = await POST(req);
       const data = await res.json();
@@ -82,7 +168,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer invalid-token' },
-        body: JSON.stringify({}),
+        body: experimentBody({}),
       });
       const res = await POST(req);
       const data = await res.json();
@@ -95,7 +181,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({ code: 'abc' }),
+        body: experimentBody({ code: 'abc' }),
       });
       const res = await POST(req);
       const data = await res.json();
@@ -109,7 +195,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02',
           pathId: 'path-addressing',
           status: 'COMPLETED',
@@ -128,7 +214,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({ experimentId: 'forged-exp', code: 'abc' }),
+        body: experimentBody({ experimentId: 'forged-exp', code: 'abc' }),
       });
 
       const res = await POST(req);
@@ -150,10 +236,10 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED', timeSpent: 10,
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED', timeSpent: 10,
           completionKey: 'experiment:standalone:exp01',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       });
       const res = await POST(req);
@@ -184,10 +270,10 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED', timeSpent: 10,
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED', timeSpent: 10,
           completionKey: 'experiment:standalone:exp01',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       });
       const res = await POST(req);
@@ -216,7 +302,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', intent: 'DRAFT', status: 'IN_PROGRESS', code: 'NEW',
           baseUpdatedAt: baseUpdatedAt.toISOString(),
         }),
@@ -260,7 +346,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', intent: 'DRAFT', status: 'IN_PROGRESS', code: 'LOCAL',
           baseUpdatedAt: staleUpdatedAt.toISOString(),
         }),
@@ -294,7 +380,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', intent: 'DRAFT', status: 'IN_PROGRESS', code: 'EDITED',
           baseUpdatedAt: completedAt.toISOString(),
         }),
@@ -328,7 +414,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
+        body: experimentBody({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
       }));
       const data = await res.json();
 
@@ -356,7 +442,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
+        body: experimentBody({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
       }));
       const data = await res.json();
 
@@ -378,7 +464,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
+        body: experimentBody({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
       }));
       const data = await res.json();
 
@@ -409,10 +495,10 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED',
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED',
           completionKey: 'experiment:standalone:exp01:new-run',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       });
 
@@ -449,10 +535,10 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED',
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED',
           completionKey: 'experiment:path-old:simulation',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       });
 
@@ -484,10 +570,10 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED',
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED',
           completionKey: 'experiment:old:exp01:receipt',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       }));
       const data = await res.json();
@@ -514,7 +600,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp01', code: 'changed', status: 'COMPLETED',
           completionKey: 'experiment:receipt:conflict',
           results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
@@ -546,7 +632,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp01', code: 'changed-code', status: 'COMPLETED',
           completionKey: 'experiment:standalone:exp01:conflict',
           results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
@@ -585,10 +671,10 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'exp01', code: 'abc', status: 'COMPLETED',
+        body: experimentBody({
+          experimentId: 'exp01', code: ledCode, status: 'COMPLETED',
           completionKey: 'experiment:standalone:exp01:parallel',
-          results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
+          results: ledResults,
         }),
       });
 
@@ -604,7 +690,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp01', status: 'COMPLETED', completionKey: 'experiment:standalone:exp01',
           results: { success: false, execution: { terminated: false, traceSteps: 0, faultFree: true } },
         }),
@@ -631,7 +717,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'proj04', intent: 'PROJECT_CHECKLIST', status: 'IN_PROGRESS',
           results: { projectCompletion: { version: 1, milestones } },
         }),
@@ -664,7 +750,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'proj04', intent: 'PROJECT_CHECKLIST', status: 'IN_PROGRESS',
           results: {
             projectCompletion: {
@@ -692,8 +778,8 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'proj04', status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:missing',
+        body: experimentBody({
+          experimentId: 'proj04', code: getExperimentConfig('proj04')!.code, status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:missing',
           results: {
             success: true,
             execution: { terminated: false, observationComplete: true, traceSteps: PROJ04_MIN_OBSERVATION_STEPS, faultFree: true },
@@ -720,8 +806,8 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'proj04', status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:valid',
+        body: experimentBody({
+          experimentId: 'proj04', code: getExperimentConfig('proj04')!.code, status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:valid',
           results: {
             success: true,
             execution: { terminated: false, observationComplete: true, traceSteps: PROJ04_MIN_OBSERVATION_STEPS, faultFree: true },
@@ -755,8 +841,8 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
-          experimentId: 'proj04', status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:no-frame',
+        body: experimentBody({
+          experimentId: 'proj04', code: getExperimentConfig('proj04')!.code, status: 'COMPLETED', completionKey: 'experiment:standalone:proj04:no-frame',
           results: {
             success: true,
             execution: { terminated: true, observationComplete: false, traceSteps: PROJ04_MIN_OBSERVATION_STEPS, faultFree: true },
@@ -776,7 +862,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', status: 'COMPLETED', completionKey: 'experiment:standalone:exp02',
           code: 'MOV A,#30H\nEND',
           results: { success: true, execution: { terminated: true, traceSteps: 3, faultFree: true } },
@@ -793,7 +879,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', status: 'COMPLETED', completionKey: 'experiment:standalone:exp02:short',
           code: [
             'MOV A,#30H',
@@ -819,7 +905,7 @@ describe('/api/experiments/save', () => {
       const req = new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02', status: 'COMPLETED', completionKey: 'experiment:standalone:exp02:valid',
           code: [
             'MOV A,#30H',
@@ -850,7 +936,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02',
           status: 'COMPLETED',
           completionKey: 'experiment:standalone:exp02:strict-context',
@@ -888,7 +974,7 @@ describe('/api/experiments/save', () => {
       const res = await POST(new NextRequest('http://localhost/api/experiments/save', {
         method: 'POST',
         headers: { Authorization: 'Bearer valid-token' },
-        body: JSON.stringify({
+        body: experimentBody({
           experimentId: 'exp02',
           pathId: 'path-addressing',
           stepId: 'addressing-exp02',

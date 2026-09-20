@@ -42,6 +42,7 @@ import {
   hasProj04TelemetryFrame,
   isProj04MilestoneEvidenceComplete,
   PROJ04_MIN_OBSERVATION_STEPS,
+  validateExperimentObservation,
   type ExperimentConfig,
 } from '@/lib/experiment-config';
 
@@ -105,7 +106,7 @@ function isExperimentsResponse(value: unknown): value is { success: true; data: 
 
 export default function SimulationPage(): React.JSX.Element {
   const {
-    code, setCode, simulatorState, previousState, traceLog, executionCount, isRunning, isCompletingExperiment, fault, result,
+    code, setCode, simulatorState, previousState, traceLog, executionCount, observation, executedCode, ownerId, identityBlocked, isRunning, isCompletingExperiment, fault, result,
     selectedExperiment, experimentStatus, isLoadingStatus, experimentStatusError,
     draftState,
     projectCompletion, isLoadingProjectCompletion, isSavingProjectCompletion, projectCompletionError,
@@ -113,7 +114,7 @@ export default function SimulationPage(): React.JSX.Element {
     loadExperiment, loadExperimentStatus, loadExperimentDraft, saveExperimentDraft,
     useServerDraft, keepLocalDraft, saveProj04Milestone, startExperiment, completeExperiment, stop,
     speed, setSpeed, speedPresets,
-    breakpoints, toggleBreakpoint, paused, setPortBit, pulsePortBit,
+    breakpoints, toggleBreakpoint, paused, setPortBit, pulsePortBit, receiveUartByte, canAcceptInput,
   } = useSimulator();
 
   const breakpointLines = React.useMemo(() => Array.from(breakpoints), [breakpoints]);
@@ -316,8 +317,13 @@ export default function SimulationPage(): React.JSX.Element {
   const projectCompletionBlockedReason = selectedExperiment === 'proj04' && !proj04DraftReady
     ? '代码草稿正在同步或需要处理，请先完成代码保存，再确认项目证据。'
     : null;
+  const currentCodeExecuted = Boolean(executedCode && executedCode === code);
+  const outputObservation = validateExperimentObservation(selectedExperiment, observation);
   const canCompleteExperiment = Boolean(
     selectedExperiment
+      && ownerId
+      && !identityBlocked
+      && currentCodeExecuted
       && !preclassStartBlocked
       && !isRunning
       && simulatorState
@@ -330,20 +336,24 @@ export default function SimulationPage(): React.JSX.Element {
           && !isSavingProjectCompletion
           && !projectCompletionError
           && proj04DraftReady)
-        : (simulatorState?.terminated === true
-          || (selectedExperiment === 'exp02' && executionCount >= 20))),
+        : selectedExperiment === 'exp02'
+          ? (simulatorState?.terminated === true || executionCount >= 20)
+          : outputObservation.ok),
   );
   const completionGuidance = (() => {
     if (!selectedExperiment) return '请先选择实验';
+    if (identityBlocked) return '账号已变化，请刷新页面后重新运行；当前不能写入实验记录';
+    if (!ownerId) return '当前可进行仿真观测，登录并确认账号后可保存本轮记录';
     if (preclassStartBlocked) return '等待服务端确认实验开始状态';
     if (isRunning) return '先停止运行，再核对并提交本次结果';
     if (fault) return '先修复执行错误并重新运行';
+    if (!currentCodeExecuted) return '请运行当前代码；修改代码后需重新形成本轮观测';
     if (!result?.success) {
       if (selectedExperiment === 'exp02') return '先成功运行，并累计执行至少 20 条指令';
       if (selectedExperiment === 'proj04') {
         return `先运行至少 ${PROJ04_MIN_OBSERVATION_STEPS} 步并观察完整 temp/humi 遥测帧`;
       }
-      return '先无故障运行到程序正常结束';
+      return outputObservation.ok ? '请先停止运行，再核对并保存本轮观测' : outputObservation.error;
     }
     if (selectedExperiment === 'proj04') {
       if (isLoadingProjectCompletion) return '正在读取项目里程碑证据';
@@ -355,13 +365,12 @@ export default function SimulationPage(): React.JSX.Element {
       }
       if (!proj04ChecklistReady) return '打开教程，完成并保存五项里程碑证据自检';
     }
-    if (selectedExperiment === 'exp02' && executionCount < 20) {
-      return `还需执行 ${20 - executionCount} 条指令`;
+    if (selectedExperiment === 'exp02') {
+      if (!simulatorState?.terminated && executionCount < 20) return `还需执行 ${20 - executionCount} 条指令`;
+      return '运行观察已形成；保存时将核对代码是否包含五种指定寻址形式，不代表已执行或掌握全部形式';
     }
-    if (selectedExperiment !== 'proj04' && simulatorState?.terminated !== true) {
-      return '继续运行到程序正常结束';
-    }
-    return '完成条件已满足，可以提交';
+    if (selectedExperiment !== 'proj04') return outputObservation.ok ? outputObservation.summary : outputObservation.error;
+    return '本轮运行观测和项目自检已满足，可保存记录；不替代教师评价';
   })();
   const showCompleteExperiment = Boolean(selectedExperiment);
   const selectedExperimentCompleted = Boolean(
@@ -408,7 +417,7 @@ export default function SimulationPage(): React.JSX.Element {
               <TooltipTrigger asChild>
                 <button
                   onClick={isRunning ? stop : runSimulation}
-                  disabled={isCompletingExperiment || preclassStartBlocked}
+                  disabled={identityBlocked || isCompletingExperiment || preclassStartBlocked}
                   aria-label={isRunning ? '停止执行' : paused ? '从断点继续运行' : '运行程序'}
                   className={cn(
                     "flex min-h-11 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-40",
@@ -430,7 +439,7 @@ export default function SimulationPage(): React.JSX.Element {
               <TooltipTrigger asChild>
                 <button
                 onClick={stepSimulation}
-                disabled={isRunning || isCompletingExperiment || preclassStartBlocked}
+                disabled={identityBlocked || isRunning || isCompletingExperiment || preclassStartBlocked}
                   className="flex min-h-11 items-center gap-1 rounded-md px-2.5 py-2 text-xs font-medium text-[#9db3b5] transition-all hover:bg-white/[0.07] hover:text-[#d8f3f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-30"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
@@ -502,7 +511,7 @@ export default function SimulationPage(): React.JSX.Element {
                       : simulatorState?.terminated
                         ? '执行完毕'
                         : selectedExperiment === 'proj04' && proj04ObservationReady
-                          ? '观测已记录'
+                          ? '观测已形成'
                           : simulatorState ? '调试中' : '就绪'}
               </span>
             </div>
@@ -556,7 +565,7 @@ export default function SimulationPage(): React.JSX.Element {
                 className="flex min-h-11 items-center gap-1.5 rounded-md bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-300/20 transition-all hover:bg-emerald-400/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCompletingExperiment ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                {isCompletingExperiment ? '正在保存…' : selectedExperiment === 'proj04' ? '完成项目' : '完成实验'}
+                {isCompletingExperiment ? '正在保存…' : '保存运行记录'}
               </button>
             </div>
           )}
@@ -639,18 +648,18 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
         )}
 
-        {/* ── 评委速览（首次显示·可关闭） ── */}
+        {/* ── 操作提示（首次显示·可关闭） ── */}
         {!guideDismissed && (
           <div className="flex w-full min-w-0 flex-shrink-0 items-center gap-2 border-b border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-1.5 text-[11px] text-[#a6c8ca]">
             <Lightbulb className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300" />
-            <div className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">
-              <span className="font-medium text-cyan-200">评委速览：</span>
-              点 <b className="text-[#d8f3f2]">运行</b> 看实时动画（速度可调）· 点代码行号或 <b className="text-[#d8f3f2]">F9</b> 设断点、支持运行到断点 · <b className="text-[#d8f3f2]">教程</b> 页含完整教学设计（三维目标·重难点·课程思政）· <b className="text-[#d8f3f2]">AI助教</b> 诊断代码
+            <div className="min-w-0 flex-1 leading-5">
+              <span className="font-medium text-cyan-200">操作提示：</span>
+              点 <b className="text-[#d8f3f2]">运行</b> 观察程序与外设状态；点代码行号或 <b className="text-[#d8f3f2]">F9</b> 设置断点。<b className="text-[#d8f3f2]">教程</b> 提供原理、步骤与动画，<b className="text-[#d8f3f2]">AI助教</b> 可辅助检查代码。
             </div>
             <button
               onClick={dismissGuide}
               title="不再显示"
-              aria-label="关闭评委速览并不再显示"
+              aria-label="关闭操作提示并不再显示"
               className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center rounded p-1 text-[#7f9698] transition-colors hover:bg-white/[0.07] hover:text-[#d8f3f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
             >
               <X className="h-3.5 w-3.5" />
@@ -691,9 +700,9 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
 
           {/* Center: Code editor */}
-          {/* min-w-[320px]（而非0）：容器可横向滚动后，编辑器压到此宽度即停止收缩、改为触发滚动，
+          {/* min-w-[264px]（而非0；1440 宽侧栏展开时三栏恰好放得下）：容器可横向滚动后，编辑器压到此宽度即停止收缩、改为触发滚动，
               保证代码始终可读，不会被压成一条缝 */}
-          <div className="flex min-h-[420px] w-full min-w-0 max-w-full flex-col lg:min-w-[320px] lg:flex-1">
+          <div className="flex min-h-[420px] w-full min-w-0 max-w-full flex-col lg:min-w-[264px] lg:flex-1">
             {selectedExperiment && draftState.status !== 'IDLE' && (
               <div
                 className={cn(
@@ -739,9 +748,9 @@ export default function SimulationPage(): React.JSX.Element {
                               ? draftState.error ?? '另一个页面已更新此实验，请选择要保留的版本。'
                               : draftState.status === 'READ_ONLY'
                                 ? draftState.hasLocalBackup
-                                  ? draftState.error ?? '该实验已完成；当前显示的是本机未提交副本，仅供查看和复制。'
+                                  ? draftState.error ?? '该实验已有保存的运行记录；当前显示的是本机未提交副本，仅供查看和复制。'
                                   : taskExperimentContext
-                                    ? '你曾完成过该实验，已提交代码保持只读；本次任务仍需点击运行，exp02 执行至少 20 条指令后再点“完成实验”，平台会生成本任务的新回执。'
+                                    ? '该实验已有保存的运行记录，已提交代码保持只读；本次任务仍需重新运行并满足对应观测条件，再点“保存运行记录”，平台会生成本任务的新回执。'
                                     : '该实验已有完成回执；当前编辑不会改写已提交代码。'
                                 : '已核对当前版本；修改后将自动保存。'}
                 </span>
@@ -774,7 +783,7 @@ export default function SimulationPage(): React.JSX.Element {
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('确认把当前页面的本机代码同步为新的服务端草稿吗？此操作不会改写已完成实验的提交记录。')) {
+                        if (window.confirm('确认把当前页面的本机代码同步为新的服务端草稿吗？此操作不会改写既有实验的提交记录。')) {
                           void keepLocalDraft();
                         }
                       }}
@@ -798,7 +807,7 @@ export default function SimulationPage(): React.JSX.Element {
               onReset={resetSimulation}
               onStop={stop}
               selectedExperiment={selectedExperiment || null}
-              readOnly={draftState.status === 'READ_ONLY'}
+              readOnly={identityBlocked || isCompletingExperiment || draftState.status === 'READ_ONLY'}
             />
           </div>
 
@@ -808,12 +817,14 @@ export default function SimulationPage(): React.JSX.Element {
             experimentId={selectedExperiment || null}
             onSetPortBit={setPortBit}
             onPulsePortBit={pulsePortBit}
+            onReceiveUartByte={receiveUartByte}
+            inputEnabled={canAcceptInput}
           />
 
           {/* Right: Status panel */}
           <div className="flex min-h-[420px] w-full min-w-0 max-w-full flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)] lg:w-[260px] xl:w-[300px]">
             {/* Tab bar */}
-            <div className="flex flex-shrink-0 border-b border-white/[0.08] bg-[#0e1317]">
+            <div className="flex flex-shrink-0 flex-wrap border-b border-white/[0.08] bg-[#0e1317]">
               {([
                 { key: 'registers' as const, label: '寄存器', icon: Activity },
                 { key: 'memory' as const, label: '内存', icon: MemoryStick },
@@ -828,7 +839,7 @@ export default function SimulationPage(): React.JSX.Element {
                   aria-label={`切换到${tab.label}面板`}
                   aria-pressed={activeRightTab === tab.key}
                   className={cn(
-                    "flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200",
+                    "flex min-h-11 basis-1/3 items-center justify-center gap-1 border-b-2 px-1 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200 2xl:basis-1/6",
                     activeRightTab === tab.key
                       ? "border-cyan-300 bg-cyan-300/[0.07] text-cyan-200"
                       : "border-transparent text-[#7f9698] hover:bg-white/[0.05] hover:text-[#c0dcde]"

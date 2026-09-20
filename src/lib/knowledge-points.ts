@@ -70,11 +70,19 @@ export const LEGACY_GRAPH_NODE_TARGETS: Readonly<Record<string, string>> = {
   uart: '7.2',
 };
 
+/** Existing interactive demonstrations; route only to an actually implemented guide. */
+const animationGuideLinks: Readonly<Record<string, string>> = {
+  'anim-jump-stack': '/simulation?experiment=exp05&view=guide&animation=stack-pushpop',
+  'anim-interrupt-flow': '/simulation?experiment=exp06&view=guide&animation=interrupt-flow',
+  'anim-uart-timing': '/simulation?experiment=exp09&view=guide&animation=uart-frame',
+};
+
 /** Resolve a graph resource only to an implemented course route. */
 export function resolveKnowledgeResourceHref(resource: KnowledgePointResource, chapter?: number): string | null {
   if (resource.url) return resource.url;
   if (resource.type === 'experiment' && resource.refId) return `/simulation?experiment=${encodeURIComponent(resource.refId)}`;
   if (resource.type === 'animation' && resource.refId === 'anim-addressing-modes') return '#addressing-compare';
+  if (resource.type === 'animation' && resource.refId) return animationGuideLinks[resource.refId] ?? null;
   if (resource.type === 'quiz' && resource.refId === 'quiz-ch3-addressing') return '/quiz?topic=addressing-modes';
   if (resource.type === 'quiz' && resource.refId === 'quiz-ch10-ai-literacy') return '/quiz?topic=ai-literacy';
   if (resource.type === 'quiz') {
@@ -117,7 +125,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第1章 单片机概述 课件PPT', refId: 'ch01-ppt' },
-    { type: 'quiz', title: '第1章 单元测验', refId: 'quiz-ch1' },
+    { type: 'quiz', title: '平台单元 1 测验', refId: 'quiz-ch1' },
     { type: 'experiment', title: '项目一：走进89C51的世界', refId: 'proj01', duration: 120 },
     { type: 'animation', title: '单片机内部结构动画演示', refId: 'anim-mcu-structure' },
   ] },
@@ -149,7 +157,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '1.3.5', name: '汽车电子', level: 3, parentId: '1.3', chapter: 1, description: '车身控制、发动机管理等汽车电子中的MCU应用' },
 
   { id: '1.4', name: '89C51基本结构', level: 2, parentId: '1', chapter: 1, description: 'AT89C51单片机的引脚、内部结构与最小系统', graphNodeId: 'mcu', resources: [
-    { type: 'slide', title: '1.4 89C51基本结构 课件', refId: 'ch01-ppt-s4' },
+    { type: 'document', title: '89C51引脚与最小系统说明（项目1网页指导）', refId: 'ch01-ppt-s4', url: '/simulation?experiment=proj01&view=guide' },
     { type: 'animation', title: '89C51引脚功能交互动画', refId: 'anim-89c51-pins' },
     { type: 'experiment', title: '项目一：走进89C51的世界', refId: 'proj01', duration: 120 },
     { type: 'quiz', title: '89C51结构 练习题', refId: 'quiz-ch1-structure' },
@@ -181,7 +189,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第2章 硬件结构 课件PPT', refId: 'ch02-ppt' },
-    { type: 'quiz', title: '第2章 单元测验', refId: 'quiz-ch2' },
+    { type: 'quiz', title: '平台单元 2 测验', refId: 'quiz-ch2' },
     { type: 'animation', title: 'CPU内部结构与数据通路动画', refId: 'anim-cpu-datapath' },
   ] },
 
@@ -207,7 +215,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '2.2.5', name: '外部存储器扩展', level: 3, parentId: '2.2', chapter: 2, description: '外部ROM和RAM的扩展方法与地址译码' },
 
   { id: '2.3', name: 'I/O接口', level: 2, parentId: '2', chapter: 2, description: 'P0-P3四个8位并行I/O端口的结构与特性', graphNodeId: 'io', resources: [
-    { type: 'slide', title: '2.3 I/O接口 课件', refId: 'ch02-ppt-s3' },
+    { type: 'document', title: '并行I/O与LED驱动说明（实验1网页指导）', refId: 'ch02-ppt-s3', url: '/simulation?experiment=exp01&view=guide' },
     { type: 'animation', title: 'P0-P3端口内部结构对比动画', refId: 'anim-io-ports' },
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
   ] },
@@ -261,12 +269,12 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第3章 指令系统 课件PPT', refId: 'ch03-ppt' },
-    { type: 'quiz', title: '第3章 单元测验', refId: 'quiz-ch3' },
+    { type: 'quiz', title: '平台单元 3 测验', refId: 'quiz-ch3' },
     { type: 'experiment', title: '实验二：指令系统实验', refId: 'exp02', duration: 90 },
   ] },
 
   { id: '3.1', name: '寻址方式', level: 2, parentId: '3', chapter: 3, description: '89C51支持的7种寻址方式', graphNodeId: 'addressing_modes', resources: [
-    { type: 'slide', title: '3.1 寻址方式 课件', refId: 'ch03-ppt-s1' },
+    { type: 'document', title: '七种寻址方式对照（实验2网页指导）', refId: 'ch03-ppt-s1', url: '/simulation?experiment=exp02&view=guide' },
     { type: 'animation', title: '7种寻址方式对比动画', refId: 'anim-addressing-modes' },
     { type: 'quiz', title: '寻址方式 练习题', refId: 'quiz-ch3-addressing' },
     { type: 'experiment', title: '实验二：指令系统实验', refId: 'exp02', duration: 90 },
@@ -313,8 +321,8 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '3.4.6', name: '清零指令（CLR）', level: 3, parentId: '3.4', chapter: 3, description: '累加器清零与位清零操作' },
 
   { id: '3.5', name: '控制转移指令', level: 2, parentId: '3', chapter: 3, description: '无条件转移、条件转移、子程序调用与返回', resources: [
-    { type: 'slide', title: '3.5 控制转移指令 课件', refId: 'ch03-ppt-s5' },
-    { type: 'animation', title: '跳转与子程序调用堆栈动画', refId: 'anim-jump-stack' },
+    { type: 'document', title: '进位判断与位清零练习（课程实验报告第3页例4）', refId: 'course-lab-carry-branch', url: '/resources/course/microcontroller-lab-report-1-8.pdf#page=3' },
+    { type: 'animation', title: 'LCALL/RET与PUSH/POP堆栈演示', refId: 'anim-jump-stack' },
   ] },
   { id: '3.5.1', name: '无条件转移（LJMP/AJMP/SJMP）', level: 3, parentId: '3.5', chapter: 3, description: '长转移、绝对转移、短转移的区别与适用范围' },
   { id: '3.5.2', name: '条件转移（JZ/JNZ/CJNE/DJNZ）', level: 3, parentId: '3.5', chapter: 3, description: '零判断、比较不等转移、减1不为零转移' },
@@ -323,7 +331,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '3.5.5', name: '空操作（NOP）', level: 3, parentId: '3.5', chapter: 3, description: 'NOP指令在延时和程序对齐中的使用' },
 
   { id: '3.6', name: '位操作指令', level: 2, parentId: '3', chapter: 3, description: '对位地址空间的传送、逻辑与控制转移操作', resources: [
-    { type: 'slide', title: '3.6 位操作指令 课件', refId: 'ch03-ppt-s6' },
+    { type: 'document', title: '进位判断与位清零练习（课程实验报告第3页例4）', refId: 'course-lab-carry-branch', url: '/resources/course/microcontroller-lab-report-1-8.pdf#page=3' },
     { type: 'animation', title: '位寻址区与位操作动画', refId: 'anim-bit-operations' },
   ] },
   { id: '3.6.1', name: '位传送（MOV C,bit）', level: 3, parentId: '3.6', chapter: 3, description: '进位标志C与可位寻址位之间的数据传送' },
@@ -343,7 +351,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第4章 C语言编程 课件PPT', refId: 'ch04-ppt' },
-    { type: 'quiz', title: '第4章 单元测验', refId: 'quiz-ch4' },
+    { type: 'quiz', title: '平台单元 4 测验', refId: 'quiz-ch4' },
     { type: 'experiment', title: '实验一：基础LED控制实验', refId: 'exp01', duration: 90 },
     { type: 'document', title: 'Keil C51编程快速参考手册', refId: 'doc-c51-reference' },
   ], prerequisites: ['1.5', '2.2', '3'], appliedIn: ['exp01', 'exp02'],
@@ -361,8 +369,8 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '4.1.2', name: '编译、链接与调试', level: 3, parentId: '4.1', chapter: 4, description: '编译错误排查、断点调试、变量观察与单步执行' },
   { id: '4.1.3', name: '在线仿真与下载', level: 3, parentId: '4.1', chapter: 4, description: 'Keil与Proteus联调、HEX文件生成与烧录' },
 
-  { id: '4.2', name: 'C51数据类型', level: 2, parentId: '4', chapter: 4, description: 'C51特有的数据类型与存储类型', resources: [
-    { type: 'slide', title: '4.2 C51数据类型 课件', refId: 'ch04-ppt-s2' },
+  { id: '4.2', name: 'C51数据类型', level: 2, parentId: '4', chapter: 4, description: 'C51特有的数据类型与存储类型。所附实验报告为基本类型与sfr/sbit练习；原页的uansigned char应读作unsigned char。', resources: [
+    { type: 'document', title: 'C51基本类型与sfr/sbit练习（课程实验报告第11页）', refId: 'course-lab-c51-basics', url: '/resources/course/microcontroller-lab-report-1-8.pdf#page=11' },
     { type: 'quiz', title: 'C51数据类型 练习题', refId: 'quiz-ch4-datatypes' },
   ] },
   { id: '4.2.1', name: '基本数据类型', level: 3, parentId: '4.2', chapter: 4, description: 'bit、sbit、sfr、sfr16等C51特有类型的定义与使用' },
@@ -418,8 +426,8 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第5章 中断系统 课件PPT', refId: 'ch05-ppt' },
-    { type: 'quiz', title: '第5章 单元测验', refId: 'quiz-ch5' },
-    { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
+    { type: 'quiz', title: '平台单元 5 测验', refId: 'quiz-ch5' },
+    { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 75 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
   ], prerequisites: ['2.2.3', '2.5'], appliedIn: ['exp05', 'exp06'],
     prerequisiteReasons: {
@@ -447,8 +455,8 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '5.2.4', name: '中断向量表', level: 3, parentId: '5.2', chapter: 5, description: '各中断源对应的入口地址（0003H-0023H）' },
 
   { id: '5.3', name: '外部中断', level: 2, parentId: '5', chapter: 5, description: 'INT0和INT1外部中断的配置与应用', resources: [
-    { type: 'slide', title: '5.3 外部中断 课件', refId: 'ch05-ppt-s3' },
-    { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
+    { type: 'document', title: 'INT0按键计数练习（课程实验报告第9—10页）', refId: 'ch05-ppt-s3', url: '/resources/course/microcontroller-lab-report-1-8.pdf#page=9' },
+    { type: 'experiment', title: '按键查询对照练习（实验五；不含外部中断）', refId: 'exp05', duration: 75 },
     { type: 'animation', title: '电平触发与边沿触发对比动画', refId: 'anim-trigger-modes' },
   ] },
   { id: '5.3.1', name: '电平触发方式', level: 3, parentId: '5.3', chapter: 5, description: '低电平触发外部中断的特点与注意事项' },
@@ -457,7 +465,7 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '5.4', name: '中断处理流程', level: 2, parentId: '5', chapter: 5, description: '从中断请求到中断返回的完整处理流程', resources: [
     { type: 'slide', title: '5.4 中断处理流程 课件', refId: 'ch05-ppt-s4' },
-    { type: 'animation', title: '中断响应全过程时序动画', refId: 'anim-interrupt-response' },
+    { type: 'animation', title: 'T0中断响应与返回动画', refId: 'anim-interrupt-flow' },
   ] },
   { id: '5.4.1', name: '中断请求', level: 3, parentId: '5.4', chapter: 5, description: '中断标志位的置位与中断请求信号的产生' },
   { id: '5.4.2', name: '中断响应条件', level: 3, parentId: '5.4', chapter: 5, description: '中断被CPU响应需满足的三个条件' },
@@ -495,7 +503,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第6章 定时器/计数器 课件PPT', refId: 'ch06-ppt' },
-    { type: 'quiz', title: '第6章 单元测验', refId: 'quiz-ch6' },
+    { type: 'quiz', title: '平台单元 6 测验', refId: 'quiz-ch6' },
     { type: 'experiment', title: '实验三：定时/计数器实验', refId: 'exp03', duration: 90 },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
   ], prerequisites: ['5', '2.2.3'], appliedIn: ['exp03', 'exp06', 'exp07'],
@@ -505,7 +513,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     } },
 
   { id: '6.1', name: '定时器基础', level: 2, parentId: '6', chapter: 6, description: '定时器/计数器的工作原理与控制寄存器', graphNodeId: 'timers', resources: [
-    { type: 'slide', title: '6.1 定时器基础 课件', refId: 'ch06-ppt-s1' },
+    { type: 'document', title: '定时器寄存器与初值计算（实验3网页指导）', refId: 'ch06-ppt-s1', url: '/simulation?experiment=exp03&view=guide' },
     { type: 'animation', title: 'TMOD/TCON寄存器位功能动画', refId: 'anim-tmod-tcon' },
     { type: 'quiz', title: '定时器基础 练习题', refId: 'quiz-ch6-basics' },
   ] },
@@ -525,7 +533,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '6.2.4', name: '模式3（分割模式）', level: 3, parentId: '6.2', chapter: 6, description: 'T0分成两个独立8位计数器的工作方式' },
 
   { id: '6.3', name: '定时器应用', level: 2, parentId: '6', chapter: 6, description: '定时器在精确延时和信号生成中的应用', resources: [
-    { type: 'slide', title: '6.3 定时器应用 课件', refId: 'ch06-ppt-s3' },
+    { type: 'document', title: '双定时器计时与显示（实验6网页指导）', refId: 'ch06-ppt-s3', url: '/simulation?experiment=exp06&view=guide' },
     { type: 'experiment', title: '实验六：定时器中断与计时功能', refId: 'exp06', duration: 120 },
     { type: 'experiment', title: '实验七：蜂鸣器音频控制', refId: 'exp07', duration: 90 },
     { type: 'quiz', title: '定时器应用 练习题', refId: 'quiz-ch6-application' },
@@ -557,7 +565,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第7章 串行通信 课件PPT', refId: 'ch07-ppt' },
-    { type: 'quiz', title: '第7章 单元测验', refId: 'quiz-ch7' },
+    { type: 'quiz', title: '平台单元 7 测验', refId: 'quiz-ch7' },
     { type: 'experiment', title: '实验九：串口通信实验', refId: 'exp09', duration: 90 },
   ], prerequisites: ['5', '6'], appliedIn: ['exp09'] ,
     prerequisiteReasons: {
@@ -577,7 +585,7 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '7.2', name: '89C51串口', level: 2, parentId: '7', chapter: 7, description: '89C51内置UART串口的寄存器与工作模式', graphNodeId: 'uart', resources: [
     { type: 'slide', title: '7.2 89C51串口 课件', refId: 'ch07-ppt-s2' },
-    { type: 'animation', title: 'SCON/SBUF寄存器与串口时序动画', refId: 'anim-uart-timing' },
+    { type: 'animation', title: 'UART数据帧逐位发送动画（方式1）', refId: 'anim-uart-timing' },
     { type: 'quiz', title: '89C51串口 练习题', refId: 'quiz-ch7-uart' },
   ] },
   { id: '7.2.1', name: 'SCON寄存器', level: 3, parentId: '7.2', chapter: 7, description: '串口控制寄存器各位功能：SM0/SM1/REN/TI/RI' },
@@ -617,7 +625,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第8章 接口技术 课件PPT', refId: 'ch08-ppt' },
-    { type: 'quiz', title: '第8章 单元测验', refId: 'quiz-ch8' },
+    { type: 'quiz', title: '平台单元 8 测验', refId: 'quiz-ch8' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'experiment', title: '实验八：步进电机控制实验', refId: 'exp08', duration: 120 },
   ], prerequisites: ['2.3', '4'], appliedIn: ['exp01', 'exp04', 'exp05', 'exp07', 'exp08'],
@@ -627,7 +635,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     } },
 
   { id: '8.1', name: '显示接口', level: 2, parentId: '8', chapter: 8, description: 'LED数码管和LCD液晶显示器的驱动方法', resources: [
-    { type: 'slide', title: '8.1 显示接口 课件', refId: 'ch08-ppt-s1' },
+    { type: 'document', title: '七段数码管与动态扫描（实验4网页指导）', refId: 'ch08-ppt-s1', url: '/simulation?experiment=exp04&view=guide' },
     { type: 'experiment', title: '实验四：数码管显示实验', refId: 'exp04', duration: 90 },
     { type: 'animation', title: '数码管动态扫描显示原理动画', refId: 'anim-7seg-scan' },
     { type: 'image', title: '实验1 流水灯程序流程图', url: '/resources/course/diagrams/lab1-flowing-led-flowchart.svg' },
@@ -640,12 +648,12 @@ export const knowledgePoints: KnowledgePoint[] = [
     prerequisiteReasons: { '2.3.2': '点阵的行列线直接接在准双向口结构的 P1 口引脚上，行列扫描本质是逐位读写这些 I/O 口' } },
 
   { id: '8.2', name: '键盘接口', level: 2, parentId: '8', chapter: 8, description: '按键输入的硬件连接与软件处理', resources: [
-    { type: 'slide', title: '8.2 键盘接口 课件', refId: 'ch08-ppt-s2' },
-    { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 90 },
+    { type: 'document', title: '四路独立按键与消抖（实验5网页指导；含矩阵理论拓展）', refId: 'ch08-ppt-s2', url: '/simulation?experiment=exp05&view=guide' },
+    { type: 'experiment', title: '实验五：按键输入与消抖处理', refId: 'exp05', duration: 75 },
     { type: 'animation', title: '矩阵键盘扫描原理动画', refId: 'anim-matrix-keypad' },
   ] },
-  { id: '8.2.1', name: '独立按键', level: 3, parentId: '8.2', chapter: 8, description: '独立按键的连接方式与电平检测方法' },
-  { id: '8.2.2', name: '矩阵键盘', level: 3, parentId: '8.2', chapter: 8, description: '4x4矩阵键盘的行列扫描法与反转法', prerequisites: ['2.3'], appliedIn: ['exp05'],
+  { id: '8.2.1', name: '独立按键', level: 3, parentId: '8.2', chapter: 8, description: '独立按键的连接方式与电平检测方法', appliedIn: ['exp05'] },
+  { id: '8.2.2', name: '矩阵键盘', level: 3, parentId: '8.2', chapter: 8, description: '4x4矩阵键盘的行列扫描法与反转法；实验五指导仅作理论拓展，预置程序不含矩阵模型', prerequisites: ['2.3'],
     prerequisiteReasons: { '2.3': '矩阵键盘的行线、列线接在 I/O 口上，行列扫描/反转法本质是按特定时序对这些端口交替置位与读取' } },
   { id: '8.2.3', name: '按键消抖', level: 3, parentId: '8.2', chapter: 8, description: '硬件消抖（RC滤波）和软件消抖（延时检测）' },
 
@@ -660,7 +668,7 @@ export const knowledgePoints: KnowledgePoint[] = [
   { id: '8.3.4', name: 'ADC转换精度与采样率', level: 3, parentId: '8.3', chapter: 8, description: '分辨率、量化误差与采样定理在AD转换中的应用' },
 
   { id: '8.4', name: '传感器接口', level: 2, parentId: '8', chapter: 8, description: '常用传感器与单片机的接口技术', resources: [
-    { type: 'slide', title: '8.4 传感器接口 课件', refId: 'ch08-ppt-s4' },
+    { type: 'document', title: 'DS18B20与单总线阅读指导（项目4采用模拟输入）', refId: 'ch08-ppt-s4', url: '/simulation?experiment=proj04&view=guide' },
     { type: 'animation', title: 'DS18B20单总线通信时序动画', refId: 'anim-onewire-ds18b20' },
     { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 240 },
   ] },
@@ -697,7 +705,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第9章 系统设计 课件PPT', refId: 'ch09-ppt' },
-    { type: 'quiz', title: '第9章 单元测验', refId: 'quiz-ch9' },
+    { type: 'quiz', title: '平台单元 9 测验', refId: 'quiz-ch9' },
     { type: 'experiment', title: '项目二：智慧路灯系统设计', refId: 'proj02', duration: 180 },
     { type: 'experiment', title: '项目三：智能小车运动控制系统设计', refId: 'proj03', duration: 180 },
     { type: 'experiment', title: '项目四：智慧农业大棚监控系统设计', refId: 'proj04', duration: 240 },
@@ -709,7 +717,7 @@ export const knowledgePoints: KnowledgePoint[] = [
 
   { id: '9.1', name: '系统设计方法', level: 2, parentId: '9', chapter: 9, description: '嵌入式系统开发的工程化方法', resources: [
     { type: 'slide', title: '9.1 系统设计方法 课件', refId: 'ch09-ppt-s1' },
-    { type: 'document', title: '嵌入式系统开发流程指南', refId: 'doc-dev-workflow' },
+    { type: 'document', title: '需求、接口与验证任务书（项目4内置模板）', refId: 'doc-dev-workflow', url: '/simulation?experiment=proj04&view=guide' },
   ] },
   { id: '9.1.1', name: '需求分析', level: 3, parentId: '9.1', chapter: 9, description: '功能需求、性能指标与约束条件的分析方法' },
   { id: '9.1.2', name: '方案设计', level: 3, parentId: '9.1', chapter: 9, description: '方案比较、器件选型与系统架构设计' },
@@ -756,7 +764,7 @@ export const knowledgePoints: KnowledgePoint[] = [
     },
     resources: [
     { type: 'slide', title: '第10章 前沿应用 课件PPT', refId: 'ch10-ppt' },
-    { type: 'quiz', title: '第10章 单元测验', refId: 'quiz-ch10' },
+    { type: 'quiz', title: '平台单元 10 测验', refId: 'quiz-ch10' },
     { type: 'document', title: '物联网与AIoT前沿技术综述', refId: 'doc-aiot-overview' },
   ], prerequisites: ['9'],
     prerequisiteReasons: {
@@ -936,13 +944,13 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '5.4.4': { prerequisites: ['5.4.3', '3.5.4'], reasons: { '5.4.3': 'RETI 是中断服务程序执行完毕后的收尾动作', '3.5.4': 'RETI 恢复断点并解除优先级封锁，区别于普通的 RET' } },          // RETI 恢复断点并解除优先级封锁，区别于 RET
   '5.4.5': { prerequisites: ['5.4.2', '2.4.2'], reasons: { '5.4.2': '响应时间的计算建立在响应条件判断之上', '2.4.2': '响应时间以机器周期为单位计算' } },          // 响应时间以机器周期为单位计算
   '5.5.1': { prerequisites: ['5.2.3'], reasons: { '5.2.3': '两级优先级由 IP 寄存器配置' } },                   // 两级优先级由 IP 寄存器配置
-  '5.6.1': { prerequisites: ['5.3.3', '8.2.3'], appliedIn: ['exp05'], reasons: { '5.3.3': '按键中断是外部中断应用的典型场景', '8.2.3': '真实按键中断必须配合消抖' } }, // 真实按键中断必须配合消抖；实验五"中断与查询处理"
+  '5.6.1': { prerequisites: ['5.3.3', '8.2.3'], reasons: { '5.3.3': '按键中断是外部中断应用的典型场景', '8.2.3': '真实按键中断必须配合消抖' } }, // 实验五仅采用查询，不作为按键中断实现
   '5.6.2': { prerequisites: ['6.1.3', '5.4.3'], appliedIn: ['proj02'], reasons: { '6.1.3': 'TF 溢出标志（TCON寄存器）就是定时中断的请求源', '5.4.3': '定时中断应用走的是同一套"响应→服务"流程' } }, // TF 溢出标志就是定时中断的请求源；项目二"定时器中断应用"
   '5.6.3': { prerequisites: ['7.2.1', '5.4.3'], appliedIn: ['exp09'], reasons: { '7.2.1': 'TI/RI 标志位在 SCON 中', '5.4.3': '串口中断按同一套"响应→服务"流程处理' } }, // TI/RI 在 SCON 中，串口中断按同一流程处理；实验九实操
   '5.6.4': { prerequisites: ['5.5.1'], reasons: { '5.5.1': '多中断源并存要靠优先级协调' } },                   // 多中断源并存要靠优先级协调
   '5.2.3': { appliedIn: ['exp06'] },                       // 实验六"中断优先级设置"
   '5.2.4': { appliedIn: ['exp03'] },                       // 实验三"中断向量表"
-  '5.3.3': { appliedIn: ['exp05', 'proj03'] },             // 实验五按键中断、项目三"外部中断应用"
+  '5.3.3': { appliedIn: ['proj03'] },                     // 实验五仅采用查询，移除其按键中断应用关系
 
   // —— 第6章 定时器/计数器：定时的本质是数机器周期（依赖2.4），
   //    应用链是 初值→精确延时→方波→PWM，几乎全部以溢出中断组织（依赖第5章）。——
@@ -972,7 +980,7 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   '7.4': { prerequisites: ['7.1'], reasons: { '7.1': '各协议是帧格式/电平/拓扑的不同约定' } },                       // 各协议是帧格式/电平/拓扑的不同约定
   '7.1.3': { prerequisites: ['7.1.2'], reasons: { '7.1.2': '异步通信没有共享时钟，才需要双方约定波特率' } },                   // 异步通信没有共享时钟，才需要双方约定波特率
   '7.1.4': { appliedIn: ['proj04'] },                      // 项目四"UART数据帧格式设计"
-  '7.2.3': { prerequisites: ['6.2.3', '7.1.3'], appliedIn: ['exp09'], reasons: { '6.2.3': 'T1 模式2 自动重装产生溢出率，是波特率的直接来源', '7.1.3': '波特率设置建立在"波特率概念"之上，是跨章依赖的典型' } }, // T1 模式2 自动重装产生溢出率→波特率，跨章依赖的典型
+  '7.2.3': { prerequisites: ['6.2.3', '7.1.3'], appliedIn: ['exp09'], reasons: { '6.2.3': 'T1 模式2 自动重装产生溢出率，是波特率的直接来源', '7.1.3': '先理解波特率的含义，再结合定时器溢出率计算设置值。' } }, // T1模式2来自平台单元6；波特率概念属于同一串口单元。
   '7.2.4': { prerequisites: ['7.2.1'], reasons: { '7.2.1': '工作模式由 SCON 的 SM0/SM1 位选择' } },                   // 工作模式由 SCON 的 SM0/SM1 位选择
   '7.2.1': { appliedIn: ['exp09'] },                       // 实验九"SCON寄存器配置"
   '7.2.2': { appliedIn: ['exp09'] },                       // 实验九"SBUF缓冲器使用"
@@ -986,7 +994,7 @@ const relationPatches: Record<string, KnowledgeRelationPatch> = {
   // —— 第8章 接口技术：所有接口都落在 I/O 口上（依赖2.3），
   //    显示扫描/单总线时序/电机调速普遍依赖第6章的定时能力。——
   '8.1': { prerequisites: ['2.3', '6.3'], appliedIn: ['exp04'], reasons: { '2.3': '显示器件挂在 I/O 口上', '6.3': '动态扫描靠定时刷新' } }, // 显示器件挂在 I/O 口上；动态扫描靠定时刷新
-  '8.2': { prerequisites: ['2.3', '5.3'], appliedIn: ['exp05'], reasons: { '2.3': '行列线是 I/O', '5.3': '按键可用外部中断响应' } }, // 行列线是 I/O；按键可用外部中断响应
+  '8.2': { prerequisites: ['2.3'], appliedIn: ['exp05'], reasons: { '2.3': '独立按键和矩阵键盘均通过 I/O 电平检测；实验五实现四路独立按键查询' } }, // 外中断属于可选实现方式，不作为本查询任务的前置要求
   '8.3': { prerequisites: ['2.3', '2.6'], reasons: { '2.3': '并行 AD/DA 的数据口是 I/O', '2.6': '典型接法经三总线扩展' } },                // 并行 AD/DA 的数据口是 I/O；典型接法经三总线扩展
   '8.4': { prerequisites: ['8.3', '6.3'], appliedIn: ['proj03'], reasons: { '8.3': '模拟型传感器经 AD 采集', '6.3': '单总线协议靠微秒级延时' } }, // 模拟型传感器经 AD 采集；单总线协议靠微秒级延时；项目三红外传感器
   '8.5': { prerequisites: ['2.3.5', '6.3'], reasons: { '2.3.5': 'I/O 灌电流不足必须外加驱动', '6.3': '调速本质是 PWM/脉冲频率' } },              // I/O 灌电流不足必须外加驱动；调速本质是 PWM/脉冲频率
@@ -1106,6 +1114,105 @@ export function getPointById(id: string): KnowledgePoint | undefined {
 // ============================================================================
 // Resource Helper Functions
 // ============================================================================
+
+/**
+ * Source: course group's 2026-08-14 final teaching PPTs, 77 + 90 slides.
+ * PDF physical page = original PPT slide number + offset (0 / 77).
+ * Platform IDs remain unchanged; titles retain the source's chapter numbers.
+ * These links establish topic correspondence, not full syllabus coverage.
+ */
+export const COURSE_SLIDE_LINKS: readonly { pointId: string; refId: string; page: number; title: string }[] = [
+  { pointId: '7', refId: 'ch07-ppt', page: 2, title: '授课第6章 串行通信 · 课程组课件（PDF）' },
+  { pointId: '7.1', refId: 'ch07-ppt-s1', page: 4, title: '授课6.1 通信基本概念 · 原课件第4页' },
+  { pointId: '7.2', refId: 'ch07-ppt-s2', page: 21, title: '授课6.2 串行口结构与寄存器 · 原课件第21页' },
+  { pointId: '7.3', refId: 'ch07-ppt-s3', page: 55, title: '授课6.5.2 UART方式1编程 · 原课件第55页' },
+  { pointId: '7.4', refId: 'ch07-ppt-s4', page: 12, title: '授课6.1.5 RS-232/422/485接口（不含SPI/I²C）· 原课件第12页' },
+  { pointId: '7.1.1', refId: 'course-slide-serial-parallel', page: 4, title: '串行与并行通信 · 授课第6章第4页' },
+  { pointId: '7.1.2', refId: 'course-slide-sync-async', page: 7, title: '同步与异步通信 · 授课第6章第7页' },
+  { pointId: '7.1.3', refId: 'course-slide-baud', page: 11, title: '串口传输速率算例 · 授课第6章第11页' },
+  { pointId: '7.1.4', refId: 'course-slide-frame', page: 32, title: '方式1帧格式 · 授课第6章第32页' },
+  { pointId: '7.1.5', refId: 'course-slide-duplex', page: 6, title: '单工、半双工与全双工 · 授课第6章第6页' },
+  { pointId: '7.2.1', refId: 'course-slide-scon', page: 23, title: 'SCON控制位 · 授课第6章第23页' },
+  { pointId: '7.2.2', refId: 'course-slide-sbuf', page: 22, title: 'SBUF收发缓冲器 · 授课第6章第22页' },
+  { pointId: '7.2.3', refId: 'course-slide-baud-error', page: 45, title: '晶振与波特率误差 · 授课第6章第45页' },
+  { pointId: '7.2.4', refId: 'course-slide-uart-modes', page: 29, title: '串口工作方式（从方式0开始）· 授课第6章第29页' },
+  { pointId: '7.3.1', refId: 'course-slide-uart-init', page: 48, title: '串口初始化五步 · 授课第6章第48页' },
+  { pointId: '7.4.1', refId: 'course-slide-rs232', page: 12, title: 'RS-232电平与接口 · 授课第6章第12页' },
+  { pointId: '7.4.2', refId: 'course-slide-rs485', page: 16, title: 'RS-485接口 · 授课第6章第16页' },
+  { pointId: '8', refId: 'ch08-ppt', page: 79, title: '授课第10章 外部电路控制 · 课程组课件（PDF）' },
+  { pointId: '8', refId: 'course-slide-switch-output', page: 81, title: '授课10.1 开关量输出与隔离 · 原课件第4页' },
+  { pointId: '8.5', refId: 'ch08-ppt-s5', page: 112, title: '授课10.2 电机控制（不含舵机）· 原课件第35页' },
+  { pointId: '8.5.1', refId: 'course-slide-motor-bridge', page: 112, title: '直流电机与PWM控制原理 · 授课第10章第35页' },
+  { pointId: '8.5.2', refId: 'course-slide-stepper', page: 130, title: '步进电机与通电顺序 · 授课第10章第53页' },
+  { pointId: '8.5.2', refId: 'course-slide-bipolar-stepper', page: 145, title: '实验8四线双极型与双H桥 · 授课第10章第68页' },
+  { pointId: '8.6.1', refId: 'course-slide-alarm', page: 105, title: '报警与蜂鸣器驱动 · 授课第10章第28页' },
+];
+
+for (const link of COURSE_SLIDE_LINKS) {
+  const point = knowledgePoints.find((candidate) => candidate.id === link.pointId);
+  if (!point) throw new Error(`Unknown course slide target: ${link.pointId}`);
+  const resource: KnowledgePointResource = {
+    type: 'slide', title: link.title, refId: link.refId,
+    url: `/resources/course/course-slides.pdf#page=${link.page}`,
+  };
+  const existing = point.resources?.find((candidate) => candidate.refId === link.refId);
+  if (existing) Object.assign(existing, resource);
+  else (point.resources ??= []).push(resource);
+}
+
+// A repeated chapter deck declaration must resolve consistently on every node.
+for (const point of knowledgePoints) {
+  for (const resource of point.resources ?? []) {
+    const link = COURSE_SLIDE_LINKS.find((candidate) => candidate.refId === resource.refId);
+    if (link) {
+      resource.url = `/resources/course/course-slides.pdf#page=${link.page}`;
+      resource.title = link.title;
+    }
+  }
+}
+
+/** Existing web guides attached to their supported learning topics. */
+export const COURSE_GUIDE_LINKS: readonly { pointIds: readonly string[]; refId: string; experimentId: string; title: string }[] = [
+  {"pointIds": ["2.4"], "refId": "ch02-ppt-s4", "experimentId": "exp03", "title": "12T时钟与定时计算（实验3网页指导）"},
+  {"pointIds": ["2.5"], "refId": "ch02-ppt-s5", "experimentId": "proj01", "title": "最小系统中的复位电路示例（项目1网页指导）"},
+  {"pointIds": ["3"], "refId": "ch03-ppt", "experimentId": "exp02", "title": "寻址、数据传送与算术逻辑（实验2网页指导）"},
+  {"pointIds": ["3.2"], "refId": "ch03-ppt-s2", "experimentId": "exp02", "title": "MOV数据传送与标志位（实验2网页指导）"},
+  {"pointIds": ["3.3"], "refId": "ch03-ppt-s3", "experimentId": "exp02", "title": "算术运算与标志位（实验2网页指导）"},
+  {"pointIds": ["3.4"], "refId": "ch03-ppt-s4", "experimentId": "exp02", "title": "逻辑运算与移位（实验2网页指导）"},
+  {"pointIds": ["5"], "refId": "ch05-ppt", "experimentId": "exp03", "title": "五中断源、允许控制与响应流程（实验3网页指导）"},
+  {"pointIds": ["5.1"], "refId": "ch05-ppt-s1", "experimentId": "exp03", "title": "五中断源与两级优先级概念（实验3网页指导）"},
+  {"pointIds": ["5.2"], "refId": "ch05-ppt-s2", "experimentId": "exp03", "title": "8051中断向量及IE寄存器（实验3网页指导）"},
+  {"pointIds": ["5.4"], "refId": "ch05-ppt-s4", "experimentId": "exp03", "title": "中断压栈、入口与返回（实验3网页指导）"},
+  {"pointIds": ["5.6"], "refId": "ch05-ppt-s6", "experimentId": "exp06", "title": "双定时器中断协同计时（实验6网页指导）"},
+  {"pointIds": ["6"], "refId": "ch06-ppt", "experimentId": "exp03", "title": "定时计数寄存器与初值（实验3网页指导）"},
+  {"pointIds": ["6.2"], "refId": "ch06-ppt-s2", "experimentId": "exp03", "title": "定时模式概览与模式1、2计算（实验3网页指导）"},
+  {"pointIds": ["6.4"], "refId": "ch06-ppt-s4", "experimentId": "exp03", "title": "外部计数与门控概念（实验3网页指导）"},
+  {"pointIds": ["8.3"], "refId": "ch08-ppt-s3", "experimentId": "proj02", "title": "ADC0809与量化步长（项目2网页指导；不含DAC）"},
+  {"pointIds": ["1.4.1", "1.4.3", "1.4.4", "2.3.4"], "refId": "course-guide-proj01", "experimentId": "proj01", "title": "项目1网页指导与练习出处"},
+  {"pointIds": ["2.3.1", "2.3.2", "2.3.3", "2.3.5"], "refId": "course-guide-exp01", "experimentId": "exp01", "title": "实验1网页指导与练习出处"},
+  {"pointIds": ["3.1.1", "3.1.2", "3.1.3", "3.1.4", "3.1.5", "3.1.6", "3.1.7", "3.2.1", "3.3.1", "3.3.2", "3.3.3", "3.3.4", "3.3.5", "3.4.1", "3.4.2", "3.4.3", "3.4.4", "3.4.5"], "refId": "course-guide-exp02", "experimentId": "exp02", "title": "实验2网页指导与练习出处"},
+  {"pointIds": ["3.2.3", "8.1.1", "8.1.2"], "refId": "course-guide-exp04", "experimentId": "exp04", "title": "实验4网页指导与练习出处"},
+  {"pointIds": ["3.2.4", "8.2.1", "8.2.2", "8.2.3"], "refId": "course-guide-exp05", "experimentId": "exp05", "title": "实验5网页指导与练习出处"},
+  {"pointIds": ["5.2.2", "5.2.4", "6.1.1", "6.1.2", "6.1.4", "6.2.2", "6.2.3"], "refId": "course-guide-exp03", "experimentId": "exp03", "title": "实验3网页指导与练习出处"},
+  {"pointIds": ["6.3.2", "8.6.1"], "refId": "course-guide-exp07", "experimentId": "exp07", "title": "实验7网页指导与练习出处"},
+  {"pointIds": ["6.3.3", "8.1.3", "8.3.1", "8.3.4"], "refId": "course-guide-proj02", "experimentId": "proj02", "title": "项目2网页指导与练习出处"},
+  {"pointIds": ["6.3.5"], "refId": "course-guide-exp06", "experimentId": "exp06", "title": "实验6网页指导与练习出处"},
+  {"pointIds": ["8.4.1", "7.4.4"], "refId": "course-guide-proj04", "experimentId": "proj04", "title": "项目4网页指导与练习出处"},
+];
+
+for (const link of COURSE_GUIDE_LINKS) {
+  for (const pointId of link.pointIds) {
+    const point = knowledgePoints.find((candidate) => candidate.id === pointId);
+    if (!point) throw new Error(`Unknown course guide target: ${pointId}`);
+    const resource: KnowledgePointResource = {
+      type: 'document', title: link.title, refId: link.refId,
+      url: `/simulation?experiment=${link.experimentId}&view=guide`,
+    };
+    const existing = point.resources?.find((candidate) => candidate.refId === link.refId);
+    if (existing) Object.assign(existing, resource);
+    else (point.resources ??= []).push(resource);
+  }
+}
 
 /**
  * Get all knowledge points that have resource links attached.

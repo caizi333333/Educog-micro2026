@@ -105,10 +105,12 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
             </span>
           ) : (
             <span className="text-[10px] text-[#6c7086] font-mono">
-              {statusError ? '完成记录 —' : `已完成 ${completedCount}/${totalCount}`}
+              {statusError ? '运行记录 —' : `已记录 ${completedCount}/${totalCount}`}
             </span>
           )}
         </div>
+
+        <p className="mb-2 text-[10px] leading-4 text-[#6c7086]">已记录表示运行记录已保存，学习目标需另行评价。</p>
 
         {/* Progress bar */}
         <div className="h-1 bg-[#313244] rounded-full mb-2.5 overflow-hidden" aria-hidden="true">
@@ -125,7 +127,7 @@ const ExperimentSelector: React.FC<ExperimentSelectorProps> = ({
             <button
               type="button"
               onClick={onRetryStatus}
-              aria-label="重新加载实验完成记录"
+              aria-label="重新加载实验运行记录"
               className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-amber-100 hover:bg-amber-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
             >
               <RefreshCw className="h-3.5 w-3.5" />

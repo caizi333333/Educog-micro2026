@@ -12,6 +12,7 @@ import {
   hasProj04TelemetryFrame,
   isProj04MilestoneEvidenceComplete,
   normalizeProj04CompletionEvidence,
+  validateExperimentObservation,
   PROJ04_MILESTONE_IDS,
   PROJ04_MIN_OBSERVATION_STEPS,
   type Proj04CompletionEvidence,
@@ -107,20 +108,32 @@ function validateCompletion(
 ): CompletionValidation {
   const result = isRecord(results) ? results : null;
   const execution = isRecord(result?.execution) ? result.execution : null;
+  if (typeof code !== 'string' || !code.trim() || execution?.executedCode !== code) {
+    return { ok: false, error: '提交代码与本轮实际运行代码不一致，请重新运行后保存记录' };
+  }
   const exp02ObservationComplete = experimentId === 'exp02' && execution?.observationComplete === true;
   const proj04ObservationComplete = experimentId === 'proj04' && execution?.observationComplete === true;
+  const usesOutputObservation = experimentId !== 'exp02' && experimentId !== 'proj04';
   if (result?.success !== true
-    || (execution?.terminated !== true && !exp02ObservationComplete && !proj04ObservationComplete)
+    || (!usesOutputObservation && execution?.terminated !== true && !exp02ObservationComplete && !proj04ObservationComplete)
     || execution?.faultFree !== true) {
     return {
       ok: false,
       error: experimentId === 'proj04'
         ? 'proj04 必须无故障运行并形成有效观测记录；持续循环无需执行到 END'
-        : '程序必须无故障运行至正常结束后才能完成实验',
+        : '程序必须无故障运行并形成有效观测记录后才能保存本轮结果',
     };
   }
   if (typeof execution.traceSteps !== 'number' || !Number.isInteger(execution.traceSteps) || execution.traceSteps < 1) {
     return { ok: false, error: '缺少可复核的指令执行记录' };
+  }
+  if (usesOutputObservation) {
+    const observation = isRecord(result.observation) ? result.observation : null;
+    if (observation?.steps !== execution.traceSteps) {
+      return { ok: false, error: '观测记录与本轮执行步数不一致，请重新运行后保存记录' };
+    }
+    const validation = validateExperimentObservation(experimentId, observation);
+    if (!validation.ok) return { ok: false, error: validation.error };
   }
   if (exp02ObservationComplete && execution.traceSteps < 20) {
     return { ok: false, error: 'exp02 至少执行 20 条指令后才能形成有效观察记录' };
@@ -214,6 +227,7 @@ const optionalTrimmedString = z.preprocess((value) => {
 
 const experimentSaveSchema = z.object({
   experimentId: optionalTrimmedString,
+  expectedUserId: z.string().trim().min(1).max(128).optional(),
   intent: z.enum(['SAVE', 'START', 'DRAFT', 'PROJECT_CHECKLIST']).optional().default('SAVE'),
   code: z.string().max(500_000).nullish(),
   results: z.unknown().optional(),
@@ -290,6 +304,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (status === 'COMPLETED' && !/^[A-Za-z0-9:_-]{12,200}$/.test(completionKey)) {
       return NextResponse.json({ error: '实验完成请求缺少有效的幂等编号' }, { status: 400 });
     }
+    if (data.expectedUserId !== payload.userId) {
+      return NextResponse.json({
+        error: '登录账号已变化或尚未确认，请重新确认当前账号后再保存实验记录',
+        code: 'ACCOUNT_CHANGED',
+      }, { status: 409 });
+    }
     const requestFingerprint = status === 'COMPLETED'
       ? completionRequestFingerprint({
           experimentId,
@@ -340,6 +360,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (experiment && unchanged) {
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           duplicate: true,
           experiment: {
             id: experiment.id,
@@ -396,6 +417,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
       return NextResponse.json({
         success: true,
+        ownerId: payload.userId,
         duplicate: false,
         experiment: {
           id: experiment.id,
@@ -417,6 +439,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (experiment?.status === 'COMPLETED') {
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           readOnly: true,
           experiment: {
             id: experiment.id,
@@ -472,6 +495,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           if (current.status === 'COMPLETED') {
             return NextResponse.json({
               success: true,
+              ownerId: payload.userId,
               readOnly: true,
               experiment: { id: current.id, experimentId, status: current.status },
               draft: { code: current.lastCode ?? '', updatedAt: current.updatedAt.toISOString() },
@@ -500,6 +524,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         }
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           experiment: { id: saved.id, experimentId, status: saved.status },
           draft: { code: saved.lastCode ?? '', updatedAt: saved.updatedAt.toISOString() },
           message: '实验草稿已保存',
@@ -522,6 +547,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         });
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           experiment: { id: created.id, experimentId, status: created.status },
           draft: { code: created.lastCode ?? '', updatedAt: created.updatedAt.toISOString() },
           message: '实验草稿已保存',
@@ -549,6 +575,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (status === 'IN_PROGRESS' && experiment?.status === 'COMPLETED') {
       return NextResponse.json({
         success: true,
+        ownerId: payload.userId,
         duplicate: true,
         experiment: {
           id: experiment.id,
@@ -571,6 +598,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (experiment?.status === 'IN_PROGRESS') {
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           duplicate: true,
           experiment: {
             id: experiment.id,
@@ -650,6 +678,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (experiment.status === 'COMPLETED') {
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           duplicate: true,
           experiment: {
             id: experiment.id,
@@ -704,6 +733,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
       return NextResponse.json({
         success: true,
+        ownerId: payload.userId,
         duplicate: !transitioned,
         experiment: {
           id: experiment.id,
@@ -762,6 +792,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
       return NextResponse.json({
         success: true,
+        ownerId: payload.userId,
         duplicate: true,
         experiment: {
           id: experiment?.id,
@@ -807,6 +838,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         }
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           duplicate: true,
           experiment: {
             id: experiment.id,
@@ -880,7 +912,14 @@ export async function POST(request: Request): Promise<NextResponse> {
               isRecord(results.projectObservation) ? results.projectObservation.uartTail : null,
             ),
           }
-        : null,
+        : isRecord(results) && isRecord(results.execution)
+          ? {
+              mode: experimentId === 'exp02' ? 'SOURCE_CHECK_AND_RUN_OBSERVATION' : 'OUTPUT_OBSERVATION',
+              evidenceOrigin: 'CLIENT_SIMULATION',
+              traceSteps: results.execution.traceSteps,
+              executedCodeMatched: results.execution.executedCode === code,
+            }
+          : null,
       requestFingerprint,
     } : null;
     const completionHistory = newCompletionContext
@@ -985,6 +1024,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         }
         return NextResponse.json({
           success: true,
+          ownerId: payload.userId,
           duplicate: true,
           experiment: {
             id: recoveredExperiment.id,
@@ -1077,6 +1117,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     
     return NextResponse.json({
       success: true,
+      ownerId: payload.userId,
       experiment: {
         id: experiment.id,
         experimentId: experiment.experimentId,
@@ -1085,7 +1126,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         timeSpent: experiment.timeSpent,
         completedAt: experiment.completedAt
       },
-      message: status === 'COMPLETED' ? '实验已完成' : '实验进度已保存',
+      message: status === 'COMPLETED' ? '本轮仿真运行记录已保存；课程目标是否达到仍需结合测评与教师评价' : '实验进度已保存',
       pointsEarned: basePoints,
       newAchievements: newAchievements.length > 0 ? newAchievements : null,
       totalPointsEarned: basePoints + achievementPoints
@@ -1139,6 +1180,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
+      ownerId: payload.userId,
       experiments: experiments.map((exp) => {
         let parsed: unknown = null;
         if (exp.results) {

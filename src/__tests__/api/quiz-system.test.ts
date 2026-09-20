@@ -16,6 +16,7 @@ import {
   ADDRESSING_TASK_PRESET,
   AI_LITERACY_QUESTION_IDS,
   getAddressingQuestionIds,
+  getModuleIdForChapter,
 } from '@/lib/lesson-tasks';
 
 // Mock dependencies
@@ -71,6 +72,13 @@ const mockCheckAchievementsForQuiz = checkAchievementsForQuiz as jest.MockedFunc
 
 describe('Quiz System API Tests', () => {
   describe('GET /api/quiz/questions', () => {
+    it('新增课件练习在交卷前保留出处但不公开答案和解析', async () => {
+      const response = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?chapter=7'));
+      const data = (await response.json()).data;
+      const sourced = data.filter((question: Record<string, unknown>) => question.source);
+      expect(sourced.length).toBeGreaterThan(0);
+      expect(data.every((question: Record<string, unknown>) => !('correctAnswer' in question) && !('explanation' in question))).toBe(true);
+    });
     it('学生题目接口不得返回答案，且首测复测题目不重复', async () => {
       const initial = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?topic=addressing-modes&mode=initial'));
       const retest = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?topic=addressing-modes&mode=retest'));
@@ -132,6 +140,33 @@ describe('Quiz System API Tests', () => {
   });
 
   describe('POST /api/quiz/submit', () => {
+    it.each([7, 3])('第%s章交卷后返回真实课件或网页来源，并保存到同一回执', async (chapter) => {
+      const questions = quizQuestions.filter((question) => question.chapter === chapter);
+      const sourced = questions.find((question) => question.explanation && question.source)!;
+      expect(sourced).toBeDefined();
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'create', { id: 'course-source-attempt' } as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'userPointsTransaction', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'user', 'update', {} as any);
+      setupPrismaMock(mockPrisma, 'learningProgress', 'findUnique', null);
+      const response = await submitQuiz(new NextRequest('http://localhost/api/quiz/submit', {
+        method: 'POST', headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ expectedUserId: 'test-user-id', quizId: `quiz-ch${chapter}`, chapterId: `ch${chapter}`, moduleId: getModuleIdForChapter(chapter), assessmentMode: 'initial', score: 0,
+          questionOrderIds: questions.map((question) => question.id).reverse(),
+          answers: Object.fromEntries(questions.map((question) => [String(question.id), question.correctAnswer])) }),
+      }));
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.score).toBe(100);
+      expect(body.questionResults[String(sourced.id)]).toEqual({
+        correct: true, correctAnswer: sourced.correctAnswer, explanation: sourced.explanation, source: sourced.source,
+      });
+      const saved = (mockPrisma.quizAttempt.create as jest.Mock).mock.calls[0][0].data.answers;
+      expect(JSON.parse(saved).questionResults[String(sourced.id)]).toEqual(body.questionResults[String(sourced.id)]);
+      expect(JSON.parse(saved).questionOrderIds).toEqual(questions.map((question) => question.id).reverse());
+      expect(JSON.parse(saved).questionSnapshots).toHaveLength(questions.length);
+      expect(JSON.parse(saved).questionSnapshots.every((question: Record<string, unknown>) => !('correctAnswer' in question) && !('explanation' in question))).toBe(true);
+    });
     const comprehensiveQuestions = getComprehensiveQuestions();
     const comprehensiveTotal = comprehensiveQuestions.length;
     const answersWithCorrectCount = (correctCount: number) => Object.fromEntries(
@@ -143,6 +178,7 @@ describe('Quiz System API Tests', () => {
     const baseCorrect = Math.floor(comprehensiveTotal * 0.85);
     const baseScore = (baseCorrect / comprehensiveTotal) * 100;
     const mockQuizData = {
+      expectedUserId: 'test-user-id',
       quizId: 'comprehensive-assessment',
       score: 100,
       totalQuestions: 1,
@@ -153,6 +189,19 @@ describe('Quiz System API Tests', () => {
       scoresByKA: { '客户端伪造知识点': { correct: 1, total: 1, score: 100 } },
     };
 
+    it.each(['duplicate', 'missing', 'foreign'] as const)('拒绝与正式题集不一致的题序：%s', async (kind) => {
+      const order = comprehensiveQuestions.map((question) => question.id);
+      if (kind === 'duplicate') order[1] = order[0]!;
+      if (kind === 'missing') order.pop();
+      if (kind === 'foreign') order[0] = 999999;
+      const response = await submitQuiz(new NextRequest('http://localhost/api/quiz/submit', {
+        method: 'POST', headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ ...mockQuizData, questionOrderIds: order }),
+      }));
+      expect(response.status).toBe(400);
+      expect(mockPrisma.quizAttempt.create).not.toHaveBeenCalled();
+    });
+
     it('损坏的 JSON 应返回参数错误而不是服务器错误', async () => {
       const response = await submitQuiz(new NextRequest('http://localhost/api/quiz/submit', {
         method: 'POST',
@@ -161,6 +210,25 @@ describe('Quiz System API Tests', () => {
       }));
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({ error: '测评提交参数格式无效' });
+    });
+
+    it.each([
+      ['other-user', 409, 'ACCOUNT_CHANGED'],
+      [undefined, 400, undefined],
+    ])('账号错配或缺少页面账号时应拒绝提交且不产生记录：%s', async (expectedUserId, status, code) => {
+      const response = await submitQuiz(new NextRequest('http://localhost/api/quiz/submit', {
+        method: 'POST',
+        headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ ...mockQuizData, expectedUserId }),
+      }));
+      expect(response.status).toBe(status);
+      const data = await response.json();
+      if (code) expect(data.code).toBe(code);
+      expect(mockPrisma.quizAttempt.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.quizAttempt.create).not.toHaveBeenCalled();
+      expect(mockPrisma.learningEvent.create).not.toHaveBeenCalled();
+      expect(mockPrisma.userPointsTransaction.createMany).not.toHaveBeenCalled();
     });
 
     it('应该成功提交测验结果', async () => {
@@ -197,6 +265,7 @@ describe('Quiz System API Tests', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
+      expect(data.ownerId).toBe('test-user-id');
       expect(data.attemptId).toBe('attempt-1');
       expect(data.message).toBe('测评结果已保存');
       expect(data.pointsEarned).toBe(65);
@@ -239,7 +308,7 @@ describe('Quiz System API Tests', () => {
       const request = new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing',
           topicId: 'addressing-modes',
           assessmentMode: 'initial',
@@ -283,7 +352,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch10-ai-literacy',
           topicId: 'ai-literacy',
           assessmentMode: 'initial',
@@ -327,7 +396,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing',
           topicId: 'addressing-modes',
           assessmentMode: 'initial',
@@ -369,7 +438,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing',
           topicId: 'addressing-modes',
           assessmentMode: 'initial',
@@ -412,7 +481,7 @@ describe('Quiz System API Tests', () => {
       const request = new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing', topicId: 'addressing-modes', assessmentMode: 'initial',
           moduleId: 'module-1', chapterId: 'ch3', attemptId: 'attempt_retry_001',
           score: 0, totalQuestions: 7, correctAnswers: 0, timeSpent: 30, answers,
@@ -422,6 +491,7 @@ describe('Quiz System API Tests', () => {
       const data = await response.json();
       expect(response.status).toBe(200);
       expect(data.duplicate).toBe(true);
+      expect(data.ownerId).toBe('test-user-id');
       expect(data.attemptId).toBe('existing-attempt');
       expect(mockPrisma.quizAttempt.create).not.toHaveBeenCalled();
     });
@@ -436,6 +506,7 @@ describe('Quiz System API Tests', () => {
       setupPrismaMock(mockPrisma, 'learningProgress', 'findUnique', null);
 
       const requestBody = {
+        expectedUserId: 'test-user-id',
         quizId: 'quiz-ch3-addressing', topicId: 'addressing-modes', assessmentMode: 'initial',
         moduleId: 'module-1', chapterId: 'ch3', attemptId: 'attempt_fingerprint_001',
         score: 0, totalQuestions: 7, correctAnswers: 0, timeSpent: 30, answers,
@@ -471,7 +542,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing', topicId: 'addressing-modes', assessmentMode: 'initial',
           moduleId: 'module-1', chapterId: 'ch3', pathId: 'path-not-active', attemptId: 'attempt_task_context_001',
           score: 0, totalQuestions: 7, correctAnswers: 0, timeSpent: 30, answers,
@@ -489,7 +560,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch4', assessmentMode: 'initial', moduleId: 'module-1', chapterId: 'ch4',
           attemptId: 'attempt_chapter_004', score: 0, totalQuestions: 1, correctAnswers: 0,
           answers: { [String(chapter4Question.id)]: chapter4Question.correctAnswer },
@@ -530,7 +601,7 @@ describe('Quiz System API Tests', () => {
       const response = await submitQuiz(new NextRequest('http://localhost:3000/api/quiz/submit', {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ expectedUserId: 'test-user-id',
           quizId: 'quiz-ch3-addressing', topicId: 'addressing-modes', assessmentMode: 'initial',
           moduleId: 'module-1', chapterId: 'ch3', attemptId: 'attempt_parallel_001',
           score: 0, totalQuestions: 7, correctAnswers: 0, answers,
@@ -539,6 +610,7 @@ describe('Quiz System API Tests', () => {
       const data = await response.json();
       expect(response.status).toBe(200);
       expect(data).toMatchObject({ success: true, duplicate: true, attemptId: 'qa-existing' });
+      expect(data.ownerId).toBe('test-user-id');
     });
 
     it('应该处理满分测验并给予正确的积分类型', async () => {
@@ -884,6 +956,7 @@ describe('Quiz System API Tests', () => {
     });
 
     it('应该按当前用户精确核对测评回执并只返回提交后的公开结果', async () => {
+      const source = { title: '串口课件', page: 11, url: '/resources/course/course-slides.pdf#page=11' };
       setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', {
         ...mockQuizHistory[0],
         startedAt: new Date('2024-01-15T09:40:00Z'),
@@ -892,28 +965,33 @@ describe('Quiz System API Tests', () => {
           pathId: 'path-1',
           weakAreas: ['3.1.2'],
           scoresByKA: { '3.1.2': { correct: 0, total: 1, score: 0 } },
-          questionResults: { '49': { correct: false, correctAnswer: 'A' } },
+          questionResults: { '49': { correct: false, correctAnswer: 'A', explanation: '按串口工作方式判断。', source } },
         }),
       });
 
       const response = await getQuizHistory(new NextRequest(
-        'http://localhost:3000/api/quiz/history?attemptId=attempt-1',
+        'http://localhost:3000/api/quiz/history?attemptId=attempt-1&expectedUserId=test-user-id',
         { headers: { authorization: 'Bearer valid-token' } },
       ));
       const data = await response.json();
 
       expect(response.status).toBe(200);
+      expect(data.ownerId).toBe('test-user-id');
+      expect(data.sampleSize).toMatchObject({ questions: 20 });
+      expect(data.sampleSize).not.toHaveProperty('answered');
       expect(data.receipt).toMatchObject({
+        ownerId: 'test-user-id',
         attemptId: 'attempt-1',
         quizId: 'comprehensive-assessment',
         assessmentMode: 'retest',
         pathId: 'path-1',
         weakAreas: ['3.1.2'],
         scoresByKA: { '3.1.2': { correct: 0, total: 1, score: 0 } },
-        questionResults: { '49': { correct: false, correctAnswer: 'A' } },
+        questionResults: { '49': { correct: false, correctAnswer: 'A', explanation: '按串口工作方式判断。', source } },
       });
       expect(data.receipt).not.toHaveProperty('answers');
       expect(data.receipt).not.toHaveProperty('userId');
+      expect(data.receipt.review).toMatchObject({ order: 'unavailable', questions: [{ id: 49, selectedAnswer: null }] });
       expect(mockPrisma.quizAttempt.findFirst).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
           id: 'attempt-1',
@@ -923,11 +1001,115 @@ describe('Quiz System API Tests', () => {
       }));
     });
 
+    it('只读回看保留原选择和判分，旧题序不伪装成已记录', async () => {
+      const question = quizQuestions.find((item) => item.id === 4)!;
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', {
+        ...mockQuizHistory[0], totalQuestions: 2,
+        answers: JSON.stringify({ answers: { '4': '直接寻址', '999999': '' }, questionResults: {
+          '4': { correct: false, correctAnswer: '原回执答案', explanation: '原回执解析' },
+          '999999': { correct: false, correctAnswer: '旧题答案' },
+        } }),
+      });
+      const response = await getQuizHistory(new NextRequest('http://localhost/api/quiz/history?attemptId=attempt-1&expectedUserId=test-user-id', {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      const body = await response.json();
+      expect(body.sampleSize).toMatchObject({ questions: 2, answered: 1 });
+      expect(body.receipt.review).toMatchObject({ order: 'unavailable', questions: [
+        { id: 4, selectedAnswer: '直接寻址', questionSource: 'current-bank', question: { questionText: question.questionText } },
+        { id: 999999, selectedAnswer: '', questionSource: 'unavailable', question: null },
+      ] });
+      expect(body.receipt.review.questions[0].question).not.toHaveProperty('correctAnswer');
+      expect(body.receipt.questionResults['4'].correctAnswer).toBe('原回执答案');
+      expect(mockPrisma.quizAttempt.create).not.toHaveBeenCalled();
+      expect(mockPrisma.quizAttempt.update).not.toHaveBeenCalled();
+    });
+
+    it('新回执按原题序和公开题干快照回看，过滤快照附加答案字段', async () => {
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', {
+        ...mockQuizHistory[0], totalQuestions: 2,
+        answers: JSON.stringify({ answers: { '4': 'B', '13': 'A' }, questionOrderIds: [13, 4], questionSnapshots: [
+          { id: 13, type: 'multiple-choice', questionText: '提交时题干', options: ['A', 'B'], ka: '3.5', chapter: 3, correctAnswer: '不得从快照泄露' },
+        ] }),
+      });
+      const response = await getQuizHistory(new NextRequest('http://localhost/api/quiz/history?attemptId=attempt-1&expectedUserId=test-user-id', {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      const body = await response.json();
+      expect(body.receipt.review.order).toBe('recorded');
+      expect(body.receipt.review.questions.map((item: { id: number }) => item.id)).toEqual([13, 4]);
+      expect(body.receipt.review.questions[0]).toMatchObject({ questionSource: 'snapshot', selectedAnswer: 'A', question: { questionText: '提交时题干' } });
+      expect(body.receipt.review.questions[0].question).not.toHaveProperty('correctAnswer');
+      expect(body.receipt.questionResults).toEqual({});
+    });
+
+    it('旧寻址回执缺解析时仅另列既有课程补充，不篡改原判分', async () => {
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', {
+        ...mockQuizHistory[0], totalQuestions: 1,
+        answers: JSON.stringify({ answers: { '4': '直接寻址' }, questionResults: {
+          '4': { correct: false, correctAnswer: '立即寻址' },
+        } }),
+      });
+      const response = await getQuizHistory(new NextRequest('http://localhost/api/quiz/history?attemptId=attempt-1&expectedUserId=test-user-id', {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      const body = await response.json();
+      expect(body.receipt.questionResults['4']).toEqual({ correct: false, correctAnswer: '立即寻址' });
+      expect(body.receipt.review.questions[0]).toMatchObject({ selectedAnswer: '直接寻址', supplement: {
+        explanation: expect.stringContaining('操作数直接编码在指令中'),
+        source: { kind: 'guide', experimentId: 'exp02', section: '8051 寻址方式', url: '/simulation?experiment=exp02&view=guide' },
+      } });
+      expect(mockPrisma.quizAttempt.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['?attemptId=attempt-1&expectedUserId=other-user', 409, 'ACCOUNT_CHANGED'],
+      ['?expectedUserId=other-user', 409, 'ACCOUNT_CHANGED'],
+      ['?attemptId=attempt-1', 400, 'INVALID_INPUT'],
+    ])('历史回执核验先校对账号且不误判为不存在：%s', async (query, status, code) => {
+      const response = await getQuizHistory(new NextRequest(`http://localhost/api/quiz/history${query}`, {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      expect(response.status).toBe(status);
+      expect(await response.json()).toMatchObject({ code });
+      expect(mockPrisma.quizAttempt.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.quizAttempt.findMany).not.toHaveBeenCalled();
+    });
+
+    it('历史回执兼容旧结果并过滤损坏的解析及不可信页链接', async () => {
+      const guideSource = { kind: 'guide', title: '实验2网页指导', experimentId: 'exp02', section: '8051 寻址方式', url: '/simulation?experiment=exp02&view=guide' };
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', {
+        ...mockQuizHistory[0],
+        answers: JSON.stringify({
+          questionResults: {
+            '1': { correct: true, correctAnswer: 'A' },
+            '2': { correct: false, correctAnswer: 'B', explanation: '正常解析', source: { title: '伪造', page: 1, url: 'javascript:alert(1)' } },
+            '3': { correct: false, correctAnswer: 'C', explanation: { malformed: true } },
+            '4': { correct: 'true', correctAnswer: 'D' },
+            '5': { correct: true, correctAnswer: 'E', explanation: '已有指导正文。', source: guideSource },
+            '6': { correct: true, correctAnswer: 'F', explanation: '拒绝错配链接。', source: { ...guideSource, url: '/simulation?experiment=exp03&view=guide' } },
+          },
+        }),
+      });
+      const response = await getQuizHistory(new NextRequest('http://localhost/api/quiz/history?attemptId=attempt-1&expectedUserId=test-user-id', {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(data.receipt.questionResults).toEqual({
+        '1': { correct: true, correctAnswer: 'A' },
+        '2': { correct: false, correctAnswer: 'B', explanation: '正常解析' },
+        '3': { correct: false, correctAnswer: 'C' },
+        '5': { correct: true, correctAnswer: 'E', explanation: '已有指导正文。', source: guideSource },
+        '6': { correct: true, correctAnswer: 'F', explanation: '拒绝错配链接。' },
+      });
+    });
+
     it('本地回执编号在服务端不存在时应该返回404', async () => {
       setupPrismaMock(mockPrisma, 'quizAttempt', 'findFirst', null);
 
       const response = await getQuizHistory(new NextRequest(
-        'http://localhost:3000/api/quiz/history?attemptId=attempt-missing',
+        'http://localhost:3000/api/quiz/history?attemptId=attempt-missing&expectedUserId=test-user-id',
         { headers: { authorization: 'Bearer valid-token' } },
       ));
 

@@ -150,11 +150,17 @@ export function getDataProvenance(): DataProvenance {
   return {
     mode,
     label: '演示数据',
-    note: '当前为竞赛功能演示环境，包含种子学生与模拟学习记录，不用于证明教学成效。',
+    note: '演示环境数据，不用于证明教学成效。',
   };
 }
 
 // 在应用启动时调用此函数进行验证
+/**
+ * 界面是否展示数据身份提示条。置 false 后前端不再渲染该提示条；
+ * 服务端仍照常返回 dataProvenance，各页的数据校验与用途边界逻辑不受影响。
+ */
+export const SHOW_DATA_PROVENANCE_NOTICE = false;
+
 export function checkRequiredEnvVars(): boolean {
   try {
     validateEnv();

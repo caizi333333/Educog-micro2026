@@ -2,10 +2,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
-import type { PublicQuestion } from '@/lib/quiz-data';
+import type { PublicQuestion, QuestionSource } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import {
   ADDRESSING_QUIZ_ID,
@@ -48,7 +49,27 @@ import { getStoredAccessToken } from '@/lib/auth-storage';
 
 type AnswersState = Record<string, string>;
 type ScorePerKa = { [ka: string]: { correct: number; total: number; score: number } };
-type QuestionResult = { correct: boolean; correctAnswer: string };
+type QuestionResult = {
+  correct: boolean; correctAnswer: string; explanation?: string;
+  source?: QuestionSource;
+};
+
+function QuestionExplanation({ result }: { result?: QuestionResult }): React.ReactNode {
+  if (!result?.explanation) return null;
+  const source = result.source;
+  const guideIsValid = source?.kind === 'guide' && /^(exp0[1-9]|proj0[1-4])$/.test(source.experimentId)
+    && typeof source.section === 'string' && Boolean(source.section.trim())
+    && source.page === undefined && source.url === `/simulation?experiment=${source.experimentId}&view=guide`;
+  const slideIsValid = source && (source.kind === undefined || source.kind === 'slide')
+    && Number.isInteger(source.page) && source.page > 0 && source.page <= 167
+    && source.url === `/resources/course/course-slides.pdf#page=${source.page}`;
+  return (
+    <div className="mt-3 border-t border-white/[0.08] pt-3 text-sm leading-6 text-slate-300">
+      <p><span className="font-medium text-slate-100">解析：</span>{result.explanation}</p>
+      {(guideIsValid || slideIsValid) && source && <a href={source.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center text-xs text-cyan-200 underline underline-offset-4">对照{source.title} · {source.kind === 'guide' ? `“${source.section}”` : `PDF第${source.page}页`}</a>}
+    </div>
+  );
+}
 type QuizDataProvenance = {
   mode: 'DEMO' | 'REAL' | 'MIXED';
   label: string;
@@ -60,6 +81,7 @@ type QuizEvidence = {
   sampleSize: { questions: number; answered?: number };
 };
 type SubmissionResult = {
+  ownerId?: string;
   attemptId: string;
   quizId: string;
   score: number;
@@ -70,6 +92,90 @@ type SubmissionResult = {
   questionResults: Record<string, QuestionResult>;
   duplicate?: boolean;
 };
+type ReceiptReview = {
+  order: 'recorded' | 'unavailable';
+  questions: Array<{
+    id: number;
+    question: PublicQuestion | null;
+    questionSource: 'snapshot' | 'current-bank' | 'unavailable';
+    selectedAnswer: string | null;
+    supplement?: { explanation: string; source: QuestionSource };
+  }>;
+};
+type VerifiedReceipt = SubmissionResult & { review?: ReceiptReview };
+
+function SubmittedQuestionReview({ receipt }: { receipt: VerifiedReceipt }): React.JSX.Element {
+  const [onlyIncorrect, setOnlyIncorrect] = useState(false);
+  const review = receipt.review;
+  if (!review) {
+    return <p className="mt-5 text-sm leading-6 text-amber-100" role="status">本次回执的作答详情不足，暂时只能查看原成绩摘要。</p>;
+  }
+  const orderedQuestions = review.order === 'recorded'
+    ? review.questions
+    : [...review.questions].sort((a, b) => a.id - b.id);
+  const incorrectQuestions = orderedQuestions.filter((item) => receipt.questionResults[String(item.id)]?.correct === false);
+  const visibleQuestions = onlyIncorrect ? incorrectQuestions : orderedQuestions;
+  return (
+    <section id="submitted-question-review" aria-labelledby="submitted-question-review-title" className="mt-6 border-t border-white/[0.1] pt-5">
+      <h2 id="submitted-question-review-title" className="text-lg font-semibold text-slate-50">本次作答与错题回看</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">仅供回看，不会修改原作答或再次交卷；原判分、正确答案及原有解析按回执显示，当前课程补充说明另行标注。</p>
+      <p className="mt-2 text-sm text-slate-400">
+        {review.order === 'recorded' ? '以下按已保存的原作答题序显示。' : '原作答题序未保存，以下按题号排列。'}
+      </p>
+      {orderedQuestions.some((item) => item.questionSource === 'current-bank') && (
+        <p className="mt-2 text-sm leading-6 text-amber-100">部分原题干未保存，标注的题干和选项按当前题库回看；原判分、正确答案和原有解析仍来自原回执。</p>
+      )}
+      {orderedQuestions.length !== receipt.totalQuestions && (
+        <p className="mt-2 text-sm text-amber-100" role="status">原回执共 {receipt.totalQuestions} 题，目前可定位 {orderedQuestions.length} 条作答详情，其余详情不足。</p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button type="button" aria-pressed={!onlyIncorrect} onClick={() => setOnlyIncorrect(false)} className="min-h-11 border border-white/[0.12] bg-white/[0.04] text-slate-100">查看全部（{orderedQuestions.length}）</Button>
+        <Button type="button" aria-pressed={onlyIncorrect} onClick={() => setOnlyIncorrect(true)} className="min-h-11 border border-white/[0.12] bg-white/[0.04] text-slate-100">只看错题（{incorrectQuestions.length}）</Button>
+      </div>
+      <div className="mt-4 space-y-4">
+        {visibleQuestions.map((item) => {
+          const result = receipt.questionResults[String(item.id)];
+          const question = item.question;
+          return (
+            <article key={item.id} aria-labelledby={`receipt-question-${item.id}`} className="rounded-md border border-white/[0.1] bg-black/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 id={`receipt-question-${item.id}`} className="font-semibold text-slate-100">
+                  {review.order === 'recorded' ? `原第 ${orderedQuestions.indexOf(item) + 1} 题（题号 ${item.id}）` : `题号 ${item.id}`}
+                </h3>
+                <span className={cn('text-xs', result?.correct ? 'text-emerald-200' : 'text-amber-100')}>
+                  原判分：{result ? result.correct ? '答对' : '未答对' : '未保存'}
+                </span>
+              </div>
+              {question ? (
+                <>
+                  {item.questionSource === 'current-bank' && <p className="mt-2 text-xs text-amber-100">题干与选项：按当前题库回看</p>}
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">{question.questionText}</p>
+                  {question.type === 'multiple-choice' ? (
+                    <ul className="mt-3 space-y-2 text-sm text-slate-300">
+                      {question.options.map((option, index) => <li key={`${index}-${option}`} className="rounded border border-white/[0.08] px-3 py-2">{option}</li>)}
+                    </ul>
+                  ) : <pre className="mt-3 overflow-auto whitespace-pre-wrap rounded border border-white/[0.08] p-3 text-sm text-slate-300">{question.code}</pre>}
+                </>
+              ) : <p className="mt-3 text-sm text-amber-100">本题题干暂不可用；保留本题原作答与判分。</p>}
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div className="rounded border border-white/[0.08] p-3"><dt className="text-slate-500">你的原选择</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-100">{item.selectedAnswer === null ? '原选择未保存' : item.selectedAnswer === '' ? '未作答' : item.selectedAnswer}</dd></div>
+                <div className="rounded border border-emerald-300/15 p-3"><dt className="text-slate-500">原回执正确答案</dt><dd className="mt-1 whitespace-pre-wrap break-words text-emerald-200">{result?.correctAnswer || '原正确答案未保存'}</dd></div>
+              </dl>
+              <QuestionExplanation result={result} />
+              {result && !result.explanation && item.supplement && (
+                <div className="mt-4 rounded border border-cyan-300/20 bg-cyan-300/[0.05] p-3">
+                  <h4 className="text-sm font-medium text-cyan-100">当前课程补充说明（原回执未保存解析）</h4>
+                  <QuestionExplanation result={{ ...result, explanation: item.supplement.explanation, source: item.supplement.source }} />
+                </div>
+              )}
+            </article>
+          );
+        })}
+        {onlyIncorrect && visibleQuestions.length === 0 && <p className="text-sm text-slate-300">已保存的逐题判分中没有错题。</p>}
+      </div>
+    </section>
+  );
+}
 
 const publicQuestionSchema = z.discriminatedUnion('type', [
   z.object({
@@ -115,7 +221,13 @@ const scorePerKaSchema = z.record(z.string(), z.object({
   score: z.number().min(0).max(100),
 }));
 
+const questionSourceSchema = z.union([
+  z.object({ kind: z.literal('slide').optional(), title: z.string(), page: z.number().int().positive(), url: z.string() }),
+  z.object({ kind: z.literal('guide'), title: z.string(), experimentId: z.string(), section: z.string(), url: z.string(), page: z.never().optional() }),
+]);
+
 const submissionResultSchema = z.object({
+  ownerId: z.string().min(1).optional(),
   attemptId: z.string().min(1).max(128),
   quizId: z.string().min(1).max(128),
   score: z.number().min(0).max(100),
@@ -126,19 +238,33 @@ const submissionResultSchema = z.object({
   questionResults: z.record(z.string(), z.object({
     correct: z.boolean(),
     correctAnswer: z.string(),
+    explanation: z.string().optional(),
+    source: questionSourceSchema.optional(),
   })),
   duplicate: z.boolean().optional(),
 });
 
 const submissionResponseSchema = submissionResultSchema.merge(quizEvidenceSchema).extend({
   success: z.literal(true),
+  ownerId: z.string().min(1),
 });
 
 const verifiedReceiptResponseSchema = quizEvidenceSchema.extend({
   success: z.literal(true),
   receipt: submissionResultSchema.extend({
+    ownerId: z.string().min(1),
     assessmentMode: z.enum(['initial', 'retest']),
     pathId: z.string().nullable(),
+    review: z.object({
+      order: z.enum(['recorded', 'unavailable']),
+      questions: z.array(z.object({
+        id: z.number().int(),
+        question: publicQuestionSchema.nullable(),
+        questionSource: z.enum(['snapshot', 'current-bank', 'unavailable']),
+        selectedAnswer: z.string().nullable(),
+        supplement: z.object({ explanation: z.string().min(1), source: questionSourceSchema }).optional(),
+      }).refine((item) => item.question === null || item.question.id === item.id)),
+    }).refine((review) => new Set(review.questions.map((item) => item.id)).size === review.questions.length).optional(),
   }),
 });
 
@@ -169,11 +295,16 @@ async function fetchQuizRequest(
   input: RequestInfo | URL,
   init: RequestInit,
   timeoutMs: number,
-): Promise<Response> {
+): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const data: unknown = await response.json().catch((error: unknown) => {
+      if (controller.signal.aborted) throw error;
+      return {};
+    });
+    return { ok: response.ok, status: response.status, json: async () => data };
   } catch (error) {
     if (controller.signal.aborted) throw new QuizRequestTimeoutError();
     throw error;
@@ -239,7 +370,8 @@ function KaChip({ ka, className }: { ka: string; className?: string }): React.JS
   );
 }
 
-function QuizEvidenceBanner({ evidence }: { evidence: QuizEvidence | null }): React.JSX.Element {
+function QuizEvidenceBanner({ evidence }: { evidence: QuizEvidence | null }): React.JSX.Element | null {
+  if (!SHOW_DATA_PROVENANCE_NOTICE) return null;
   if (!evidence) {
     return (
       <div role="status" className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-xs text-cyan-50/75">
@@ -247,7 +379,7 @@ function QuizEvidenceBanner({ evidence }: { evidence: QuizEvidence | null }): Re
       </div>
     );
   }
-  const { dataProvenance, asOf, sampleSize } = evidence;
+  const { dataProvenance } = evidence;
   return (
     <div
       role="note"
@@ -260,12 +392,6 @@ function QuizEvidenceBanner({ evidence }: { evidence: QuizEvidence | null }): Re
     >
       <div className="text-sm font-semibold">{dataProvenance.label}</div>
       <p className="mt-1 text-xs leading-5 opacity-80">{dataProvenance.note}</p>
-      <p className="mt-1 font-mono text-[10px] leading-5 opacity-70">
-        截止 {new Date(asOf).toLocaleString('zh-CN', { hour12: false })}
-        {' · '}题目 n={sampleSize.questions}
-        {sampleSize.answered !== undefined ? ` · 已提交 n=${sampleSize.answered}` : ''}
-        {' · '}0题=接口确认无题，0作答=当前试卷尚未选择答案，N/A=题集或回执尚未核验
-      </p>
     </div>
   );
 }
@@ -325,6 +451,8 @@ function safeStorageGetWithMigration(targetKey: string, anonymousKey?: string): 
 
 export function QuizClient(): React.JSX.Element {
   const { user } = useAuth();
+  const currentUserIdRef = useRef(user?.id);
+  currentUserIdRef.current = user?.id;
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -335,7 +463,9 @@ export function QuizClient(): React.JSX.Element {
   const [answerStatus, setAnswerStatus] = useState<{ [key: number]: 'correct' | 'incorrect' }>({});
   const [showResults, setShowResults] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
-  const [submittedReceipt, setSubmittedReceipt] = useState<SubmissionResult | null>(null);
+  const [submittedReceipt, setSubmittedReceipt] = useState<VerifiedReceipt | null>(null);
+  const [receiptEvidence, setReceiptEvidence] = useState<QuizEvidence | null>(null);
+  const [showReceiptReview, setShowReceiptReview] = useState(false);
   const [receiptVerificationStatus, setReceiptVerificationStatus] = useState<'checking' | 'ready' | 'error'>('checking');
   const [receiptVerificationError, setReceiptVerificationError] = useState<string | null>(null);
   const [receiptVerificationAttempt, setReceiptVerificationAttempt] = useState(0);
@@ -348,6 +478,7 @@ export function QuizClient(): React.JSX.Element {
   const skipNextAnswerSaveRef = useRef(true);
   const attemptIdRef = useRef<string | null>(null);
   const submissionInFlightRef = useRef(false);
+  const submissionVersionRef = useRef(0);
   const pendingSubmissionRef = useRef<PendingSubmission | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -356,7 +487,11 @@ export function QuizClient(): React.JSX.Element {
   const rawTopicFilter = searchParams?.get('topic') ?? null;
   const rawModeFilter = searchParams?.get('mode') ?? null;
   const rawChapterFilter = searchParams?.get('chapter') ?? null;
+  const requestedAttemptId = searchParams?.get('attemptId') ?? null;
   const filterValidationError = useMemo((): string | null => {
+    if (requestedAttemptId !== null && (requestedAttemptId.trim().length === 0 || requestedAttemptId.length > 128)) {
+      return '测评回看链接中的回执编号无效，请返回任务页重新进入。';
+    }
     if (rawTopicFilter !== null && rawTopicFilter !== ADDRESSING_TOPIC_ID && rawTopicFilter !== AI_LITERACY_TOPIC_ID) {
       return '测评链接中的主题参数无效，请返回任务页重新进入。';
     }
@@ -376,7 +511,7 @@ export function QuizClient(): React.JSX.Element {
       }
     }
     return null;
-  }, [rawChapterFilter, rawModeFilter, rawTopicFilter]);
+  }, [rawChapterFilter, rawModeFilter, rawTopicFilter, requestedAttemptId]);
 
   const chapterFilter = useMemo((): number | null => {
     const raw = rawChapterFilter;
@@ -417,6 +552,20 @@ export function QuizClient(): React.JSX.Element {
   const quizSessionKey = taskPathId
     ? `${resolvedQuizId}-${assessmentMode}-task-${taskPathId}`
     : `${resolvedQuizId}-${assessmentMode}`;
+  const currentQuizContext = `${user?.id ?? 'anonymous'}:${quizSessionKey}:${requestedAttemptId ?? 'active'}`;
+  const currentQuizContextRef = useRef(currentQuizContext);
+  currentQuizContextRef.current = currentQuizContext;
+  useEffect(() => {
+    submissionVersionRef.current += 1;
+    submissionInFlightRef.current = false;
+    setIsSavingResults(false);
+    setSubmissionResult(null);
+    setSubmittedReceipt(null);
+    setReceiptEvidence(null);
+    setAnswerStatus({});
+    setShowResults(false);
+    setShowReceiptReview(requestedAttemptId !== null);
+  }, [currentQuizContext, requestedAttemptId]);
   const anonymousProgressKey = `quiz-progress-${quizSessionKey}`;
   const anonymousAnswerStorageKey = `quiz-answers-${quizSessionKey}`;
   const anonymousAttemptStorageKey = `quiz-attempt-${quizSessionKey}`;
@@ -428,6 +577,11 @@ export function QuizClient(): React.JSX.Element {
   const receiptStorageKey = user ? `quiz-receipt-${user.id}-${quizSessionKey}` : `quiz-receipt-${quizSessionKey}`;
 
   useEffect(() => {
+    if (requestedAttemptId !== null) {
+      pendingSubmissionRef.current = null;
+      setHasPendingSubmission(false);
+      return;
+    }
     let attemptId = safeStorageGetWithMigration(
       attemptStorageKey,
       user ? anonymousAttemptStorageKey : undefined,
@@ -469,6 +623,7 @@ export function QuizClient(): React.JSX.Element {
     assessmentMode,
     attemptStorageKey,
     pendingStorageKey,
+    requestedAttemptId,
     resolvedQuizId,
     taskPathId,
     user,
@@ -485,6 +640,7 @@ export function QuizClient(): React.JSX.Element {
         setQuestionLoadError(filterValidationError);
         return;
       }
+      if (requestedAttemptId !== null) return;
       try {
         const params = new URLSearchParams();
         if (topicFilter) params.set('topic', topicFilter);
@@ -519,36 +675,38 @@ export function QuizClient(): React.JSX.Element {
     setQuizQuestions([]);
     void loadQuestions();
     return (): void => { active = false; };
-  }, [assessmentMode, chapterFilter, filterValidationError, topicFilter]);
+  }, [assessmentMode, chapterFilter, filterValidationError, requestedAttemptId, topicFilter]);
 
   useEffect(() => {
     let active = true;
     async function verifyStoredReceipt(): Promise<void> {
       setSubmittedReceipt(null);
+      setReceiptEvidence(null);
       setReceiptVerificationError(null);
       if (filterValidationError) {
         setReceiptVerificationStatus('ready');
         return;
       }
-      const raw = safeStorageGet(receiptStorageKey);
-      if (!raw) {
+      const raw = requestedAttemptId === null ? safeStorageGet(receiptStorageKey) : null;
+      if (!raw && requestedAttemptId === null) {
         setReceiptVerificationStatus('ready');
         return;
       }
       let localReceipt: SubmissionResult | null = null;
       try {
-        const parsedReceipt: unknown = JSON.parse(raw);
+        const parsedReceipt: unknown = raw ? JSON.parse(raw) : null;
         const receipt = submissionResultSchema.safeParse(parsedReceipt);
         localReceipt = receipt.success ? receipt.data : null;
       } catch { /* invalid local receipt */ }
-      if (!localReceipt) {
+      if (!localReceipt && requestedAttemptId === null) {
         safeStorageRemove(receiptStorageKey);
         setReceiptVerificationStatus('ready');
         return;
       }
       if (!user) {
         // 未登录时不使用任何本地提交结论；答案草稿仍可继续编辑。
-        setReceiptVerificationStatus('ready');
+        setReceiptVerificationStatus(requestedAttemptId === null ? 'ready' : 'error');
+        if (requestedAttemptId !== null) setReceiptVerificationError('请先登录本人账号，再查看已提交的测评回执。');
         return;
       }
       const accessToken = getAccessTokenSafely();
@@ -559,14 +717,18 @@ export function QuizClient(): React.JSX.Element {
       }
 
       setReceiptVerificationStatus('checking');
+      const verifyingUserId = user.id;
+      const verifyingContext = currentQuizContext;
+      const targetAttemptId = requestedAttemptId ?? localReceipt!.attemptId;
       try {
-        const response = await fetchQuizRequest(`/api/quiz/history?attemptId=${encodeURIComponent(localReceipt.attemptId)}`, {
+        const response = await fetchQuizRequest(`/api/quiz/history?attemptId=${encodeURIComponent(targetAttemptId)}&expectedUserId=${encodeURIComponent(verifyingUserId)}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: 'no-store',
         }, QUIZ_RECEIPT_TIMEOUT_MS);
         const rawResponse: unknown = await response.json().catch((): Record<string, never> => ({}));
-        if (!active) return;
+        if (!active || currentUserIdRef.current !== verifyingUserId || currentQuizContextRef.current !== verifyingContext) return;
         if (response.status === 404) {
+          if (requestedAttemptId !== null) throw new Error('未找到本人账号下的这次测评回执，请核对回看链接。');
           safeStorageRemove(receiptStorageKey);
           setReceiptVerificationStatus('ready');
           return;
@@ -579,16 +741,22 @@ export function QuizClient(): React.JSX.Element {
         const verified = verifiedReceiptResponseSchema.safeParse(rawResponse);
         const verifiedPayload = verified.success ? verified.data : null;
         const receipt = verifiedPayload?.receipt ?? null;
+        if (!receipt) throw new Error('测评回执格式不完整，暂时无法核对，请重试。');
+        if (receipt && receipt.ownerId !== user.id) {
+          throw new Error('登录账号已变更，请重新登录后核对本人测评回执。');
+        }
         const contextMatches = Boolean(receipt
+          && receipt.attemptId === targetAttemptId
           && receipt.quizId === resolvedQuizId
           && receipt.assessmentMode === assessmentMode
           && receipt.pathId === (taskPathId ?? null));
         if (!receipt || !contextMatches) {
+          if (requestedAttemptId !== null) throw new Error('本次回执与链接中的测评或任务不一致，请从原任务的回执入口重新进入。');
           safeStorageRemove(receiptStorageKey);
           setReceiptVerificationStatus('ready');
           return;
         }
-        setQuizEvidence({
+        setReceiptEvidence({
           dataProvenance: verifiedPayload!.dataProvenance,
           asOf: verifiedPayload!.asOf,
           sampleSize: verifiedPayload!.sampleSize,
@@ -596,16 +764,20 @@ export function QuizClient(): React.JSX.Element {
         setSubmittedReceipt(receipt);
         setReceiptVerificationStatus('ready');
       } catch (error) {
-        if (!active) return;
+        if (!active || currentUserIdRef.current !== verifyingUserId || currentQuizContextRef.current !== verifyingContext) return;
         setReceiptVerificationStatus('error');
         setReceiptVerificationError(error instanceof Error ? error.message : '已有测评回执核对失败，请重试。');
       }
     }
     void verifyStoredReceipt();
     return (): void => { active = false; };
-  }, [assessmentMode, filterValidationError, receiptStorageKey, receiptVerificationAttempt, resolvedQuizId, taskPathId, user]);
+  }, [assessmentMode, currentQuizContext, filterValidationError, receiptStorageKey, receiptVerificationAttempt, requestedAttemptId, resolvedQuizId, taskPathId, user]);
 
   useEffect(() => {
+    if (requestedAttemptId !== null) {
+      setShuffledQuestions([]);
+      return;
+    }
     // Shuffling is done on the client-side to avoid hydration mismatch
     // 章节参数或题库变化时重建题集，保证按章练习只出该章题目
     let next = shuffleArray(sourceQuestions);
@@ -653,10 +825,11 @@ export function QuizClient(): React.JSX.Element {
         console.warn('Failed to load quiz progress:', error);
       }
     }
-  }, [anonymousProgressKey, progressKey, sourceQuestions, user]);
+  }, [anonymousProgressKey, progressKey, requestedAttemptId, sourceQuestions, user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (requestedAttemptId !== null) return;
     // 切卷时先跳过本轮保存，避免旧试卷的闭包状态覆盖待恢复草稿。
     skipNextAnswerSaveRef.current = true;
     try {
@@ -671,10 +844,11 @@ export function QuizClient(): React.JSX.Element {
       console.warn('Failed to load saved quiz answers:', error);
       setAnswers({});
     }
-  }, [anonymousAnswerStorageKey, answerStorageKey, user]);
+  }, [anonymousAnswerStorageKey, answerStorageKey, requestedAttemptId, user]);
 
   // 保存答案到localStorage
   useEffect(() => {
+    if (requestedAttemptId !== null) return;
     if (typeof window !== 'undefined') {
       if (skipNextAnswerSaveRef.current) {
         skipNextAnswerSaveRef.current = false;
@@ -686,7 +860,7 @@ export function QuizClient(): React.JSX.Element {
         console.warn('Failed to save quiz answers:', error);
       }
     }
-  }, [answerStorageKey, answers]);
+  }, [answerStorageKey, answers, requestedAttemptId]);
 
   // 保存测评进度，index 传入最新题号避免闭包里的旧值
   const saveQuizProgress = (
@@ -709,6 +883,7 @@ export function QuizClient(): React.JSX.Element {
   };
 
   const handleAnswerChange = (questionId: number, answer: string): void => {
+    if (requestedAttemptId !== null) return;
     if (pendingSubmissionRef.current || submissionInFlightRef.current) return;
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
@@ -733,6 +908,7 @@ export function QuizClient(): React.JSX.Element {
   };
 
   const handleSubmitQuiz = async (): Promise<void> => {
+    if (requestedAttemptId !== null) return;
     if (submissionInFlightRef.current) return;
     const isRetryingPendingSubmission = pendingSubmissionRef.current !== null;
     if (!isRetryingPendingSubmission && requiresCompleteSubmission && answeredCount !== shuffledQuestions.length) {
@@ -765,6 +941,9 @@ export function QuizClient(): React.JSX.Element {
     }
 
     submissionInFlightRef.current = true;
+    const submissionVersion = ++submissionVersionRef.current;
+    const submittingUserId = user.id;
+    const submittingContext = currentQuizContext;
     setIsSavingResults(true);
     try {
       let attemptId = attemptIdRef.current ?? safeStorageGet(attemptStorageKey);
@@ -789,6 +968,7 @@ export function QuizClient(): React.JSX.Element {
           pathId: taskPathId ?? null,
           createdAt: new Date().toISOString(),
           body: JSON.stringify({
+            expectedUserId: submittingUserId,
             quizId: resolvedQuizId,
             assessmentMode,
             topicId: topicFilter,
@@ -808,6 +988,7 @@ export function QuizClient(): React.JSX.Element {
             attemptId,
             score: 0,
             totalQuestions: shuffledQuestions.length,
+            questionOrderIds: shuffledQuestions.map((question) => question.id),
             correctAnswers: 0,
             timeSpent: Math.round((Date.now() - startedAtRef.current) / 1000),
             answers: scopedAnswers,
@@ -815,6 +996,23 @@ export function QuizClient(): React.JSX.Element {
         };
         pendingSubmissionRef.current = pendingSubmission;
         setHasPendingSubmission(true);
+        safeStorageSet(pendingStorageKey, JSON.stringify(pendingSubmission));
+      }
+
+      // Older saved requests lack the account field. Keep their answer and
+      // attempt identifiers unchanged while binding the retry to its owner.
+      const pendingBody: unknown = JSON.parse(pendingSubmission.body);
+      if (!pendingBody || typeof pendingBody !== 'object' || Array.isArray(pendingBody)) {
+        throw new Error('保存的交卷请求无效');
+      }
+      const pendingOwner = (pendingBody as { expectedUserId?: unknown }).expectedUserId;
+      if (pendingOwner !== undefined && pendingOwner !== submittingUserId) {
+        toast({ title: '交卷未完成', description: '保存的交卷请求属于其他账号，请重新登录原账号。', variant: 'destructive' });
+        return;
+      }
+      if (pendingOwner === undefined) {
+        pendingSubmission = { ...pendingSubmission, body: JSON.stringify({ ...pendingBody, expectedUserId: submittingUserId }) };
+        pendingSubmissionRef.current = pendingSubmission;
         safeStorageSet(pendingStorageKey, JSON.stringify(pendingSubmission));
       }
 
@@ -826,7 +1024,8 @@ export function QuizClient(): React.JSX.Element {
       // 首次请求发生超时、网络中断、可重试服务错误或回执不完整时，
       // 使用完全相同的请求体自动恢复一次；服务端按 attemptId 幂等处理。
       for (let requestAttempt = 0; requestAttempt < 2 && !acceptedResult; requestAttempt += 1) {
-        let response: Response;
+        if (submissionVersionRef.current !== submissionVersion || currentUserIdRef.current !== submittingUserId || currentQuizContextRef.current !== submittingContext) return;
+        let response: Awaited<ReturnType<typeof fetchQuizRequest>>;
         try {
           response = await fetchQuizRequest('/api/quiz/submit', {
             method: 'POST',
@@ -846,12 +1045,14 @@ export function QuizClient(): React.JSX.Element {
         }
 
         const data: unknown = await response.json().catch((): Record<string, never> => ({}));
+        if (submissionVersionRef.current !== submissionVersion || currentUserIdRef.current !== submittingUserId || currentQuizContextRef.current !== submittingContext) return;
         if (!response.ok) {
           if (isRetryableSubmissionStatus(response.status) && requestAttempt === 0) continue;
           finalError = response.status === 401
             ? '登录已过期，答案和本次交卷编号仍已保留。重新登录后可继续交卷。'
             : errorMessageOf(data, '测评结果未保存，请检查网络后重试。');
-          shouldRedirectToLogin = response.status === 401;
+          const accountChanged = Boolean(data && typeof data === 'object' && 'code' in data && data.code === 'ACCOUNT_CHANGED');
+          shouldRedirectToLogin = response.status === 401 || accountChanged;
           if (!isRetryableSubmissionStatus(response.status) && response.status !== 401) {
             pendingSubmissionRef.current = null;
             setHasPendingSubmission(false);
@@ -866,6 +1067,11 @@ export function QuizClient(): React.JSX.Element {
 
         const parsedResult = submissionResponseSchema.safeParse(data);
         const result = parsedResult.success ? parsedResult.data : null;
+        if (result && result.ownerId !== submittingUserId) {
+          finalError = '登录账号已变更，未采用其他账号的测评回执；答案草稿已保留，请重新登录。';
+          shouldRedirectToLogin = true;
+          break;
+        }
         if (result?.quizId === resolvedQuizId) {
           setQuizEvidence({
             dataProvenance: result.dataProvenance,
@@ -926,6 +1132,7 @@ export function QuizClient(): React.JSX.Element {
         description: result.duplicate ? '本次尝试没有重复计分。' : '报告使用服务端判定结果。',
       });
     } catch (error) {
+      if (submissionVersionRef.current !== submissionVersion || currentUserIdRef.current !== submittingUserId || currentQuizContextRef.current !== submittingContext) return;
       console.error('Failed to save quiz results to server:', error);
       toast({
         title: '交卷未完成',
@@ -933,12 +1140,15 @@ export function QuizClient(): React.JSX.Element {
         variant: 'destructive',
       });
     } finally {
-      submissionInFlightRef.current = false;
-      setIsSavingResults(false);
+      if (submissionVersionRef.current === submissionVersion) {
+        submissionInFlightRef.current = false;
+        setIsSavingResults(false);
+      }
     }
   };
 
   const handleRestart = (): void => {
+    if (requestedAttemptId !== null) return;
     setShuffledQuestions(shuffleArray(sourceQuestions));
     setCurrentQuestionIndex(0);
     setAnswers({});
@@ -999,7 +1209,7 @@ export function QuizClient(): React.JSX.Element {
   })();
 
   // 章节参数没有对应题目时给出返回入口，避免一直停在加载态
-  if (quizQuestions.length > 0 && sourceQuestions.length === 0) {
+  if (!submittedReceipt && quizQuestions.length > 0 && sourceQuestions.length === 0) {
     return (
       <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4 bg-[#070a0d] px-4 text-center text-slate-100 sm:-m-6" role="status">
         <p className="text-sm text-slate-400">该章节暂无题目，不以其他章节题目代替。</p>
@@ -1010,7 +1220,7 @@ export function QuizClient(): React.JSX.Element {
     );
   }
 
-  if (questionLoadError) {
+  if (questionLoadError && (!submittedReceipt || filterValidationError)) {
     return (
       <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4 bg-[#070a0d] px-4 text-center text-slate-100 sm:-m-6" role="alert">
         <XCircle className="h-8 w-8 text-red-400" />
@@ -1042,6 +1252,11 @@ export function QuizClient(): React.JSX.Element {
         <XCircle className="h-8 w-8 text-amber-400" />
         <p className="max-w-md text-sm text-slate-400" role="alert">{receiptVerificationError ?? '已有测评回执核对失败，请重试。'}</p>
         <div className="flex flex-wrap justify-center gap-2">
+          {!user && requestedAttemptId !== null && (
+            <Button asChild className="min-h-11 bg-cyan-300 text-[#001014] hover:bg-cyan-200">
+              <Link href={`/login?from=${encodeURIComponent(`/quiz?${searchParams?.toString() ?? ''}`)}`}>登录本人账号</Link>
+            </Button>
+          )}
           <Button type="button" onClick={() => setReceiptVerificationAttempt((value) => value + 1)} className="min-h-11 bg-cyan-300 text-[#001014] hover:bg-cyan-200">
             重新核对
           </Button>
@@ -1052,6 +1267,68 @@ export function QuizClient(): React.JSX.Element {
       </div>
     );
   }
+
+  if (submittedReceipt && !(showResults && submissionResult)) {
+    return (
+      <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] items-start justify-center bg-[#070a0d] px-4 py-6 text-slate-100 sm:-m-6">
+        <div className="w-full max-w-3xl rounded-md border border-emerald-300/25 bg-[#0c1117] p-6 shadow-2xl shadow-black/30">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-300/30 bg-emerald-300/[0.1]">
+              <CheckCircle className="h-5 w-5 text-emerald-300" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Submitted</div>
+              <h1 className="mt-2 text-xl font-semibold text-slate-50">
+                {assessmentMode === 'retest' ? '再次测评已经提交' : '本次测评已经提交'}
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                服务端已保存本次结果，刷新和重新登录不会再次交卷。成绩为
+                <span className="mx-1 font-mono font-semibold text-emerald-200">{submittedReceipt.score.toFixed(0)}%</span>。
+              </p>
+            </div>
+          </div>
+          <div className="mt-5">
+            <QuizEvidenceBanner evidence={receiptEvidence ?? quizEvidence} />
+          </div>
+          <p className="mt-4 text-sm text-slate-300">原回执共 {submittedReceipt.totalQuestions} 题，答对 {submittedReceipt.correctAnswers} 题。</p>
+          {!submittedReceipt.review && <p className="mt-2 text-sm leading-6 text-amber-100">本次回执的作答详情不足，暂时只能查看原成绩摘要。</p>}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button type="button" disabled={!submittedReceipt.review} aria-expanded={showReceiptReview && Boolean(submittedReceipt.review)} aria-controls={submittedReceipt.review ? 'submitted-question-review' : undefined} onClick={() => setShowReceiptReview((value) => !value)} className="min-h-11 bg-cyan-300 text-[#001014] hover:bg-cyan-200">
+              {showReceiptReview ? '收起本次作答与错题' : '查看本次作答与错题'}
+            </Button>
+            {topicFilter === ADDRESSING_TOPIC_ID
+              && assessmentMode !== 'retest' && (
+              <Button asChild className="bg-cyan-300 text-[#001014] hover:bg-cyan-200">
+                <Link href={addressingRemediationHref}>
+                  {submittedReceipt.weakAreas.length > 0 ? '查看薄弱点与补学入口' : '确认本次诊断并继续'}
+                </Link>
+              </Button>
+            )}
+            {topicFilter === AI_LITERACY_TOPIC_ID && (
+              <Button asChild className="bg-cyan-300 text-[#001014] hover:bg-cyan-200">
+                <Link href="/knowledge-graph?chapter=10&node=10.5">返回10.5责任使用清单</Link>
+              </Button>
+            )}
+            <Button
+              asChild
+              className={assessmentMode === 'retest'
+                ? 'bg-cyan-300 text-[#001014] hover:bg-cyan-200'
+                : 'border border-white/[0.1] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'}
+            >
+              <Link href="/tasks">{assessmentMode === 'retest' ? '返回任务查看完成回执' : '返回我的任务'}</Link>
+            </Button>
+            {!taskPathId && requestedAttemptId === null && (
+              <Button type="button" onClick={handleRestart} variant="ghost" className="text-slate-400 hover:text-slate-100">
+                开始新一次测评
+              </Button>
+            )}
+          </div>
+          {showReceiptReview && submittedReceipt.review && <SubmittedQuestionReview key={submittedReceipt.attemptId} receipt={submittedReceipt} />}
+        </div>
+      </div>
+    );
+  }
+
 
   if (shuffledQuestions.length === 0) {
     return (
@@ -1272,6 +1549,7 @@ export function QuizClient(): React.JSX.Element {
                             </span>
                           </div>
                         </div>
+                        <QuestionExplanation result={submissionResult.questionResults[String(question.id)]} />
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Button asChild variant="link" size="sm" className="h-auto p-0 text-cyan-200 hover:text-cyan-100">
                             <Link href={`/#item-${question.chapter}`}>
@@ -1419,60 +1697,6 @@ export function QuizClient(): React.JSX.Element {
     );
   }
 
-  if (submittedReceipt) {
-    return (
-      <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#070a0d] px-4 text-slate-100 sm:-m-6">
-        <div className="w-full max-w-xl rounded-md border border-emerald-300/25 bg-[#0c1117] p-6 shadow-2xl shadow-black/30">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-300/30 bg-emerald-300/[0.1]">
-              <CheckCircle className="h-5 w-5 text-emerald-300" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200">Submitted</div>
-              <h1 className="mt-2 text-xl font-semibold text-slate-50">
-                {assessmentMode === 'retest' ? '再次测评已经提交' : '本次测评已经提交'}
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                服务端已保存本次结果，刷新和重新登录不会再次交卷。成绩为
-                <span className="mx-1 font-mono font-semibold text-emerald-200">{submittedReceipt.score.toFixed(0)}%</span>。
-              </p>
-            </div>
-          </div>
-          <div className="mt-5">
-            <QuizEvidenceBanner evidence={quizEvidence} />
-          </div>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            {topicFilter === ADDRESSING_TOPIC_ID
-              && assessmentMode !== 'retest' && (
-              <Button asChild className="bg-cyan-300 text-[#001014] hover:bg-cyan-200">
-                <Link href={addressingRemediationHref}>
-                  {submittedReceipt.weakAreas.length > 0 ? '查看薄弱点与补学入口' : '确认本次诊断并继续'}
-                </Link>
-              </Button>
-            )}
-            {topicFilter === AI_LITERACY_TOPIC_ID && (
-              <Button asChild className="bg-cyan-300 text-[#001014] hover:bg-cyan-200">
-                <Link href="/knowledge-graph?chapter=10&node=10.5">返回10.5责任使用清单</Link>
-              </Button>
-            )}
-            <Button
-              asChild
-              className={assessmentMode === 'retest'
-                ? 'bg-cyan-300 text-[#001014] hover:bg-cyan-200'
-                : 'border border-white/[0.1] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'}
-            >
-              <Link href="/tasks">{assessmentMode === 'retest' ? '返回任务查看完成回执' : '返回我的任务'}</Link>
-            </Button>
-            {!taskPathId && (
-              <Button type="button" onClick={handleRestart} variant="ghost" className="text-slate-400 hover:text-slate-100">
-                开始新一次测评
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="-m-4 min-h-[calc(100vh-3.5rem)] animate-fade-in overflow-auto bg-[#070a0d] text-slate-100 sm:-m-6">
@@ -1753,6 +1977,7 @@ export function QuizClient(): React.JSX.Element {
                         </span>
                       </div>
                     )}
+                    <QuestionExplanation result={submissionResult?.questionResults[String(currentQuestion.id)]} />
                     <Button asChild variant="link" size="sm" className="mt-2 h-auto p-0 text-cyan-200 hover:text-cyan-100">
                       <Link href={`/#item-${currentQuestion.chapter}`}>
                         <BookCopy className="mr-2 h-4 w-4" />
@@ -1820,7 +2045,7 @@ export function QuizClient(): React.JSX.Element {
                 <KaChip ka={currentQuestion.ka} />
               </div>
               <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                <span>{topicFilter ? '本专项题量' : '章节内题量'}</span>
+                <span>{topicFilter ? '本专项题量' : '本卷本章抽题数'}</span>
                 <span className="font-mono text-slate-300">{chapterQuestionCount}</span>
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500">

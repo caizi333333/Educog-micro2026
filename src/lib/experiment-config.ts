@@ -3,6 +3,8 @@
  * 桂林航天工业学院 - 微控制器原理与应用课程
  */
 
+import { z } from 'zod';
+
 // ── 实验画布外设声明（HyperExperimentCanvas 据此渲染对应视图）──
 
 export type PortName = 'P0' | 'P1' | 'P2' | 'P3';
@@ -189,7 +191,7 @@ export const experimentConfigs: ExperimentConfig[] = [
     ],
     hardwareRequirements: [
       '8个LED发光二极管',
-      '限流电阻（330Ω）',
+      '限流电阻（示例2kΩ；按LED压降和端口电流复核）',
       'P1口连接LED阵列'
     ],
     // 代码全程写 P1（MOV P1/RL/RR），低电平点亮
@@ -865,213 +867,153 @@ END`,
   {
     id: 'exp05',
     title: '实验五：按键输入与消抖处理',
-    description: '实现4×4矩阵键盘行扫描与软件消抖，掌握键值编码与中断/查询两种输入检测方式。',
+    description: '轮询P3.0–P3.3四路独立低有效按键，两次同键确认后输出0–3，稳定释放后才接受下一次按键。',
     category: '输入处理',
     difficulty: 'intermediate',
     duration: 75,
     objectives: [
-      '掌握矩阵键盘的工作原理和扫描方法',
-      '理解按键消抖的必要性和实现方法',
-      '学会键值编码和解码技术',
-      '掌握中断与查询两种按键处理方式'
+      '掌握四路独立按键的低有效输入与轮询检测',
+      '实现两次同键确认与稳定释放判定',
+      '将P3.0–P3.3单键输入编码为0–3并在P0观察',
+      '区分仿真电平输入、实物消抖时间与矩阵键盘拓展'
     ],
     prerequisites: [
       'P口输入输出控制',
-      '中断系统应用',
+      '条件转移与子程序调用',
       '延时程序设计'
     ],
     knowledgePoints: [
-      '矩阵键盘扫描原理',
+      '独立按键电平检测',
       '软件消抖技术',
       '键值编码方法',
-      '中断与查询处理',
+      '查询与等待释放',
       '准双向口读引脚前先写1'
     ],
     hardwareRequirements: [
-      '4x4矩阵键盘',
-      'P1口连接行线',
-      'P3口连接列线',
-      '上拉电阻'
+      '四个独立常开按键，分别连接P3.0–P3.3与GND',
+      '输入端按准双向口要求先写1；实物上拉配置按所用器件与板卡核实',
+      'P0为键值输出；实物显示须另配合适的驱动与上拉'
     ],
-    // 行扫描输出在 P1，列状态从 P3 低4位读回（MOV A,P3 / ANL A,#0FH），键值写 P0 显示
+    // 当前画布直接注入四路独立输入电平；没有行列联动或外中断模型。
     peripheral: {
       kind: 'keys',
-      label: 'P3/P0 · 按键与键值',
+      label: 'P3/P0 · 四路独立按键与键值',
       keys: [
-        { port: 'P3', bit: 0, label: '列0' },
-        { port: 'P3', bit: 1, label: '列1' },
-        { port: 'P3', bit: 2, label: '列2' },
-        { port: 'P3', bit: 3, label: '列3' },
+        { port: 'P3', bit: 0, label: '键0' },
+        { port: 'P3', bit: 1, label: '键1' },
+        { port: 'P3', bit: 2, label: '键2' },
+        { port: 'P3', bit: 3, label: '键3' },
       ],
       keyValuePort: 'P0',
     },
     code: `; 桂林航天工业学院 - 实验五：按键输入与消抖处理
-; 功能: 4x4矩阵键盘扫描，按键消抖，键值显示
-; 知识点: 键盘扫描, 软件消抖, 中断处理
+; 功能: 四路独立低有效按键，查询、同键确认、等待稳定释放
+; 输入: P3.0–P3.3；单键分别编码为0–3，同时多键不接受
+; 输出: P0和20H保留最后有效键值；21H为8位有效按键次数
+; 22H保存候选键值；计数超过255回到0
+; 本预置程序不使用矩阵行扫描或外部中断
 
 ORG 0000H
 LJMP MAIN
 
-ORG 0003H        ; 外部中断0向量
-LJMP EXT0_INT
-
 MAIN:
-    ; 初始化P口
-    MOV P1, #0F0H    ; P1低4位行线先输出0（准备扫描），高4位置1
-    MOV P3, #0FH     ; P3低4位列线置1（输入前先写1，读引脚状态）
-    
-    ; 外部中断初始化
-    SETB IT0         ; 边沿触发
-    SETB EX0         ; 允许外部中断0
-    SETB EA          ; 开总中断
-    
-    MOV 20H, #0FFH   ; 键值缓存，0FFH表示无键按下
-    
+    MOV IE, #00H     ; 本例仅用查询，关闭中断
+    MOV SP, #2FH     ; 堆栈从30H起，避开20H–22H变量
+    MOV PSW, #00H    ; 使用寄存器组0
+    MOV P3, #0FFH    ; 输入前先写1，未使用的高4位也保持1
+    MOV P0, #0FFH    ; 尚无有效键值
+    MOV 20H, #0FFH   ; 最后有效键值
+    MOV 21H, #0      ; 有效按键次数（8位）
+    MOV 22H, #0FFH   ; 候选键值
+
 MAIN_LOOP:
-    ; 主程序循环扫描键盘
-    ACALL SCAN_KEYBOARD
-    MOV A, 20H
-    CJNE A, #0FFH, KEY_PRESSED
-    SJMP MAIN_LOOP
-    
-KEY_PRESSED:
-    ; 有键按下，显示键值
-    MOV P0, A        ; 在P0口显示键值
-    ACALL DELAY_200MS ; 显示延时
-    MOV 20H, #0FFH   ; 清除键值
+    ACALL READ_KEY
+    CJNE A, #0FFH, KEY_CANDIDATE
     SJMP MAIN_LOOP
 
-; 键盘扫描子程序
-SCAN_KEYBOARD:
-    PUSH ACC
-    PUSH B
-    MOV R0, #0       ; 行计数器
-    
-SCAN_ROW:
-    ; 生成行扫描码：0FEH循环左移"行号"次
-    ; （注意8051没有CJNE B,#data形式，计数经A中转到R3再用DJNZ）
-    MOV A, R0        ; 行号
-    MOV R3, A        ; R3 = 移位计数
-    MOV A, #0FEH     ; 第0行扫描码 11111110B
-    INC R3           ; 计数加1，配合DJNZ先减后判
-    SJMP ROW_TEST
-ROW_SHIFT:
-    RL A             ; 左移一位 → 下一行扫描码
-ROW_TEST:
-    DJNZ R3, ROW_SHIFT
+KEY_CANDIDATE:
+    MOV 22H, A
+    ACALL DELAY_20MS
+    ACALL READ_KEY
+    CJNE A, 22H, WAIT_RELEASE   ; 换键、释放或多键：本次不接受
+    MOV 20H, A
+    MOV P0, A
+    INC 21H                    ; 仅在同键确认成功时记录一次
 
-SCAN_COL:
-    MOV P1, A        ; 输出行扫描码
-    NOP
-    NOP              ; 延时稳定
-    MOV A, P3        ; 读取列状态
-    ANL A, #0FH      ; 只取低4位
-    CJNE A, #0FH, KEY_FOUND  ; 如果不全为1，有键按下
-    
-    INC R0
-    CJNE R0, #4, SCAN_ROW    ; 扫描下一行
-    SJMP SCAN_EXIT           ; 无键按下
-    
-KEY_FOUND:
-    ; 计算键值
-    MOV B, #4
-    MOV A, R0
-    MUL AB           ; 行号 × 4
-    MOV B, A
-    
+WAIT_RELEASE:
     MOV A, P3
     ANL A, #0FH
-    MOV R1, #0       ; 列计数器
-    
-FIND_COL:
-    RRC A            ; 当前列电平移入CY
-    JNC COL_FOUND    ; 低电平(CY=0)=该列被按下
-    INC R1
-    CJNE R1, #4, FIND_COL
-    
-COL_FOUND:
-    MOV A, B
-    ADD A, R1        ; 键值 = 行×4 + 列
-    MOV 20H, A       ; 保存键值
-    
-    ; 软件消抖
+    CJNE A, #0FH, WAIT_RELEASE ; 必须四路均回高，不能把多键当释放
     ACALL DELAY_20MS
-    ACALL SCAN_KEYBOARD_SIMPLE  ; 再次确认
-    
-SCAN_EXIT:
-    POP B
-    POP ACC
-    RET
-
-; 简化键盘扫描（用于消抖确认）
-SCAN_KEYBOARD_SIMPLE:
-    ; 简化版本，只确认是否仍有键按下
-    MOV P1, #00H     ; 全部输出0
-    NOP
     MOV A, P3
     ANL A, #0FH
-    CJNE A, #0FH, KEY_STILL_PRESSED
-    MOV 20H, #0FFH   ; 无键按下，清除键值
-KEY_STILL_PRESSED:
+    CJNE A, #0FH, WAIT_RELEASE ; 两次全高才重新允许按键
+    MOV 22H, #0FFH
+    SJMP MAIN_LOOP
+
+; 一次采样：A返回0–3；无键或同时多键返回FFH
+; A和比较标志作为返回/临时结果；不使用其他寄存器
+READ_KEY:
+    MOV A, P3
+    ANL A, #0FH
+    CJNE A, #0EH, CHECK_KEY1
+    MOV A, #0
+    RET
+CHECK_KEY1:
+    CJNE A, #0DH, CHECK_KEY2
+    MOV A, #1
+    RET
+CHECK_KEY2:
+    CJNE A, #0BH, CHECK_KEY3
+    MOV A, #2
+    RET
+CHECK_KEY3:
+    CJNE A, #07H, NO_SINGLE_KEY
+    MOV A, #3
+    RET
+NO_SINGLE_KEY:
+    MOV A, #0FFH
     RET
 
-; 外部中断0服务程序
-EXT0_INT:
-    PUSH ACC
-    PUSH PSW
-    
-    ; 中断方式按键处理
-    ACALL DELAY_20MS  ; 消抖延时
-    ACALL SCAN_KEYBOARD
-    
-    POP PSW
-    POP ACC
-    RETI
-
-; 延时子程序
-DELAY_200MS:
-    PUSH ACC
-    MOV R6, #10
-D200_LOOP:
-    ACALL DELAY_20MS
-    DJNZ R6, D200_LOOP
-    POP ACC
-    RET
-
+; 理论延时：12MHz、每机器周期12个晶振周期时，含ACALL约20.313ms
+; 当前仿真按指令推进，不以界面运行速度验证实物消抖时间
 DELAY_20MS:
-    PUSH ACC
+    PUSH 06H          ; 保存组0的R6、R7；A和其他寄存器不变
+    PUSH 07H
     MOV R7, #100
-D20_LOOP:
-    MOV R0, #100
-    DJNZ R0, $
-    DJNZ R7, D20_LOOP
-    POP ACC
+D20_OUTER:
+    MOV R6, #100
+D20_INNER:
+    DJNZ R6, D20_INNER
+    DJNZ R7, D20_OUTER
+    POP 07H
+    POP 06H
     RET
 
 END`,
     expectedResults: [
-      '按键响应及时准确',
-      '无重复触发和误触发',
-      '键值正确显示在P0口',
-      '消抖效果良好'
+      '四路单键分别输出0、1、2、3，P0与20H保留最后有效键值',
+      '持续按住一次只使21H计数增加一次',
+      '确认期间换键、释放或同时多键时不接受原候选键',
+      '两次全高确认释放后，再次按下可接受新键'
     ],
     troubleshooting: [
       {
         issue: '按键重复触发',
-        solution: '增加消抖延时，检查硬件连接'
+        solution: '检查是否保留等待四路全高及再次确认释放的逻辑；仅增加延时不能阻止长按重复'
       },
       {
         issue: '某些键无响应',
-        solution: '检查矩阵连接和上拉电阻'
+        solution: '一次只按一个键；换键被拒绝后须全部松开并等待释放确认，再重新按下'
       },
       {
         issue: '键值错误',
-        solution: '确认行列扫描顺序和编码算法'
+        solution: '核对P3.0–P3.3分别对应0–3；当前四路电平输入不能按16键矩阵操作'
       }
     ],
     extensions: [
       '实现长按和短按识别',
-      '添加连击功能',
+      '在实物或另建行列联动模型后实现4×4矩阵键盘扫描',
       '设计键盘密码锁',
       '实现按键音效'
     ]
@@ -1626,7 +1568,7 @@ END`,
   {
     id: 'exp08',
     title: '实验八：步进电机控制实验',
-    description: '控制步进电机正反转和调速，理解脉冲分配和细分驱动原理。',
+    description: '以四相五线步进电机模型练习正反转、半步相序与调速；课程四线双极型实物实验另需双H桥驱动。',
     category: '电机控制',
     difficulty: 'intermediate',
     duration: 110,
@@ -1649,7 +1591,7 @@ END`,
       '步数计数与定位控制'
     ],
     hardwareRequirements: [
-      '四相步进电机',
+      '平台模型：28BYJ-48四相五线单极型步进电机（课程四线双极型须另用双H桥）',
       'ULN2003驱动芯片',
       'P1口高4位连接驱动器',
       '按键控制方向和速度'
@@ -1685,10 +1627,6 @@ STEP_TAB_CW:     ; 顺时针相序表
     DB 10H, 30H, 20H, 60H       ; A相 -> AB相 -> B相 -> BC相
     DB 40H, 0C0H, 80H, 90H      ; C相 -> CD相 -> D相 -> DA相
 
-STEP_TAB_CCW:    ; 逆时针相序表 (反向)
-    DB 90H, 80H, 0C0H, 40H      ; DA相 -> D相 -> CD相 -> C相
-    DB 60H, 20H, 30H, 10H       ; BC相 -> B相 -> AB相 -> A相
-
 MAIN:
     ; 定时器T0初始化 - 控制步进速度
     MOV TMOD, #01H   ; T0模式1
@@ -1706,6 +1644,7 @@ MAIN:
     MOV 25H, #0      ; 当前步数计数器
     MOV 26H, #0      ; 定时器初值高字节备份
     MOV 27H, #0      ; 定时器初值低字节备份
+    ACALL UPDATE_SPEED ; 按速度5初始化定时器和重装备份
 
     ; P口初始化
     MOV P1, #00H     ; 高4位相线全部关断，低4位状态指示清零
@@ -1743,7 +1682,21 @@ START_MOTOR:
 
 CHANGE_DIR:
     ACALL KEY_DELAY
+    CLR ET0          ; 原子更新方向与下一拍，避免中断读到一半状态
     CPL 21H.0        ; 切换方向
+    JNB 22H.0, DIR_READY ; 未运行时保留初始/停机步序
+    ; 20H已指向旧方向的下一拍，反向时调整两拍，得到所选方向的相邻拍
+    MOV A, 20H
+    JB 21H.0, DIR_FORWARD
+    ADD A, #0FEH     ; 反向：旧预排索引减2
+    SJMP DIR_WRAP
+DIR_FORWARD:
+    ADD A, #2        ; 正向：旧预排索引加2
+DIR_WRAP:
+    ANL A, #07H
+    MOV 20H, A
+DIR_READY:
+    SETB ET0
     SJMP MAIN_LOOP
 
 SPEED_UP:
@@ -1808,7 +1761,7 @@ UPDATE_SPEED_END:
     POP ACC
     RET
 
-; 速度表 (定时器初值，数值越小速度越快)
+; 速度表 (定时器初值，数值越大、溢出间隔越短、速度越快)
 SPEED_TAB:
     DW 0E000H, 0E800H, 0F000H, 0F400H, 0F600H  ; 速度1-5
     DW 0F800H, 0FA00H, 0FC00H, 0FE00H          ; 速度6-9
@@ -1816,6 +1769,7 @@ SPEED_TAB:
 ; 定时器T0中断 - 步进电机控制
 T0_INT:
     PUSH ACC
+    PUSH PSW
     PUSH DPH
     PUSH DPL
     
@@ -1826,12 +1780,7 @@ T0_INT:
     ; 检查是否需要步进
     JNB 22H.0, T0_EXIT  ; 未运行
     
-    ; 选择相序表
-    JB 21H.0, USE_CW_TAB
-    MOV DPTR, #STEP_TAB_CCW
-    SJMP GET_STEP_DATA
-    
-USE_CW_TAB:
+    ; 统一使用正向相序表，后续通过索引递增/递减控制方向
     MOV DPTR, #STEP_TAB_CW
     
 GET_STEP_DATA:
@@ -1882,6 +1831,7 @@ CHECK_STEP_COUNT:
 T0_EXIT:
     POP DPL
     POP DPH
+    POP PSW
     POP ACC
     RETI
 
@@ -1953,7 +1903,8 @@ END`,
     hardwareRequirements: [
       'RS232接口或USB转串口模块',
       'PC端串口调试软件',
-      '定时器T1用于波特率发生器'
+      '定时器T1用于波特率发生器',
+      '经典12T内核、11.0592MHz晶振；SMOD=0，TH1=TL1=FDH'
     ],
     // UART 经 P3.0/P3.1（RXD/TXD），发送内容累积在 uart.transmitBuffer，终端直接渲染
     peripheral: { kind: 'serial', label: 'P3 · 串口终端' },
@@ -1979,7 +1930,8 @@ MAIN:
     
     ; 波特率配置 (使用定时器T1)
     MOV TMOD, #20H   ; T1模式2 (8位自动重装)
-    MOV TH1, #0FDH   ; 波特率9600 (12MHz晶振)
+    ANL PCON, #7FH  ; SMOD=0；经典12T内核、11.0592MHz
+    MOV TH1, #0FDH   ; 9600bit/s；12MHz时同一初值实际为10416.67bit/s
     MOV TL1, #0FDH   ; 自动重装值
     SETB TR1         ; 启动T1
     
@@ -2050,8 +2002,9 @@ END`,
     expectedResults: [
       '成功发送"HELLO WORLD!"字符串，串口终端实时显示',
       '发送子程序按"写SBUF→查询TI→清TI"的标准流程工作',
-      '波特率由T1方式2自动重装产生（9600bps配置）',
-      '回显逻辑经RI中断实现（需外部输入触发，代码可结合中断服务程序研读）'
+      '真机参考参数为经典12T内核、11.0592MHz、SMOD=0、TH1=FDH，对应9600bit/s',
+      '平台终端用于观察字节与标志位；显示字符不代表已测得实物波特率或电气兼容性',
+      '在画布输入一个可打印ASCII字符，继续执行后由RI中断处理并回显；实际串口连接另行验证'
     ],
     troubleshooting: [
       {
@@ -2115,8 +2068,8 @@ END`,
       '74HC245驱动芯片',
       'Proteus仿真环境'
     ],
-    // 任务1流水灯在 P1（低电平点亮）；任务2数码管走 P0，波形区可同时观察
-    peripheral: { kind: 'led', label: 'P1 · LED 流水灯', ledPort: 'P1' },
+    // 任务1流水灯在 P1（低电平点亮）；任务2数码管走 P0，画布与波形区均可观察
+    peripheral: { kind: 'led', label: 'P1 · LED / P0 · 数码管', ledPort: 'P1' },
     code: `; 项目一：走进89C51的世界
 ; 任务1：LED流水灯 + 任务2：数码管显示
 ; 桂林航天工业学院 微控制器应用技术
@@ -2130,7 +2083,7 @@ MAIN:
     MOV A, #0FEH       ; 初始值，点亮P1.0
 LED_LOOP:
     MOV P1, A           ; 输出到LED
-    ACALL DELAY_500MS   ; 延时500ms
+    ACALL DELAY_500MS   ; 教学循环延时，实际时长需按指令周期计算
     RL A                ; 循环左移
     CJNE A, #0FEH, LED_LOOP  ; 循环一轮
 
@@ -2146,7 +2099,7 @@ NUM_LOOP:
     CJNE R5, #10, NUM_LOOP  ; 显示0-9
     SJMP MAIN           ; 循环
 
-; 延时子程序（约500ms @12MHz）
+; 延时子程序（名称沿用模板；经典12T/12MHz约1.006s，不含调用开销）
 ; 注意用R4作外层计数——R5在主程序里是数码管显示计数器，这里不能占用
 DELAY_500MS:
     MOV R4, #10
@@ -2166,7 +2119,7 @@ END`,
     expectedResults: [
       'LED从P1.0到P1.7依次点亮，形成流水效果',
       '数码管依次显示0-9数字',
-      '延时时间约500ms，视觉效果清晰',
+      '先完成8灯流水循环，再开始P0数码管显示；可提高运行速度观察后半段',
       '程序循环执行，流水灯和数码管交替展示'
     ],
     troubleshooting: [
@@ -2184,7 +2137,7 @@ END`,
   {
     id: 'proj02',
     title: '项目二：智慧路灯系统设计',
-    description: '应用型项目：利用ADC采集光照强度，通过PWM自动调节LED亮度，实现"采集-决策-调光"核心控制回路；LCD显示与定时开关为项目后续任务。',
+    description: '应用型项目：用模拟ADC输入观察光照值与PWM占空比的对应关系；当前约3.91Hz为便于观察的时序演示，实物照明需另设频率。LCD与定时开关为后续任务。',
     category: '综合项目',
     difficulty: 'intermediate',
     duration: 360,
@@ -2310,13 +2263,13 @@ DL1: ACALL DELAY_1MS
 END`,
     expectedResults: [
       'ADC采集的光照值保存在32H，占空比（取反值）保存在30H，内存面板可实时观察',
-      'LED亮度随光照变化自动调节：环境越暗（ADC值越小）占空比越大',
-      'P2.0输出PWM方波，1ms中断粒度、256级占空比',
+      '环境越暗（模拟ADC值越小）输出占空比越大；本例低频会闪烁，不作为实物照明效果',
+      'P2.0输出PWM：按12MHz计算，1ms×256档≈256ms周期，即约3.91Hz（未计中断开销）',
       'LCD1602数据显示属于项目后续任务，本程序聚焦"采集-决策-调光"核心回路'
     ],
     troubleshooting: [
       { issue: 'ADC读数不稳定', solution: '添加滤波算法（取平均值），检查参考电压' },
-      { issue: 'PWM频率可闻', solution: '提高定时器中断频率，确保PWM频率>1kHz' },
+      { issue: 'LED出现可见闪烁', solution: '本例约3.91Hz用于观察时序；实物调光须重新设计PWM周期与分辨率，并测量实际频率及驱动电流' },
       { issue: 'LCD显示异常', solution: '检查初始化时序，确认RS/RW/E控制信号' }
     ],
     extensions: [
@@ -2329,14 +2282,14 @@ END`,
   {
     id: 'proj03',
     title: '项目三：智能小车运动控制系统设计',
-    description: '综合型项目：使用L298N驱动直流电机，结合红外避障、循迹传感器和蓝牙遥控，实现多模式智能小车控制。',
+    description: '综合型项目：以模拟串口命令和红外输入验证遥控、避障、循迹三种控制逻辑，观察L298N控制位；真实蓝牙连接、车速与循迹稳定性需在实物上验证。',
     category: '综合项目',
     difficulty: 'advanced',
     duration: 480,
     objectives: [
       '掌握L298N电机驱动模块的控制方法',
       '实现红外避障和红外循迹功能',
-      '通过蓝牙模块实现无线遥控',
+      '通过模拟串口命令验证遥控逻辑，再迁移至蓝牙模块',
       '设计多模式状态机实现模式切换',
       '综合运用定时器、中断和串口通信'
     ],
@@ -2398,19 +2351,20 @@ ORG 0023H              ; 串口中断（蓝牙）
 ORG 0030H
 MAIN:
     MOV SP, #60H
-    ; 初始化串口（蓝牙通信 9600bps）
+    ; 初始化串口（经典12T、11.0592MHz，9600bit/s）
+    ANL PCON, #7FH      ; SMOD=0
     MOV TMOD, #21H      ; T1方式2，T0方式1
     MOV TH1, #0FDH      ; 9600bps@11.0592MHz
     MOV TL1, #0FDH
     MOV SCON, #50H      ; 串口方式1，允许接收
     SETB TR1             ; 启动T1
 
-    ; 初始化中断
-    MOV IE, #95H         ; EA=1,ES=1,EX1=1,EX0=1
-    MOV IP, #01H         ; 外部中断0高优先级
-
     MOV 30H, #0          ; 运行模式（0=遥控,1=避障,2=循迹）
-    MOV 31H, #0          ; 蓝牙接收命令
+    MOV 31H, #'S'        ; 初始停止命令
+    ACALL STOP_CAR       ; 初始电机输出关断
+    SETB IT0            ; 左避障下降沿触发
+    SETB IT1            ; 右避障下降沿触发
+    MOV IE, #95H         ; 初始化完成再使能 EA、ES、EX1、EX0
 
 MAIN_LOOP:
     MOV A, 30H
@@ -2488,7 +2442,7 @@ AVOID_MODE:
 TRACK_MODE:
     MOV A, P1            ; 读取循迹传感器
     ANL A, #07H          ; 取低3位
-    CJNE A, #05H, TK1   ; 010=直行
+    CJNE A, #05H, TK1   ; 101=中传感器低电平，直行
     ACALL FORWARD
     RET
 TK1: CJNE A, #06H, TK2  ; 110=左传感器检测到(偏右)，应左转修正
@@ -2502,24 +2456,35 @@ TK3: ACALL STOP_CAR
 
 ; 外部中断0：左侧检测到障碍
 EXT0_ISR:
+    PUSH ACC
+    PUSH PSW
     MOV A, 30H
     CJNE A, #1, EX0_EXIT ; 仅避障模式响应
     ACALL TURN_RIGHT
     ACALL DELAY_500MS
 EX0_EXIT:
+    POP PSW
+    POP ACC
     RETI
 
 ; 外部中断1：右侧检测到障碍
 EXT1_ISR:
+    PUSH ACC
+    PUSH PSW
     MOV A, 30H
     CJNE A, #1, EX1_EXIT
     ACALL TURN_LEFT
     ACALL DELAY_500MS
 EX1_EXIT:
+    POP PSW
+    POP ACC
     RETI
 
 ; 串口中断：接收蓝牙命令
 UART_ISR:
+    PUSH ACC
+    PUSH PSW
+    JNB RI, UI_EXIT
     CLR RI
     MOV A, SBUF
     MOV 31H, A           ; 保存命令
@@ -2533,8 +2498,13 @@ UI1: CJNE A, #'1', UI2
 UI2: CJNE A, #'2', UI_EXIT
     MOV 30H, #2          ; 切换循迹模式
 UI_EXIT:
+    CLR TI
+    POP PSW
+    POP ACC
     RETI
 
+; 名称沿用模板；本循环125753机器周期（不含ACALL），经典12T/11.0592MHz约136.451ms。
+; 平台按指令推进，不能用播放速度判定实物避障响应时间。
 DELAY_500MS:
     MOV R5, #250
 DS1: MOV R6, #250
@@ -2544,10 +2514,10 @@ DS2: DJNZ R6, DS2
 
 END`,
     expectedResults: [
-      '蓝牙遥控模式下小车响应前进、后退、左转、右转命令',
-      '避障模式下检测到障碍物能自动转向',
-      '循迹模式下沿黑线稳定行驶',
-      '三种模式通过蓝牙命令切换'
+      '画布发送F/B/L/R/S模拟串口命令，观察前进、后退、左转、右转、停止控制位',
+      '发送1进入避障模式，点击左右避障输入，观察相反方向转向后恢复直行',
+      '发送2进入循迹模式，切换左/中/右或无黑线输入，核对转向、直行、停止',
+      '发送0/1/2切换遥控、避障、循迹模式；实物运动和真实蓝牙连接另行验证'
     ],
     troubleshooting: [
       { issue: '电机不转', solution: '检查L298N使能引脚和电源供电，确认控制信号电平' },
@@ -2635,7 +2605,9 @@ ORG 000BH
 ORG 0030H
 MAIN:
     MOV SP, #60H
-    ; 初始化串口 9600bps
+    ; 串口参考参数：经典12T、11.0592MHz、SMOD=0时9600bit/s
+    ; 本示例传感器与T0延时另按12MHz演示，真机移植需统一晶振并重算
+    ANL PCON, #7FH
     MOV TMOD, #21H
     MOV TH1, #0FDH
     MOV TL1, #0FDH
@@ -2927,3 +2899,147 @@ export function checkPrerequisites(experimentId: string, completedExperiments: s
 }
 
 // 为了兼容性，已在上面导出experiments，无需重复导出
+
+const observedBytes = z.array(z.number().int().min(0).max(255)).max(256);
+const experimentObservationSchema = z.object({
+  version: z.literal(1),
+  steps: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  portValues: z.object({ P0: observedBytes, P1: observedBytes, P2: observedBytes, P3: observedBytes }),
+  ramValues: z.object({ '20': observedBytes, '21': observedBytes, '30': observedBytes, '32': observedBytes }),
+  adcPwmPairs: z.array(z.object({ adc: z.number().int().min(0).max(255), duty: z.number().int().min(0).max(255) })).max(256),
+  timerOverflows: z.object({ T0: z.number().int().nonnegative(), T1: z.number().int().nonnegative() }),
+  uartText: z.string().max(512),
+  buzzerFrequencyHz: z.number().finite().nonnegative(),
+});
+
+export type ExperimentObservationEvidence = z.infer<typeof experimentObservationSchema>;
+type ExperimentObservationState = {
+  portValues: Record<PortName, number>;
+  ram: ArrayLike<number>;
+  timers: { overflowCount0: number; overflowCount1: number };
+  uart: { transmitBuffer: string };
+  buzzer: { frequency: number };
+};
+
+export const EXPERIMENT_OBSERVATION_MIN_STEPS = 20;
+// A small prime-sized batch limits skipped output states without storing an unbounded trace.
+export const EXPERIMENT_OBSERVATION_SAMPLE_STEPS = 257;
+
+export function createExperimentObservation(): ExperimentObservationEvidence {
+  return {
+    version: 1, steps: 0,
+    portValues: { P0: [], P1: [], P2: [], P3: [] },
+    ramValues: { '20': [], '21': [], '30': [], '32': [] },
+    adcPwmPairs: [], timerOverflows: { T0: 0, T1: 0 }, uartText: '', buzzerFrequencyHz: 0,
+  };
+}
+
+/** Records only states reached after executed instructions; editing and reset begin a new observation. */
+export function collectExperimentObservation(
+  previous: ExperimentObservationEvidence,
+  state: ExperimentObservationState,
+  executed: number,
+): ExperimentObservationEvidence {
+  if (!Number.isSafeInteger(executed) || executed <= 0) return previous;
+  const add = (values: number[], value: number): number[] => values.includes(value) ? values : [...values, value];
+  const pair = { adc: state.ram[0x32] ?? 0, duty: state.ram[0x30] ?? 0 };
+  const adcPwmPairs = previous.adcPwmPairs.some((item) => item.adc === pair.adc && item.duty === pair.duty)
+    ? previous.adcPwmPairs : [...previous.adcPwmPairs.slice(-255), pair];
+  return {
+    version: 1,
+    steps: previous.steps + executed,
+    portValues: {
+      P0: add(previous.portValues.P0, state.portValues.P0), P1: add(previous.portValues.P1, state.portValues.P1),
+      P2: add(previous.portValues.P2, state.portValues.P2), P3: add(previous.portValues.P3, state.portValues.P3),
+    },
+    ramValues: {
+      '20': add(previous.ramValues['20'], state.ram[0x20] ?? 0),
+      '21': add(previous.ramValues['21'], state.ram[0x21] ?? 0),
+      '30': add(previous.ramValues['30'], state.ram[0x30] ?? 0),
+      '32': add(previous.ramValues['32'], state.ram[0x32] ?? 0),
+    },
+    adcPwmPairs,
+    timerOverflows: {
+      T0: Math.max(previous.timerOverflows.T0, state.timers.overflowCount0),
+      T1: Math.max(previous.timerOverflows.T1, state.timers.overflowCount1),
+    },
+    uartText: state.uart.transmitBuffer.slice(-512),
+    buzzerFrequencyHz: Math.max(previous.buzzerFrequencyHz, state.buzzer.frequency),
+  };
+}
+
+export type ExperimentObservationValidation = { ok: true; summary: string } | { ok: false; error: string };
+
+/** Output observations are evidence of this simulation run, not proof of hardware performance or learning mastery. */
+export function validateExperimentObservation(experimentId: string, input: unknown): ExperimentObservationValidation {
+  const parsed = experimentObservationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: '本轮输出观测记录不完整，请重新运行并观察对应输出。' };
+  const observation = parsed.data;
+  const { portValues: ports, ramValues: ram, timerOverflows: timers } = observation;
+  const distinct = (values: number[]): number[] => [...new Set(values)];
+  const hasBothLevels = (port: PortName, bit: number): boolean => distinct(ports[port].map((value) => (value >> bit) & 1)).length === 2;
+  const walkingLedCount = distinct(ports.P1.filter((value) => {
+    const lit = (~value) & 0xff;
+    return lit !== 0 && (lit & (lit - 1)) === 0;
+  })).length;
+  const digitSelections = distinct(ports.P2.map((value) => value & 0xf0).filter((value) => [0xe0, 0xd0, 0xb0, 0x70].includes(value)));
+  const segmentCodes = distinct(ports.P0.filter((value) => [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f].includes(value)));
+  let ready = false;
+  let requirement = '';
+  switch (experimentId) {
+    case 'exp01':
+      ready = walkingLedCount >= 8;
+      requirement = '观察 P1 的 8 种单灯点亮图样；点亮顺序需结合运行过程另行核对';
+      break;
+    case 'exp03':
+      ready = timers.T0 >= 2 && hasBothLevels('P0', 0);
+      requirement = '观察 T0 至少两次溢出，以及 P0.0 实际出现高、低两种电平';
+      break;
+    case 'exp04':
+      ready = digitSelections.length === 4 && segmentCodes.length > 0;
+      requirement = '观察 P2.4–P2.7 四种位选状态，以及 P0 输出有效段码';
+      break;
+    case 'exp05':
+      ready = ram['21'].some((value) => value > 0) && ram['20'].some((value) => value <= 3 && ports.P0.includes(value));
+      requirement = '在画布按下一个独立按键，观察有效按键次数增加及 P0 输出对应的 0–3 键值；释放与再次按下需另行检查';
+      break;
+    case 'exp06':
+      ready = timers.T0 >= 2 && timers.T1 >= 2 && digitSelections.length === 4 && segmentCodes.length > 0;
+      requirement = '观察 T0、T1 均至少两次溢出，以及四个位选和有效段码输出';
+      break;
+    case 'exp07':
+      ready = timers.T0 >= 2 && observation.buzzerFrequencyHz > 0;
+      requirement = '观察定时器至少两次溢出，并由 P2.0 实际翻转形成非零蜂鸣器频率';
+      break;
+    case 'exp08': {
+      const phases = distinct(ports.P1.map((value) => value & 0xf0).filter((value) => [0x10, 0x30, 0x20, 0x60, 0x40, 0xc0, 0x80, 0x90].includes(value)));
+      ready = phases.length >= 4;
+      requirement = '点击启停键启动电机，观察 P1 高四位至少四种有效励磁图样；相序和方向需另行核对';
+      break;
+    }
+    case 'exp09':
+      ready = observation.uartText.includes('HELLO WORLD!');
+      requirement = '在串口终端观察完整的 HELLO WORLD! 发送结果';
+      break;
+    case 'proj01':
+      ready = walkingLedCount >= 8 && segmentCodes.length >= 2;
+      requirement = '观察 P1 的 8 种单灯图样和至少两种 P0 数码管段码';
+      break;
+    case 'proj02':
+      ready = timers.T0 >= 2 && hasBothLevels('P2', 0) && observation.adcPwmPairs.some(({ adc, duty }) => adc + duty === 255 && duty > 0 && duty < 255);
+      requirement = '调节模拟光照输入，使同次 ADC 值与占空比相加为 255 且占空比在 1–254 之间，观察 T0 溢出及 P2.0 高低 PWM 输出；0/255 边界仅作静态关/开观察';
+      break;
+    case 'proj03': {
+      const motorStates = distinct(ports.P2.map((value) => value & 0x0f).filter((value) => [0, 1, 4, 5, 10].includes(value)));
+      ready = motorStates.length >= 2 && motorStates.some((value) => value !== 0);
+      requirement = '在画布发送 F、B、L、R 或 S 模拟串口命令，触发至少两种有效电机控制状态，并观察 P2.0–P2.3；仅等待命令尚不构成运动观测';
+      break;
+    }
+    default:
+      return { ok: false, error: '该实验使用独立的专题完成条件。' };
+  }
+  if (observation.steps < EXPERIMENT_OBSERVATION_MIN_STEPS || !ready) {
+    return { ok: false, error: `请先无故障执行至少 ${EXPERIMENT_OBSERVATION_MIN_STEPS} 条指令，并${requirement}。` };
+  }
+  return { ok: true, summary: '本轮仿真输出观测已满足，可保存运行记录；学习目标与实物性能仍需另行评价。' };
+}

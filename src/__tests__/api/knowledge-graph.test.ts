@@ -74,6 +74,27 @@ describe('Knowledge Graph API Routes', () => {
         expect(data.data).toHaveLength(knowledgePoints.length);
       });
 
+      it('计入新接入的寻址网页指导，但仍排除缺链接资源', async () => {
+        const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=nodes') as unknown as NextRequest;
+        const response = await GET(request);
+        const data = await response.json();
+        const addressing = data.data.find((node: { id: string }) => node.id === '3.1');
+        const immediateAddressing = data.data.find((node: { id: string }) => node.id === '3.1.1');
+        const dataTransfer = data.data.find((node: { id: string }) => node.id === '3.2');
+        const controlTransfer = data.data.find((node: { id: string }) => node.id === '3.5');
+
+        expect(response.status).toBe(200);
+        // 已接通的正文指导计为文档，仍缺链接的课件和动画不得计入可用资源。
+        expect(addressing.resources).toEqual({ videos: 1, exercises: 1, projects: 1, documents: 1 });
+        expect(addressing.resourceAvailability).toEqual({ declared: 4, available: 4, unavailable: 0 });
+        expect(dataTransfer.resources).toEqual({ videos: 0, exercises: 0, projects: 1, documents: 1 });
+        expect(dataTransfer.resourceAvailability).toEqual({ declared: 3, available: 2, unavailable: 1 });
+        expect(controlTransfer.resources).toEqual({ videos: 1, exercises: 0, projects: 0, documents: 1 });
+        expect(controlTransfer.resourceAvailability).toEqual({ declared: 2, available: 2, unavailable: 0 });
+        expect(immediateAddressing.resources).toEqual({ videos: 0, exercises: 0, projects: 0, documents: 1 });
+        expect(immediateAddressing.resourceAvailability).toEqual({ declared: 1, available: 1, unavailable: 0 });
+      });
+
       it('应该返回由当前知识库计算的管理概览统计', async () => {
         const request = createMockNextRequest('http://localhost:3000/api/knowledge-graph?type=stats') as unknown as NextRequest;
         const response = await GET(request);

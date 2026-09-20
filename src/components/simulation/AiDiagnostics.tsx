@@ -163,7 +163,7 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
         {answer && !error && (
           <div>
             <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold text-cyan-300">
-              <Sparkles className="h-3 w-3" /> AI 深度分析
+              <Sparkles className="h-3 w-3" /> AI 解释
             </div>
             <div className="whitespace-pre-wrap rounded-md border border-white/[0.06] bg-[#181825] p-2.5 text-[11px] leading-relaxed text-[#cdd6f4]">
               {answer}
@@ -188,7 +188,7 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
 
         {aiUnavailable && !error && (
           <div className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[10px] text-[#6c7086]">
-            AI 深度分析暂不可用，已给出静态语法检查结果。
+            AI 解释暂不可用，已给出静态语法检查结果；程序是否正确以编译、仿真与教师评价为准。
           </div>
         )}
       </div>

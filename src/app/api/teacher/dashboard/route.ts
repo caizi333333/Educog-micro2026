@@ -180,7 +180,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (exp.status === 'COMPLETED') studentExperiments[exp.userId].completed++;
     }
 
-    // 按学生聚合章节掌握度
+    // 兼容已有 chapterMastery 字段名；值来自学习进度，不是掌握度评分。
     const studentChapterMastery: Record<string, Record<string, number>> = {};
     const studentTimeSpent: Record<string, number> = {};
     const studentLearningProgressCount: Record<string, number> = {};
@@ -252,10 +252,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // 汇总统计（用去重后的学生数，不是班级注册记录数）
     const totalStudents = uniqueStudents.length;
-    const activeToday = new Set([
-      ...activities.map((activity) => activity.userId),
-      ...learningEvents.map((event) => event.userId),
-    ]).size;
+    // 与课中「近7日有学习事件」同一事件源，只改时间窗口，避免两处口径打架
+    const activeToday = new Set(learningEvents.map((event) => event.userId)).size;
     const studentAvgQuizScores = studentList
       .filter((student) => student.analysisEligible && student.quizAttemptCount > 0)
       .map((student) => student.avgQuizScore);

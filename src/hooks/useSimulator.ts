@@ -10,10 +10,15 @@ import {
   isProj04MilestoneEvidenceComplete,
   normalizeProj04CompletionEvidence,
   PROJ04_MIN_OBSERVATION_STEPS,
+  createExperimentObservation,
+  collectExperimentObservation,
+  validateExperimentObservation,
+  EXPERIMENT_OBSERVATION_SAMPLE_STEPS,
+  type ExperimentObservationEvidence,
   type Proj04CompletionEvidence,
   type Proj04MilestoneId,
 } from '@/lib/experiment-config';
-import { getStoredAccessToken } from '@/lib/auth-storage';
+import { getStoredAccessToken, getStoredUser } from '@/lib/auth-storage';
 
 export interface DiagnosticResult {
   success?: boolean;
@@ -78,6 +83,10 @@ export interface UseSimulatorResult {
   previousState: SimulatorState | null;
   traceLog: ExecutionTraceEntry[];
   executionCount: number;
+  observation: ExperimentObservationEvidence;
+  executedCode: string | null;
+  ownerId: string | null;
+  identityBlocked: boolean;
   isRunning: boolean;
   isCompletingExperiment: boolean;
   fault: string;
@@ -115,6 +124,8 @@ export interface UseSimulatorResult {
   toggleBreakpoint: (line: number) => void;
   setPortBit: (port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean) => void;
   pulsePortBit: (port: 'P0' | 'P1' | 'P2' | 'P3', bit: number) => void;
+  receiveUartByte: (value: number) => boolean;
+  canAcceptInput: boolean;
   updateCode: (newCode: string) => void;
   run: () => void;
   step: () => void;
@@ -125,6 +136,7 @@ export interface UseSimulatorResult {
 }
 
 const experimentSaveResponseSchema = z.object({
+  ownerId: z.string(),
   success: z.literal(true),
   duplicate: z.boolean().optional(),
   experiment: z.object({
@@ -136,6 +148,7 @@ const experimentSaveResponseSchema = z.object({
 });
 
 const experimentStatusResponseSchema = z.object({
+  ownerId: z.string(),
   success: z.literal(true),
   experiments: z.array(z.object({
     experimentId: z.string(),
@@ -147,6 +160,7 @@ const experimentStatusResponseSchema = z.object({
 });
 
 const experimentStartResponseSchema = z.object({
+  ownerId: z.string(),
   success: z.literal(true),
   duplicate: z.boolean().optional(),
   experiment: z.object({
@@ -157,6 +171,7 @@ const experimentStartResponseSchema = z.object({
 });
 
 const experimentDraftResponseSchema = z.object({
+  ownerId: z.string(),
   success: z.literal(true),
   readOnly: z.boolean().optional(),
   experiment: z.object({
@@ -181,6 +196,7 @@ const experimentDraftConflictSchema = z.object({
 });
 
 const projectChecklistSaveResponseSchema = z.object({
+  ownerId: z.string(),
   success: z.literal(true),
   experiment: z.object({
     experimentId: z.literal('proj04'),
@@ -213,6 +229,7 @@ class ExperimentRequestTimeoutError extends Error {
 }
 
 type ExperimentCompletionRequest = {
+  expectedUserId: string;
   scope: string;
   experimentId: string;
   completionKey: string;
@@ -246,15 +263,40 @@ function hasCompletionContext(
     && (typeof context.stepId === 'string' ? context.stepId : undefined) === expected.stepId);
 }
 
+type ExperimentResponse = { ok: boolean; status: number; json: () => Promise<unknown> };
+
 async function fetchExperimentRequest(
   input: RequestInfo | URL,
   init: RequestInit,
   timeoutMs: number,
-): Promise<Response> {
+): Promise<ExperimentResponse> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = window.setTimeout(() => {
+      controller.abort();
+      reject(new ExperimentRequestTimeoutError());
+    }, timeoutMs);
+  });
+  const readResponse = async (): Promise<ExperimentResponse> => {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    // Read the body within the same deadline; headers alone are not a complete receipt.
+    const body = await response.json().then(
+      (data: unknown) => ({ ok: true as const, data }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    return {
+      ok: response.ok,
+      status: response.status,
+      json: async () => {
+        if (!body.ok) throw body.error;
+        return body.data;
+      },
+    };
+  };
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    // The race also releases the UI if a transport or test adapter ignores abort.
+    return await Promise.race([readResponse(), timeout]);
   } catch (error) {
     if (controller.signal.aborted) throw new ExperimentRequestTimeoutError();
     throw error;
@@ -283,7 +325,7 @@ async function reconcileExperimentCompletion(
     if (!response.ok) return false;
     const rawData: unknown = await response.json();
     const parsedData = experimentStatusResponseSchema.safeParse(rawData);
-    if (!parsedData.success) return false;
+    if (!parsedData.success || parsedData.data.ownerId !== pendingCompletion.expectedUserId) return false;
     return (parsedData.data.experiments ?? []).some((experiment) =>
       experiment.experimentId === pendingCompletion.experimentId
       && experiment.status === 'COMPLETED'
@@ -301,6 +343,13 @@ function errorMessageOf(value: unknown, fallback: string): string {
 
 function userIdFromAccessToken(token: string | null): string | null {
   if (!token) return null;
+  if (token === 'cookie-session') {
+    try {
+      const raw = typeof getStoredUser === 'function' ? getStoredUser() : null;
+      const user: unknown = raw ? JSON.parse(raw) : null;
+      return isRecord(user) && typeof user.id === 'string' ? user.id : null;
+    } catch { return null; }
+  }
   const payloadPart = token.split('.')[1];
   if (!payloadPart) return null;
   try {
@@ -480,6 +529,10 @@ D2: DJNZ R6, D2
   const [previousState, setPreviousState] = useState<SimulatorState | null>(null);
   const [traceLog, setTraceLog] = useState<ExecutionTraceEntry[]>([]);
   const [executionCount, setExecutionCount] = useState(0);
+  const [observation, setObservation] = useState<ExperimentObservationEvidence>(createExperimentObservation);
+  const [executedCode, setExecutedCode] = useState<string | null>(null);
+  const [ownerId, setOwnerId] = useState<string | null>(() => userIdFromAccessToken(getStoredAccessToken()));
+  const [identityBlocked, setIdentityBlocked] = useState(false);
   const MAX_TRACE_ENTRIES = 200;
   const [breakpoints, setBreakpoints] = useState<Set<number>>(new Set());
 
@@ -500,6 +553,10 @@ D2: DJNZ R6, D2
   const projectCompletionSaveInFlightRef = useRef(false);
   const projectCompletionRef = useRef<Proj04CompletionEvidence>(emptyProj04CompletionEvidence());
   const pendingCompletionRef = useRef<ExperimentCompletionRequest | null>(null);
+  const ownerIdRef = useRef(ownerId);
+  const identityBlockedRef = useRef(false);
+  const runOwnerRef = useRef<string | null>(null);
+  const observationRef = useRef<ExperimentObservationEvidence>(createExperimentObservation());
   const statusLoadAbortRef = useRef<AbortController | null>(null);
   const statusLoadIdRef = useRef(0);
   const draftLoadIdRef = useRef(0);
@@ -520,6 +577,7 @@ D2: DJNZ R6, D2
   );
   const draftChannelRef = useRef<BroadcastChannel | null>(null);
   const saveDraftRef = useRef<(baseUpdatedAt?: string | null) => Promise<void>>(async () => undefined);
+  const refreshStatusRef = useRef<() => Promise<void>>(async () => undefined);
 
   const applyProjectCompletion = useCallback((value: unknown): Proj04CompletionEvidence => {
     const normalized = normalizeProj04CompletionEvidence(value);
@@ -561,6 +619,109 @@ D2: DJNZ R6, D2
   useEffect(() => { breakpointsRef.current = breakpoints; }, [breakpoints]);
   const resumableRef = useRef(false); // 仿真器是否停在可继续的中间态（断点暂停/单步后）→ 决定"运行"是继续还是重开
   const loadedCodeRef = useRef<string>(''); // 当前已编译进仿真器的代码
+
+  const invalidateIdentity = useCallback((): void => {
+    identityBlockedRef.current = true;
+    setIdentityBlocked(true);
+    cancelLoop();
+    statusLoadAbortRef.current?.abort();
+    statusLoadIdRef.current += 1;
+    draftLoadIdRef.current += 1;
+    if (draftSaveTimerRef.current !== null) window.clearTimeout(draftSaveTimerRef.current);
+    draftReadyExperimentRef.current = null;
+    draftReadOnlyRef.current = true;
+    draftConflictRef.current = null;
+    draftLocalRef.current = null;
+    pendingCompletionRef.current = null;
+    completionKeyRef.current = null;
+    runOwnerRef.current = null;
+    loadedCodeRef.current = '';
+    resumableRef.current = false;
+    observationRef.current = createExperimentObservation();
+    setObservation(observationRef.current);
+    setExecutedCode(null);
+    executionCountRef.current = 0;
+    setExecutionCount(0);
+    setSimulatorState(null);
+    setPreviousState(null);
+    setTraceLog([]);
+    setResult(null);
+    setFault('');
+    setPaused(false);
+    setIsRunning(false);
+    setExperimentStatus({});
+    setExperimentStatusError('账号已变化，请刷新页面确认当前账号后继续。');
+    codeRef.current = '';
+    setCode('');
+    applyProjectCompletion(null);
+    setIsLoadingProjectCompletion(false);
+    setIsSavingProjectCompletion(false);
+    setIsLoadingStatus(false);
+    setDraftState((current) => ({ ...current, status: 'ERROR', error: '账号已变化，请刷新页面后读取当前账号的草稿。', hasUnsavedChanges: false, hasLocalBackup: false, serverCode: null, serverUpdatedAt: null, savedAt: null, localSavedAt: null }));
+  }, [applyProjectCompletion, cancelLoop]);
+
+  const checkCurrentIdentity = useCallback((): string | null => {
+    const current = userIdFromAccessToken(getStoredAccessToken());
+    if (identityBlockedRef.current) return null;
+    if (current !== ownerIdRef.current) {
+      // Initial anonymous hydration may acquire an identity before any run or personal data exists.
+      if (!ownerIdRef.current && current && !loadedCodeRef.current && !draftReadyExperimentRef.current) {
+        ownerIdRef.current = current;
+        setOwnerId(current);
+      } else {
+        invalidateIdentity();
+        return null;
+      }
+    }
+    return current;
+  }, [invalidateIdentity]);
+
+  const acceptsOwner = useCallback((data: unknown, expectedUserId: string): boolean => {
+    if (!mountedRef.current) return false;
+    if (checkCurrentIdentity() !== expectedUserId || identityBlockedRef.current) return false;
+    if (isRecord(data) && (data.code === 'ACCOUNT_CHANGED' || (data.success === true && data.ownerId !== expectedUserId))) {
+      invalidateIdentity();
+      return false;
+    }
+    return true;
+  }, [checkCurrentIdentity, invalidateIdentity]);
+
+  useEffect(() => {
+    const check = (): void => { checkCurrentIdentity(); };
+    const refocus = (): void => {
+      checkCurrentIdentity();
+      if (!identityBlockedRef.current && ownerIdRef.current) void refreshStatusRef.current();
+    };
+    window.addEventListener('storage', check);
+    window.addEventListener('focus', refocus);
+    document.addEventListener('visibilitychange', check);
+    return (): void => {
+      window.removeEventListener('storage', check);
+      window.removeEventListener('focus', refocus);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [checkCurrentIdentity]);
+
+  useEffect(() => {
+    if (!loadedCodeRef.current || loadedCodeRef.current === code) return;
+    cancelLoop();
+    resumableRef.current = false;
+    loadedCodeRef.current = '';
+    pendingCompletionRef.current = null;
+    completionKeyRef.current = null;
+    observationRef.current = createExperimentObservation();
+    setObservation(observationRef.current);
+    setExecutedCode(null);
+    executionCountRef.current = 0;
+    setExecutionCount(0);
+    setSimulatorState(null);
+    setPreviousState(null);
+    setTraceLog([]);
+    setResult(null);
+    setFault('');
+    setPaused(false);
+    setIsRunning(false);
+  }, [cancelLoop, code]);
 
   const toggleBreakpoint = useCallback((line: number): void => {
     setBreakpoints(prev => {
@@ -605,8 +766,11 @@ D2: DJNZ R6, D2
   // 运行仿真 —— 逐帧批量步进的真实动画执行
   // 支持：运行到断点暂停；断点/单步暂停后再点"运行"从当前位置继续
   const runSimulation = (): void => {
+    const runCode = codeRef.current;
+    checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
     if (runningRef.current) return;
-    if (!code.trim()) {
+    if (!runCode.trim()) {
       toast({
         title: '代码为空',
         description: '请输入汇编代码后再执行仿真',
@@ -619,7 +783,7 @@ D2: DJNZ R6, D2
 
     const isTerminated = typeof simulator.getState === 'function' ? simulator.getState().terminated : false;
     // 停在断点/单步处、代码未变、且未终止 → 从当前位置继续；否则从头干净运行
-    const resume = resumableRef.current && loadedCodeRef.current === code && !isTerminated;
+    const resume = resumableRef.current && loadedCodeRef.current === runCode && !isTerminated;
 
     if (!resume) {
       setFault('');
@@ -629,10 +793,15 @@ D2: DJNZ R6, D2
       executionCountRef.current = 0;
       setExecutionCount(0);
       completionKeyRef.current = null;
+      pendingCompletionRef.current = null;
+      observationRef.current = createExperimentObservation();
+      setObservation(observationRef.current);
+      runOwnerRef.current = ownerIdRef.current;
       try {
         simulator.reset();
-        simulator.updateCode(code);
-        loadedCodeRef.current = code;
+        simulator.updateCode(runCode);
+        loadedCodeRef.current = runCode;
+        setExecutedCode(runCode);
         if (typeof simulator.getState === 'function') {
           setSimulatorState(simulator.getState());
         }
@@ -659,7 +828,18 @@ D2: DJNZ R6, D2
       if (!runningRef.current || !mountedRef.current) return;
       try {
         const before = simulator.getState();
-        const { terminated, hitBreakpoint, executed } = simulator.stepBatch(speedRef.current, breakpointsRef.current);
+        let executed = 0;
+        let terminated = false;
+        let hitBreakpoint = false;
+        while (executed < speedRef.current && !terminated && !hitBreakpoint) {
+          const batch = simulator.stepBatch(Math.min(EXPERIMENT_OBSERVATION_SAMPLE_STEPS, speedRef.current - executed), breakpointsRef.current);
+          executed += batch.executed;
+          terminated = batch.terminated;
+          hitBreakpoint = batch.hitBreakpoint;
+          observationRef.current = collectExperimentObservation(observationRef.current, simulator.getState(), batch.executed);
+          if (batch.executed === 0) break;
+        }
+        setObservation(observationRef.current);
         const state = simulator.getState();
         if (executed > 0) {
           executionCountRef.current += executed;
@@ -700,7 +880,10 @@ D2: DJNZ R6, D2
 
   // 单步执行
   const stepSimulation = (): void => {
-    if (!code.trim()) {
+    const runCode = codeRef.current;
+    checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
+    if (!runCode.trim()) {
       toast({
         title: '代码为空',
         description: '请输入汇编代码后再执行单步',
@@ -715,12 +898,16 @@ D2: DJNZ R6, D2
 
       const isTerminated = typeof simulator.getState === 'function' ? simulator.getState().terminated : false;
       // 首次单步 / 代码已改 / 已终止 → 重新加载；停在断点或上次单步处 → 从当前位置继续
-      const needsInit = loadedCodeRef.current !== code || isTerminated;
+      const needsInit = loadedCodeRef.current !== runCode || isTerminated;
 
       if (needsInit) {
         simulator.reset();
-        simulator.updateCode(code);
-        loadedCodeRef.current = code;
+        simulator.updateCode(runCode);
+        loadedCodeRef.current = runCode;
+        setExecutedCode(runCode);
+        runOwnerRef.current = ownerIdRef.current;
+        pendingCompletionRef.current = null;
+        observationRef.current = createExperimentObservation();
         setFault('');
         setResult(null);
         setTraceLog([]);
@@ -738,6 +925,8 @@ D2: DJNZ R6, D2
 
       // 执行单步（带追踪）
       const { state: newState, trace } = simulator.stepWithTrace();
+      observationRef.current = collectExperimentObservation(observationRef.current, newState, 1);
+      setObservation(observationRef.current);
       executionCountRef.current += 1;
       setExecutionCount(executionCountRef.current);
       trace.step = executionCountRef.current;
@@ -802,6 +991,11 @@ D2: DJNZ R6, D2
     executionCountRef.current = 0;
     setExecutionCount(0);
     completionKeyRef.current = null;
+    pendingCompletionRef.current = null;
+    observationRef.current = createExperimentObservation();
+    setObservation(observationRef.current);
+    setExecutedCode(null);
+    runOwnerRef.current = null;
     setFault('');
     setResult(null);
     setIsRunning(false);
@@ -861,31 +1055,56 @@ D2: DJNZ R6, D2
     }
   }, [applyProjectCompletion, resetSimulation, toast]);
 
+  // 输入只属于当前可继续执行的轮次；停止后需重新运行，避免输入被初始化清空。
+  const acceptsInput = useCallback((): boolean => {
+    const owner = checkCurrentIdentity();
+    return !identityBlockedRef.current && runOwnerRef.current === owner
+      && loadedCodeRef.current === codeRef.current && Boolean(loadedCodeRef.current)
+      && (runningRef.current || resumableRef.current) && completionKeyRef.current === null
+      && pendingCompletionRef.current === null;
+  }, [checkCurrentIdentity]);
+
   // 外部输入：改写端口位锁存电平（画布按键按下拉低、松开回高），并立即刷新画面
   const setPortBit = useCallback((port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean): void => {
     const simulator = simulatorRef.current;
-    if (!simulator?.setPortBit) return;
+    if (!simulator?.setPortBit || !acceptsInput()) return;
     simulator.setPortBit(port, bit, level);
     // 未在运行时也让画布立刻反映电平变化（运行中由动画循环每帧刷新）
     if (!runningRef.current && typeof simulator.getState === 'function') {
       setSimulatorState(simulator.getState());
     }
-  }, []);
+  }, [acceptsInput]);
 
   // 瞬时按键：拉低固定指令数后自动回高（时长短于实验代码的消抖延时，单击只触发一次）
   const pulsePortBit = useCallback((port: 'P0' | 'P1' | 'P2' | 'P3', bit: number): void => {
     const simulator = simulatorRef.current;
-    if (!simulator?.pulsePortBit) return;
+    if (!simulator?.pulsePortBit || !acceptsInput()) return;
     simulator.pulsePortBit(port, bit);
     if (!runningRef.current && typeof simulator.getState === 'function') {
       setSimulatorState(simulator.getState());
     }
-  }, []);
+  }, [acceptsInput]);
+
+  const receiveUartByte = useCallback((value: number): boolean => {
+    const simulator = simulatorRef.current;
+    if (!simulator?.receiveUartByte || !acceptsInput()) return false;
+    const accepted = simulator.receiveUartByte(value);
+    if (accepted) setSimulatorState(simulator.getState());
+    return accepted;
+  }, [acceptsInput]);
 
   // 记录实验完成
   const recordExperimentCompletion = useCallback(async (experimentId: string): Promise<void> => {
+    const expectedUserId = checkCurrentIdentity();
     const token = getStoredAccessToken();
     if (!token) throw new Error('未登录');
+    if (!expectedUserId || identityBlockedRef.current || runOwnerRef.current !== expectedUserId) {
+      throw new Error('账号与本轮运行不一致，请刷新页面确认账号后重新运行。');
+    }
+    if (loadedCodeRef.current !== code || !loadedCodeRef.current) {
+      throw new Error('代码已修改，请运行当前代码后再保存本轮记录。');
+    }
+    if (runningRef.current) throw new Error('请先停止运行，再核对并保存本轮观测。');
 
     const finalSimulatorState = simulatorState;
     const executedSteps = executionCountRef.current;
@@ -896,11 +1115,15 @@ D2: DJNZ R6, D2
       && hasProj04TelemetryFrame(uartTail);
     const executionReady = experimentId === 'proj04'
       ? proj04ObservationReady
-      : finalSimulatorState?.terminated === true || exp02ObservationReady;
+      : experimentId === 'exp02'
+        ? finalSimulatorState?.terminated === true || exp02ObservationReady
+        : validateExperimentObservation(experimentId, observationRef.current).ok;
     if (!result?.success || !finalSimulatorState || !executionReady || fault) {
       throw new Error(experimentId === 'proj04'
         ? '请先无故障运行至出现完整 temp/humi 遥测帧，再手动停止观测；持续循环无需执行到 END'
-        : '请先无故障运行程序至正常结束，再提交实验结果');
+        : experimentId === 'exp02'
+          ? '请先无故障执行当前代码，形成有效运行观察。'
+          : '本轮输出观测尚未满足，请按页面提示继续运行并操作对应输入。');
     }
     const verifiedProjectCompletion = projectCompletionRef.current;
     if (experimentId === 'proj04' && !isProj04MilestoneEvidenceComplete(verifiedProjectCompletion)) {
@@ -909,7 +1132,7 @@ D2: DJNZ R6, D2
     const params = new URLSearchParams(window.location.search);
     const pathId = params.get('taskPathId') ?? undefined;
     const stepId = params.get('taskStepId') ?? undefined;
-    const scope = pathId && stepId ? `task:${pathId}:${stepId}` : `standalone:${experimentId}`;
+    const scope = `${expectedUserId}:${pathId && stepId ? `task:${pathId}:${stepId}` : `standalone:${experimentId}`}`;
     let completionKey: string;
     if (pathId && stepId) {
       completionKey = `experiment:${pathId}:${stepId}`;
@@ -922,16 +1145,20 @@ D2: DJNZ R6, D2
       }
       completionKey = completionKeyRef.current.key;
     }
+    // 任务与自主练习都锁定已提交的这一轮；保留既有编号，避免后续输入改变同一回执的观测。
+    completionKeyRef.current = { scope, key: completionKey };
 
     const pendingCompletion = pendingCompletionRef.current?.scope === scope
       ? pendingCompletionRef.current
       : {
+        expectedUserId,
         scope,
         experimentId,
         completionKey,
         pathId,
         stepId,
         body: JSON.stringify({
+          expectedUserId,
           experimentId,
           status: 'COMPLETED',
           code: code,
@@ -941,11 +1168,13 @@ D2: DJNZ R6, D2
           results: {
             ...result,
             execution: {
+              executedCode: loadedCodeRef.current,
               terminated: finalSimulatorState.terminated,
               traceSteps: executedSteps,
               faultFree: !fault,
               observationComplete: exp02ObservationReady || proj04ObservationReady,
             },
+            observation: observationRef.current,
             ...(experimentId === 'proj04' ? {
               projectObservation: {
                 uartTail,
@@ -963,7 +1192,7 @@ D2: DJNZ R6, D2
       };
     pendingCompletionRef.current = pendingCompletion;
 
-    let response: Response;
+    let response: ExperimentResponse;
     try {
       response = await fetchExperimentRequest('/api/experiments/save', {
         method: 'POST',
@@ -977,7 +1206,7 @@ D2: DJNZ R6, D2
       const completionConfirmed = error instanceof TypeError || error instanceof ExperimentRequestTimeoutError
         ? await reconcileExperimentCompletion(pendingCompletion, token)
         : false;
-      if (completionConfirmed) {
+      if (completionConfirmed && acceptsOwner({ success: true, ownerId: expectedUserId }, expectedUserId)) {
         pendingCompletionRef.current = null;
         if (mountedRef.current) setExperimentStatus(prev => ({ ...prev, [experimentId]: 'COMPLETED' }));
         return;
@@ -990,8 +1219,10 @@ D2: DJNZ R6, D2
 
     if (!response.ok) {
       const errorBody: unknown = await response.json().catch((): Record<string, never> => ({}));
+      if (!acceptsOwner(errorBody, expectedUserId)) throw new Error('账号已变化，请刷新页面后继续。');
       const retryable = response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500;
-      if (retryable && await reconcileExperimentCompletion(pendingCompletion, token)) {
+      if (retryable && await reconcileExperimentCompletion(pendingCompletion, token)
+        && acceptsOwner({ success: true, ownerId: expectedUserId }, expectedUserId)) {
         pendingCompletionRef.current = null;
         if (mountedRef.current) setExperimentStatus(prev => ({ ...prev, [experimentId]: 'COMPLETED' }));
         return;
@@ -1001,6 +1232,7 @@ D2: DJNZ R6, D2
     }
 
     const rawData: unknown = await response.json();
+    if (!acceptsOwner(rawData, expectedUserId)) throw new Error('账号已变化，请刷新页面后继续。');
     const parsedData = experimentSaveResponseSchema.safeParse(rawData);
     if (!parsedData.success) throw new Error('实验保存结果格式异常');
     const data = parsedData.data;
@@ -1038,7 +1270,7 @@ D2: DJNZ R6, D2
         [experimentId]: 'COMPLETED'
       }));
     }
-  }, [code, fault, result, simulatorState, toast]);
+  }, [acceptsOwner, checkCurrentIdentity, code, fault, result, simulatorState, toast]);
 
   // 获取诊断信息
   const getDiagnostics = (): DiagnosticSummary => {
@@ -1082,6 +1314,8 @@ D2: DJNZ R6, D2
 
   // 加载实验状态
   const loadExperimentStatus = useCallback(async (): Promise<void> => {
+    const expectedUserId = checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
     statusLoadAbortRef.current?.abort();
     const controller = new AbortController();
     statusLoadAbortRef.current = controller;
@@ -1091,7 +1325,7 @@ D2: DJNZ R6, D2
     setExperimentStatusError(null);
     try {
       const token = getStoredAccessToken();
-      if (!token) {
+      if (!token || !expectedUserId) {
         setExperimentStatus({});
         setExperimentStatusError('登录状态已失效，暂时无法读取实验完成记录。');
         return;
@@ -1111,6 +1345,7 @@ D2: DJNZ R6, D2
 
       if (response.ok) {
         const rawData: unknown = await response.json();
+        if (!acceptsOwner(rawData, expectedUserId)) return;
         const parsedData = experimentStatusResponseSchema.safeParse(rawData);
         if (parsedData.success && parsedData.data.success && parsedData.data.experiments) {
           setExperimentStatus((current) => {
@@ -1145,9 +1380,13 @@ D2: DJNZ R6, D2
       if (statusLoadAbortRef.current === controller) statusLoadAbortRef.current = null;
       if (mountedRef.current && requestId === statusLoadIdRef.current) setIsLoadingStatus(false);
     }
-  }, []);
+  }, [acceptsOwner, checkCurrentIdentity]);
+
+  refreshStatusRef.current = loadExperimentStatus;
 
   const loadExperimentDraft = useCallback(async (experimentId: string): Promise<void> => {
+    const expectedUserId = checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
     const requestId = ++draftLoadIdRef.current;
     if (draftSaveTimerRef.current !== null) {
       window.clearTimeout(draftSaveTimerRef.current);
@@ -1208,7 +1447,7 @@ D2: DJNZ R6, D2
       }
     };
 
-    if (!token) {
+    if (!token || !expectedUserId) {
       restoreAfterLoadFailure('登录已过期，当前代码尚未同步到服务端。', true);
       return;
     }
@@ -1226,6 +1465,7 @@ D2: DJNZ R6, D2
       if (!mountedRef.current || requestId !== draftLoadIdRef.current
         || selectedExperimentRef.current !== experimentId) return;
       const rawData: unknown = await response.json().catch((): Record<string, never> => ({}));
+      if (!acceptsOwner(rawData, expectedUserId)) return;
       if (!response.ok) {
         restoreAfterLoadFailure(
           response.status === 401
@@ -1343,14 +1583,17 @@ D2: DJNZ R6, D2
       });
     } catch (draftLoadError) {
       if (!mountedRef.current || requestId !== draftLoadIdRef.current
-        || selectedExperimentRef.current !== experimentId) return;
+        || selectedExperimentRef.current !== experimentId
+        || checkCurrentIdentity() !== expectedUserId || identityBlockedRef.current) return;
       restoreAfterLoadFailure(draftLoadError instanceof ExperimentRequestTimeoutError
         ? '草稿加载超时，暂时无法核对服务端版本。'
         : '网络异常，暂时无法核对服务端版本。');
     }
-  }, [applyProjectCompletion]);
+  }, [acceptsOwner, applyProjectCompletion, checkCurrentIdentity]);
 
   const saveExperimentDraft = useCallback(async (baseUpdatedAtOverride?: string | null): Promise<void> => {
+    const expectedUserId = checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
     const experimentId = selectedExperimentRef.current;
     if (!experimentId || draftReadyExperimentRef.current !== experimentId || draftReadOnlyRef.current) return;
     if (draftSaveInFlightRef.current || (draftConflictRef.current && baseUpdatedAtOverride === undefined)) return;
@@ -1369,7 +1612,7 @@ D2: DJNZ R6, D2
     );
     if (localDraft) draftLocalRef.current = localDraft;
 
-    if (!token) {
+    if (!token || !expectedUserId) {
       setDraftState((current) => ({
         ...current,
         status: 'ERROR',
@@ -1425,6 +1668,7 @@ D2: DJNZ R6, D2
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          expectedUserId,
           experimentId,
           intent: 'DRAFT',
           status: 'IN_PROGRESS',
@@ -1434,6 +1678,7 @@ D2: DJNZ R6, D2
       }, EXPERIMENT_SAVE_TIMEOUT_MS);
       const rawData: unknown = await response.json().catch((): Record<string, never> => ({}));
       if (!mountedRef.current || selectedExperimentRef.current !== experimentId) return;
+      if (!acceptsOwner(rawData, expectedUserId)) return;
       if (response.status === 409) {
         const conflict = experimentDraftConflictSchema.safeParse(rawData);
         if (conflict.success) {
@@ -1602,7 +1847,8 @@ D2: DJNZ R6, D2
         }, EXPERIMENT_DRAFT_DEBOUNCE_MS);
       }
     } catch (draftSaveError) {
-      if (!mountedRef.current || selectedExperimentRef.current !== experimentId) return;
+      if (!mountedRef.current || selectedExperimentRef.current !== experimentId
+        || checkCurrentIdentity() !== expectedUserId || identityBlockedRef.current) return;
       setDraftState((current) => ({
         ...current,
         status: draftSaveError instanceof TypeError && Boolean(localDraft) ? 'LOCAL_SAVED' : 'ERROR',
@@ -1618,20 +1864,22 @@ D2: DJNZ R6, D2
     } finally {
       draftSaveInFlightRef.current = false;
     }
-  }, []);
+  }, [acceptsOwner, checkCurrentIdentity]);
   saveDraftRef.current = saveExperimentDraft;
 
   const saveProj04Milestone = useCallback(async (
     milestoneId: Proj04MilestoneId,
     confirmed: boolean,
   ): Promise<void> => {
+    const expectedUserId = checkCurrentIdentity();
+    if (identityBlockedRef.current) return;
     if (selectedExperimentRef.current !== 'proj04' || projectCompletionSaveInFlightRef.current) return;
     if (draftSaveInFlightRef.current || codeRef.current !== draftBaselineCodeRef.current) {
       setProjectCompletionError('代码仍在保存，请等待草稿同步完成后再确认里程碑。');
       return;
     }
     const token = getStoredAccessToken();
-    if (!token) {
+    if (!token || !expectedUserId) {
       setProjectCompletionError('登录已过期，里程碑自检状态尚未保存。');
       return;
     }
@@ -1650,6 +1898,7 @@ D2: DJNZ R6, D2
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          expectedUserId,
           experimentId: 'proj04',
           intent: 'PROJECT_CHECKLIST',
           status: 'IN_PROGRESS',
@@ -1665,6 +1914,7 @@ D2: DJNZ R6, D2
         }),
       }, EXPERIMENT_SAVE_TIMEOUT_MS);
       const rawData: unknown = await response.json().catch((): Record<string, never> => ({}));
+      if (!acceptsOwner(rawData, expectedUserId)) return;
       if (!response.ok) {
         throw new Error(errorMessageOf(rawData, '项目里程碑自检保存失败，请重试。'));
       }
@@ -1683,6 +1933,7 @@ D2: DJNZ R6, D2
         throw new Error('服务端未确认本次里程碑状态，请重试。');
       }
     } catch (error) {
+      if (checkCurrentIdentity() !== expectedUserId || identityBlockedRef.current) return;
       applyProjectCompletion(previous);
       setProjectCompletionError(error instanceof ExperimentRequestTimeoutError
         ? '项目里程碑保存超时，状态尚未确认，请重试。'
@@ -1693,7 +1944,7 @@ D2: DJNZ R6, D2
       projectCompletionSaveInFlightRef.current = false;
       if (mountedRef.current) setIsSavingProjectCompletion(false);
     }
-  }, [applyProjectCompletion]);
+  }, [acceptsOwner, applyProjectCompletion, checkCurrentIdentity]);
 
   const useServerDraft = useCallback((): void => {
     const conflict = draftConflictRef.current;
@@ -1735,6 +1986,7 @@ D2: DJNZ R6, D2
   }, []);
 
   useEffect(() => {
+    if (identityBlockedRef.current || checkCurrentIdentity() !== ownerIdRef.current) return;
     if (!selectedExperiment || draftReadyExperimentRef.current !== selectedExperiment || draftReadOnlyRef.current) return;
     const hasUnsavedChanges = code !== draftBaselineCodeRef.current;
     if (draftSaveTimerRef.current !== null) {
@@ -1801,7 +2053,7 @@ D2: DJNZ R6, D2
         draftSaveTimerRef.current = null;
       }
     };
-  }, [code, selectedExperiment]);
+  }, [checkCurrentIdentity, code, selectedExperiment]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;
@@ -1902,6 +2154,8 @@ D2: DJNZ R6, D2
   }, []);
 
   const startExperiment = useCallback(async (experimentId: string): Promise<'IN_PROGRESS' | 'COMPLETED'> => {
+    const expectedUserId = checkCurrentIdentity();
+    if (!expectedUserId || identityBlockedRef.current) throw new Error('账号状态待确认，请刷新页面后重试。');
     const token = getStoredAccessToken();
     if (!token) throw new Error('登录已过期，请重新登录');
 
@@ -1918,6 +2172,7 @@ D2: DJNZ R6, D2
         );
         if (!response.ok) return null;
         const rawData: unknown = await response.json();
+        if (!acceptsOwner(rawData, expectedUserId)) return null;
         const parsedData = experimentStatusResponseSchema.safeParse(rawData);
         const record = parsedData.success
           ? parsedData.data.experiments?.find((item) => item.experimentId === experimentId)
@@ -1932,7 +2187,7 @@ D2: DJNZ R6, D2
       }
     };
 
-    let response: Response;
+    let response: ExperimentResponse;
     try {
       response = await fetchExperimentRequest('/api/experiments/save', {
         method: 'POST',
@@ -1940,7 +2195,7 @@ D2: DJNZ R6, D2
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ experimentId, status: 'IN_PROGRESS', intent: 'START' }),
+        body: JSON.stringify({ expectedUserId, experimentId, status: 'IN_PROGRESS', intent: 'START' }),
       }, EXPERIMENT_SAVE_TIMEOUT_MS);
     } catch (requestError) {
       const recovered = requestError instanceof TypeError || requestError instanceof ExperimentRequestTimeoutError
@@ -1957,6 +2212,7 @@ D2: DJNZ R6, D2
     }
 
     const rawData: unknown = await response.json().catch((): Record<string, never> => ({}));
+    if (!acceptsOwner(rawData, expectedUserId)) throw new Error('账号已变化，请刷新页面后继续。');
     if (!response.ok) {
       if (response.status === 401) throw new Error('登录已过期，请重新登录');
       const retryable = response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500;
@@ -1978,7 +2234,7 @@ D2: DJNZ R6, D2
       setExperimentStatus((current) => ({ ...current, [experimentId]: serverStatus }));
     }
     return serverStatus;
-  }, []);
+  }, [acceptsOwner, checkCurrentIdentity]);
 
   // 完成实验
   const completeExperiment = useCallback(async (): Promise<void> => {
@@ -1998,8 +2254,8 @@ D2: DJNZ R6, D2
       await recordExperimentCompletion(selectedExperiment);
       if (mountedRef.current) {
         toast({
-          title: '实验已完成',
-          description: '实验进度已保存',
+          title: '运行记录已保存',
+          description: '本轮记录已保存；学习目标仍需另行评价',
         });
       }
     } catch (error) {
@@ -2145,6 +2401,10 @@ D2: DJNZ R6, D2
     previousState,
     traceLog,
     executionCount,
+    observation,
+    executedCode,
+    ownerId,
+    identityBlocked,
     isRunning,
     isCompletingExperiment,
     fault,
@@ -2182,6 +2442,10 @@ D2: DJNZ R6, D2
     toggleBreakpoint,
     setPortBit,
     pulsePortBit,
+    receiveUartByte,
+    canAcceptInput: !identityBlocked && !isCompletingExperiment && loadedCodeRef.current === code
+      && Boolean(loadedCodeRef.current) && (isRunning || resumableRef.current)
+      && completionKeyRef.current === null && pendingCompletionRef.current === null && !simulatorState?.terminated,
     updateCode,
     run,
     step,

@@ -1,12 +1,13 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSimulator, type UseSimulatorResult } from '@/hooks/useSimulator';
 import { Simulator, type ExecutionTraceEntry, type SimulatorState } from '@/lib/simulator';
-import { getStoredAccessToken } from '@/lib/auth-storage';
+import { getStoredAccessToken, getStoredUser } from '@/lib/auth-storage';
 import { clearAllMocks, mockPrisma } from '../utils/test-mocks';
 import { emptyProj04CompletionEvidence } from '@/lib/experiment-config';
 
 jest.mock('@/lib/auth-storage', () => ({
   getStoredAccessToken: jest.fn(),
+  getStoredUser: jest.fn(),
 }));
 
 // Mock the Simulator class
@@ -86,7 +87,13 @@ function response(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
-    json: async () => body,
+    json: async () => {
+      const token = mockGetStoredAccessToken();
+      const part = token?.split('.')[1];
+      const ownerId = part ? JSON.parse(window.atob(part)).userId : 'user-1';
+      return typeof body === 'object' && body !== null && 'success' in body
+        ? { ownerId, ...body } : body;
+    },
   } as Response;
 }
 
@@ -137,6 +144,7 @@ describe('useSimulator Hook', () => {
   beforeEach(() => {
     clearAllMocks(mockPrisma);
     mockGetStoredAccessToken.mockReturnValue(null);
+    (getStoredUser as jest.Mock).mockReturnValue(null);
     window.history.replaceState({}, '', '/simulation');
     localStorageData = new Map<string, string>();
     Object.defineProperty(window, 'localStorage', {
@@ -204,7 +212,7 @@ describe('useSimulator Hook', () => {
 
   describe('实验草稿同步', () => {
     it('刷新 proj04 时应从现有实验 results 恢复五项证据自检', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       const evidence = emptyProj04CompletionEvidence();
       evidence.milestones[0] = {
         ...evidence.milestones[0],
@@ -230,7 +238,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('保存 proj04 里程碑时应采用服务端确认时间并更新可恢复状态', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       const saved = emptyProj04CompletionEvidence();
       saved.milestones[0] = {
         ...saved.milestones[0],
@@ -273,7 +281,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('进入实验时应以服务端草稿恢复代码和版本', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({
         success: true,
         experiments: [{
@@ -301,7 +309,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('服务端版本变化时应保留本地代码并进入显式冲突状态', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if ((init?.method ?? 'GET') === 'GET') {
           return response({
@@ -341,7 +349,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('确认保留当前代码后应基于最新服务端版本再次保存', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       let postCount = 0;
       global.fetch = jest.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if ((init?.method ?? 'GET') === 'GET') {
@@ -389,7 +397,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('响应丢失后若服务端代码相同应恢复已保存而不是制造伪冲突', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       let postCount = 0;
       global.fetch = jest.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if ((init?.method ?? 'GET') === 'GET') {
@@ -417,7 +425,7 @@ describe('useSimulator Hook', () => {
       act(() => result.current.setCode('LOCAL'));
 
       await act(async () => result.current.saveExperimentDraft());
-      expect(result.current.draftState.status).toBe('ERROR');
+      expect(result.current.draftState.status).toBe('LOCAL_SAVED');
       await act(async () => result.current.saveExperimentDraft());
 
       expect(postCount).toBe(2);
@@ -762,6 +770,101 @@ describe('useSimulator Hook', () => {
   });
 
   describe('状态更新', () => {
+    it('accepts inputs only for the active run and blocks stopped, edited, reset and switched runs', () => {
+      const { result } = renderHook(() => useSimulator());
+      const simulator = MockedSimulator.mock.results[0].value;
+      simulator.getState = jest.fn(() => simulator.state);
+      simulator.receiveUartByte = jest.fn(() => true);
+      simulator.setPortBit = jest.fn();
+      simulator.pulsePortBit = jest.fn();
+      const sendInputs = (): void => {
+        result.current.receiveUartByte(65);
+        result.current.setPortBit('P1', 0, false);
+        result.current.pulsePortBit('P3', 2);
+      };
+      act(sendInputs);
+      expect(simulator.receiveUartByte).not.toHaveBeenCalled();
+      act(() => result.current.runSimulation());
+      expect(result.current.canAcceptInput).toBe(true);
+      act(sendInputs);
+      expect(simulator.receiveUartByte).toHaveBeenCalledTimes(1);
+      expect(simulator.setPortBit).toHaveBeenCalledTimes(1);
+      expect(simulator.pulsePortBit).toHaveBeenCalledTimes(1);
+      expect(result.current.observation.steps).toBe(0);
+      act(() => result.current.stop());
+      expect(result.current.canAcceptInput).toBe(false);
+      act(sendInputs);
+      act(() => result.current.runSimulation());
+      act(() => result.current.setCode('MOV A, #2'));
+      expect(result.current.canAcceptInput).toBe(false);
+      act(sendInputs);
+      act(() => result.current.resetSimulation());
+      act(sendInputs);
+      act(() => result.current.loadExperiment('proj03'));
+      act(sendInputs);
+      expect(simulator.receiveUartByte).toHaveBeenCalledTimes(1);
+      expect(simulator.setPortBit).toHaveBeenCalledTimes(1);
+      expect(simulator.pulsePortBit).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks current account ownership again before external input', () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      const { result } = renderHook(() => useSimulator());
+      const simulator = MockedSimulator.mock.results[0].value;
+      simulator.getState = jest.fn(() => simulator.state);
+      simulator.receiveUartByte = jest.fn(() => true);
+      act(() => result.current.runSimulation());
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-2'));
+      act(() => { expect(result.current.receiveUartByte(65)).toBe(false); });
+      expect(simulator.receiveUartByte).not.toHaveBeenCalled();
+      expect(result.current.identityBlocked).toBe(true);
+    });
+
+    it('keeps input available while single-stepping and does not count input as executed evidence', () => {
+      const { result } = renderHook(() => useSimulator());
+      const simulator = MockedSimulator.mock.results[0].value;
+      simulator.getState = jest.fn(() => simulator.state);
+      simulator.receiveUartByte = jest.fn(() => true);
+      simulator.stepWithTrace = jest.fn(() => ({
+        state: { ...simulator.state, pc: 1, currentLine: 0, terminated: false },
+        trace: { step: 1, pc: 0, instruction: 'NOP', line: 0, regChanges: [], memChanges: [], portChanges: [], flagChanges: [] },
+      }));
+      act(() => result.current.setCode('NOP\nLOOP: SJMP LOOP'));
+      act(() => result.current.stepSimulation());
+      expect(result.current.isRunning).toBe(false);
+      expect(result.current.canAcceptInput).toBe(true);
+      act(() => { expect(result.current.receiveUartByte(65)).toBe(true); });
+      expect(result.current.executionCount).toBe(1);
+      expect(result.current.observation.steps).toBe(1);
+      act(() => result.current.runSimulation());
+      expect(simulator.updateCode).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([false, true])('does not mutate input for an already submitted run (task context: %s)', async taskContext => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      if (taskContext) window.history.replaceState({}, '', '/simulation?taskPathId=path_1&taskStepId=addressing-exp02');
+      global.fetch = jest.fn().mockImplementation(async (_url, init) => response(init?.method === 'POST'
+        ? { success: true, experiment: { experimentId: 'exp02', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: [] }
+        : { success: true, experiments: [] }));
+      const { result } = renderHook(() => useSimulator());
+      const simulator = MockedSimulator.mock.results[0].value;
+      simulator.getState = jest.fn(() => simulator.state);
+      simulator.receiveUartByte = jest.fn(() => true);
+      simulator.stepWithTrace = jest.fn(() => ({
+        state: { ...simulator.state, pc: 1, currentLine: 0, terminated: false },
+        trace: { step: 1, pc: 0, instruction: 'NOP', line: 0, regChanges: [], memChanges: [], portChanges: [], flagChanges: [] },
+      }));
+      act(() => result.current.loadExperiment('exp02'));
+      act(() => { for (let index = 0; index < 20; index++) result.current.stepSimulation(); });
+      act(() => result.current.stop());
+      await act(async () => result.current.completeExperiment());
+      expect(result.current.experimentStatus.exp02).toBe('COMPLETED');
+      act(() => result.current.stepSimulation());
+      expect(result.current.canAcceptInput).toBe(false);
+      act(() => { expect(result.current.receiveUartByte(65)).toBe(false); });
+      expect(simulator.receiveUartByte).not.toHaveBeenCalled();
+    });
+
     it('应该在步进执行后更新状态', () => {
       const { result } = renderHook(() => useSimulator());
       
@@ -810,7 +913,7 @@ describe('useSimulator Hook', () => {
 
   describe('实验完成记录', () => {
     it('从课前任务进入时应先确认进行中状态并保存到本地状态映射', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({
         success: true,
         duplicate: false,
@@ -826,13 +929,13 @@ describe('useSimulator Hook', () => {
       expect(result.current.experimentStatus.exp02).toBe('IN_PROGRESS');
       expect(global.fetch).toHaveBeenCalledWith('/api/experiments/save', expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
+        body: JSON.stringify({ expectedUserId: 'user-1', experimentId: 'exp02', status: 'IN_PROGRESS', intent: 'START' }),
       }));
     });
 
     it('加载失败时应该保留明确错误并允许再次调用', async () => {
       const originalFetch = global.fetch;
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 503,
@@ -854,7 +957,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('登录失效时应该清除旧的实验完成标记', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({ error: '无效的令牌' }, 401));
       const { result } = renderHook(() => useSimulator());
 
@@ -868,7 +971,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('并发返回的旧待开始状态不得覆盖已确认的进行中状态', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({
         success: true,
         experiments: [{ experimentId: 'exp02', status: 'ASSIGNED' }],
@@ -884,7 +987,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('保存响应字段不完整时不能把实验标记为已完成', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({ success: true }));
       const { result } = renderHook(() => useSimulator());
       prepareCompletedExperiment(result);
@@ -898,7 +1001,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('网络结果不明时应该按完成编号向服务端核对并恢复状态', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       window.history.replaceState({}, '', '/simulation?taskPathId=path_1&taskStepId=addressing-exp02');
       let completionKey = '';
       global.fetch = jest.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -936,7 +1039,7 @@ describe('useSimulator Hook', () => {
     });
 
     it('核对不到本次完成编号时不应误判，并应原样重试同一请求', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       window.history.replaceState({}, '', '/simulation?taskPathId=path_1&taskStepId=addressing-exp02');
       const postBodies: string[] = [];
       global.fetch = jest.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -982,8 +1085,89 @@ describe('useSimulator Hook', () => {
       expect(postBodies[1]).toBe(postBodies[0]);
     });
 
+    it('完成保存的响应头到达但正文挂起时仍超时释放，并保留原请求供重试', async () => {
+      jest.useFakeTimers();
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      const bodies: string[] = [];
+      const signals: AbortSignal[] = [];
+      let resolveLateBody!: (data: unknown) => void;
+      global.fetch = jest.fn().mockImplementation(async (_url, init) => {
+        signals.push(init.signal);
+        if (init.method === 'POST') {
+          bodies.push(String(init.body));
+          if (bodies.length === 1) return {
+            ok: true, status: 200,
+            json: () => new Promise((resolve) => { resolveLateBody = resolve; }),
+          };
+          return response({ success: true, experiment: { experimentId: 'exp02', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: null });
+        }
+        // The read-only recovery body can hang too; it has its own bounded deadline.
+        return { ok: true, status: 200, json: () => new Promise(() => {}) };
+      });
+      const { result, unmount } = renderHook(() => useSimulator());
+      try {
+        prepareCompletedExperiment(result);
+        let pending!: Promise<void>;
+        act(() => { pending = result.current.completeExperiment(); });
+        await act(async () => { await jest.advanceTimersByTimeAsync(20_000); });
+        expect(signals[0]?.aborted).toBe(true);
+        expect(result.current.isCompletingExperiment).toBe(true);
+        await act(async () => { await jest.advanceTimersByTimeAsync(15_000); await pending; });
+        expect(signals[1]?.aborted).toBe(true);
+        expect(result.current.isCompletingExperiment).toBe(false);
+        expect(result.current.experimentStatus.exp02).toBeUndefined();
+        await act(async () => {
+          resolveLateBody({ success: true, ownerId: 'user-1', experiment: { experimentId: 'exp02', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: null });
+        });
+        expect(result.current.experimentStatus.exp02).toBeUndefined();
+        await act(async () => result.current.completeExperiment());
+        expect(bodies).toHaveLength(2);
+        expect(bodies[1]).toBe(bodies[0]);
+        expect(result.current.experimentStatus.exp02).toBe('COMPLETED');
+        expect(result.current.isCompletingExperiment).toBe(false);
+      } finally {
+        unmount();
+        jest.useRealTimers();
+      }
+    });
+
+    it('开始实验的响应正文挂起时返回可重试错误，迟到正文不改变状态', async () => {
+      jest.useFakeTimers();
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      let posts = 0;
+      let resolveLateBody!: (data: unknown) => void;
+      let postSignal: AbortSignal | undefined;
+      global.fetch = jest.fn().mockImplementation(async (_url, init) => {
+        if (init.method !== 'POST') return response({ success: true, experiments: [] });
+        if (++posts === 1) {
+          postSignal = init.signal;
+          return { ok: true, status: 200, json: () => new Promise((resolve) => { resolveLateBody = resolve; }) };
+        }
+        return response({ success: true, experiment: { experimentId: 'exp02', status: 'IN_PROGRESS' }, message: '实验已开始' });
+      });
+      const { result, unmount } = renderHook(() => useSimulator());
+      try {
+        let pending!: Promise<unknown>;
+        act(() => { pending = result.current.startExperiment('exp02').catch((error: unknown) => error); });
+        await act(async () => { await jest.advanceTimersByTimeAsync(20_000); });
+        expect(postSignal?.aborted).toBe(true);
+        expect(await pending).toEqual(expect.objectContaining({ message: expect.stringContaining('实验开始状态暂未确认') }));
+        expect(result.current.experimentStatus.exp02).toBeUndefined();
+        await act(async () => {
+          resolveLateBody({ success: true, ownerId: 'user-1', experiment: { experimentId: 'exp02', status: 'COMPLETED' }, message: 'late receipt' });
+        });
+        expect(result.current.experimentStatus.exp02).toBeUndefined();
+        await act(async () => { await expect(result.current.startExperiment('exp02')).resolves.toBe('IN_PROGRESS'); });
+        expect(result.current.experimentStatus.exp02).toBe('IN_PROGRESS');
+        expect(posts).toBe(2);
+      } finally {
+        unmount();
+        jest.useRealTimers();
+      }
+    });
+
     it('快速重复点击完成实验时只发送一次保存请求', async () => {
-      mockGetStoredAccessToken.mockReturnValue('test-token');
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({
         success: true,
         experiment: { experimentId: 'exp02', status: 'COMPLETED' },
@@ -1002,6 +1186,140 @@ describe('useSimulator Hook', () => {
 
       expect(result.current.experimentStatus.exp02).toBe('COMPLETED');
       expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('运行记录与账号边界', () => {
+    it('编辑代码立即清空旧运行，并拒绝用旧结果保存新代码', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn();
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result);
+      expect(result.current.executedCode).toBe(result.current.code);
+      act(() => result.current.setCode('BROKEN_OPCODE'));
+      expect(result.current.result).toBeNull();
+      expect(result.current.executedCode).toBeNull();
+      expect(result.current.executionCount).toBe(0);
+      expect(result.current.observation.steps).toBe(0);
+      await act(async () => result.current.completeExperiment());
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('不确定保存后改代码重跑必须生成新请求，并绑定本次实际执行代码', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      const bodies: Array<{ completionKey: string; code: string; expectedUserId: string; results: { execution: { executedCode: string; traceSteps: number }; observation: { steps: number } } }> = [];
+      global.fetch = jest.fn().mockImplementation(async (_url, init) => {
+        if (init?.method !== 'POST') return response({ success: true, experiments: [] });
+        bodies.push(JSON.parse(init.body));
+        if (bodies.length === 1) throw new TypeError('response lost');
+        return response({ success: true, experiment: { experimentId: 'exp02', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: null });
+      });
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result);
+      await act(async () => result.current.completeExperiment());
+      act(() => result.current.setCode('MOV A, #42H\nEND'));
+      act(() => result.current.stepSimulation());
+      await act(async () => result.current.completeExperiment());
+      expect(bodies).toHaveLength(2);
+      expect(bodies[1]?.completionKey).not.toBe(bodies[0]?.completionKey);
+      expect(bodies[1]?.code).toBe('MOV A, #42H\nEND');
+      expect(bodies[1]?.results.execution.executedCode).toBe(bodies[1]?.code);
+      expect(bodies[1]?.expectedUserId).toBe('user-1');
+      expect(bodies[1]?.results.observation.steps).toBe(bodies[1]?.results.execution.traceSteps);
+    });
+
+    it('切换账号清空旧记录和代码，不把旧运行写给新账号', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn();
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result);
+      act(() => result.current.setExperimentStatus({ exp02: 'COMPLETED' }));
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-2'));
+      await act(async () => result.current.completeExperiment());
+      expect(result.current.identityBlocked).toBe(true);
+      expect(result.current.experimentStatus).toEqual({});
+      expect(result.current.result).toBeNull();
+      expect(result.current.code).toBe('');
+      expect(result.current.executedCode).toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+      act(() => window.dispatchEvent(new Event('focus')));
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('服务端返回其他账号的记录时拒绝合并并锁定当前页', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn().mockResolvedValue(response({ success: true, ownerId: 'user-2', experiments: [{ experimentId: 'exp02', status: 'COMPLETED' }] }));
+      const { result } = renderHook(() => useSimulator());
+      act(() => result.current.setExperimentStatus({ exp01: 'COMPLETED' }));
+      await act(async () => result.current.loadExperimentStatus());
+      expect(result.current.identityBlocked).toBe(true);
+      expect(result.current.experimentStatus).toEqual({});
+    });
+
+    it('cookie 会话使用当前用户摘要绑定请求，ACCOUNT_CHANGED 回执不得标记成功', async () => {
+      mockGetStoredAccessToken.mockReturnValue('cookie-session');
+      (getStoredUser as jest.Mock).mockReturnValue(JSON.stringify({ id: 'cookie-user' }));
+      global.fetch = jest.fn().mockResolvedValue(response({ error: '账号已变化', code: 'ACCOUNT_CHANGED' }, 409));
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result);
+      await act(async () => result.current.completeExperiment());
+      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0]?.[1].body);
+      expect(body.expectedUserId).toBe('cookie-user');
+      expect(result.current.identityBlocked).toBe(true);
+      expect(result.current.experimentStatus).toEqual({});
+    });
+
+    it('持续循环采集八种 LED 图样后可保存，累计观测步数与实际步数一致', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn().mockResolvedValue(response({ success: true, experiment: { experimentId: 'exp01', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: null }));
+      const { result } = renderHook(() => useSimulator());
+      const simulator = MockedSimulator.mock.results[0]?.value;
+      const state = { ...simulator.state, currentLine: 0, terminated: false };
+      let step = 0;
+      simulator.getState = jest.fn(() => state);
+      simulator.stepWithTrace = jest.fn(() => {
+        state.portValues = { ...state.portValues, P1: 0xff ^ (1 << (step++ % 8)) };
+        return { state, trace: { step, pc: 0, instruction: 'MOV P1,A', line: 0, regChanges: [], memChanges: [], portChanges: [], flagChanges: [] } };
+      });
+      act(() => result.current.loadExperiment('exp01'));
+      for (let step = 0; step < 20; step++) act(() => result.current.stepSimulation());
+      act(() => result.current.stop());
+      await act(async () => result.current.completeExperiment());
+      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0]?.[1].body);
+      expect(body.results.execution.terminated).toBe(false);
+      expect(body.results.execution.traceSteps).toBe(20);
+      expect(body.results.observation.steps).toBe(20);
+      expect(body.results.observation.portValues.P1).toHaveLength(8);
+      expect(result.current.experimentStatus.exp01).toBe('COMPLETED');
+    });
+
+    it('账号切换后丢弃旧账号迟到的保存成功回执', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      let resolveSave!: (value: Response) => void;
+      global.fetch = jest.fn(() => new Promise<Response>((resolve) => { resolveSave = resolve; }));
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result);
+      let pending!: Promise<void>;
+      act(() => { pending = result.current.completeExperiment(); });
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-2'));
+      act(() => window.dispatchEvent(new Event('storage')));
+      await act(async () => {
+        resolveSave(response({ success: true, ownerId: 'user-1', experiment: { experimentId: 'exp02', status: 'COMPLETED' }, pointsEarned: 0, newAchievements: null }));
+        await pending;
+      });
+      expect(result.current.identityBlocked).toBe(true);
+      expect(result.current.code).toBe('');
+      expect(result.current.experimentStatus).toEqual({});
+    });
+
+    it('仅执行 END 的循环任务没有对应输出观察时不得保存', async () => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn();
+      const { result } = renderHook(() => useSimulator());
+      prepareCompletedExperiment(result, 'exp01');
+      await act(async () => result.current.completeExperiment());
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(result.current.experimentStatus.exp01).toBeUndefined();
     });
   });
 

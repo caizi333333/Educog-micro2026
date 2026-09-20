@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, BarChart3, Check, ClipboardCopy, Link2, Loader2, Plus, RefreshCw, Target, Trash2, UserPlus } from 'lucide-react';
@@ -386,7 +387,7 @@ export default function TeacherClassDetailPage(): JSX.Element {
         </div>
       )}
 
-      {data && dataProvenance && (
+      {SHOW_DATA_PROVENANCE_NOTICE && data && dataProvenance && (
         <div
           className={cn(
             'rounded-md border px-4 py-3 text-sm',

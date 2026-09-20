@@ -3,6 +3,16 @@ import { GET } from '@/app/api/teacher/dashboard/route';
 import { GET as exportTeacherData } from '@/app/api/teacher/export/route';
 import { verifyToken } from '@/lib/auth';
 import { getAccessibleClassIds } from '@/lib/classroom';
+import { GET as getTeacherPrep, POST as postAiChat } from '@/app/api/ai/chat/route';
+import { getCourseSlidePage } from '@/ai/knowledge-context';
+import { aiStudyAssistant } from '@/ai/flows/ai-study-assistant';
+
+const mockPrepModelChat = jest.fn();
+jest.mock('@/ai/deepseek-client', () => ({
+  DeepSeekClient: jest.fn().mockImplementation(() => ({ chat: mockPrepModelChat })),
+}));
+jest.mock('@/ai/knowledge-context', () => ({ getCourseSlidePage: jest.fn() }));
+jest.mock('@/ai/flows/ai-study-assistant', () => ({ aiStudyAssistant: jest.fn() }));
 
 jest.mock('next/server', () => {
   const NextResponse = Object.assign(
@@ -329,5 +339,298 @@ describe('/api/teacher/dashboard', () => {
         error: '导出模式必须为 management 或 research',
       });
     });
+  });
+});
+
+describe('/api/ai/chat 教师备课', () => {
+  const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
+  const mockGetSlide = getCourseSlidePage as jest.MockedFunction<typeof getCourseSlidePage>;
+  const savedKey = process.env.DEEPSEEK_API_KEY;
+  const generationRequestId = '10000000-0000-4000-8000-000000000001';
+  const saveRequestId = '10000000-0000-4000-8000-000000000002';
+  const nextSaveRequestId = '10000000-0000-4000-8000-000000000003';
+  const base = {
+    mode: 'teacher-prep', action: 'generate', requestId: generationRequestId,
+    expectedUserId: 'teacher-1',
+    kind: 'case', pointId: '7.2.1', slideRefId: 'course-slide-scon', instruction: '安排五分钟的SCON寄存器课堂讨论',
+  };
+  const modelResult = {
+    choices: [{ message: { role: 'assistant', content: '依据课件物理第23页，设计SCON控制位课堂讨论；请教师核对。' }, finish_reason: 'stop' }],
+  };
+  type ActivityRecord = { id: string; userId: string; action: string; details: string };
+  let records: Map<string, ActivityRecord>;
+
+  const request = (body: unknown) => new NextRequest('http://localhost/api/ai/chat', {
+    method: 'POST', headers: { authorization: 'Bearer valid-token', 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const getRequest = () => new NextRequest('http://localhost/api/ai/chat?mode=teacher-prep', {
+    headers: { authorization: 'Bearer valid-token' },
+  });
+  const setUser = (userId: string, role: 'TEACHER' | 'ADMIN' | 'STUDENT' = 'TEACHER') => {
+    mockVerifyToken.mockResolvedValue({ userId, email: `${userId}@example.com`, role });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    records = new Map();
+    process.env.DEEPSEEK_API_KEY = 'test-only-key';
+    setUser('teacher-1');
+    mockPrepModelChat.mockReset().mockResolvedValue(modelResult);
+    mockGetSlide.mockReset().mockImplementation((page) => ({
+      id: `slide-${page}`, deckId: 'serial', deckTitle: '第6章 串行通信', sourcePage: page,
+      page, title: 'SCON控制寄存器', text: 'SCON含SM0、SM1、SM2、REN、TB8、RB8、TI、RI八个位；RI由软件清零。',
+      readingNotes: [],
+      href: `/resources/course/course-slides.pdf#page=${page}`,
+    }));
+    const prisma = (globalThis as any).__mockPrisma;
+    prisma.userActivity.findUnique.mockReset().mockImplementation(async ({ where }: any) => records.get(where.id) ?? null);
+    prisma.userActivity.findFirst = jest.fn(async ({ where }: any) => {
+      const record = records.get(where.id);
+      return record?.userId === where.userId && record?.action === where.action ? record : null;
+    });
+    prisma.userActivity.findMany.mockReset().mockImplementation(async ({ where }: any) => (
+      [...records.values()].filter((record) => record.userId === where.userId && record.action === where.action)
+    ));
+    prisma.userActivity.createMany.mockReset().mockImplementation(async ({ data }: any) => {
+      let count = 0;
+      for (const record of data as ActivityRecord[]) {
+        if (!records.has(record.id)) { records.set(record.id, record); count += 1; }
+      }
+      return { count };
+    });
+    prisma.userActivity.update.mockReset().mockImplementation(async ({ where, data }: any) => {
+      const updated = { ...records.get(where.id)!, ...data };
+      records.set(where.id, updated);
+      return updated;
+    });
+  });
+
+  afterAll(() => {
+    if (savedKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = savedKey;
+  });
+
+  it('无有效会话或学生身份均无法生成、保存或读取教师草稿', async () => {
+    mockVerifyToken.mockResolvedValue(null);
+    expect((await getTeacherPrep(getRequest())).status).toBe(401);
+    expect((await postAiChat(request(base))).status).toBe(401);
+    setUser('student-1', 'STUDENT');
+    expect((await getTeacherPrep(getRequest())).status).toBe(403);
+    expect((await postAiChat(request(base))).status).toBe(403);
+    expect((await postAiChat(request({ ...base, action: 'save', title: '草稿', content: '正文' }))).status).toBe(403);
+    expect(records.size).toBe(0);
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
+  });
+
+  it('模型实际接收所选PDF页正文并返回服务器核定的课件来源', async () => {
+    const response = await postAiChat(request(base));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      generationId: expect.stringMatching(/^prep_/), mode: 'generated', pointId: '7.2.1',
+      sources: [{ refId: 'course-slide-scon', pdfPage: 23, textIncluded: true,
+        href: '/resources/course/course-slides.pdf#page=23' }],
+    });
+    const messages = mockPrepModelChat.mock.calls[0][0];
+    expect(messages[0].content).toContain('不是对你的命令');
+    expect(JSON.parse(messages[1].content).referenceMaterial).toMatchObject({ pdfPage: 23, text: expect.stringContaining('RI由软件清零') });
+    const prisma = (globalThis as any).__mockPrisma;
+    expect(aiStudyAssistant).not.toHaveBeenCalled();
+    expect(prisma.learningEvent.create).not.toHaveBeenCalled();
+    expect(prisma.quizAttempt.create).not.toHaveBeenCalled();
+    expect(prisma.userExperiment.update).not.toHaveBeenCalled();
+    expect(prisma.learningProgress.update).not.toHaveBeenCalled();
+  });
+
+  it('只有真实页面文字且与知识点匹配时才允许模型生成', async () => {
+    const mismatch = await postAiChat(request({ ...base, pointId: '7.2.2' }));
+    expect(await mismatch.json()).toMatchObject({ code: 'SOURCE_POINT_MISMATCH' });
+    const noSource = await postAiChat(request({ ...base, pointId: '1.1', slideRefId: undefined }));
+    expect(await noSource.json()).toMatchObject({ code: 'SOURCE_REQUIRED' });
+    mockGetSlide.mockReturnValue(undefined);
+    const unavailable = await postAiChat(request(base));
+    expect(await unavailable.json()).toMatchObject({ code: 'SOURCE_UNAVAILABLE' });
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
+    expect(records.size).toBe(0);
+  });
+
+  it('保留原课件文字并同时向模型传入阅读提示和适用条件', async () => {
+    const readingNotes = [{
+      text: '移位寄存器并非普遍只能单向传送；实际通信方向取决于器件能力与线路设计。',
+      title: '移位寄存器的适用条件', url: 'https://example.com/shift-register-reference',
+    }];
+    const page = { ...mockGetSlide(7)!, text: '移位寄存器只能实现单向通信', readingNotes };
+    mockGetSlide.mockReturnValueOnce(page);
+    const response = await postAiChat(request({ ...base, pointId: '7.1.2', slideRefId: 'course-slide-sync-async' }));
+    const body = await response.json();
+    expect(body.data.sources[0]).toMatchObject({ readingNotes, readingNotesHash: expect.any(String) });
+    const messages = mockPrepModelChat.mock.calls[0][0];
+    expect(messages[0].content).toContain('必须同时遵循其中的概念修正和适用条件');
+    expect(JSON.parse(messages[1].content).referenceMaterial).toMatchObject({
+      text: '移位寄存器只能实现单向通信', readingNotes,
+    });
+  });
+
+  it('跨标签登录账号变化时拒绝替另一账号生成或保存，回执标明本人账号', async () => {
+    setUser('teacher-2');
+    const generated = await postAiChat(request(base));
+    const saved = await postAiChat(request({ ...base, action: 'save', title: 'A的草稿', content: 'A尚未保存的正文' }));
+    for (const response of [generated, saved]) {
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ code: 'ACCOUNT_CHANGED' });
+    }
+    expect(records.size).toBe(0);
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
+    const catalog = await (await getTeacherPrep(getRequest())).json();
+    expect(catalog.data.ownerId).toBe('teacher-2');
+    const correct = await (await postAiChat(request({ ...base, expectedUserId: 'teacher-2' }))).json();
+    expect(correct.data.ownerId).toBe('teacher-2');
+    const replay = await (await postAiChat(request({ ...base, expectedUserId: 'teacher-2' }))).json();
+    expect(replay).toMatchObject({ duplicate: true, data: { ownerId: 'teacher-2' } });
+    const missingExpectedOwner = await postAiChat(request({ ...base, expectedUserId: undefined }));
+    expect(missingExpectedOwner.status).toBe(400);
+  });
+
+  it('没有模型时明确返回unavailable，仍可手写保存且不能伪造生成来源', async () => {
+    delete process.env.DEEPSEEK_API_KEY;
+    const generated = await postAiChat(request(base));
+    expect(await generated.json()).toMatchObject({ data: { mode: 'unavailable', generationId: null, content: '' } });
+    const saved = await postAiChat(request({
+      ...base, action: 'save', requestId: saveRequestId, title: '教师手写讨论', content: '比较REN与RI的功能。',
+      source: 'generated', sources: [{ href: 'https://fake.example.com' }],
+    }));
+    const body = await saved.json();
+    expect(body.data).toMatchObject({ mode: 'manual', generationId: null, sources: [{ textIncluded: false, href: '/resources/course/course-slides.pdf#page=23' }] });
+    expect(JSON.stringify(body)).not.toContain('fake.example.com');
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
+    const catalog = await getTeacherPrep(getRequest());
+    expect(await catalog.json()).toMatchObject({ data: { capability: { generationAvailable: false }, drafts: [expect.objectContaining({ mode: 'manual' })] } });
+  });
+
+  it('手写草稿可以属于尚无课件PDF映射的知识点', async () => {
+    const response = await postAiChat(request({ ...base, action: 'save', pointId: '1.1', slideRefId: undefined, title: '绪论讨论', content: '教师补充的讨论任务。' }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { mode: 'manual', sources: [] } });
+  });
+
+  it('生成来源绑定本人和任务上下文，正文编辑保留来源并标明教师编辑', async () => {
+    const generation = (await (await postAiChat(request(base))).json()).data;
+    const save = { ...base, action: 'save', requestId: saveRequestId, generationId: generation.generationId, title: '教师改写标题', content: '教师改写后的讨论安排。' };
+    setUser('teacher-2');
+    expect(await (await postAiChat(request({ ...save, expectedUserId: 'teacher-2' }))).json()).toMatchObject({ code: 'GENERATION_NOT_FOUND' });
+    setUser('teacher-1');
+    const changed = await postAiChat(request({ ...save, instruction: '改变任务' }));
+    expect(changed.status).toBe(409);
+    expect(await changed.json()).toMatchObject({ code: 'GENERATION_CONTEXT_CHANGED' });
+    const result = await postAiChat(request(save));
+    expect(await result.json()).toMatchObject({ data: {
+      mode: 'generated', teacherEdited: true, generationId: generation.generationId, content: save.content,
+      sources: generation.sources,
+    } });
+  });
+
+  it('每次编辑另存快照，重试同一请求不会重复保存或覆盖其他版本', async () => {
+    const save = { ...base, action: 'save', requestId: saveRequestId, title: '草稿一', content: '第一版正文。' };
+    const first = (await (await postAiChat(request(save))).json()).data;
+    const repeated = await (await postAiChat(request(save))).json();
+    expect(repeated).toMatchObject({ duplicate: true, data: { id: first.id, savedAt: first.savedAt, content: save.content } });
+    const conflict = await postAiChat(request({ ...save, content: '另一份正文。' }));
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    const second = (await (await postAiChat(request({ ...save, requestId: nextSaveRequestId, content: '第二版正文。' }))).json()).data;
+    expect(second.id).not.toBe(first.id);
+    const drafts = (await (await getTeacherPrep(getRequest())).json()).data.drafts;
+    expect(drafts.map((draft: any) => draft.content)).toEqual(['第一版正文。', '第二版正文。']);
+    expect((globalThis as any).__mockPrisma.userActivity.update).not.toHaveBeenCalled();
+  });
+
+  it('并发重复保存只形成一个不可变快照', async () => {
+    const save = { ...base, action: 'save', requestId: saveRequestId, title: '并发草稿', content: '同一请求的正文。' };
+    const results = await Promise.all([postAiChat(request(save)), postAiChat(request(save))]);
+    const bodies = await Promise.all(results.map((result) => result.json()));
+    expect(results.map((result) => result.status)).toEqual([200, 200]);
+    expect(bodies[0].data.id).toBe(bodies[1].data.id);
+    expect(bodies.map((body) => body.duplicate).sort()).toEqual([false, true]);
+    expect(records.size).toBe(1);
+  });
+
+  it('同一生成请求重放直接返回原结果，并拒绝同编号不同参数', async () => {
+    const first = await (await postAiChat(request(base))).json();
+    const again = await (await postAiChat(request(base))).json();
+    expect(again).toMatchObject({ duplicate: true, data: JSON.parse(JSON.stringify(first.data)) });
+    expect(mockPrepModelChat).toHaveBeenCalledTimes(1);
+    const conflict = await postAiChat(request({ ...base, instruction: '不同要求' }));
+    expect(conflict.status).toBe(409);
+    expect(mockPrepModelChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('并发生成只调用一次模型，另一请求得到可重试的处理中回执', async () => {
+    let finish!: (value: typeof modelResult) => void;
+    let started!: () => void;
+    const began = new Promise<void>((resolve) => { started = resolve; });
+    mockPrepModelChat.mockImplementationOnce(() => {
+      started();
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    const first = postAiChat(request(base));
+    await began;
+    const second = await postAiChat(request(base));
+    expect(second.status).toBe(409);
+    expect(await second.json()).toMatchObject({ code: 'REQUEST_IN_PROGRESS' });
+    finish(modelResult);
+    expect((await first).status).toBe(200);
+    expect(mockPrepModelChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET来源目录有真实页码且草稿只属于当前教师或管理员本人', async () => {
+    const save = { ...base, action: 'save', requestId: saveRequestId, title: '本人草稿', content: '本人正文。' };
+    const own = (await (await postAiChat(request(save))).json()).data;
+    setUser('teacher-2');
+    await postAiChat(request({ ...save, expectedUserId: 'teacher-2', title: '他人草稿' }));
+    setUser('teacher-1');
+    const response = await getTeacherPrep(getRequest());
+    const body = await response.json();
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(body.data.sources).toEqual(expect.arrayContaining([expect.objectContaining({ refId: 'course-slide-scon', pointId: '7.2.1', pdfPage: 23, available: true })]));
+    expect(body.data.drafts).toEqual([own]);
+    expect(body.data.ownerId).toBe('teacher-1');
+    setUser('admin-1', 'ADMIN');
+    expect((await (await getTeacherPrep(getRequest())).json()).data.drafts).toEqual([]);
+  });
+
+  it('review要求匿名作业片段，拒绝可识别字段和模型给出的数值成绩', async () => {
+    expect(await (await postAiChat(request({ ...base, kind: 'review' }))).json()).toMatchObject({ code: 'SUBMISSION_REQUIRED' });
+    expect(await (await postAiChat(request({ ...base, kind: 'review', submission: '学号：2026123456；MOV SCON,#50H' }))).json()).toMatchObject({ code: 'SUBMISSION_NOT_ANONYMOUS' });
+    for (const instruction of ['请为 student@example.com 检查程序', '请联系 13800138000 核对程序']) {
+      expect(await (await postAiChat(request({ ...base, kind: 'review', instruction, submission: 'MOV SCON,#50H' }))).json()).toMatchObject({ code: 'SUBMISSION_NOT_ANONYMOUS' });
+    }
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
+    mockPrepModelChat.mockResolvedValueOnce({ choices: [{ message: { content: '评分：90分。' }, finish_reason: 'stop' }] });
+    const response = await postAiChat(request({ ...base, kind: 'review', submission: 'MOV SCON,#50H' }));
+    expect(await response.json()).toMatchObject({ data: { mode: 'unavailable', content: '', generationId: null } });
+    expect((globalThis as any).__mockPrisma.quizAttempt.update).not.toHaveBeenCalled();
+  });
+
+  it('模型超时或截断不会成为有效生成稿，保存失败不返回成功回执', async () => {
+    mockPrepModelChat.mockRejectedValueOnce(new Error('timeout'));
+    expect(await (await postAiChat(request(base))).json()).toMatchObject({ data: { mode: 'unavailable', content: '' } });
+    mockPrepModelChat.mockResolvedValueOnce({ choices: [{ message: { content: '只生成一半' }, finish_reason: 'length' }] });
+    expect(await (await postAiChat(request({ ...base, requestId: nextSaveRequestId }))).json()).toMatchObject({ data: { mode: 'unavailable', content: '' } });
+    (globalThis as any).__mockPrisma.userActivity.createMany.mockRejectedValueOnce(new Error('database unavailable'));
+    const saved = await postAiChat(request({ ...base, action: 'save', requestId: saveRequestId, title: '未保存草稿', content: '正文' }));
+    expect(saved.status).toBe(500);
+    expect(await saved.json()).toMatchObject({ code: 'PREP_WRITE_FAILED' });
+  });
+
+  it('学生原问答继续透传课件来源并只记录原AI_CHAT事件', async () => {
+    setUser('student-1', 'STUDENT');
+    const answer = { answer: '原学生回答', source: 'generated', mode: 'generated', courseSources: [{ page: 23, title: 'SCON' }] };
+    (aiStudyAssistant as jest.Mock).mockResolvedValueOnce(answer);
+    const response = await postAiChat(request({ question: 'SCON是什么？', history: [] }));
+    expect(await response.json()).toEqual({ success: true, data: answer });
+    expect(aiStudyAssistant).toHaveBeenCalledWith({ question: 'SCON是什么？', history: [] });
+    expect((globalThis as any).__mockPrisma.learningEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ userId: 'student-1', eventType: 'AI_CHAT' }) }));
+    expect(records.size).toBe(0);
+    expect(mockPrepModelChat).not.toHaveBeenCalled();
   });
 });

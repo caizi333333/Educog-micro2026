@@ -338,8 +338,6 @@ describe('CQI ambiguous write recovery', () => {
 
     const generateButton = await screen.findByRole('button', { name: '生成报告' });
     await waitFor(() => expect(generateButton).toBeEnabled());
-    expect(screen.getByText('演示数据 · DEMO')).toBeInTheDocument();
-    expect(screen.getByText(/仅用于验证持续改进流程与界面/)).toBeInTheDocument();
     fireEvent.click(generateButton);
 
     const confirmation = await screen.findByRole('alertdialog', { name: '确认生成持续改进报告' });

@@ -145,8 +145,6 @@ describe('HyperDashboard source-owned states', () => {
     expect(screen.getByText('完成模块').parentElement).toHaveTextContent('1');
     expect(screen.getByText('连续学习').parentElement).toHaveTextContent('3 天');
     expect(screen.getByText('2/54')).toBeInTheDocument();
-    expect(screen.getByText('演示数据：')).toBeInTheDocument();
-    expect(screen.getByText(/当前工作台数据核对截至/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '从任务开始，按证据完成每一步' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /我的任务|查看我的学习任务/ }).some((link) => link.getAttribute('href') === '/tasks')).toBe(true);
     expect(screen.queryByTestId('welcome-onboarding')).not.toBeInTheDocument();

@@ -410,8 +410,6 @@ describe('ProfilePage role-aware states', () => {
     expect(screen.getByText('2h')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /继续学习任务/ })).toHaveAttribute('href', '/tasks');
     expect(screen.getByText('提交测验')).toBeInTheDocument();
-    expect(screen.getByText('演示数据：')).toBeInTheDocument();
-    expect(screen.getByText(/学习进度 n=2 · 测验作答 n=1 · 实验记录 n=0/)).toBeInTheDocument();
   });
 
   it('shows a recoverable profile request error and retries without rendering student zeroes', async () => {

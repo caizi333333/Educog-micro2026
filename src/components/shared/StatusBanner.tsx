@@ -67,7 +67,7 @@ export function EvidenceReadiness({ mode, className }: EvidenceReadinessProps) {
     {
       code: 'PENDING',
       title: '待真实采集',
-      text: '真实成绩、课堂观察、问卷与可核验学生成果。',
+      text: '真实成绩、课堂观察与问卷结果将在结课后按同一口径补录。',
       Icon: AlertCircle,
       style: 'border-cyan-300/20 bg-cyan-300/[0.045] text-cyan-100',
     },

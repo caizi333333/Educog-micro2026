@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { ClientRequestTimeoutError, fetchClientRequest } from '@/lib/client-fetch';
 import {
-  Controls,
   Handle,
   MarkerType,
   Position,
@@ -56,11 +55,6 @@ import {
   Users,
   X,
   Zap,
-  Cable,
-  CircuitBoard,
-  Clock,
-  Cog,
-  Radio,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -74,6 +68,7 @@ import {
   type KnowledgePointResource,
 } from '@/lib/knowledge-points';
 import type { PublicQuestion } from '@/lib/quiz-data';
+import { COURSE_UNIT_ALIGNMENT } from '@/lib/course-curriculum';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import {
   getProblemRemediationPlan,
@@ -91,7 +86,6 @@ import {
   type IdeologicalNode,
 } from '@/lib/ideological-graph';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { NextStepBanner, type NextStepSnapshot } from '@/components/onboarding/NextStepBanner';
 import {
@@ -103,21 +97,94 @@ import {
 } from '@/lib/lesson-tasks';
 type GraphView = 'knowledge' | 'problem' | 'ideological';
 
-/**
- * Every graph uses the same two-column desktop workspace. In canvas focus mode
- * the navigator is hidden, so the remaining section must explicitly span one
- * full-width column; otherwise CSS Grid places it in the former 220px sidebar.
- */
-export function getGraphWorkspaceClassName(isCanvasFocus: boolean, elevated: boolean): string {
-  return cn(
-    'relative px-3 py-2 sm:px-4 lg:grid lg:gap-2.5',
-    isCanvasFocus ? 'lg:grid-cols-1' : 'lg:grid-cols-[220px_minmax(0,1fr)]',
-    elevated ? 'z-40 lg:z-10' : 'z-10',
-  );
+type GraphWorkspaceMode = 'wide' | 'split' | 'single';
+type GraphPanelKind = 'directory' | 'inspector';
+
+export function getGraphWorkspaceMode(width: number): GraphWorkspaceMode {
+  return width >= 1280 ? 'wide' : width >= 1024 ? 'split' : 'single';
+}
+
+export function resolveGraphPanelVisibility(
+  mode: GraphWorkspaceMode,
+  directoryOpen: boolean,
+  inspectorOpen: boolean,
+  lastPanel: GraphPanelKind,
+) {
+  if (mode === 'wide' || !directoryOpen || !inspectorOpen) return { directoryOpen, inspectorOpen };
+  return { directoryOpen: lastPanel === 'directory', inspectorOpen: lastPanel === 'inspector' };
+}
+
+export function getGraphWorkspaceClassName(mode: GraphWorkspaceMode, directoryOpen: boolean, inspectorOpen: boolean): string {
+  return cn('kg-workspace relative grid items-start gap-3 px-3 py-3 sm:px-4',
+    mode === 'single' ? 'grid-cols-1' : directoryOpen && inspectorOpen
+      ? 'grid-cols-[220px_minmax(0,1fr)_360px]' : directoryOpen
+        ? 'grid-cols-[220px_minmax(0,1fr)]' : inspectorOpen
+          ? 'grid-cols-[minmax(0,1fr)_360px]' : 'grid-cols-1');
+}
+
+export function useGraphWorkspace(ref: RefObject<HTMLDivElement>, ready: boolean, presentation: boolean) {
+  const [mode, setMode] = useState<GraphWorkspaceMode>('single');
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const lastPanel = useRef<GraphPanelKind>('inspector');
+  useEffect(() => {
+    const element = ref.current;
+    if (!ready || !element) return;
+    const update = () => setMode(getGraphWorkspaceMode(Math.max(0, element.clientWidth - 32)));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, ready, presentation]);
+  useEffect(() => {
+    const next = resolveGraphPanelVisibility(mode, directoryOpen, inspectorOpen, lastPanel.current);
+    if (next.directoryOpen !== directoryOpen) setDirectoryOpen(next.directoryOpen);
+    if (next.inspectorOpen !== inspectorOpen) setInspectorOpen(next.inspectorOpen);
+  }, [mode, directoryOpen, inspectorOpen]);
+  const setDirectory = useCallback((open: boolean) => {
+    if (open) { lastPanel.current = 'directory'; if (mode !== 'wide') setInspectorOpen(false); }
+    setDirectoryOpen(open);
+  }, [mode]);
+  const setInspector = useCallback((open: boolean) => {
+    if (open) { lastPanel.current = 'inspector'; if (mode !== 'wide') setDirectoryOpen(false); }
+    setInspectorOpen(open);
+  }, [mode]);
+  return { mode, directoryOpen, inspectorOpen, setDirectory, setInspector };
+}
+type GraphWorkspaceState = ReturnType<typeof useGraphWorkspace>;
+
+/** Inline reading region: the narrow layout replaces the canvas, never covers it. */
+export function GraphReadingPanel({ compact, open, onClose, triggerRef, panelRef, id, label, labelId, children, className }: MobileDrawerDialogProps & { compact: boolean }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel) return;
+    if (compact) panel.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !panel.contains(document.activeElement)) return;
+      event.preventDefault(); event.stopImmediatePropagation(); closeRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      if (panel.contains(document.activeElement) || document.activeElement === document.body) {
+        requestAnimationFrame(() => triggerRef.current?.focus());
+      }
+    };
+  }, [open, compact, panelRef, triggerRef]);
+  return <aside ref={panelRef} id={id} hidden={!open} tabIndex={-1} aria-label={label}
+    data-kg-reading-panel={open ? 'open' : 'closed'}
+    className={cn('kg-reading-panel min-w-0 rounded-lg border border-white/10 bg-[#0d151e] p-3 outline-none', className)}>
+    {compact && <button type="button" onClick={onClose} className="sticky top-0 z-20 mb-3 flex min-h-11 w-full items-center rounded-md border border-cyan-200/20 bg-[#101e29] px-3 text-sm text-cyan-100">← 返回导图</button>}
+    <span id={`${labelId}-reading`} className="sr-only">{label}</span>
+    {children}
+  </aside>;
 }
 
 const DRAWER_FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
+  'summary',
   'a[href]',
   'input:not([disabled])',
   'select:not([disabled])',
@@ -231,7 +298,7 @@ export function useGraphCanvasFocusDialog(
     };
     const focusFrame = window.requestAnimationFrame(focusInitialControl);
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && onRequestExit) {
+      if (event.key === 'Escape' && onRequestExit && !root.querySelector('[data-kg-reading-panel="open"]')) {
         event.preventDefault();
         event.stopPropagation();
         onRequestExit();
@@ -507,6 +574,16 @@ const graphViews: Array<{ id: GraphView; label: string; count: number; summary: 
   { id: 'ideological', label: '育人主题', count: ideologicalNodes.length, summary: '周次、案例与价值', icon: Flag },
 ];
 
+export const graphPresentationSteps = [
+  { title: '课程总览', detail: '先说明课程的十个单元' },
+  { title: '指令系统', detail: '进入第 3 单元建立位置' },
+  { title: '寻址方式', detail: '定位 3.1 主题' },
+  { title: '七种寻址', detail: '展开七个具体知识点' },
+  { title: '直接寻址', detail: '阅读核心解释与实践入口' },
+  { title: '典型混淆', detail: '跨图查看诊断问题' },
+  { title: '返回知识点', detail: '恢复来源节点与视角' },
+] as const;
+
 const graphViewTone: Record<GraphView, { active: string; icon: string; index: string }> = {
   knowledge: {
     active: 'border-cyan-300/35 bg-cyan-300/[0.10] text-cyan-50 shadow-[inset_0_-2px_0_rgba(103,232,249,.68)]',
@@ -514,13 +591,13 @@ const graphViewTone: Record<GraphView, { active: string; icon: string; index: st
     index: '01',
   },
   problem: {
-    active: 'border-amber-300/35 bg-amber-300/[0.10] text-amber-50 shadow-[inset_0_-2px_0_rgba(252,211,77,.68)]',
-    icon: 'text-amber-200',
+    active: 'border-cyan-300/35 bg-cyan-300/[0.10] text-cyan-50 shadow-[inset_0_-2px_0_rgba(103,232,249,.68)]',
+    icon: 'text-cyan-200',
     index: '02',
   },
   ideological: {
-    active: 'border-rose-300/35 bg-rose-300/[0.10] text-rose-50 shadow-[inset_0_-2px_0_rgba(253,164,175,.68)]',
-    icon: 'text-rose-200',
+    active: 'border-cyan-300/35 bg-cyan-300/[0.10] text-cyan-50 shadow-[inset_0_-2px_0_rgba(103,232,249,.68)]',
+    icon: 'text-cyan-200',
     index: '03',
   },
 };
@@ -557,13 +634,19 @@ export function buildGraphNodeSelectionUrl({
   chapter?: number;
 }): string {
   const next = new URLSearchParams(currentSearch);
-  next.set('node', nodeId);
+  if (nodeId) next.set('node', nodeId);
+  else next.delete('node');
   if (view === 'knowledge') {
     // The default knowledge view intentionally omits `view`; if a caller has
     // an explicit view value, correct it without discarding any task/filter
     // parameters already present in the URL.
-    if (next.has('view')) next.set('view', 'knowledge');
-    if (typeof chapter === 'number' && next.has('chapter')) next.set('chapter', String(chapter));
+    if (!nodeId) {
+      next.delete('view');
+      next.delete('chapter');
+    } else {
+      if (next.has('view')) next.set('view', 'knowledge');
+      if (typeof chapter === 'number' && next.has('chapter')) next.set('chapter', String(chapter));
+    }
   } else {
     next.set('view', view);
   }
@@ -572,7 +655,7 @@ export function buildGraphNodeSelectionUrl({
 }
 
 export function shouldAutoOpenGraphInspector(isCanvasFocus: boolean, isInspectorOpen: boolean): boolean {
-  return !isCanvasFocus && !isInspectorOpen;
+  return false;
 }
 
 const problemCategoryMeta: Record<ProblemNode['category'], { label: string; icon: ComponentType<{ className?: string }>; tone: string }> = {
@@ -654,14 +737,14 @@ function QuizPreviewItem({ q, index }: { q: PublicQuestion; index: number }) {
   return (
     <div className="rounded-md border border-white/[0.06] bg-black/20 p-3">
       <div className="mb-2 flex items-start gap-2 text-[11px]">
-        <span className="font-mono text-[10px] text-slate-500">Q{index + 1} · CH{q.chapter}</span>
-        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">
+        <span className="font-mono text-xs text-slate-500">Q{index + 1} · 单元 {q.chapter}</span>
+        <span className="ml-auto rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
           {q.type === 'code-completion' ? '代码补全' : '选择'}
         </span>
       </div>
       <p className="text-[12px] leading-5 text-slate-200">{q.questionText}</p>
       {q.type === 'code-completion' && (
-        <pre className="mt-2 max-h-24 overflow-y-auto rounded-sm border border-white/[0.05] bg-black/40 p-2 font-mono text-[10px] leading-4 text-slate-300">
+        <pre className="mt-2 max-h-24 overflow-y-auto rounded-sm border border-white/[0.05] bg-black/40 p-2 font-mono text-xs leading-5 text-slate-300">
           {q.code}
         </pre>
       )}
@@ -669,13 +752,13 @@ function QuizPreviewItem({ q, index }: { q: PublicQuestion; index: number }) {
         <ul className="mt-2 space-y-0.5 text-[11px] text-slate-400">
           {q.options.map((opt, i) => (
             <li key={i} className="flex items-start gap-1.5">
-              <span className="font-mono text-[10px] text-slate-600">{String.fromCharCode(65 + i)}.</span>
+              <span className="font-mono text-xs text-slate-600">{String.fromCharCode(65 + i)}.</span>
               <span>{opt}</span>
             </li>
           ))}
         </ul>
       )}
-      <div className="mt-2 text-[10px] leading-5 text-slate-500">答案在正式交卷后由服务端反馈。</div>
+      <div className="mt-2 text-xs leading-5 text-slate-500">答案在正式交卷后由服务端反馈。</div>
     </div>
   );
 }
@@ -852,7 +935,7 @@ function AddressingModeCompare({
     <div id="addressing-compare" className="scroll-mt-20 border-b border-white/[0.08] bg-cyan-300/[0.025] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-200">
+          <div className="font-mono text-xs uppercase tracking-[0.12em] text-cyan-200">
             {isGraphTaskStep ? 'Hierarchy Check · 7 nodes' : 'Interactive Compare · 7 modes'}
           </div>
           <h3 className="mt-1 text-base font-semibold text-slate-50">
@@ -886,7 +969,7 @@ function AddressingModeCompare({
                 : 'border-white/[0.08] bg-black/20 text-slate-300 hover:bg-white/[0.05]',
             )}
           >
-            <span className="block font-mono text-[9px] text-slate-500">{mode.id}</span>
+            <span className="block font-mono text-[11px] text-slate-500">{mode.id}</span>
             <span className="mt-0.5 block text-[11px] font-medium">{mode.name}</span>
             {visited.has(index) && <CheckCircle2 className="mt-1 h-3 w-3 text-emerald-300" aria-label="已查看" />}
           </button>
@@ -953,7 +1036,7 @@ function AddressingModeCompare({
       {isGraphTaskStep ? (
         <div className="mt-4 rounded-md border border-cyan-300/20 bg-[#071014] p-4" aria-live="polite">
           <div className="flex items-start gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] font-mono text-[10px] text-cyan-100">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] font-mono text-xs text-cyan-100">
               {visited.size}/7
             </div>
             <div>
@@ -972,24 +1055,24 @@ function AddressingModeCompare({
         <div className="mt-4 rounded-md border border-cyan-300/20 bg-[#071014] p-4" aria-live="polite">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <div className="font-mono text-[10px] text-cyan-300">{active.id} · {active.syntax}</div>
+            <div className="font-mono text-xs text-cyan-300">{active.id} · {active.syntax}</div>
             <div className="mt-1 text-sm font-semibold text-slate-50">{active.name}</div>
           </div>
           <code className="rounded border border-white/[0.08] bg-black/30 px-2 py-1 font-mono text-[11px] text-amber-200">{active.example}</code>
         </div>
         <div className="grid items-stretch gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
           <div className="rounded border border-white/[0.08] bg-white/[0.035] p-3">
-            <div className="font-mono text-[9px] text-slate-600">INSTRUCTION FIELD</div>
+            <div className="font-mono text-[11px] text-slate-600">INSTRUCTION FIELD</div>
             <div className="mt-1 text-xs text-slate-200">{active.syntax}</div>
           </div>
           <ChevronRight className="mx-auto h-4 w-4 self-center rotate-90 text-cyan-300 sm:rotate-0" />
           <div className="rounded border border-cyan-300/20 bg-cyan-300/[0.06] p-3">
-            <div className="font-mono text-[9px] text-cyan-300/70">ADDRESS FORMATION</div>
+            <div className="font-mono text-[11px] text-cyan-300/70">ADDRESS FORMATION</div>
             <div className="mt-1 text-xs text-cyan-50">{active.formation}</div>
           </div>
           <ChevronRight className="mx-auto h-4 w-4 self-center rotate-90 text-cyan-300 sm:rotate-0" />
           <div className="rounded border border-emerald-300/20 bg-emerald-300/[0.06] p-3">
-            <div className="font-mono text-[9px] text-emerald-300/70">OPERAND / TARGET</div>
+            <div className="font-mono text-[11px] text-emerald-300/70">OPERAND / TARGET</div>
             <div className="mt-1 text-xs text-emerald-50">{active.operand}</div>
           </div>
         </div>
@@ -1009,7 +1092,7 @@ function AddressingModeCompare({
   );
 }
 
-function DetailPanel({
+export function DetailPanel({
   point,
   childPoints,
   pointById,
@@ -1035,13 +1118,16 @@ function DetailPanel({
   const isAddressingTaskActive = isGraphTaskActive || isAnimationTaskActive;
   const isAddressingGraphNode = Boolean(point && (point.id === '3.1' || point.id.startsWith('3.1.')));
   const [quizQuestions, setQuizQuestions] = useState<PublicQuestion[]>([]);
+  const [questionLoadState, setQuestionLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [questionReload, setQuestionReload] = useState(0);
 
-  // Fetch quiz questions from API (DB-first) with static fallback
+  // Keep unavailable question data distinct from a successfully loaded empty set.
   useEffect(() => {
     let active = true;
     async function loadQuestions(): Promise<void> {
+      setQuizQuestions([]);
+      setQuestionLoadState('loading');
       if (isAddressingTaskActive) {
-        setQuizQuestions([]);
         return;
       }
       try {
@@ -1049,22 +1135,24 @@ function DetailPanel({
         if (res.ok) {
           const raw: unknown = await res.json();
           const parsed = questionResponseSchema.safeParse(raw);
-          if (active && parsed.success && parsed.data.data.length > 0) {
+          if (active && parsed.success) {
             setQuizQuestions(parsed.data.data);
+            setQuestionLoadState('ready');
             return;
           }
         }
-      } catch { /* 题目预览失败不影响图谱主内容 */ }
+      } catch { /* Keep the graph usable and offer an explicit retry below. */ }
+      if (active) setQuestionLoadState('error');
     }
     void loadQuestions();
     return (): void => { active = false; };
-  }, [isAddressingTaskActive, point?.chapter]);
+  }, [isAddressingTaskActive, point?.chapter, questionReload]);
 
   if (!point) {
     return (
-      <aside className="rounded-lg border border-white/[0.09] bg-[#0b1118]/95 p-6 text-sm leading-6 text-slate-400 shadow-xl">
+      <aside className="rounded-md border border-white/[0.09] bg-[#0b1118]/95 p-6 text-base leading-7 text-slate-400 shadow-xl">
         <MousePointer2 className="mb-4 h-5 w-5 text-cyan-200" />
-        选择画布节点或左侧目录条目，这里会按“理解—关系—资源—实践”组织节点内容。
+        选择一个知识点并打开详情，即可阅读核心解释、典型问题和实践入口。
       </aside>
     );
   }
@@ -1085,7 +1173,9 @@ function DetailPanel({
   }));
   const parent = point.parentId ? pointById[point.parentId] : null;
   const nextPoint = getNextPoint(point, allPoints);
-  const matchingQuestions = quizQuestions.filter((q) => q.ka === point.id).slice(0, 4);
+  const directQuestions = quizQuestions.filter((q) => q.ka === point.id);
+  const matchingQuestions = directQuestions.slice(0, 4);
+  const descendantQuestionCount = quizQuestions.filter((q) => q.ka.startsWith(`${point.id}.`)).length;
   const isRelatedKnowledgeId = (candidate: string): boolean => (
     candidate === point.id
     || candidate.startsWith(`${point.id}.`)
@@ -1093,6 +1183,7 @@ function DetailPanel({
   );
   const relatedProblems = problemGraph
     .filter((node) => node.level === 3 && node.relatedKnowledgePoints.some(isRelatedKnowledgeId))
+    .sort((a, b) => Number(b.relatedKnowledgePoints.includes(point.id)) - Number(a.relatedKnowledgePoints.includes(point.id)))
     .slice(0, 4);
   const explicitSipMappings = getExplicitSipMappingsForKnowledgePoint(point.id);
   const explicitIdeologicalNodeIds = new Set(
@@ -1114,408 +1205,257 @@ function DetailPanel({
     ? `${explicitSipMappings.map((mapping) => mapping.weekRange).join(' / ')}明确映射`
     : '内容关联（非周次安排）';
 
+  const actionClassName = 'flex min-h-11 w-full items-start gap-2 rounded-lg border border-white/[0.09] bg-white/[0.025] px-3 py-3 text-left text-base leading-6 text-slate-200 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200';
+  const summaryClassName = 'cursor-pointer rounded-md py-2 text-base font-medium leading-6 text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200';
+  const quizHref = isAddressingGraphNode ? '/quiz?topic=addressing-modes' : `/quiz?chapter=${point.chapter}`;
+
   return (
     <aside
+      key={point.id}
       aria-label={`节点详情：${point.name}`}
-      className="kg-inspector max-h-[min(760px,calc(100vh-218px))] overflow-y-auto rounded-lg border border-white/[0.09] bg-[#0b1118]/95 shadow-xl"
+      className="kg-inspector min-w-0 rounded-lg border border-white/[0.09] bg-[#0b1118]/95 text-base leading-7 text-slate-300"
     >
-      <div className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#0b1118]/95 p-5 backdrop-blur-xl">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-cyan-200">
-          <span>NODE INSPECTOR · CH{point.chapter}</span>
-          <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">L{point.level}</span>
-          <span className="text-slate-600">·</span>
-          <span className="text-slate-500">#{point.id}</span>
+      <header className="border-b border-white/[0.08] p-5">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span>平台单元 {point.chapter} · 知识点</span>
+          <span className="rounded bg-white/[0.06] px-1.5 py-0.5">第 {point.level} 层</span>
+          <span className="font-mono">#{point.id}</span>
         </div>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-50">{point.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{point.description || '该节点暂无详细说明。'}</p>
+        <h2 className="mt-2 break-words text-xl font-semibold leading-8 tracking-tight text-slate-50">{point.name}</h2>
         {parent && (!isAddressingTaskActive || parent.id === '3.1' || parent.id.startsWith('3.1.')) && (
           <button
             type="button"
             onClick={() => onSelectId(parent.id)}
-            className="group mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+            className="mt-3 inline-flex min-h-11 max-w-full items-start gap-2 rounded-md border border-white/[0.08] px-3 py-2 text-left text-sm leading-6 text-slate-300 hover:border-cyan-300/30 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
           >
-            <Layers className="h-3 w-3" />
-            <span>上级</span>
-            <span className="text-slate-500 group-hover:text-cyan-200/80">/</span>
-            <span className="font-medium">{parent.name}</span>
+            <Layers className="mt-1 h-4 w-4 shrink-0" />
+            <span className="min-w-0 break-words">返回上级：{parent.name}</span>
           </button>
         )}
-      </div>
+      </header>
 
       {isAddressingTaskActive && (
-        <div className="border-b border-cyan-300/15 bg-cyan-300/[0.035] p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-semibold text-cyan-100">
-                {isGraphTaskActive ? '步骤 1 操作范围' : '步骤 2 操作范围'}
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
-                {isGraphTaskActive
-                  ? '本步骤只核对 3.1 与 3.1.1—3.1.7 的层级。动画、专项测评和 exp02 将在后续任务步骤开放。'
-                  : '本步骤只完成七种寻址方式动态对比。专项测评和 exp02 将按后续任务步骤开放。'}
-              </p>
-            </div>
-            {!isAddressingGraphNode && (
-              <button
-                type="button"
-                onClick={() => onSelectId('3.1')}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-cyan-200/25 bg-cyan-200/[0.08] px-3 text-xs font-medium text-cyan-50 hover:bg-cyan-200/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
-              >
-                返回 3.1
-              </button>
-            )}
-          </div>
-        </div>
+        <section className="border-b border-cyan-300/15 bg-cyan-300/[0.035] p-5">
+          <h3 className="font-semibold text-cyan-100">{isGraphTaskActive ? '步骤 1 操作范围' : '步骤 2 操作范围'}</h3>
+          <p className="mt-2">
+            {isGraphTaskActive
+              ? '本步骤只核对 3.1 与 3.1.1—3.1.7 的层级。动画、专项测评和 exp02 将在后续任务步骤开放。'
+              : '本步骤只完成七种寻址方式动态对比。专项测评和 exp02 将按后续任务步骤开放。'}
+          </p>
+          {!isAddressingGraphNode && (
+            <button type="button" onClick={() => onSelectId('3.1')} className={cn(actionClassName, 'mt-3 text-cyan-100')}>
+              返回 3.1 寻址方式
+            </button>
+          )}
+        </section>
       )}
 
-      {point.tutor && (
-        <div className="border-b border-white/[0.08] bg-cyan-500/[0.03] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-200">
-            <Lightbulb className="h-3.5 w-3.5" />
-            讲解
-          </div>
-          <div className="space-y-3 text-sm leading-6 text-slate-200">
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-cyan-300/80">本质</div>
-              <div className="mt-0.5">{point.tutor.core}</div>
-            </div>
-            {point.tutor.whyImportant && (
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">为什么重要</div>
-                <div className="mt-0.5 text-slate-300">{point.tutor.whyImportant}</div>
-              </div>
-            )}
-            {point.tutor.commonMistake && (
-              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-amber-200">常见误区</div>
-                <div className="mt-0.5 text-slate-200">{point.tutor.commonMistake}</div>
-              </div>
-            )}
-            {point.tutor.takeaway && (
-              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-emerald-200">带走这一句</div>
-                <div className="mt-0.5 font-medium text-slate-50">{point.tutor.takeaway}</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <section aria-label="核心解释" className="border-b border-white/[0.08] p-5">
+        <h3 className="mb-3 flex items-center gap-2 font-semibold text-cyan-100">
+          <Lightbulb className="h-4 w-4 shrink-0" />核心解释
+        </h3>
+        <p className="break-words text-slate-100">{point.tutor?.core || point.description || '该节点暂无详细说明。'}</p>
+        {point.tutor?.whyImportant && <p className="mt-3 break-words">{point.tutor.whyImportant}</p>}
+        {point.tutor?.core && point.description && point.description !== point.tutor.core && (
+          <details className="mt-3">
+            <summary className={summaryClassName}>补充说明</summary>
+            <p className="mt-2 break-words">{point.description}</p>
+          </details>
+        )}
+        {isAddressingTaskActive && point.tutor?.commonMistake && (
+          <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.04] p-3">{point.tutor.commonMistake}</p>
+        )}
+        {point.tutor?.takeaway && (
+          <p className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.04] p-3 text-emerald-50">{point.tutor.takeaway}</p>
+        )}
+      </section>
 
-      {isAddressingTaskActive && isAddressingGraphNode ? (
-        <AddressingModeCompare currentPointId={point.id} onSelectNode={onSelectId} />
-      ) : !isAddressingTaskActive && point.id === '3.1' ? (
-        <AddressingModeCompare currentPointId={point.id} />
-      ) : null}
-
-      {!isAddressingTaskActive && prereqs.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <Link2 className="h-3.5 w-3.5" />
-            前置知识 · 先学什么
-          </div>
-          <div className="space-y-1.5">
-            {prereqs.map((p) => {
-              const reason = getPrerequisiteReason(point.id, p.id);
-              return (
-                <div key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectId(p.id)}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-left text-xs text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                  >
-                    <span className="line-clamp-1">{p.name}</span>
-                    <span className="shrink-0 font-mono text-[10px] text-slate-500">CH{p.chapter} · #{p.id}</span>
-                  </button>
-                  {reason && (
-                    <div className="mt-1 px-3 text-[11px] leading-snug text-slate-500">{reason}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && dependents.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-200/80">
-            <GitBranch className="h-3.5 w-3.5" />
-            支撑后续 · 学完能干什么
-          </div>
-          <div className="space-y-1.5">
-            {dependents.map((p) => {
-              const reason = getPrerequisiteReason(p.id, point.id);
-              return (
-                <div key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectId(p.id)}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2 text-left text-xs text-slate-200 hover:border-amber-300/40 hover:bg-amber-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
-                  >
-                    <span className="line-clamp-1">{p.name}</span>
-                    <span className="shrink-0 font-mono text-[10px] text-amber-200/70">CH{p.chapter} · #{p.id}</span>
-                  </button>
-                  {reason && (
-                    <div className="mt-1 px-3 text-[11px] leading-snug text-slate-500">{reason}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && (relatedProblems.length > 0 || relatedIdeologicalNodes.length > 0) && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <Network className="h-3.5 w-3.5" />
-            跨图谱关联 · 从知识走向诊断与育人
-          </div>
-          <div className="space-y-3">
-            {relatedProblems.length > 0 && (
-              <div>
-                <div className="mb-1.5 text-[11px] text-amber-200/80">可能出现的问题</div>
-                <div className="space-y-1.5">
-                  {relatedProblems.map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      onClick={() => onOpenProblemNode(node.id)}
-                      className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2 text-left text-xs text-slate-200 transition hover:border-amber-300/35 hover:bg-amber-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
-                    >
-                      <span className="line-clamp-1">{node.name}</span>
-                      <span className="shrink-0 text-[9px] text-amber-200/70">{difficultyLabel[node.difficulty]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {relatedIdeologicalNodes.length > 0 && (
-              <div>
-                <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-cyan-200/80">
-                  <span>{ideologicalRelationLabel}</span>
-                  <span className="font-mono text-[9px] text-slate-500">
-                    {explicitIdeologicalNodes.length > 0 ? 'EXPLICIT' : 'RELATED'}
+      {!isAddressingTaskActive && (
+        <section aria-label="典型问题" className="border-b border-white/[0.08] p-5">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold text-amber-100">
+            <AlertTriangle className="h-4 w-4 shrink-0" />典型问题
+          </h3>
+          {point.tutor?.commonMistake && (
+            <p className="mb-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.04] p-3 text-slate-200">{point.tutor.commonMistake}</p>
+          )}
+          {relatedProblems.length > 0 ? (
+            <div className="space-y-2">
+              {relatedProblems.map((node) => (
+                <button key={node.id} type="button" onClick={() => onOpenProblemNode(node.id)} className={cn(actionClassName, 'border-amber-300/20 hover:border-amber-300/40')}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-amber-50">{node.name}</span>
+                    <span className="mt-1 block text-xs leading-5 text-amber-200/75">{node.id} · {difficultyLabel[node.difficulty]} · 查看问题诊断</span>
                   </span>
-                </div>
-                <div className="space-y-1.5">
-                  {relatedIdeologicalNodes.map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      onClick={() => onOpenIdeologicalNode(node.id)}
-                      className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.04] px-3 py-2 text-left text-xs text-slate-200 transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                    >
-                      <span className="line-clamp-1">{node.name}</span>
-                      <span className="shrink-0 font-mono text-[9px] text-cyan-200/60">SIP · {node.id}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-2 text-[10px] leading-4 text-slate-400">
-                  {explicitIdeologicalNodes.length > 0
-                    ? '来自教学周映射表；同章或共享知识点不会自动算作本周安排。'
-                    : '用于拓展检索，不代表已写入某一教学周的实施安排。'}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-400">该节点暂未配置关联的问题诊断。</p>
+          )}
+        </section>
       )}
 
-      {!isAddressingTaskActive && inlineImages.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <ImageIcon className="h-3.5 w-3.5" />
-            图样
-          </div>
-          <div className="space-y-3">
-            {inlineImages.map((resource) => (
-              <a
-                key={resource.url}
-                href={resource.url}
-                target="_blank"
-                rel="noreferrer"
-                className="group block overflow-hidden rounded-md border border-white/[0.08] bg-white"
-              >
-                <img src={resource.url} alt={resource.title} className="block w-full" loading="lazy" />
-                <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#0c1117] px-3 py-2 text-[11px] text-slate-300 group-hover:text-cyan-100">
-                  <span className="line-clamp-1">{resource.title}</span>
-                  <ExternalLink className="ml-2 h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" />
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && mediaResources.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <PlayCircle className="h-3.5 w-3.5" />
-            视频 / PDF
-          </div>
-          <div className="space-y-3">
-            {mediaResources.slice(0, 2).map((resource) => (
-              <div key={`${resource.type}-${resource.title}-${resource.url}`} className="overflow-hidden rounded-md border border-white/[0.08] bg-black/25">
-                <div className="flex items-center justify-between border-b border-white/[0.08] px-3 py-2 text-xs text-slate-300">
-                  <span className="line-clamp-1">{resource.title}</span>
-                  <a href={resource.url} target="_blank" rel="noreferrer" aria-label={`在新窗口打开：${resource.title}`} className="ml-2 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-white/[0.06] hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                <iframe
-                  src={resource.url}
-                  title={resource.title}
-                  className="h-44 w-full bg-black"
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && otherResources.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <BookOpen className="h-3.5 w-3.5" />
-            配套资源
-          </div>
-          <div className="space-y-1.5">
-            {otherResources.map((resource) => {
-              const meta = RESOURCE_META[resource.type];
-              const Icon = meta.icon;
-              const href = resolveKnowledgeResourceHref(resource, point.chapter);
-              const sectionQuizFallback = isSectionQuizFallback(resource);
-              const inner = (
-                <>
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                  <span className="min-w-0 flex-1 truncate text-slate-200 group-hover:text-cyan-100">{resource.title}</span>
-                  <span className="shrink-0 rounded-sm bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                    {sectionQuizFallback ? '本章练习' : meta.label}
-                  </span>
-                </>
-              );
-              const baseCls = 'group flex min-h-11 w-full items-center gap-2 rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-xs hover:border-cyan-300/30 hover:bg-cyan-300/[0.05]';
-              if (!href) {
-                return (
-                  <div
-                    key={`${resource.type}-${resource.title}`}
-                    className={cn(baseCls, 'cursor-not-allowed opacity-70')}
-                    aria-disabled="true"
-                    title="该资源尚未接入平台，当前不可打开"
-                  >
-                    {inner}
-                    <span className="sr-only">暂未接入</span>
-                  </div>
-                );
-              }
-              if (href.startsWith('http')) {
-                return (
-                  <a key={`${resource.type}-${resource.title}`} href={href} target="_blank" rel="noreferrer" className={baseCls}>
-                    {inner}
-                  </a>
-                );
-              }
-              return (
-                <Link
-                  key={`${resource.type}-${resource.title}`}
-                  href={href}
-                  className={baseCls}
-                  title={sectionQuizFallback ? '该小节暂无独立题集，进入同口径本章测验' : undefined}
-                >
-                  {inner}
+      <section aria-label="实践入口" className="border-b border-white/[0.08] p-5">
+        <h3 className="mb-3 flex items-center gap-2 font-semibold text-emerald-100">
+          <Sparkles className="h-4 w-4 shrink-0" />实践入口
+        </h3>
+        {isAddressingTaskActive ? (
+          isAddressingGraphNode ? <AddressingModeCompare currentPointId={point.id} onSelectNode={onSelectId} /> : (
+            <p className="text-slate-400">请返回 3.1 寻址方式完成当前任务。</p>
+          )
+        ) : (
+          <>
+            <div className="space-y-2">
+              {appliedExperiments.map((exp) => (
+                <Link key={exp.refId} href={`/simulation?experiment=${encodeURIComponent(exp.refId)}`} className={cn(actionClassName, 'border-emerald-300/20 hover:border-emerald-300/40')}>
+                  <Cpu className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+                  <span className="min-w-0 flex-1 break-words">{exp.title}<span className="mt-1 block text-xs text-emerald-200/75">{exp.refId} · 进入实验</span></span>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && appliedExperiments.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <Sparkles className="h-3.5 w-3.5" />
-            应用于实验
-          </div>
-          <div className="space-y-1.5">
-            {appliedExperiments.map((exp) => (
-              <Link
-                key={exp.refId}
-                href={`/simulation?experiment=${encodeURIComponent(exp.refId)}`}
-                className="group flex min-h-11 items-center justify-between gap-2 rounded-md border border-emerald-300/15 bg-emerald-300/[0.04] px-3 py-2 text-xs text-emerald-100 hover:border-emerald-300/40 hover:bg-emerald-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
-              >
-                <span className="flex items-center gap-2">
-                  <Cpu className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
-                  <span className="line-clamp-1">{exp.title}</span>
-                </span>
-                <span className="shrink-0 font-mono text-[10px] text-emerald-300">{exp.refId}</span>
+              ))}
+              {appliedExperiments.length === 0 && <p className="text-slate-400">该节点暂未配置关联实验。</p>}
+              <Link href={quizHref} className={cn(actionClassName, 'text-cyan-100')}>
+                <CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />
+                <span>{isAddressingGraphNode ? '寻址方式专项测验' : '本单元测验'} →</span>
               </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && matchingQuestions.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              本节测验题 · {matchingQuestions.length}
             </div>
-            <Link
-              href={point.id === '3.1' || point.id.startsWith('3.1.') ? '/quiz?topic=addressing-modes' : `/quiz?chapter=${point.chapter}`}
-              className="inline-flex min-h-11 items-center px-2 font-mono text-[10px] text-cyan-300 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-            >
-              到测验页 →
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {matchingQuestions.map((q, i) => (
-              <QuizPreviewItem key={q.id} q={q} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
+            <div className="mt-3 text-base leading-7 text-slate-400" role="status">
+              {questionLoadState === 'loading' ? '正在读取关联题目…' : questionLoadState === 'error' ? (
+                <>
+                  题目暂时无法读取，关联数量未知。
+                  <button type="button" onClick={() => setQuestionReload((value) => value + 1)} className="mt-1 inline-flex min-h-11 items-center rounded-md px-2 text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">重新读取题目</button>
+                </>
+              ) : (
+                <>
+                  {point.level >= 3 && directQuestions.length === 0
+                    ? '本知识单元暂无专项题，题量按所属知识点汇总统计；可先学习本单元内容，再到所属知识点的测验中巩固。'
+                    : (<>
+                        本节点直接关联 {directQuestions.length} 题{descendantQuestionCount > 0 ? `；下级节点另有 ${descendantQuestionCount} 题` : ''}。
+                        {directQuestions.length === 0 ? '可先学习本节点内容，再进入单元测验巩固；单元题目不等同于本节点专项题。' : `可展开预览 ${matchingQuestions.length} 题。`}
+                      </>)}
+                </>
+              )}
+            </div>
+            {matchingQuestions.length > 0 && (
+              <details className="mt-3">
+                <summary className={summaryClassName}>知识点练习预览 · {matchingQuestions.length} 题</summary>
+                <div className="mt-2 space-y-2">{matchingQuestions.map((q, i) => <QuizPreviewItem key={q.id} q={q} index={i} />)}</div>
+              </details>
+            )}
+            {point.id === '3.1' && (
+              <details className="mt-3">
+                <summary className={summaryClassName}>七种寻址方式动态对比</summary>
+                <AddressingModeCompare currentPointId={point.id} />
+              </details>
+            )}
+          </>
+        )}
+      </section>
 
-      {!isAddressingTaskActive && childPoints.length > 0 && (
-        <div className="border-b border-white/[0.08] p-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
-            <ListTree className="h-3.5 w-3.5" />
-            下级节点 · {childPoints.length}
-          </div>
-          <div className="space-y-1">
-            {childPoints.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onSelectId(c.id)}
-                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-              >
-                <span className="line-clamp-1">{c.name}</span>
-                <span className="font-mono text-[10px] text-slate-600">L{c.level}</span>
+      {!isAddressingTaskActive && (
+        <div className="divide-y divide-white/[0.08] px-5">
+          <details className="py-3">
+            <summary className={summaryClassName}>关联资源 · {resources.length}</summary>
+            <div className="space-y-3 pb-2 pt-3">
+              {resources.length === 0 && <p className="text-slate-400">该节点暂未配置配套资源。</p>}
+              {inlineImages.map((resource) => (
+                <a key={resource.url} href={resource.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+                  <img src={resource.url} alt={resource.title} className="block w-full bg-white" loading="lazy" />
+                  <span className="flex items-start gap-2 p-3"><span className="min-w-0 flex-1 break-words">{resource.title}</span><ExternalLink className="mt-1 h-4 w-4 shrink-0" /></span>
+                </a>
+              ))}
+              {mediaResources.map((resource) => (
+                <div key={`${resource.type}-${resource.title}-${resource.url}`} className="overflow-hidden rounded-lg border border-white/[0.09] bg-black/25">
+                  <a href={resource.url} target="_blank" rel="noreferrer" aria-label={`在新窗口打开：${resource.title}`} className="flex min-h-11 items-start gap-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200">
+                    <span className="min-w-0 flex-1 break-words">{resource.title}</span><ExternalLink className="mt-1 h-4 w-4 shrink-0" />
+                  </a>
+                  <iframe src={resource.url} title={resource.title} className="h-44 w-full bg-black" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowFullScreen />
+                </div>
+              ))}
+              {otherResources.map((resource) => {
+                const meta = RESOURCE_META[resource.type];
+                const Icon = meta.icon;
+                const href = resolveKnowledgeResourceHref(resource, point.chapter);
+                const sectionQuizFallback = isSectionQuizFallback(resource);
+                const inner = (
+                  <>
+                    <Icon className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                    <span className="min-w-0 flex-1 break-words">
+                      {resource.title}
+                      <span className="mt-1 block text-xs text-slate-400">{sectionQuizFallback ? '本单元练习' : meta.label}{!href ? ' · 暂未接入' : ''}</span>
+                    </span>
+                  </>
+                );
+                if (!href) return <div key={`${resource.type}-${resource.title}`} className={cn(actionClassName, 'opacity-70')} aria-disabled="true" title="该资源尚未接入平台，当前不可打开">{inner}</div>;
+                if (href.startsWith('http') || /\.pdf(?:[?#]|$)/i.test(href)) return <a key={`${resource.type}-${resource.title}`} href={href} target="_blank" rel="noreferrer" className={actionClassName}>{inner}</a>;
+                return <Link key={`${resource.type}-${resource.title}`} href={href} className={actionClassName} title={sectionQuizFallback ? '该小节暂无独立题集，进入同口径本单元测验' : undefined}>{inner}</Link>;
+              })}
+            </div>
+          </details>
+
+          <details className="py-3">
+            <summary className={summaryClassName}>先修与后续知识 · {prereqs.length + dependents.length}</summary>
+            <div className="space-y-4 pb-2 pt-3">
+              {([{ title: '前置知识 · 先学什么', points: prereqs, before: true }, { title: '支撑后续 · 学完能干什么', points: dependents, before: false }]).map((group) => (
+                <div key={group.title}>
+                  <h4 className="mb-2 font-medium text-slate-100">{group.title}</h4>
+                  {group.points.length === 0 && <p className="text-slate-400">暂无已配置的{group.before ? '先修' : '后续'}关系。</p>}
+                  <div className="space-y-2">
+                    {group.points.map((item) => {
+                      const reason = getPrerequisiteReason(group.before ? point.id : item.id, group.before ? item.id : point.id);
+                      return <div key={item.id}>
+                        <button type="button" onClick={() => onSelectId(item.id)} className={actionClassName}>
+                          <span className="min-w-0 flex-1 break-words">{item.name}<span className="mt-1 block text-xs text-slate-400">单元 {item.chapter} · #{item.id}</span></span>
+                          <ChevronRight className="mt-1 h-4 w-4 shrink-0" />
+                        </button>
+                        {reason && <p className="mt-2 px-1 text-base leading-7 text-slate-400">{reason}</p>}
+                      </div>;
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+
+          {childPoints.length > 0 && (
+            <details className="py-3">
+              <summary className={summaryClassName}>下级节点 · {childPoints.length}</summary>
+              <div className="space-y-2 pb-2 pt-3">
+                {childPoints.map((child) => <button key={child.id} type="button" onClick={() => onSelectId(child.id)} className={actionClassName}><span className="min-w-0 flex-1 break-words">{child.name}</span><span className="shrink-0 text-xs text-slate-400">#{child.id}</span></button>)}
+              </div>
+            </details>
+          )}
+
+          {(COURSE_UNIT_ALIGNMENT[point.chapter] || relatedIdeologicalNodes.length > 0) && (
+            <details className="py-3">
+              <summary className={summaryClassName}>课程对照与育人关联</summary>
+              <div className="space-y-3 pb-2 pt-3">
+                {COURSE_UNIT_ALIGNMENT[point.chapter] && <p><span className="font-medium text-slate-100">课程主题对照：</span>{COURSE_UNIT_ALIGNMENT[point.chapter]}</p>}
+                {relatedIdeologicalNodes.length > 0 && (
+                  <>
+                    <h4 className="font-medium text-cyan-100">{ideologicalRelationLabel}</h4>
+                    {relatedIdeologicalNodes.map((node) => (
+                      <button key={node.id} type="button" onClick={() => onOpenIdeologicalNode(node.id)} className={actionClassName}>
+                        <span className="min-w-0 flex-1 break-words">{node.name}<span className="mt-1 block text-xs text-cyan-200/75">育人主题 · {node.id}</span></span><ChevronRight className="mt-1 h-4 w-4 shrink-0" />
+                      </button>
+                    ))}
+                    <p className="text-base leading-7 text-slate-400">{explicitIdeologicalNodes.length > 0 ? '来自教学周映射表；同单元或共享知识点不会自动算作本周安排。' : '用于拓展检索，不代表已写入某一教学周的实施安排。'}</p>
+                  </>
+                )}
+              </div>
+            </details>
+          )}
+
+          {nextPoint && (
+            <details className="py-3">
+              <summary className={summaryClassName}>继续学习</summary>
+              <button type="button" onClick={() => onSelectId(nextPoint.id)} className={cn(actionClassName, 'my-3')}>
+                <span className="min-w-0 flex-1 break-words"><span className="block text-xs text-cyan-200">下一节点</span>{nextPoint.name}<span className="block text-xs text-slate-400">单元 {nextPoint.chapter} · #{nextPoint.id}</span></span>
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-cyan-300" />
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAddressingTaskActive && nextPoint && (
-        <div className="p-5">
-          <button
-            type="button"
-            onClick={() => onSelectId(nextPoint.id)}
-            className="group flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 text-left hover:border-cyan-300/45 hover:bg-cyan-300/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-          >
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-300">下一节点</div>
-              <div className="mt-1 truncate text-sm font-medium text-slate-100">{nextPoint.name}</div>
-              <div className="mt-0.5 font-mono text-[10px] text-slate-500">CH{nextPoint.chapter} · L{nextPoint.level} · #{nextPoint.id}</div>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-cyan-300 transition-transform group-hover:translate-x-0.5" />
-          </button>
+            </details>
+          )}
         </div>
       )}
     </aside>
@@ -1530,107 +1470,50 @@ function ideologicalNodeDomId(id: string) {
   return `sip-node-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 }
 
-function truncateLabel(value: string, max = 9) {
-  return value.length > max ? `${value.slice(0, max)}…` : value;
-}
-
-type VisualEdge = {
-  from: string;
-  to: string;
-  color?: string;
-  width?: number;
-  dashed?: boolean;
-};
-
 type GraphTone =
   | 'cyan' | 'emerald' | 'amber' | 'red' | 'violet' | 'slate'
   | 'sky' | 'teal' | 'lime' | 'orange' | 'fuchsia' | 'rose';
 type GraphNodeSize = 'core' | 'root' | 'branch' | 'leaf' | 'diagnosticUnit' | 'compactDiagnosticUnit' | 'thematicUnit' | 'compactThematicUnit' | 'learningUnit' | 'compactLearningUnit' | 'chapter' | 'hub' | 'net' | 'chapterCard' | 'compactChapterCard' | 'topicCard' | 'compactTopicCard';
 
-// 统一克制色板：全部色相共享同一饱和度/明度带（S≈0.62 L≈0.68），
-// 只有色相在环上旋转——避免旧版 12 色各自不同纯度堆在一起的"彩虹爆炸"。
-// red 单独保留给掌握度<60 预警语义，明度/饱和度对齐但色相独立以维持警示辨识度。
+// 画布只用三色语义：青=结构，琥珀=先修/预警，青绿=掌握/达成。
+// 其余色相保留键名以免旧调用报错，但全部折回青色，避免章节彩虹。
 const graphTone: Record<GraphTone, { color: string; bg: string; border: string; text: string; minimap: string }> = {
-  cyan: { color: '#7bcce0', bg: 'rgba(123, 204, 224, 0.15)', border: 'rgba(146, 215, 232, 0.40)', text: '#d7eef4', minimap: '#2ab3d5' },
-  emerald: { color: '#7be0ad', bg: 'rgba(123, 224, 173, 0.15)', border: 'rgba(146, 232, 189, 0.40)', text: '#d7f4e6', minimap: '#2ad580' },
-  amber: { color: '#e0be7b', bg: 'rgba(224, 190, 123, 0.15)', border: 'rgba(232, 203, 146, 0.40)', text: '#f4ead7', minimap: '#d59c2a' },
-  red: { color: '#e0827b', bg: 'rgba(224, 130, 123, 0.16)', border: 'rgba(232, 151, 146, 0.42)', text: '#f4d9d7', minimap: '#d5352a' },
-  violet: { color: '#a77be0', bg: 'rgba(167, 123, 224, 0.15)', border: 'rgba(183, 146, 232, 0.40)', text: '#e4d7f4', minimap: '#742ad5' },
-  slate: { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)', border: 'rgba(148, 163, 184, 0.22)', text: '#cbd5e1', minimap: '#64748b' },
-  // 以下 6 色从原有色系扩展，供 10 个章节各配一个稳定主题色——同一色带内旋转色相
-  sky: { color: '#7bb4e0', bg: 'rgba(123, 180, 224, 0.15)', border: 'rgba(146, 194, 232, 0.40)', text: '#d7e7f4', minimap: '#2a8bd5' },
-  teal: { color: '#7be0d3', bg: 'rgba(123, 224, 211, 0.15)', border: 'rgba(146, 232, 220, 0.40)', text: '#d7f4f0', minimap: '#2ad5be' },
-  lime: { color: '#a0e07b', bg: 'rgba(160, 224, 123, 0.15)', border: 'rgba(177, 232, 146, 0.40)', text: '#e2f4d7', minimap: '#69d52a' },
-  orange: { color: '#e0a77b', bg: 'rgba(224, 167, 123, 0.15)', border: 'rgba(232, 183, 146, 0.40)', text: '#f4e4d7', minimap: '#d5742a' },
-  fuchsia: { color: '#e07be0', bg: 'rgba(224, 123, 224, 0.15)', border: 'rgba(232, 146, 232, 0.40)', text: '#f4d7f4', minimap: '#d52ad5' },
-  rose: { color: '#e07b94', bg: 'rgba(224, 123, 148, 0.15)', border: 'rgba(232, 146, 167, 0.40)', text: '#f4d7de', minimap: '#d52a55' },
+  cyan: { color: '#5AA6DE', bg: 'rgba(43, 87, 151, 0.16)', border: 'rgba(91, 143, 199, 0.42)', text: '#E6EEF6', minimap: '#2B5797' },
+  emerald: { color: '#3A9E88', bg: 'rgba(29, 128, 118, 0.14)', border: 'rgba(29, 128, 118, 0.40)', text: '#D8EFEA', minimap: '#1D8076' },
+  amber: { color: '#C4A15F', bg: 'rgba(168, 117, 19, 0.12)', border: 'rgba(168, 117, 19, 0.38)', text: '#F3E6C8', minimap: '#A87513' },
+  red: { color: '#C7736D', bg: 'rgba(167, 58, 52, 0.14)', border: 'rgba(167, 58, 52, 0.40)', text: '#F4D9D7', minimap: '#A33B35' },
+  violet: { color: '#7BA3C9', bg: 'rgba(43, 87, 151, 0.16)', border: 'rgba(91, 143, 199, 0.42)', text: '#E6EEF6', minimap: '#2B5797' },
+  slate: { color: '#8A97A8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.22)', text: '#D5DCE4', minimap: '#64748b' },
+  sky: { color: '#A8CFF0', bg: 'rgba(56, 118, 186, 0.16)', border: 'rgba(91, 160, 214, 0.42)', text: '#E6EEF6', minimap: '#6AA4D4' },
+  teal: { color: '#3DBFC4', bg: 'rgba(40, 140, 160, 0.16)', border: 'rgba(70, 160, 176, 0.42)', text: '#D8F0F4', minimap: '#2AA8B0' },
+  lime: { color: '#7BA3C9', bg: 'rgba(43, 87, 151, 0.16)', border: 'rgba(91, 143, 199, 0.42)', text: '#E6EEF6', minimap: '#2B5797' },
+  orange: { color: '#C4A15F', bg: 'rgba(168, 117, 19, 0.12)', border: 'rgba(168, 117, 19, 0.38)', text: '#F3E6C8', minimap: '#A87513' },
+  fuchsia: { color: '#7BA3C9', bg: 'rgba(43, 87, 151, 0.16)', border: 'rgba(91, 143, 199, 0.42)', text: '#E6EEF6', minimap: '#2B5797' },
+  rose: { color: '#7BA3C9', bg: 'rgba(43, 87, 151, 0.16)', border: 'rgba(91, 143, 199, 0.42)', text: '#E6EEF6', minimap: '#2B5797' },
 };
 
 // Dark analytical canvas: edges remain muted until selected, but must stay
 // visible enough to read direction and grouping without decorative glow.
 const graphEdgeTone: Record<GraphTone, string> = {
-  cyan: '#69b9cb', emerald: '#67bc91', amber: '#c4a15f', red: '#c7736d',
-  violet: '#9b7bc4', slate: '#75869a', sky: '#729fc4', teal: '#68b7ad',
-  lime: '#8fb76d', orange: '#c28f69', fuchsia: '#bd79bd', rose: '#bd7185',
+  cyan: '#4A93C8', emerald: '#2E8A78', amber: '#A87513', red: '#A33B35',
+  violet: '#4A93C8', slate: '#75869a', sky: '#6AA4D4', teal: '#2AA8B0',
+  lime: '#5B8FC7', orange: '#A87513', fuchsia: '#5B8FC7', rose: '#5B8FC7',
 };
 
-// 圆形节点：宽高相等=直径，半径按层级分档（L1 最大 → L3 最小），
-// 用大小直接编码重要性层级，替代此前"统一大小圆角矩形"的卡片感。
-// 直径口径：core/hub(L1 章枢纽) 68-72px，root(单章 L1) 64px，
-// branch/net(L2 节) 44-52px，leaf(L3 点) 30-34px，chapter(思政章节脚注) 40px。
+// Cards reserve room for full labels at a readable, zoom-bounded size.
 const graphNodeSize: Record<GraphNodeSize, { width: number; height: number }> = {
-  core: { width: 82, height: 82 },
-  root: { width: 76, height: 76 },
-  branch: { width: 58, height: 58 },
-  // L3 carries the concrete, judge-readable learning object. A tiny dot made
-  // the most important wording disappear, so leaves are deliberate capsules
-  // while hierarchy hubs remain circular beacons.
-  leaf: { width: 118, height: 40 },
-  // The diagnostic labels are the evidence itself, not decorative tags. Keep
-  // enough horizontal room for the longest current category name at the
-  // 1280×720 judging viewport instead of hiding it behind an ellipsis.
-  diagnosticUnit: { width: 210, height: 48 },
-  // Focused mobile problem nodes are displayed at no less than 0.72 zoom.
-  // A 62px source height therefore preserves a real 44px touch target after
-  // camera fitting, while keeping the same label width and two-column rhythm.
-  compactDiagnosticUnit: { width: 210, height: 62 },
-  thematicUnit: { width: 218, height: 48 },
-  // Mobile value elements share the same visual language as desktop, but the
-  // taller source box remains at least 44px after the focused camera floor.
-  compactThematicUnit: { width: 190, height: 62 },
-  learningUnit: { width: 236, height: 62 },
-  compactLearningUnit: { width: 180, height: 54 },
-  chapter: { width: 44, height: 44 },
-  // 全景网络视图专用：hub=章节枢纽，net=环绕 hub 的 L2 紧凑节点
-  hub: { width: 80, height: 80 },
-  net: { width: 52, height: 52 },
-  // 单章聚焦态不用微缩的网络圆点，而采用具有阅读层级的教学卡片。
-  // 评委在 1280×720 首屏即可读清“章—节—知识单元”，无需先缩放。
-  chapterCard: { width: 212, height: 126 },
-  compactChapterCard: { width: 180, height: 88 },
-  topicCard: { width: 266, height: 154 },
-  compactTopicCard: { width: 210, height: 104 },
+  core: { width: 200, height: 84 }, root: { width: 200, height: 84 },
+  branch: { width: 200, height: 84 }, leaf: { width: 200, height: 72 },
+  diagnosticUnit: { width: 220, height: 84 }, compactDiagnosticUnit: { width: 220, height: 84 },
+  thematicUnit: { width: 220, height: 84 }, compactThematicUnit: { width: 220, height: 84 },
+  learningUnit: { width: 200, height: 72 }, compactLearningUnit: { width: 200, height: 72 },
+  chapter: { width: 200, height: 84 }, hub: { width: 200, height: 84 },
+  net: { width: 180, height: 72 }, chapterCard: { width: 220, height: 72 },
+  compactChapterCard: { width: 220, height: 72 }, topicCard: { width: 200, height: 72 },
+  compactTopicCard: { width: 200, height: 72 },
 };
 
-// Per-chapter Lucide icon — picked to match the topic so an 8051 student
-// recognises the chapter at a glance without reading the label.
-const chapterIconMap: Record<number, LucideIcon> = {
-  1: Cpu,
-  2: Layers,
-  3: Code2,
-  4: FileText,
-  5: Zap,
-  6: Clock,
-  7: Radio,
-  8: Cable,
-  9: CircuitBoard,
-  10: Sparkles,
-};
-
-function getChapterIcon(chapter: number | undefined): LucideIcon {
-  if (typeof chapter !== 'number') return Cog;
-  return chapterIconMap[chapter] || Cog;
-}
+const CLUSTER_TONES: GraphTone[] = ['cyan', 'teal', 'emerald', 'sky'];
 
 type MapNodeData = {
   label: string;
@@ -1654,13 +1537,283 @@ type MapNodeData = {
    * the shape. Compact chapter indexes use `below`; diagnostic/value nodes use
    * `inside` so the focused cluster reads like an atlas instead of a tag cloud.
    */
-  labelPlacement?: 'inside' | 'below';
+  labelPlacement?: 'inside' | 'below' | 'beside' | 'none';
+  labelSide?: 'left' | 'right';
   sequence?: number;
+  /** Satellites stay on-canvas but are ignored by fitView so hubs stay readable. */
+  fitIgnore?: boolean;
   [key: string]: unknown;
 };
 
 export function getGraphNodeSize(size: GraphNodeSize) {
   return graphNodeSize[size];
+}
+
+export type GraphLayoutBox = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const BELOW_LABEL_EXTRA_HEIGHT = 44;
+
+export function getGraphNodeFootprint(
+  size: GraphNodeSize,
+  labelPlacement: MapNodeData['labelPlacement'] = 'inside',
+): { width: number; height: number } {
+  const box = getGraphNodeSize(size);
+  return {
+    width: box.width,
+    height: labelPlacement === 'below' ? box.height + BELOW_LABEL_EXTRA_HEIGHT : box.height,
+  };
+}
+
+export function layoutRadialChildren(
+  count: number,
+  origin: { x: number; y: number },
+  box: { width: number; height: number },
+  {
+    padding = 24,
+    minRx = 140,
+    minRy = 110,
+    aspect = 0.78,
+    start = -Math.PI / 2,
+  }: {
+    padding?: number;
+    minRx?: number;
+    minRy?: number;
+    aspect?: number;
+    start?: number;
+  } = {},
+): Array<{ x: number; y: number }> {
+  const { rx, ry } = getGraphRingRadii(Math.max(count, 2), box, { padding, minRx, minRy, aspect });
+  const safeCount = Math.max(count, 1);
+  return Array.from({ length: count }, (_, index) => {
+    const angle = start + (Math.PI * 2 * index) / safeCount;
+    return {
+      x: origin.x + Math.cos(angle) * rx,
+      y: origin.y + Math.sin(angle) * ry,
+    };
+  });
+}
+
+export function layoutOrganicCloud(
+  count: number,
+  origin: { x: number; y: number },
+  {
+    radius = 56,
+    seed = 1,
+    spread = 0.32,
+    inner = 0.28,
+    flatten = 0.86,
+  }: {
+    radius?: number;
+    seed?: number;
+    spread?: number;
+    inner?: number;
+    flatten?: number;
+  } = {},
+): Array<{ x: number; y: number }> {
+  if (count <= 0) return [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const safeInner = Math.max(0.08, Math.min(inner, 0.9));
+  return Array.from({ length: count }, (_, index) => {
+    const t = count === 1 ? 1 : (index + 0.35) / count;
+    const wobble = Math.sin((index + 1) * (1.73 + seed * 0.11)) * spread;
+    const angle = index * golden + seed * 0.61 + wobble;
+    const radial = radius * (safeInner + (1 - safeInner) * Math.sqrt(t));
+    return {
+      x: origin.x + Math.cos(angle) * radial,
+      y: origin.y + Math.sin(angle) * radial * flatten,
+    };
+  });
+}
+
+export function getCourseOverviewCenters(_compactViewport: boolean): Array<{ x: number; y: number }> {
+  return Array.from({ length: 10 }, (_, index) => ({
+    x: index < 5 ? 130 : 730,
+    y: 64 + (index % 5) * 88,
+  }));
+}
+
+export function graphBoxesOverlap(
+  left: GraphLayoutBox,
+  right: GraphLayoutBox,
+  padding = 0,
+): boolean {
+  return Math.abs(left.x - right.x) < (left.width + right.width) / 2 + padding
+    && Math.abs(left.y - right.y) < (left.height + right.height) / 2 + padding;
+}
+
+export function layoutGraphGrid({
+  count,
+  columns,
+  originX,
+  originY,
+  columnGap,
+  rowGap,
+}: {
+  count: number;
+  columns: number;
+  originX: number;
+  originY: number;
+  columnGap: number;
+  rowGap: number;
+}): Array<{ x: number; y: number }> {
+  const safeColumns = Math.max(1, columns);
+  return Array.from({ length: count }, (_, index) => {
+    const row = Math.floor(index / safeColumns);
+    const rowStart = row * safeColumns;
+    const rowCount = Math.min(safeColumns, count - rowStart);
+    const column = index - rowStart;
+    const rowWidth = (rowCount - 1) * columnGap;
+    return {
+      x: originX - rowWidth / 2 + column * columnGap,
+      y: originY + row * rowGap,
+    };
+  });
+}
+
+/**
+ * Ellipse radii that keep `count` equal boxes from colliding at the poles,
+ * where a wide card is most likely to clip its neighbour.
+ */
+export function getGraphRingRadii(
+  count: number,
+  box: { width: number; height: number },
+  {
+    padding = 16,
+    minRx = 300,
+    minRy = 205,
+    aspect = 0.72,
+  }: {
+    padding?: number;
+    minRx?: number;
+    minRy?: number;
+    aspect?: number;
+  } = {},
+): { rx: number; ry: number } {
+  const safeCount = Math.max(count, 2);
+  const minChord = Math.max(box.width, box.height) + padding;
+  const startAngle = -Math.PI / 2;
+  const nextAngle = startAngle + (Math.PI * 2) / safeCount;
+  const factor = Math.sqrt(
+    (Math.cos(nextAngle) - Math.cos(startAngle)) ** 2
+    + (aspect * (Math.sin(nextAngle) - Math.sin(startAngle))) ** 2,
+  );
+  const rx = Math.max(minRx, factor > 0 ? Math.ceil(minChord / factor) : minRx);
+  const ry = Math.max(minRy, Math.round(rx * aspect));
+  return { rx, ry };
+}
+
+export function separateGraphNodeCenters(
+  boxes: GraphLayoutBox[],
+  {
+    padding = 16,
+    iterations = 24,
+    pinnedIds = new Set<string>(),
+  }: {
+    padding?: number;
+    iterations?: number;
+    pinnedIds?: Set<string>;
+  } = {},
+): Map<string, { x: number; y: number }> {
+  const items = boxes.map((box) => ({ ...box }));
+  const pinned = items.filter((item) => pinnedIds.has(item.id));
+
+  const overlapsPinned = (node: GraphLayoutBox, x: number, y: number): boolean => (
+    pinned.some((anchor) => (
+      anchor.id !== node.id
+      && graphBoxesOverlap(
+        { ...node, x, y },
+        anchor,
+        padding,
+      )
+    ))
+  );
+
+  const pushPair = (left: GraphLayoutBox, right: GraphLayoutBox, leftPinned: boolean, rightPinned: boolean): boolean => {
+    if (leftPinned && rightPinned) return false;
+    const minDx = (left.width + right.width) / 2 + padding;
+    const minDy = (left.height + right.height) / 2 + padding;
+    const dx = right.x - left.x;
+    const dy = right.y - left.y;
+    const overlapX = minDx - Math.abs(dx);
+    const overlapY = minDy - Math.abs(dy);
+    if (overlapX <= 0 || overlapY <= 0) return false;
+
+    const alongX = overlapX <= overlapY;
+    const direction = alongX
+      ? (dx === 0 ? 1 : Math.sign(dx))
+      : (dy === 0 ? 1 : Math.sign(dy));
+    const overlap = alongX ? overlapX : overlapY;
+    let leftDelta = 0;
+    let rightDelta = 0;
+    if (leftPinned) {
+      rightDelta = overlap * direction;
+    } else if (rightPinned) {
+      leftDelta = -overlap * direction;
+    } else {
+      leftDelta = -overlap / 2 * direction;
+      rightDelta = overlap / 2 * direction;
+    }
+
+    const leftBlocked = !leftPinned && overlapsPinned(
+      left,
+      alongX ? left.x + leftDelta : left.x,
+      alongX ? left.y : left.y + leftDelta,
+    );
+    const rightBlocked = !rightPinned && overlapsPinned(
+      right,
+      alongX ? right.x + rightDelta : right.x,
+      alongX ? right.y : right.y + rightDelta,
+    );
+    if (leftBlocked && !rightBlocked) {
+      leftDelta = 0;
+      rightDelta = overlap * direction;
+    } else if (rightBlocked && !leftBlocked) {
+      rightDelta = 0;
+      leftDelta = -overlap * direction;
+    } else if (leftBlocked && rightBlocked) {
+      return false;
+    }
+
+    if (leftDelta === 0 && rightDelta === 0) return false;
+    if (alongX) {
+      left.x += leftDelta;
+      right.x += rightDelta;
+    } else {
+      left.y += leftDelta;
+      right.y += rightDelta;
+    }
+    return true;
+  };
+
+  for (let step = 0; step < iterations; step += 1) {
+    let moved = false;
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const left = items[i]!;
+        const right = items[j]!;
+        const leftPinned = pinnedIds.has(left.id);
+        const rightPinned = pinnedIds.has(right.id);
+        if (leftPinned === rightPinned) continue;
+        if (pushPair(left, right, leftPinned, rightPinned)) moved = true;
+      }
+    }
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const left = items[i]!;
+        const right = items[j]!;
+        if (pinnedIds.has(left.id) || pinnedIds.has(right.id)) continue;
+        if (pushPair(left, right, false, false)) moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return new Map(items.map((item) => [item.id, { x: item.x, y: item.y }]));
 }
 
 function createMapNode(
@@ -1670,12 +1823,13 @@ function createMapNode(
   data: MapNodeData,
 ): RFNode<MapNodeData> {
   const size = getGraphNodeSize(data.size);
-  const zIndex = data.selected ? 80 : data.size === 'root' || data.size === 'core' ? 40 : data.size === 'branch' ? 30 : 20;
-  const cardSizes: GraphNodeSize[] = [
-    'leaf', 'diagnosticUnit', 'compactDiagnosticUnit', 'thematicUnit',
-    'compactThematicUnit', 'learningUnit', 'compactLearningUnit',
-    'chapterCard', 'compactChapterCard', 'topicCard', 'compactTopicCard',
-  ];
+  const zIndex = data.selected
+    ? 80
+    : data.size === 'root' || data.size === 'core' || data.size === 'hub' || data.size === 'chapterCard'
+      ? 40
+      : data.size === 'net'
+        ? 16
+        : 30;
   const ariaDetails = [
     data.levelLabel,
     data.subtitle,
@@ -1690,313 +1844,54 @@ function createMapNode(
     focusable: data.clickable !== false && data.visible,
     ariaRole: data.clickable === false || !data.visible ? 'group' : 'button',
     ariaLabel: [data.label, ...ariaDetails].join('，'),
-    className: cardSizes.includes(data.size) ? 'kg-map-node-card' : 'kg-map-node-round',
-    style: { zIndex },
+    className: 'kg-map-node-card',
+    width: size.width,
+    height: size.height,
+    style: { zIndex, width: size.width, height: size.height },
   };
 }
 
-// 圆形节点：半径按层级分档（L1 最大 → L3 最小），配色是"填色圆盘"而不是
-// 卡片边框，标签常态显示在圆外正下方（而不是塞进圆内截断成 6-8px）。
-// L3 默认只显示极短的省略标签，完整名称走 hover 卡片（GraphMapStage 已有）。
 function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   const tone = graphTone[data.tone];
   const size = getGraphNodeSize(data.size);
-  const isLearningUnit = data.size === 'learningUnit' || data.size === 'compactLearningUnit';
-  const isDiagnosticUnit = data.size === 'diagnosticUnit' || data.size === 'compactDiagnosticUnit';
-  const isThematicUnit = data.size === 'thematicUnit' || data.size === 'compactThematicUnit';
-  const isLeaf = data.size === 'leaf' || isDiagnosticUnit || isThematicUnit || isLearningUnit;
-  const isNet = data.size === 'net';
-  const isRoot = data.size === 'root' || data.size === 'core' || data.size === 'hub';
-  const isChapterCard = data.size === 'chapterCard' || data.size === 'compactChapterCard';
-  const isTopicCard = data.size === 'topicCard' || data.size === 'compactTopicCard';
-  const isCompactChapterCard = data.size === 'compactChapterCard';
-  const isCompactTopicCard = data.size === 'compactTopicCard';
-  const isCompactLearningUnit = data.size === 'compactLearningUnit';
-  const isEditorialCard = isChapterCard || isTopicCard;
-  const isChapterFoot = data.size === 'chapter';
-  const labelPlacement = data.labelPlacement ?? (isRoot || isNet ? 'below' : 'inside');
-  // Focus mode: a non-selected node outside the kinship set fades to the
-  // background. Visible-but-out-of-search filter still trumps focus dimming.
-  const baseOpacity = data.visible || data.selected ? 1 : 0.18;
-  const focusFactor = data.dimmed && !data.selected ? 0.38 : 1;
-  const opacity = baseOpacity * focusFactor;
-  // 常态标签长度：层级越低越短，L3/网状节点默认只留意到"这里有个点"，
-  // 完整名称交给 hover 卡片（NodeHoverCard）
-  const labelMax = isEditorialCard ? 20 : isRoot ? 12 : data.size === 'branch' ? 9 : isNet ? 7 : 16;
-  // 标签外框宽度（圆外正下方那一行文字的最大宽度）：这才是相邻簇标签会不会
-  // physically 撞在一起的决定量。isNet(L2) 当前全景视图 53 个同屏，是密度主因，
-  // 原来统一 104px 与节点自身实际横向间距（改完 ringGeometry 后中心距约
-  // 70-95px）严重不成比例；收紧到 72px 后单个标签横向占用打对折，配合
-  // ringGeometry 的纵向椭圆化，两者相加才是真正把"标签重叠"压下去的组合，
-  // 而不是单靠某一项。root/branch 维持原宽度，因为它们数量少、间距天然大。
-  const labelBoxW = isRoot ? 132 : isNet ? 86 : data.size === 'branch' ? 118 : 104;
-  const ChapterIcon = isRoot || isChapterCard ? getChapterIcon(data.chapter) : null;
-  const showMastery = typeof data.mastery === 'number' && !isLeaf && !isChapterFoot && !isEditorialCard;
-  const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
-  // 隐形中心桩：层级边（hub→L2）走"节点中心→节点中心"的直线，
-  // 视觉上像放射辐条而不是绕外框的折线
-  const centerHandleStyle: CSSProperties = {
-    left: '50%',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    opacity: 0,
-    pointerEvents: 'none',
-  };
-  const fontSize = isEditorialCard ? 14 : isRoot ? 13 : data.size === 'branch' || isNet ? 11.5 : isLeaf ? 12.5 : 11;
   const mastery = typeof data.mastery === 'number' ? Math.max(0, Math.min(100, data.mastery)) : null;
-  const masteryColor = mastery === null ? '#7bcce0' : mastery >= 80 ? '#6ee7b7' : mastery >= 60 ? '#f5c76b' : '#fb8f86';
-  // 掌握度进度环：半径略小于节点半径的圆弧，stroke-dasharray 走百分比
-  const ringR = size.width / 2 - 2.5;
-  const ringCirc = 2 * Math.PI * ringR;
-
+  const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
+  const centerStyle: CSSProperties = { left: '50%', top: '50%', opacity: 0, pointerEvents: 'none' };
   return (
     <>
-      <Handle type="target" position={Position.Top} className={handleCls} />
+      <Handle id="tt" type="target" position={Position.Top} className={handleCls} />
       <Handle id="bt" type="target" position={Position.Bottom} className={handleCls} />
       <Handle id="lt" type="target" position={Position.Left} className={handleCls} />
       <Handle id="rt" type="target" position={Position.Right} className={handleCls} />
-      <Handle id="ct" type="target" position={Position.Top} className={handleCls} style={centerHandleStyle} />
+      <Handle id="ct" type="target" position={Position.Top} className={handleCls} style={centerStyle} />
       <div
-        className={cn(
-          'relative flex items-center justify-center',
-          isLearningUnit && 'kg-learning-unit-enter',
-        )}
+        className={cn('flex flex-col justify-center gap-1 rounded-lg border px-3 transition-[border-color,background-color,opacity] duration-200', data.clickable === false ? 'cursor-default' : 'cursor-pointer')}
         style={{
-          width: size.width,
-          height: size.height,
-          opacity,
-          ...(isLearningUnit && typeof data.sequence === 'number'
-            ? { animationDelay: `${Math.min(data.sequence - 1, 8) * 55}ms` }
-            : {}),
+          width: size.width, height: size.height,
+          background: data.selected ? '#163242' : `color-mix(in srgb, ${tone.color} 12%, #101821)`,
+          borderColor: data.selected ? '#67e8f9' : tone.border,
+          boxShadow: data.selected ? '0 0 0 1px #67e8f9' : '0 3px 9px rgba(0,0,0,.15)',
+          opacity: !data.visible && !data.selected ? 0.3 : data.dimmed && !data.selected ? 0.68 : 1,
         }}
       >
-        {/* 掌握度环：圆盘外沿一圈细弧，绿/黄/红随分数着色，替代原来"底边一条色条" */}
-        {showMastery && mastery !== null && (
-          <svg
-            width={size.width}
-            height={size.height}
-            className="pointer-events-none absolute inset-0 -rotate-90"
-            aria-hidden
-          >
-            <circle
-              cx={size.width / 2}
-              cy={size.height / 2}
-              r={ringR}
-              fill="none"
-              stroke={masteryColor}
-              strokeWidth={2}
-              strokeOpacity={0.9}
-              strokeLinecap="round"
-              strokeDasharray={`${(mastery / 100) * ringCirc} ${ringCirc}`}
-            />
-          </svg>
-        )}
-        <div
-          className={cn(
-            'relative flex shrink-0 items-center justify-center overflow-hidden border text-center transition duration-200',
-            isTopicCard || isChapterCard ? 'rounded-[10px]' : isLearningUnit ? 'rounded-[8px]' : isLeaf ? 'rounded-[6px]' : 'rounded-full',
-            data.clickable === false ? 'cursor-default' : 'cursor-pointer hover:brightness-105',
-            data.selected && (isEditorialCard ? 'scale-[1.01]' : isLearningUnit ? 'scale-[1.015]' : 'scale-[1.035]'),
-          )}
-          style={{
-            width: size.width - 6,
-            height: size.height - 6,
-            color: tone.text,
-            borderColor: data.selected ? tone.color : isEditorialCard || isLearningUnit ? 'rgba(148,163,184,.26)' : tone.border,
-            borderWidth: data.selected ? 1.5 : 1,
-            background: data.selected
-              ? isTopicCard
-                ? `linear-gradient(135deg, rgba(21,43,53,.98), rgba(14,22,30,.99))`
-                : isChapterCard
-                  ? `linear-gradient(135deg, rgba(25,33,42,.99), rgba(13,19,26,.99))`
-                  : isLearningUnit
-                    ? `linear-gradient(100deg, rgba(19,39,48,.99), rgba(10,16,23,.99))`
-                : `linear-gradient(145deg, ${tone.bg}, rgba(14,21,29,.98) 74%)`
-              : data.visible
-                ? isTopicCard
-                  ? `linear-gradient(135deg, rgba(18,31,40,.99), rgba(12,19,27,.99))`
-                  : isChapterCard
-                    ? `linear-gradient(135deg, rgba(22,29,38,.99), rgba(12,18,25,.99))`
-                    : isLearningUnit
-                      ? `linear-gradient(100deg, rgba(17,31,39,.99), rgba(9,15,22,.99))`
-                      : isLeaf
-                        ? `linear-gradient(110deg, ${tone.bg}, rgba(13,19,27,.98) 76%)`
-                  : `linear-gradient(145deg, ${tone.bg}, rgba(13,20,28,.96) 78%)`
-                : 'rgba(15, 23, 42, 0.65)',
-            boxShadow: data.selected
-              ? `0 0 0 1px ${tone.color}44, 0 12px 28px rgba(0,0,0,.38)`
-              : `0 8px 22px rgba(0,0,0,.26)`,
-          }}
-        >
-          {isChapterCard && ChapterIcon ? (
-            <div className={cn('relative flex h-full w-full items-center overflow-hidden text-left', isCompactChapterCard ? 'gap-2.5 px-3' : 'gap-4 px-5')}>
-              <span className={cn('pointer-events-none absolute -right-1 font-mono font-bold leading-none text-white/[0.025]', isCompactChapterCard ? '-top-3 text-[58px]' : '-top-5 text-[88px]')} aria-hidden>
-                {String(data.chapter || '').padStart(2, '0')}
-              </span>
-              <span className={cn('relative grid shrink-0 place-items-center rounded-[8px] border', isCompactChapterCard ? 'h-10 w-10' : 'h-14 w-14')} style={{ borderColor: tone.border, background: 'rgba(15,23,32,.92)' }}>
-                <ChapterIcon className={isCompactChapterCard ? 'h-5 w-5' : 'h-7 w-7'} style={{ color: tone.color }} />
-              </span>
-              <span className="relative min-w-0">
-                <span className={cn('block font-mono uppercase', isCompactChapterCard ? 'text-[8px] tracking-[0.14em]' : 'text-[9px] tracking-[0.22em]')} style={{ color: tone.color }}>Chapter {String(data.chapter || '').padStart(2, '0')}</span>
-                <span className={cn('kg-display block truncate font-bold text-slate-50', isCompactChapterCard ? 'mt-1 text-[16px]' : 'mt-2 text-[21px]')}>{data.label}</span>
-                {data.subtitle && <span className={cn('block truncate tracking-wide text-slate-400', isCompactChapterCard ? 'mt-1 text-[8px]' : 'mt-2 text-[10px]')}>{data.subtitle}</span>}
-              </span>
-            </div>
-          ) : isTopicCard ? (
-            <div className={cn('relative flex h-full w-full flex-col justify-center overflow-hidden text-left', isCompactTopicCard ? 'px-4' : 'px-6')}>
-              <span className="pointer-events-none absolute -right-6 -top-10 h-32 w-32 rounded-full border border-cyan-200/[0.08]" aria-hidden />
-              <span className="pointer-events-none absolute -right-2 -top-2 h-20 w-20 rounded-full border border-cyan-200/[0.07]" aria-hidden />
-              <span className={cn('relative flex items-center gap-2 font-mono uppercase', isCompactTopicCard ? 'text-[8px] tracking-[0.12em]' : 'text-[9px] tracking-[0.20em]')} style={{ color: tone.color }}>
-                <Target className="h-3.5 w-3.5" /> Current focus · {data.levelLabel || 'L2'}
-              </span>
-              <span className={cn('kg-display relative block font-bold leading-none text-slate-50', isCompactTopicCard ? 'mt-2 text-[20px]' : 'mt-3 text-[29px]')}>{data.label}</span>
-              {data.subtitle && <span className={cn('relative block tracking-wide text-slate-300/75', isCompactTopicCard ? 'mt-2 text-[9px]' : 'mt-3 text-[11px]')}>{data.subtitle}</span>}
-              <span className={cn('relative h-px w-full overflow-hidden bg-white/[0.08]', isCompactTopicCard ? 'mt-2' : 'mt-4')} aria-hidden>
-                <span className="block h-full w-[72%] bg-gradient-to-r from-amber-300 via-cyan-300 to-transparent" />
-              </span>
-            </div>
-          ) : isLeaf && typeof data.sequence === 'number' ? (
-            <span className={cn('flex w-full items-center text-left', isCompactLearningUnit ? 'gap-2 px-2.5' : 'gap-3 px-3.5')}>
-              <span className={cn('grid shrink-0 place-items-center rounded-[10px] border border-cyan-200/20 bg-cyan-200/[0.08] font-mono text-[10px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]', isCompactLearningUnit ? 'h-8 w-8' : 'h-9 w-9')} style={{ color: tone.color }}>
-                {String(data.sequence).padStart(2, '0')}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold tracking-wide text-slate-50">
-                {data.label}
-              </span>
-              <span className="h-2 w-2 shrink-0 rounded-full shadow-[0_0_11px_currentColor]" style={{ backgroundColor: masteryColor, color: masteryColor }} aria-hidden />
-              <span className="sr-only">{mastery === null ? '待学习' : `最近掌握度 ${Math.round(mastery)}%`}</span>
-              <ChevronRight className="h-4 w-4 shrink-0 opacity-50" style={{ color: tone.color }} />
-            </span>
-          ) : isLeaf ? (
-            <span className="flex w-full items-center gap-2 px-3 text-left">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full shadow-[0_0_9px_currentColor]" style={{ backgroundColor: tone.color, color: tone.color }} />
-              <span
-                className={cn(
-                  'min-w-0 flex-1 truncate font-medium text-slate-100',
-                )}
-                style={{ fontSize }}
-              >
-                {isDiagnosticUnit || isThematicUnit
-                  ? data.label
-                  : truncateLabel(data.label, labelMax)}
-              </span>
-              {(isDiagnosticUnit || isThematicUnit) && data.subtitle && (
-                <span className="shrink-0 rounded border border-white/[0.08] bg-black/20 px-1.5 py-0.5 font-mono text-[9px] text-slate-400">
-                  {data.subtitle}
-                </span>
-              )}
-              {isDiagnosticUnit && data.clickable !== false && (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-55" aria-hidden />
-              )}
-            </span>
-          ) : ChapterIcon ? (
-            <ChapterIcon className="h-[38%] w-[38%]" style={{ color: tone.color }} />
-          ) : isChapterFoot ? (
-            <span className="font-mono text-[10px] font-semibold tracking-wide">{data.label}</span>
-          ) : labelPlacement === 'below' ? (
-            <span className="font-mono text-[11px] font-semibold" style={{ color: tone.color }}>
-              {data.subtitle || data.levelLabel?.replace('L', '') || '·'}
-            </span>
-          ) : (
-            <span
-              className="line-clamp-2 max-w-full break-words px-1 font-medium leading-[1.05]"
-              style={{ fontSize }}
-            >
-              {truncateLabel(data.label, labelMax)}
-            </span>
-          )}
-        </div>
-        {/* L2/L3 层级角标：圆盘左上角的小徽标，替代原来内嵌的 levelLabel 胶囊 */}
-        {!isRoot && !isChapterFoot && !isEditorialCard && data.levelLabel && typeof data.sequence !== 'number' && (
-          <span
-            className="pointer-events-none absolute -left-1 -top-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-[3px] font-mono text-[7px] font-semibold leading-none"
-            style={{ backgroundColor: '#05080d', color: tone.color, border: `1px solid ${tone.border}` }}
-          >
-            {data.levelLabel.replace('L', '')}
-          </span>
-        )}
-        {isNet && typeof data.childCount === 'number' && data.childCount > 0 && (
-          <span
-            className="pointer-events-none absolute -bottom-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-[3px] font-mono text-[7px] font-semibold leading-none"
-            style={{ backgroundColor: '#05080d', color: tone.color, border: `1px solid ${tone.border}` }}
-          >
-            +{data.childCount}
-          </span>
-        )}
-        {/* 实验关联角标：置于圆盘外层，避免被 overflow 裁剪 */}
-        {data.experiments && data.experiments.length > 0 && (
-          <span
-            className="pointer-events-none absolute -right-1 -top-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-emerald-300/60 bg-[#04231a] text-emerald-200 shadow-md"
-          >
-            <FlaskConical className="h-2 w-2" />
-          </span>
-        )}
-        {/* 常态标签：置于圆外正下方，不再挤进圆盘内部截断成 6-8px。
-            L1/L2 默认可读（10.5-13px 见下方 labelBelow 逻辑）。
-            L3 叶子节点数量最多（当前课程目录为216个）、间距最密，即使标签本身
-            独立渲染在圆下方，密集区域仍会互相重叠糊成一团——默认干脆不显示
-            文字，只留一个可辨色的圆点勾勒整体分布形态，选中态才现出标签；
-            完整名称随时可从 hover 卡片（NodeHoverCard）查看，不丢信息。 */}
-        {!isChapterFoot && !isLeaf && !isEditorialCard && labelPlacement === 'below' && (
-          <div
-            className="pointer-events-none absolute left-1/2 top-full mt-1 w-max -translate-x-1/2 text-center leading-tight"
-            style={{ opacity: Math.max(opacity, data.selected ? 1 : opacity), maxWidth: labelBoxW }}
-          >
-            <span
-              className={cn(
-                'inline-block truncate rounded px-1 py-[1px]',
-                isRoot ? 'text-[12.5px] font-semibold' : isNet || data.size === 'branch' ? 'text-[11px] font-medium' : 'text-[9.5px]',
-              )}
-              style={{
-                color: isRoot ? '#f1f5f9' : tone.text,
-                backgroundColor: isRoot ? 'rgba(5,8,13,0.72)' : 'transparent',
-                maxWidth: labelBoxW,
-              }}
-            >
-              {data.label}
-            </span>
-            {isRoot && data.subtitle && (
-              <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[0.08em]" style={{ color: tone.color }}>
-                {data.subtitle}
-              </div>
-            )}
+        <div className="break-words text-[16px] font-semibold leading-[1.35] text-slate-100">{data.label}</div>
+        {(data.subtitle || mastery !== null) && (
+          <div className="flex flex-wrap items-center gap-x-2 text-[12px] leading-4 text-slate-400">
+            {data.subtitle && <span>{data.subtitle}</span>}
+            {mastery !== null && <span className={mastery >= 80 ? 'text-emerald-300' : 'text-amber-200'}>掌握 {Math.round(mastery)}%</span>}
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className={handleCls} />
+      <Handle id="bs" type="source" position={Position.Bottom} className={handleCls} />
       <Handle id="ts" type="source" position={Position.Top} className={handleCls} />
       <Handle id="ls" type="source" position={Position.Left} className={handleCls} />
       <Handle id="rs" type="source" position={Position.Right} className={handleCls} />
-      <Handle id="cs" type="source" position={Position.Bottom} className={handleCls} style={centerHandleStyle} />
+      <Handle id="cs" type="source" position={Position.Bottom} className={handleCls} style={centerStyle} />
     </>
   );
 }
 
-// —— 全景网络视图的章节簇光晕 ——
-// 每个章节簇背后垫一层章色径向光晕：只提供"这一片属于同一章"的分区暗示，
-// 不描边框、不装文字，避免退化成"卡片墙"的观感。
-type ClusterHaloData = {
-  color: string;
-  width: number;
-  height: number;
-  [key: string]: unknown;
-};
-
-function ClusterHaloNode({ data }: NodeProps<RFNode<ClusterHaloData>>) {
-  return (
-    <div
-      className="pointer-events-none"
-      style={{
-        width: data.width,
-        height: data.height,
-        borderRadius: '50%',
-        background: `radial-gradient(ellipse at center, ${data.color}17 0%, ${data.color}09 45%, transparent 72%)`,
-      }}
-    />
-  );
-}
-
-const mapNodeTypes = { mapNode: MapNode, clusterHalo: ClusterHaloNode };
+const mapNodeTypes = { mapNode: MapNode };
 
 type HoverPayload = {
   x: number;
@@ -2039,7 +1934,47 @@ export type GraphMapStageHandle = {
   flyToNode: (nodeId: string, opts?: { duration?: number }) => void;
 };
 
-export const MIN_FOCUSED_GRAPH_ZOOM = 0.72;
+export const MIN_FOCUSED_GRAPH_ZOOM = 0.875;
+
+type GraphViewport = { x: number; y: number; zoom: number };
+type GraphViewportSnapshot = {
+  viewport: GraphViewport;
+  stage: { width: number; height: number };
+};
+const graphViewportCache = new Map<string, GraphViewportSnapshot>();
+
+export function restoreGraphViewport(
+  saved: GraphViewportSnapshot,
+  stage: { width: number; height: number },
+): GraphViewport {
+  return {
+    x: saved.viewport.x + (stage.width - saved.stage.width) / 2,
+    y: saved.viewport.y + (stage.height - saved.stage.height) / 2,
+    zoom: saved.viewport.zoom,
+  };
+}
+
+/** Keep the selected card visible without changing the user's zoom. */
+export function getGraphViewportPan({ viewport, node, stage, padding = 24 }: {
+  viewport: GraphViewport;
+  node: { x: number; y: number; width: number; height: number };
+  stage: { width: number; height: number };
+  padding?: number;
+}): GraphViewport {
+  const left = viewport.x + node.x * viewport.zoom;
+  const top = viewport.y + node.y * viewport.zoom;
+  const width = node.width * viewport.zoom;
+  const height = node.height * viewport.zoom;
+  const dx = width > stage.width - padding * 2
+    ? stage.width / 2 - left - width / 2
+    : left < padding ? padding - left : left + width > stage.width - padding ? stage.width - padding - left - width : 0;
+  const topPadding = padding;
+  const dy = height > stage.height - topPadding - padding
+    ? stage.height / 2 - top - height / 2
+    : top < topPadding ? topPadding - top : top + height > stage.height - padding ? stage.height - padding - top - height : 0;
+  return { x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom };
+}
+
 
 const GRAPH_ARIA_LABEL_CONFIG = {
   'node.a11yDescription.default': '按回车键或空格键选择节点。',
@@ -2107,7 +2042,7 @@ function GraphOperationHints({ dependencyEdges = false }: { dependencyEdges?: bo
       <span className="inline-flex items-center gap-1.5 font-semibold text-slate-100">
         <MousePointer2 className="h-3.5 w-3.5 text-cyan-200" />操作
       </span>
-      <span>点击节点查看详情</span>
+      <span>点击展开或选择节点</span>
       <span>拖动画布</span>
       <span>滚轮／双指缩放</span>
       <span>Tab 定位节点</span>
@@ -2121,6 +2056,7 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
   edges: RFEdge[];
   onSelect: (id: string) => void;
   selectedId?: string;
+  viewportKey?: string;
   focusIds?: Set<string>;
   heightClassName?: string;
   // 初始 fitView 的留白与最大缩放：全景视图要贴边填满，径向视图要留呼吸感
@@ -2137,19 +2073,42 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
   edges,
   onSelect,
   selectedId,
-  focusIds,
+  viewportKey,
+  focusIds: _focusIds,
   heightClassName = 'h-[660px] md:h-[760px]',
   fitPadding = 0.18,
   fitMaxZoom = 1.1,
-  focusFitPadding = 0.24,
-  focusFitMaxZoom = 1.55,
-  controlsPosition = 'top-right',
+  focusFitPadding: _focusFitPadding,
+  focusFitMaxZoom: _focusFitMaxZoom,
+  controlsPosition: _controlsPosition = 'top-right',
   onEdgeSelect,
   emptyState,
 }, forwardedRef) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
   const [instanceReady, setInstanceReady] = useState(false);
+  const mapNodeKey = nodes
+    .filter((node) => node.type === 'mapNode')
+    .map((node) => node.id)
+    .join('\0');
+  const resolvedViewportKey = viewportKey ?? mapNodeKey;
+  const lastStageSizeRef = useRef(graphViewportCache.get(resolvedViewportKey)?.stage ?? { width: 0, height: 0 });
+  const saveViewport = useCallback((key: string, viewport: GraphViewport) => {
+    const stage = stageRef.current;
+    if (stage && stage.clientWidth > 0 && stage.clientHeight > 0) {
+      lastStageSizeRef.current = { width: stage.clientWidth, height: stage.clientHeight };
+    }
+    const stageSize = lastStageSizeRef.current;
+    if (stageSize.width <= 0 || stageSize.height <= 0) return;
+    if (graphViewportCache.size >= 100 && !graphViewportCache.has(key)) {
+      graphViewportCache.delete(graphViewportCache.keys().next().value!);
+    }
+    graphViewportCache.set(key, { viewport, stage: { ...stageSize } });
+  }, []);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const [hover, setHover] = useState<HoverPayload | null>(null);
   const [edgeHover, setEdgeHover] = useState<{
     x: number;
@@ -2175,64 +2134,100 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
       instance.setCenter(
         target.position.x + dim.width / 2,
         target.position.y + dim.height / 2,
-        { zoom: 1.35, duration: currentGraphMotionDuration(opts?.duration ?? 420) },
+        { zoom: 1.35, duration: currentGraphMotionDuration(opts?.duration ?? 200) },
       );
     },
   }), [nodes]);
 
-  // ReactFlow's declarative fitView runs after the first node measurement.
-  // A synchronous selection fit in onInit is therefore overwritten by the
-  // whole-graph fit a moment later (deep links such as ?node=3.1 looked tiny
-  // even though the node was selected). Defer the focused fit until measured
-  // nodes have settled, then let the local teaching context fill the stage.
-  useEffect(() => {
-    if (!selectedId || !focusIds || focusIds.size === 0) return;
+  const fitAllMapNodes = useCallback((duration = 200) => {
     const instance = instanceRef.current;
     if (!instance) return;
-    const targets = nodes.filter((n) => n.type === 'mapNode' && focusIds.has(n.id));
-    if (targets.length === 0) return;
-    const timer = window.setTimeout(() => {
-      instance.fitView({
-        nodes: targets.map((n) => ({ id: n.id })),
-        padding: focusFitPadding,
-        duration: currentGraphMotionDuration(560),
-        maxZoom: focusFitMaxZoom,
-        minZoom: MIN_FOCUSED_GRAPH_ZOOM,
-      });
-    }, 120);
-    return () => window.clearTimeout(timer);
-  }, [focusFitMaxZoom, focusFitPadding, focusIds, instanceReady, nodes, selectedId]);
+    const targets = nodesRef.current.filter((node) => node.type === 'mapNode' && !(node.data as MapNodeData).fitIgnore);
+    if (!targets.length) return;
+    void instance.fitView({
+      nodes: targets.map((node) => ({ id: node.id })), padding: fitPadding,
+      duration: currentGraphMotionDuration(duration), maxZoom: fitMaxZoom,
+      minZoom: MIN_FOCUSED_GRAPH_ZOOM,
+    });
+  }, [fitMaxZoom, fitPadding]);
+  const fitRef = useRef(fitAllMapNodes);
+  fitRef.current = fitAllMapNodes;
 
-  // Returning to an overview changes the rendered node set but React Flow's
-  // one-time `fitView` does not run again. Without an explicit refit, the
-  // camera stays parked on the previously focused domain and the user sees a
-  // misleading “overview” containing only one cluster. Refit visible map
-  // nodes whenever selection is cleared (initial overview and reset).
-  useEffect(() => {
-    if (selectedId) return;
+  const keepSelectedVisible = useCallback(() => {
     const instance = instanceRef.current;
-    if (!instance) return;
-    const targets = nodes.filter((node) => (
-      node.type === 'mapNode' && (node.data as MapNodeData).visible
-    ));
-    if (targets.length === 0) return;
+    const stage = stageRef.current;
+    const node = nodesRef.current.find((item) => item.id === selectedIdRef.current);
+    if (!instance || !stage || !node || stage.clientWidth === 0 || stage.clientHeight === 0) return;
+    const size = getGraphNodeSize((node.data as MapNodeData).size);
+    const viewport = instance.getViewport();
+    const next = getGraphViewportPan({
+      viewport, node: { ...node.position, ...size },
+      stage: { width: stage.clientWidth, height: stage.clientHeight },
+    });
+    if (next.x !== viewport.x || next.y !== viewport.y) {
+      void instance.setViewport(next, { duration: currentGraphMotionDuration(200) });
+    }
+  }, []);
+
+  // Restore each expanded path independently. Selection and sidebar resizing
+  // never run fitView, so a manually positioned teaching view stays stable.
+  useEffect(() => {
+    if (!instanceReady) return;
+    const saved = graphViewportCache.get(resolvedViewportKey);
     const timer = window.setTimeout(() => {
-      instance.fitView({
-        nodes: targets.map((node) => ({ id: node.id })),
-        padding: fitPadding,
-        duration: currentGraphMotionDuration(520),
-        maxZoom: fitMaxZoom,
-        minZoom: 0.18,
-      });
-    }, 100);
+      const stage = stageRef.current;
+      if (!stage || stage.clientWidth === 0 || stage.clientHeight === 0) return;
+      const size = { width: stage.clientWidth, height: stage.clientHeight };
+      lastStageSizeRef.current = size;
+      if (saved) {
+        void instanceRef.current?.setViewport(restoreGraphViewport(saved, size), { duration: 0 }).then(keepSelectedVisible);
+      } else fitRef.current(200);
+    }, 60);
+    return () => {
+      window.clearTimeout(timer);
+      const current = instanceRef.current?.getViewport();
+      if (current) saveViewport(resolvedViewportKey, current);
+    };
+  }, [instanceReady, resolvedViewportKey, keepSelectedVisible, saveViewport]);
+
+  useEffect(() => {
+    if (!instanceReady) return;
+    const timer = window.setTimeout(keepSelectedVisible, 260);
     return () => window.clearTimeout(timer);
-  }, [fitMaxZoom, fitPadding, instanceReady, nodes, selectedId]);
+  }, [instanceReady, keepSelectedVisible, selectedId]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !instanceReady) return;
+    let resizeTimer = 0;
+    let previousSize = { width: stage.clientWidth, height: stage.clientHeight };
+    const observer = new ResizeObserver(() => {
+      setHover(null);
+      setEdgeHover(null);
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        const nextSize = { width: stage.clientWidth, height: stage.clientHeight };
+        const instance = instanceRef.current;
+        if (!instance || nextSize.width === 0 || nextSize.height === 0) return;
+        const viewport = instance.getViewport();
+        const shifted = {
+          x: viewport.x + (nextSize.width - previousSize.width) / 2,
+          y: viewport.y + (nextSize.height - previousSize.height) / 2,
+          zoom: viewport.zoom,
+        };
+        previousSize = nextSize;
+        lastStageSizeRef.current = nextSize;
+        void instance.setViewport(shifted, { duration: 0 }).then(keepSelectedVisible);
+      }, 80);
+    });
+    observer.observe(stage);
+    return () => { window.clearTimeout(resizeTimer); observer.disconnect(); };
+  }, [instanceReady, keepSelectedVisible]);
 
   return (
     <div
-      ref={stageRef}
       className={cn(
-        'kg-map-stage relative isolate overflow-hidden bg-[#0b1118]',
+        'kg-map-stage relative isolate flex flex-col overflow-hidden bg-[#0b1118]',
         heightClassName,
       )}
     >
@@ -2241,9 +2236,7 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           三个图谱视图共享同一观感 */}
       <style>{`
         .kg-map-stage {
-          background:
-            linear-gradient(180deg, rgba(255,255,255,.018), transparent 28%),
-            #0b1118;
+          background: #070b11;
         }
         .kg-map-stage::before {
           content: '';
@@ -2251,13 +2244,10 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           inset: 0;
           z-index: 0;
           pointer-events: none;
-          opacity: 1;
-          background-image:
-            linear-gradient(rgba(148,163,184,.045) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(148,163,184,.045) 1px, transparent 1px),
-            linear-gradient(rgba(148,163,184,.028) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(148,163,184,.028) 1px, transparent 1px);
-          background-size: 40px 40px, 40px 40px, 200px 200px, 200px 200px;
+          background:
+            radial-gradient(ellipse 50% 42% at 16% 12%, rgba(90, 166, 222, 0.025), transparent 72%),
+            radial-gradient(ellipse 44% 36% at 82% 18%, rgba(61, 191, 196, 0.02), transparent 70%),
+            radial-gradient(ellipse 52% 44% at 60% 88%, rgba(58, 158, 136, 0.015), transparent 74%);
         }
         .kg-map-stage::after {
           content: '';
@@ -2265,10 +2255,13 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           inset: 0;
           z-index: 1;
           pointer-events: none;
-          background:
-            radial-gradient(ellipse 70% 64% at 58% 46%, rgb(var(--kg-accent) / .055), transparent 72%),
-            linear-gradient(180deg, transparent 66%, rgba(0,0,0,.10));
-          box-shadow: inset 0 0 80px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.035);
+          background: radial-gradient(ellipse 80% 70% at 50% 48%, transparent 42%, rgba(4, 7, 12, 0.38) 100%);
+        }
+        .kg-map-stage .react-flow__node.kg-map-node-round {
+          overflow: visible !important;
+        }
+        .kg-map-stage .react-flow__edge-path {
+          stroke-linejoin: round;
         }
         .kg-map-stage .react-flow { z-index: 2; }
         .kg-map-stage .react-flow__controls-button {
@@ -2292,7 +2285,7 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           border-radius: 999px;
         }
         .kg-map-stage .react-flow__node.kg-map-node-card:focus-visible {
-          border-radius: 14px;
+          border-radius: 8px;
         }
         .kg-map-stage .react-flow__edge.kg-dependency-edge:focus-visible {
           outline: none;
@@ -2300,7 +2293,7 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
         .kg-map-stage .react-flow__edge.kg-dependency-edge:focus-visible .react-flow__edge-path {
           opacity: 1 !important;
           stroke-width: 3.2px !important;
-          filter: drop-shadow(0 0 4px rgb(var(--kg-accent) / .72));
+          filter: none;
         }
         .kg-map-stage .react-flow__controls {
           display: flex;
@@ -2317,10 +2310,10 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
         }
         .kg-stage-watermark { display: none; }
         @keyframes kg-learning-unit-enter {
-          from { opacity: 0; transform: translateX(18px) scale(.97); filter: blur(5px); }
-          to { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .kg-learning-unit-enter { animation: kg-learning-unit-enter .58s cubic-bezier(.2,.75,.18,1) both; }
+        .kg-learning-unit-enter { animation: kg-learning-unit-enter .2s cubic-bezier(.2,.75,.18,1) both; }
         /* clusterHalo 内层 div 已 pointer-events-none，但 ReactFlow 给节点外层
            wrapper 内联了 pointer-events:all（style 属性，优先级高于普通 class 规则），
            实测该内联样式确实盖住了下方的依赖边(kg-dep-*)，点击展开面板永远弹不出来。
@@ -2330,17 +2323,24 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
         }
       `}</style>
       <div className="kg-stage-watermark" aria-hidden />
-      {/* 前置依赖边的青→琥珀渐变：userSpaceOnUse 以画布世界坐标取色，
-          跨簇长曲线会自然呈现"从前置流向后继"的色彩过渡 */}
+      {/* 先修依赖边：单色琥珀，与结构青、掌握青绿分开，避免青→琥珀渐变造成彩虹感 */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden>
         <defs>
           <linearGradient id="kg-dep-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1500" y2="900">
-            <stop offset="0%" stopColor="#67e8f9" />
-            <stop offset="55%" stopColor="#5eead4" />
-            <stop offset="100%" stopColor="#fbbf24" />
+            <stop offset="0%" stopColor="#A87513" />
+            <stop offset="100%" stopColor="#A87513" />
           </linearGradient>
         </defs>
       </svg>
+      <div className="relative z-10 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-2">
+        <span className="text-xs text-slate-500">拖动画布查看完整导图</span>
+        <div role="group" aria-label="图谱缩放与视图控制" className="flex shrink-0 items-center gap-1">
+          <button type="button" aria-label="缩小图谱" onClick={() => void instanceRef.current?.zoomOut({ duration: currentGraphMotionDuration(200) })} className="h-10 w-10 rounded border border-white/10 text-xl text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">−</button>
+          <button type="button" aria-label="放大图谱" onClick={() => void instanceRef.current?.zoomIn({ duration: currentGraphMotionDuration(200) })} className="h-10 w-10 rounded border border-white/10 text-xl text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">+</button>
+          <button type="button" aria-label="重置为适合画布的视图" onClick={() => fitAllMapNodes(200)} className="inline-flex h-10 items-center gap-1.5 rounded border border-white/10 px-2 text-xs text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"><Maximize2 className="h-3.5 w-3.5" />适合画布</button>
+        </div>
+      </div>
+      <div ref={stageRef} className="relative min-h-0 flex-1">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -2433,20 +2433,15 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
         nodesConnectable={false}
         edgesFocusable={false}
         elementsSelectable
-        fitView
-        fitViewOptions={{ padding: fitPadding, maxZoom: fitMaxZoom }}
-        minZoom={0.32}
+        defaultViewport={graphViewportCache.get(resolvedViewportKey)?.viewport ?? { x: 0, y: 0, zoom: 1 }}
+        onMoveEnd={(_, viewport) => saveViewport(resolvedViewportKey, viewport)}
+        fitViewOptions={{ padding: fitPadding, maxZoom: fitMaxZoom, minZoom: MIN_FOCUSED_GRAPH_ZOOM }}
+        minZoom={MIN_FOCUSED_GRAPH_ZOOM}
         maxZoom={2.4}
         autoPanOnNodeFocus
         ariaLabelConfig={GRAPH_ARIA_LABEL_CONFIG}
         proOptions={{ hideAttribution: true }}
       >
-        <Controls
-          showInteractive={false}
-          position={controlsPosition}
-          aria-label="图谱缩放与视图控制"
-          className="!rounded-md !border !border-white/[0.1] !bg-[#0c1117]/95 !shadow-lg"
-        />
       </ReactFlow>
       {emptyState && (
         <div
@@ -2454,8 +2449,8 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           role="status"
           aria-live="polite"
         >
-          <div className="max-w-sm rounded-xl border border-white/[0.10] bg-[#0c131b]/95 p-5 shadow-[0_24px_70px_rgba(0,0,0,.42)]">
-            <div className="mx-auto grid h-11 w-11 place-items-center rounded-lg border border-white/[0.10] bg-white/[0.04] text-[rgb(var(--kg-accent))]">
+          <div className="max-w-sm rounded-md border border-white/[0.10] bg-[#0c131b]/95 p-5 shadow-[0_24px_70px_rgba(0,0,0,.42)]">
+            <div className="chip-mark mx-auto grid h-11 w-11 place-items-center rounded-md text-[rgb(var(--kg-accent))]">
               <Search className="h-5 w-5" />
             </div>
             <h3 className="mt-3 text-sm font-semibold text-slate-100">{emptyState.title}</h3>
@@ -2463,22 +2458,13 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
             <button
               type="button"
               onClick={emptyState.onAction}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 text-xs font-semibold text-slate-100 transition hover:border-[rgb(var(--kg-accent)/.35)] hover:bg-[rgb(var(--kg-accent)/.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--kg-accent))]"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-white/[0.12] bg-white/[0.06] px-4 text-xs font-semibold text-slate-100 transition hover:border-[rgb(var(--kg-accent)/.35)] hover:bg-[rgb(var(--kg-accent)/.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--kg-accent))]"
             >
               {emptyState.actionLabel}
             </button>
           </div>
         </div>
       )}
-      <div className="kg-stage-help pointer-events-none absolute bottom-3 left-3 z-20 hidden items-center gap-3 rounded-lg border border-white/[0.12] bg-[#101821]/95 px-3 py-2 text-[11px] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,.24)] backdrop-blur-xl sm:flex" role="note">
-        <span className="inline-flex items-center gap-1.5"><MousePointer2 className="h-3 w-3 text-cyan-300" />点击选择</span>
-        <span className="h-3 w-px bg-white/10" />
-        <span>拖动画布</span>
-        <span className="h-3 w-px bg-white/10" />
-        <span>滚轮缩放</span>
-        <span className="h-3 w-px bg-white/10" />
-        <span>Tab 聚焦节点{onEdgeSelect ? '／依赖边' : ''}</span>
-      </div>
       {hover && <NodeHoverCard hover={hover} />}
       {edgeHover && (
         <div
@@ -2488,46 +2474,33 @@ const GraphMapStage = forwardRef<GraphMapStageHandle, {
           点击查看 {edgeHover.count} 条具体依赖
         </div>
       )}
+      </div>
     </div>
   );
 });
 
 function NodeHoverCard({ hover }: { hover: HoverPayload }) {
   const { data } = hover;
-  const tone = graphTone[data.tone];
-  const position = getGraphHoverCardPosition(hover);
+  const position = getGraphHoverCardPosition({ ...hover, cardHeight: 132 });
   return (
-    <div
-      className="pointer-events-none absolute z-50 rounded-lg border bg-[#0b1117] p-3 shadow-2xl backdrop-blur"
-      style={{ ...position, borderColor: tone.border }}
-    >
-      <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-        {typeof data.chapter === 'number' && <span>CH{data.chapter}</span>}
-        {data.levelLabel && (
-          <span className="rounded-sm px-1 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: tone.color }}>
-            {data.levelLabel}
-          </span>
-        )}
-        {typeof data.mastery === 'number' && (
-          <span style={{ color: tone.color }}>掌握 {Math.round(data.mastery)}%</span>
-        )}
-      </div>
-      <div className="mt-1 text-[13px] font-semibold leading-tight text-slate-50">{data.label}</div>
-      {data.description && (
-        <div className="mt-1.5 text-[11px] leading-snug text-slate-400 line-clamp-3">{data.description}</div>
-      )}
-      {data.experiments && data.experiments.length > 0 && (
-        <div className="mt-1.5 space-y-0.5 border-t border-white/[0.08] pt-1.5">
-          {data.experiments.slice(0, 3).map((title) => (
-            <div key={title} className="flex items-center gap-1 text-[10px] leading-snug text-emerald-200">
-              <FlaskConical className="h-2.5 w-2.5 shrink-0" />
-              <span className="line-clamp-1">{title}</span>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="pointer-events-none absolute z-50 overflow-hidden rounded-lg border bg-[#0b1117] p-3 shadow-lg" style={{ ...position, maxHeight: Math.max(0, Math.min(132, hover.stageHeight - 16)), borderColor: graphTone[data.tone].border }}>
+      <div className="text-sm font-semibold leading-snug text-slate-100">{data.label}</div>
+      <div className="mt-1 text-xs leading-5 text-slate-400 line-clamp-3">{data.description || data.subtitle || '选择节点，按“查看详情”阅读内容。'}</div>
     </div>
   );
+}
+
+function nearestSideHandles(from: { x: number; y: number }, to: { x: number; y: number }) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (Math.abs(dx) >= Math.abs(dy) * 0.72) {
+    return dx >= 0
+      ? { sourceHandle: 'rs', targetHandle: 'lt' }
+      : { sourceHandle: 'ls', targetHandle: 'rt' };
+  }
+  return dy >= 0
+    ? { sourceHandle: 'bs', targetHandle: 'tt' }
+    : { sourceHandle: 'ts', targetHandle: 'bt' };
 }
 
 function graphAssociationEdge(
@@ -2537,942 +2510,343 @@ function graphAssociationEdge(
   active = true,
   width = 1.2,
   dashed = false,
+  handles?: { sourceHandle?: string; targetHandle?: string },
 ): RFEdge {
   const color = graphEdgeTone[tone];
   return {
     id: `${from}-${to}`,
     source: from,
     target: to,
-    // Bezier curves give the canvas a softer, more organic look than the
-    // right-angled smoothstep paths.
-    type: dashed ? 'default' : 'default',
+    sourceHandle: handles?.sourceHandle ?? 'cs',
+    targetHandle: handles?.targetHandle ?? 'ct',
+    type: dashed ? 'smoothstep' : 'default',
     animated: false,
     style: {
       stroke: color,
-      strokeWidth: active ? width + 0.2 : 0.7,
-      opacity: active ? (dashed ? 0.76 : 0.70) : 0.08,
-      strokeDasharray: dashed ? '5 6' : undefined,
+      strokeWidth: active ? width + 0.25 : 1.05,
+      opacity: active ? (dashed ? 0.72 : 0.5) : 0.28,
+      strokeDasharray: dashed ? '5 7' : undefined,
       strokeLinecap: 'round',
     },
     data: { kind: dashed ? 'mapping' : 'hier' },
   };
 }
 
-// 每章一个稳定主题色：10 色和谐色板，章号固定取色，
-// 全景卡片与单章树两种视图保持同色，便于评委建立“章=色”的映射。
-// 刻意不用 red——红色留给掌握度 <60 的预警节点，避免语义冲突。
-const chapterTonePalette: GraphTone[] = ['cyan', 'emerald', 'amber', 'violet', 'rose', 'teal', 'orange', 'sky', 'lime', 'fuchsia'];
-
 function knowledgeTone(chapter: number): GraphTone {
-  return chapterTonePalette[(chapter - 1) % chapterTonePalette.length] || 'cyan';
+  return CLUSTER_TONES[(Math.max(1, chapter) - 1) % CLUSTER_TONES.length];
 }
 
 function problemTone(category: ProblemNode['category']): GraphTone {
-  if (category === 'coding') return 'emerald';
-  if (category === 'experiment') return 'amber';
-  if (category === 'project') return 'violet';
+  if (category === 'coding') return 'teal';
+  if (category === 'experiment') return 'emerald';
+  if (category === 'project') return 'sky';
   return 'cyan';
 }
 
 function ideologicalTone(category?: IdeologicalCategory): GraphTone {
-  if (!category) return 'cyan';
-  if (category === 'craftsmanship') return 'amber';
+  if (category === 'craftsmanship' || category === 'aerospace') return 'teal';
   if (category === 'ethics') return 'emerald';
   if (category === 'innovation') return 'sky';
-  if (category === 'teamwork') return 'violet';
-  if (category === 'aerospace') return 'teal';
-  return 'rose';
+  return 'cyan';
 }
 
-type KnowledgeVisualNode = {
-  id: string;
-  label: string;
-  subtitle?: string;
-  level: KnowledgePoint['level'];
-  chapter: number;
-  x: number;
-  y: number;
-  r: number;
-  fill: string;
-  stroke: string;
-};
+function GraphBreadcrumb({ items }: { items: Array<{ id: string; label: string; onSelect?: () => void }> }) {
+  return (
+    <nav aria-label="当前位置" className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-sm">
+      {items.map((item, index) => (
+        <span key={item.id} className="inline-flex min-w-0 items-center gap-1">
+          {index > 0 && <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-slate-600" />}
+          <button type="button" onClick={item.onSelect} aria-current={index === items.length - 1 ? 'page' : undefined}
+            className={cn('min-h-10 rounded px-2 py-1 text-left leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', index === items.length - 1 ? 'font-semibold text-cyan-100' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}>
+            {item.label}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
+}
 
 export function FullKnowledgeMap({
-  points,
-  selectedId,
-  visibleIds,
-  progress,
-  onSelect,
-  onFocusChapter,
-  chapterFilter,
-  masteryByKa,
-  experimentTitleByRefId,
-  onClearVisibility,
+  points, selectedId, visibleIds, progress: _progress, onSelect, onFocusChapter,
+  chapterFilter, masteryByKa, experimentTitleByRefId, onClearVisibility,
+  onReturnOverview, onDependencyDetail, dependencyDetailVisible, compactViewport = false,
 }: {
   points: KnowledgePoint[];
   selectedId: string;
   visibleIds: Set<string>;
   progress: HyperLearningProgressRecord[];
   onSelect: (point: KnowledgePoint) => void;
-  // 全景视图点击章节 hub 时触发，父组件负责切到单章放射树视图
   onFocusChapter?: (chapter: number) => void;
   chapterFilter: number | 'all';
   masteryByKa?: Record<string, number>;
-  // 实验 refId → 实验标题，节点烧瓶角标的悬停提示用
   experimentTitleByRefId: Record<string, string>;
   onClearVisibility: () => void;
+  onReturnOverview?: () => void;
+  onDependencyDetail?: (detail: ReactNode | null) => void;
+  dependencyDetailVisible?: boolean;
+  compactViewport?: boolean;
 }) {
-  const isMobile = useIsMobile();
-  // 回调经 ref 转发进布局 useMemo，避免父组件每次渲染都因回调身份变化
-  // 触发整图重排（性能红线：布局不随渲染帧重算）。
-  const selectRef = useRef(onSelect);
-  const focusChapterRef = useRef(onFocusChapter);
-  useEffect(() => {
-    selectRef.current = onSelect;
-    focusChapterRef.current = onFocusChapter;
-  });
-
-  // 聚合依赖边被点击后选中，驱动下方"具体节点对+理由"展开面板；
-  // 切换章节筛选或重选节点时清空，避免面板残留指向不存在的边。
+  const [showPrerequisites, setShowPrerequisites] = useState(false);
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null);
   const edgeDetailPanelRef = useRef<HTMLDivElement>(null);
   const edgeFocusReturnRef = useRef<(Element & { focus: (options?: FocusOptions) => void }) | null>(null);
-  const shouldFocusEdgeDetailRef = useRef(false);
-  useEffect(() => {
-    setSelectedEdgeKey(null);
-    edgeFocusReturnRef.current = null;
-    shouldFocusEdgeDetailRef.current = false;
-  }, [chapterFilter]);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const dependencyDetailCallback = useRef(onDependencyDetail);
+  dependencyDetailCallback.current = onDependencyDetail;
+  const pointById = useMemo(() => Object.fromEntries(points.map((point) => [point.id, point])), [points]);
+  const selectedPoint = pointById[selectedId];
+  const root = chapterFilter === 'all' ? undefined : points.find((point) => point.chapter === chapterFilter && point.level === 1);
+  const activeTopic = chapterFilter === 'all' || selectedPoint?.chapter !== chapterFilter ? undefined
+    : selectedPoint?.level === 2 ? selectedPoint : selectedPoint?.level === 3 ? pointById[selectedPoint.parentId || ''] : undefined;
+  const viewportKey = `knowledge:${compactViewport ? 'compact' : 'full'}:${chapterFilter}:${activeTopic?.id || 'root'}`;
+  const overviewRoots = useMemo(
+    () => points.filter((point) => point.level === 1).sort((a, b) => a.chapter - b.chapter),
+    [points],
+  );
+  const compactTopics = root ? points.filter((point) => point.parentId === root.id) : [];
+  const compactLeaves = activeTopic ? points.filter((point) => point.parentId === activeTopic.id) : [];
 
-  // 点击章节 hub 切单章视图前，先让镜头真正飞过去再切数据（remount）——
-  // 详见 GraphMapStage 的 flyToNode 注释。pendingFocusTimer 记录待执行的
-  // "动画播完后切数据"定时器，用户连续快速点不同 hub 时清掉上一个，
-  // 避免旧的延时切换在动画途中抢先把 chapter 切到别处。
-  const stageHandleRef = useRef<GraphMapStageHandle>(null);
-  const pendingFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (pendingFocusTimer.current) clearTimeout(pendingFocusTimer.current);
-  }, []);
-
-  // 关系索引：byId 正查 + dependents 反查（"谁把我当前置"）。
-  const relationIndex = useMemo(() => {
-    const byId: Record<string, KnowledgePoint> = {};
-    const dependents: Record<string, string[]> = {};
-    points.forEach((p) => { byId[p.id] = p; });
-    points.forEach((p) => {
-      (p.prerequisites || []).forEach((pre) => {
-        if (!byId[pre]) return;
-        (dependents[pre] ||= []).push(p.id);
-      });
-    });
-    return { byId, dependents };
-  }, [points]);
-
-  // 关联链路：选中节点的全部前置链（沿 prerequisites 向上递归）
-  // 与全部后继链（沿反向索引向下递归）。
-  const chain = useMemo(() => {
-    const up = new Set<string>();
-    const down = new Set<string>();
-    if (selectedId && relationIndex.byId[selectedId]) {
-      const upQueue = [selectedId];
-      while (upQueue.length) {
-        const id = upQueue.pop()!;
-        (relationIndex.byId[id]?.prerequisites || []).forEach((pre) => {
-          if (relationIndex.byId[pre] && !up.has(pre)) {
-            up.add(pre);
-            upQueue.push(pre);
-          }
-        });
-      }
-      const downQueue = [selectedId];
-      while (downQueue.length) {
-        const id = downQueue.pop()!;
-        (relationIndex.dependents[id] || []).forEach((next) => {
-          if (!down.has(next)) {
-            down.add(next);
-            downQueue.push(next);
-          }
-        });
-      }
-    }
-    return { up, down };
-  }, [relationIndex, selectedId]);
-
-  // 全景视图的"屏上代表"：L3 汇聚到父级 L2（默认不逐个上屏），L1/L2 即自身。
-  const repOf = useMemo(() => {
-    return (id: string): string | null => {
-      const p = relationIndex.byId[id];
-      if (!p) return null;
-      if (p.level === 3) return p.parentId ?? null;
-      return p.id;
-    };
-  }, [relationIndex]);
-
-  // Focus set：选中节点 + 层级亲缘（父链/子孙）+ 前置链 + 后继链。
-  // 全景视图折算成屏上代表节点，供画布聚焦镜头与调光使用。
-  const focusIds = useMemo(() => {
-    if (!selectedId || !relationIndex.byId[selectedId]) return new Set<string>();
-    const raw = new Set<string>([selectedId]);
-    let cursor: KnowledgePoint | undefined = relationIndex.byId[selectedId];
-    while (cursor?.parentId) {
-      raw.add(cursor.parentId);
-      cursor = relationIndex.byId[cursor.parentId];
-    }
-    const queue = [selectedId];
-    while (queue.length) {
-      const id = queue.shift()!;
-      points.forEach((p) => {
-        if (p.parentId === id && !raw.has(p.id)) {
-          raw.add(p.id);
-          queue.push(p.id);
-        }
-      });
-    }
-    chain.up.forEach((id) => raw.add(id));
-    chain.down.forEach((id) => raw.add(id));
-    if (chapterFilter !== 'all') return raw;
-    const reps = new Set<string>();
-    raw.forEach((id) => {
-      const rep = repOf(id);
-      if (rep) reps.add(rep);
-    });
-    // 选中 L2（或其 L3 子节点）时，按需展开的整簇 L3 也保持明亮
-    const sel = relationIndex.byId[selectedId];
-    const expandId = sel?.level === 2 ? sel.id : sel?.level === 3 ? sel.parentId : null;
-    if (expandId) {
-      points.forEach((p) => {
-        if (p.parentId === expandId) reps.add(p.id);
-      });
-    }
-    return reps;
-  }, [points, relationIndex, chain, selectedId, chapterFilter, repOf]);
-
-  // The visual emphasis may span the complete prerequisite closure, but the
-  // camera must tell a smaller story: current point, its hierarchy and the
-  // immediately adjacent learning steps. Fitting the full closure made a
-  // selected node only a few pixels wide on a 1280×720 judging screen.
-  const cameraFocusIds = useMemo(() => {
-    const selectedPoint = relationIndex.byId[selectedId];
-    if (!selectedPoint) return new Set<string>();
-    const raw = new Set<string>([selectedPoint.id]);
-
-    let cursor: KnowledgePoint | undefined = selectedPoint;
-    while (cursor?.parentId) {
-      raw.add(cursor.parentId);
-      cursor = relationIndex.byId[cursor.parentId];
-    }
-
-    if (selectedPoint.level === 1) {
-      points.forEach((point) => {
-        if (point.parentId === selectedPoint.id && point.level === 2) raw.add(point.id);
-      });
-    } else if (selectedPoint.level === 2) {
-      points.forEach((point) => {
-        if (point.parentId === selectedPoint.id) raw.add(point.id);
-      });
-    } else if (selectedPoint.parentId) {
-      points.forEach((point) => {
-        if (point.parentId === selectedPoint.parentId) raw.add(point.id);
-      });
-    }
-
-    (selectedPoint.prerequisites || []).forEach((id) => raw.add(id));
-    (relationIndex.dependents[selectedPoint.id] || []).forEach((id) => raw.add(id));
-
-    if (chapterFilter !== 'all') return raw;
-    const presented = new Set<string>();
-    raw.forEach((id) => {
-      const representative = repOf(id);
-      if (representative) presented.add(representative);
-    });
-    return presented;
-  }, [chapterFilter, points, relationIndex, repOf, selectedId]);
+  useEffect(() => { setSelectedEdgeKey(null); }, [selectedId, chapterFilter, showPrerequisites]);
+  useEffect(() => { if (dependencyDetailVisible === false) setSelectedEdgeKey(null); }, [dependencyDetailVisible]);
+  useEffect(() => () => dependencyDetailCallback.current?.(null), []);
 
   const layout = useMemo(() => {
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
-    const pointById: Record<string, KnowledgePoint> = {};
-    points.forEach((p) => { pointById[p.id] = p; });
-    const chapterNumbers = Array.from(new Set(points.map((point) => point.chapter))).sort((a, b) => a - b);
-
-    // 节点（含子级汇总）的实验标题清单：给烧瓶角标的悬停提示用
-    const expTitlesOf = (point: KnowledgePoint, rollupChildren: boolean): string[] => {
-      const refs = new Set<string>(point.appliedIn || []);
-      if (rollupChildren) {
-        points.forEach((c) => {
-          if (c.parentId === point.id) (c.appliedIn || []).forEach((r) => refs.add(r));
-        });
-      }
-      return Array.from(refs).map((r) => experimentTitleByRefId[r] || r);
+    const addPoint = (point: KnowledgePoint, x: number, y: number, subtitle: string, size: GraphNodeSize = 'topicCard'): void => {
+      nodes.push(createMapNode(point.id, x, y, {
+        label: point.name, subtitle, levelLabel: point.level === 1 ? '单元' : point.level === 2 ? '主题' : '知识点',
+        tone: knowledgeTone(point.chapter), size, selected: point.id === selectedId,
+        visible: visibleIds.has(point.id) || points.some((child) => child.parentId === point.id && visibleIds.has(child.id)),
+        chapter: point.chapter, mastery: masteryByKa?.[point.id], description: point.description,
+        experiments: (point.appliedIn || []).map((id) => experimentTitleByRefId[id] || id), labelPlacement: 'inside',
+      }));
     };
-
+    const addHierarchy = (parentId: string, childId: string): void => {
+      const parent = nodes.find((node) => node.id === parentId);
+      const child = nodes.find((node) => node.id === childId);
+      if (!parent || !child) return;
+      const childPoint = pointById[childId];
+      edges.push(graphAssociationEdge(parentId, childId, knowledgeTone(childPoint?.chapter || 1), true, 1.35, false, chapterFilter === 'all' && child.position.x < parent.position.x
+        ? { sourceHandle: 'ls', targetHandle: 'rt' }
+        : { sourceHandle: 'rs', targetHandle: 'lt' }));
+    };
     if (chapterFilter === 'all') {
-      // —— 十章课程总览 ——
-      // 首屏只显示 10 个章节入口，保证 1280×720 下章节名称可读；点击章节
-      // 进入单章树后再展示 L2/L3。搜索或知识点深链会临时恢复关系网络，
-      // 以便定位具体节点，而不是把 63 个节点永久压进首屏。
-      const isCourseOverview = !selectedId;
-      // 三类边分层渲染：层级辐条（极淡）、前置依赖（主角：青→琥珀渐变
-      // 曲线，跨章微流动）、学习主线（章序粗线）。实验关联以烧瓶角标呈现。
-      const COLS = 5;
-      const CELL_W = isCourseOverview ? 210 : 352;
-      const X0 = isCourseOverview ? 150 : 220;
-      const ROW_Y = isCourseOverview ? [180, 430] : [225, 700];
-      const hubPos = new Map<number, { x: number; y: number }>();
-      const l2Angle = new Map<string, number>();
-      const l2Pos = new Map<string, { x: number; y: number }>();
-      const onScreen = new Set<string>();
-
-      // 环几何按 L2 数量微调：保证相邻簇不贴脸、环上节点不压 hub。
-      // 第三轮教训：单纯放大半径无效——fitView 会把整张图等比缩回容器，
-      // 半径和簇间距同时放大互相抵消。真正决定"挤不挤"的是【相邻簇同排
-      // L2 节点的最小间距】与【标签本身宽度】的比值，这两个量必须分开调：
-      // 1) CELL_W 300→352：拉开簇间距的分母；
-      // 2) rx 不再一味加大，改为压低（尤其 6/7 档从 124→108），把环整体
-      //    从"接近正圆"改造成"竖向椭圆"——因为章节是同排横向排列，横向空间
-      //    (CELL_W) 比纵向空间(行距 475px) 紧张得多，环该往纵向要空间，
-      //    不该往横向要空间，横向越推越挤邻簇；
-      // 3) 标签宽度本身也收紧（见 labelBox），双管齐下才是标签宽度 vs
-      //    节点间距的比值真正改善，而不是被 fitView 缩放抵消的假象。
-      const ringGeometry = (count: number) => {
-        if (count <= 4) return { rx: 112, ry: 160, start: -Math.PI * 0.75 };
-        if (count === 5) return { rx: 96, ry: 192, start: -Math.PI / 2 };
-        return { rx: 108, ry: 172, start: -Math.PI / 2 };
-      };
-
-      chapterNumbers.forEach((chapter, index) => {
-        if (isCourseOverview && isMobile) {
-          // A 5×2 desktop strip is technically complete on a phone, but fitView
-          // shrinks every 80px chapter hub to an unreadable dot. Use a compact
-          // 1–3–3–3 teaching path instead: four short rows preserve the same
-          // course order, keep the top-right camera controls clear, and leave
-          // enough rendered diameter for the chapter name to be read/tapped.
-          const mobileRows = [1, 3, 3, 3];
-          let row = 0;
-          let offset = index;
-          while (row < mobileRows.length - 1 && offset >= mobileRows[row]) {
-            offset -= mobileRows[row];
-            row += 1;
-          }
-          const rowCount = mobileRows[row] || 1;
-          const left = rowCount <= 2 ? 80 : 56;
-          const col = row === 2 ? rowCount - 1 - offset : offset;
-          hubPos.set(chapter, { x: left + col * 112, y: 78 + row * 108 });
-          return;
-        }
-        const row = index < COLS ? 0 : 1;
-        const rawCol = index % COLS;
-        const col = row === 1 ? COLS - 1 - rawCol : rawCol;
-        hubPos.set(chapter, { x: X0 + col * CELL_W, y: ROW_Y[row] ?? ROW_Y[1] });
+      const roots = points.filter((point) => point.level === 1).sort((a, b) => a.chapter - b.chapter);
+      nodes.push(createMapNode('knowledge-course', 430, 240, {
+        label: '单片机原理与应用', subtitle: `${roots.length} 个单元`, tone: 'cyan', size: 'core',
+        selected: false, visible: true, clickable: false, labelPlacement: 'inside',
+      }));
+      const centers = getCourseOverviewCenters(false);
+      roots.forEach((point, index) => {
+        const center = centers[index] || { x: 730, y: 64 + (index - 5) * 88 };
+        addPoint(point, center.x, center.y, `单元 ${point.chapter} · ${points.filter((child) => child.parentId === point.id).length} 个主题`, 'chapterCard');
+        addHierarchy('knowledge-course', point.id);
       });
-
-      chapterNumbers.forEach((chapter) => {
-        const center = hubPos.get(chapter)!;
-        const chapterPoints = points.filter((point) => point.chapter === chapter);
-        const root = chapterPoints.find((point) => point.level === 1);
-        const levelTwo = chapterPoints.filter((point) => point.level === 2);
-        const levelThreeCount = chapterPoints.filter((point) => point.level === 3).length;
-        const tone = knowledgeTone(chapter);
-        const chapterProgress = progressForChapter(progress, chapter);
-        const geo = ringGeometry(levelTwo.length);
-
-        if (!isCourseOverview) {
-          // 关系网络才需要簇光晕；总览只保留章节入口与课程顺序。
-          const haloW = geo.rx * 2 + 190;
-          const haloH = geo.ry * 2 + 150;
-          nodes.push({
-            id: `kg-halo-${chapter}`,
-            type: 'clusterHalo',
-            position: { x: center.x - haloW / 2, y: center.y - haloH / 2 },
-            draggable: false,
-            selectable: false,
-            style: { zIndex: 0 },
-            data: { color: graphTone[tone].color, width: haloW, height: haloH },
-          });
-        }
-
-        if (root) {
-          onScreen.add(root.id);
-          nodes.push(createMapNode(root.id, center.x, center.y, {
-            label: root.name,
-            subtitle: `CH${chapter} · ${levelTwo.length}节 · ${levelThreeCount}点${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
-            // 章节色只表达知识分区；掌握度由节点外环单独编码，避免一色多义。
-            tone,
-            size: 'hub',
-            selected: root.id === selectedId,
-            visible: chapterPoints.some((point) => visibleIds.has(point.id)),
-            chapter,
-            mastery: masteryByKa?.[root.id],
-            experiments: expTitlesOf(root, false),
-          }));
-        }
-
-        if (!isCourseOverview) levelTwo.forEach((parent, parentIndex) => {
-          const angle = geo.start + (parentIndex / Math.max(levelTwo.length, 1)) * Math.PI * 2;
-          const x = center.x + Math.cos(angle) * geo.rx;
-          const y = center.y + Math.sin(angle) * geo.ry;
-          const childCount = points.filter((c) => c.parentId === parent.id).length;
-          l2Angle.set(parent.id, angle);
-          l2Pos.set(parent.id, { x, y });
-          onScreen.add(parent.id);
-          nodes.push(createMapNode(parent.id, x, y, {
-            label: parent.name,
-            tone,
-            size: 'net',
-            selected: parent.id === selectedId,
-            visible: visibleIds.has(parent.id),
-            chapter,
-            mastery: masteryByKa?.[parent.id],
-            childCount,
-            experiments: expTitlesOf(parent, true),
-          }));
-          if (root) {
-            edges.push({
-              id: `kg-hier-${parent.id}`,
-              source: root.id,
-              target: parent.id,
-              sourceHandle: 'cs',
-              targetHandle: 'ct',
-              type: 'straight',
-              animated: false,
-              style: { stroke: graphEdgeTone[tone], strokeWidth: 1.1, opacity: 0.38, strokeLinecap: 'round' },
-              data: { kind: 'hier' },
-            });
-          }
-        });
+    } else if (root) {
+      const topics = points.filter((point) => point.parentId === root.id);
+      const leaves = activeTopic ? points.filter((point) => point.parentId === activeTopic.id) : [];
+      const maxLeafCount = Math.max(0, ...topics.map((topic) => points.filter((point) => point.parentId === topic.id).length));
+      const height = Math.max(topics.length * 88, maxLeafCount * 80, 220);
+      const middleY = height / 2 + 44;
+      addPoint(root, 120, middleY, `单元 ${root.chapter} · ${topics.length} 个主题`, 'hub');
+      topics.forEach((topic, index) => {
+        const children = points.filter((point) => point.parentId === topic.id);
+        addPoint(topic, 410, middleY + (index - (topics.length - 1) / 2) * 88, `${children.length} 个知识点`);
+        addHierarchy(root.id, topic.id);
       });
-
-      // L3 按需展开：选中某个 L2（或它的 L3 子节点）时，把该簇 L3
-      // 沿这个 L2 背离 hub 的方向扇形铺开，其余簇的 L3 不渲染。
-      const sel = pointById[selectedId];
-      const expandParent = sel?.level === 2 ? sel : sel?.level === 3 ? pointById[sel.parentId || ''] : undefined;
-      if (expandParent && l2Pos.has(expandParent.id)) {
-        const base = l2Pos.get(expandParent.id)!;
-        const baseAngle = l2Angle.get(expandParent.id) ?? -Math.PI / 2;
-        const kids = points.filter((p) => p.parentId === expandParent.id);
-        const tone = knowledgeTone(expandParent.chapter);
-        const spread = Math.min(Math.PI * 0.85, 0.5 * Math.max(kids.length, 2));
-        kids.forEach((child, childIndex) => {
-          const kidAngle = baseAngle - spread / 2 + (spread * (childIndex + 0.5)) / Math.max(kids.length, 1);
-          const kx = base.x + Math.cos(kidAngle) * 128;
-          const ky = base.y + Math.sin(kidAngle) * 96;
-          onScreen.add(child.id);
-          const node = createMapNode(child.id, kx, ky, {
-            label: child.name,
-            levelLabel: 'L3',
-            tone,
-            size: 'leaf',
-            selected: child.id === selectedId,
-            visible: visibleIds.has(child.id),
-            chapter: expandParent.chapter,
-            mastery: masteryByKa?.[child.id],
-            experiments: expTitlesOf(child, false),
-          });
-          node.style = { zIndex: 70 };
-          nodes.push(node);
+      leaves.forEach((point, index) => {
+        addPoint(point, 700, middleY + (index - (leaves.length - 1) / 2) * 80, '', 'learningUnit');
+        addHierarchy(activeTopic!.id, point.id);
+      });
+      if (showPrerequisites && selectedPoint) {
+        const renderedIds = new Set(nodes.map((node) => node.id));
+        points.forEach((target) => (target.prerequisites || []).forEach((sourceId) => {
+          if (sourceId !== selectedId && target.id !== selectedId) return;
+          if (!renderedIds.has(sourceId) || !renderedIds.has(target.id)) return;
+          const sourceNode = nodes.find((node) => node.id === sourceId)!;
+          const targetNode = nodes.find((node) => node.id === target.id)!;
           edges.push({
-            id: `kg-expand-${child.id}`,
-            source: expandParent.id,
-            target: child.id,
-            sourceHandle: 'cs',
-            targetHandle: 'ct',
-            type: 'straight',
-            animated: false,
-            style: { stroke: graphEdgeTone[tone], strokeWidth: 1.3, opacity: 0.58, strokeLinecap: 'round' },
-            data: { kind: 'expand' },
+            id: `kg-dep-local-${sourceId}-${target.id}`, source: sourceId, target: target.id,
+            ...nearestSideHandles(sourceNode.position, targetNode.position), type: 'smoothstep',
+            style: { stroke: graphEdgeTone.amber, strokeWidth: 1.8, opacity: .9, strokeDasharray: '6 6', cursor: 'pointer' },
+            markerEnd: { type: MarkerType.ArrowClosed, color: graphEdgeTone.amber, width: 14, height: 14 },
+            interactionWidth: 20, ...getDependencyEdgeAccessibility(pointById[sourceId]?.name || sourceId, target.name, 1),
+            data: { kind: 'dep', pairs: [[sourceId, target.id]] },
           });
-        });
-      }
-
-      // 课程章序：章节 hub 按课程目录顺序首尾相接。它只帮助学生看清
-      // 章节位置，不声称相邻两章必然构成先修关系；真正的先修语义仅由
-      // prerequisites 边承担。同行走左右桩的直线，
-      // 换行（CH5→CH6）走下上桩的贝塞尔，蛇形排布保证主线不穿簇。
-      const mainColor = graphTone.cyan.color;
-      chapterNumbers.forEach((chapter, index) => {
-        const next = chapterNumbers[index + 1];
-        if (next === undefined) return;
-        const rootA = points.find((p) => p.level === 1 && p.chapter === chapter);
-        const rootB = points.find((p) => p.level === 1 && p.chapter === next);
-        if (!rootA || !rootB) return;
-        const a = hubPos.get(chapter)!;
-        const b = hubPos.get(next)!;
-        const sameRow = a.y === b.y;
-        const edge: RFEdge = {
-          id: `kg-mainline-${chapter}-${next}`,
-          source: rootA.id,
-          target: rootB.id,
-          type: sameRow ? 'straight' : 'default',
-          animated: false,
-          style: { stroke: mainColor, strokeWidth: 1.8, opacity: 0.56, strokeLinecap: 'round', strokeDasharray: '4 5' },
-          data: { kind: 'main' },
-        };
-        if (sameRow) {
-          edge.sourceHandle = b.x > a.x ? 'rs' : 'ls';
-          edge.targetHandle = b.x > a.x ? 'lt' : 'rt';
-        }
-        edges.push(edge);
-      });
-
-      // 前置依赖边（主角）：把 prerequisites 逐条折算到屏上代表
-      // （L3→父级 L2），同一对代表聚合成一条曲线，线宽随条数微增；
-      // 跨章边用微流动虚线强调，章内边为细实线。
-      type RolledDep = { from: string; to: string; count: number; cross: boolean; pairs: Array<[string, string]> };
-      const rolledDeps = new Map<string, RolledDep>();
-      points.forEach((p) => {
-        (p.prerequisites || []).forEach((preId) => {
-          const from = repOf(preId);
-          const to = repOf(p.id);
-          if (!from || !to || from === to) return;
-          if (!onScreen.has(from) || !onScreen.has(to)) return;
-          const key = `${from}=>${to}`;
-          const entry = rolledDeps.get(key) || {
-            from,
-            to,
-            count: 0,
-            cross: pointById[from]!.chapter !== pointById[to]!.chapter,
-            pairs: [],
-          };
-          entry.count += 1;
-          entry.pairs.push([preId, p.id]);
-          rolledDeps.set(key, entry);
-        });
-      });
-      rolledDeps.forEach((dep) => {
-        edges.push({
-          id: `kg-dep-${dep.from}-${dep.to}`,
-          source: dep.from,
-          target: dep.to,
-          type: 'default',
-          animated: false,
-          style: {
-            stroke: 'url(#kg-dep-gradient)',
-            strokeWidth: Math.min(1.1 + dep.count * 0.2, 2),
-            opacity: dep.cross ? 0.54 : 0.46,
-            strokeLinecap: 'round',
-            cursor: 'pointer',
-            ...(dep.cross ? { strokeDasharray: '7 5' } : {}),
-          },
-          // 内含N条依赖的小徽标：让聚合边一眼看出不是装饰线，点击可展开明细
-          label: dep.count > 1 ? `${dep.count}` : undefined,
-          labelStyle: { fill: '#fff7ed', fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace' },
-          labelBgStyle: { fill: 'rgba(120, 53, 15, 0.92)' },
-          labelBgPadding: [3, 2],
-          labelBgBorderRadius: 5,
-          interactionWidth: 16,
-          markerEnd: { type: MarkerType.ArrowClosed, color: graphEdgeTone.amber, width: 9, height: 9 },
-          ...getDependencyEdgeAccessibility(
-            pointById[dep.from]?.name || dep.from,
-            pointById[dep.to]?.name || dep.to,
-            dep.count,
-          ),
-          data: { kind: 'dep', pairs: dep.pairs },
-        });
-      });
-    } else {
-      // Single chapter = a left-to-right teaching narrative, not another
-      // radial constellation. Judges read "chapter → section → concrete point"
-      // in one glance; the active L2 family owns the visual stage while the
-      // remaining L2 entrances stay available as a quiet chapter index.
-      const chapter = chapterFilter;
-      const chapterPoints = points.filter((point) => point.chapter === chapter);
-      const root = chapterPoints.find((point) => point.level === 1);
-      const levelTwo = chapterPoints.filter((point) => point.level === 2);
-      const tone = knowledgeTone(chapter);
-      const chapterProgress = progressForChapter(progress, chapter);
-      const selectedPoint = pointById[selectedId];
-      const activeParent = selectedPoint?.level === 2
-        ? selectedPoint
-        : selectedPoint?.level === 3
-          ? pointById[selectedPoint.parentId || '']
-          : undefined;
-      const renderedPointIds = new Set<string>();
-
-      const activeChildren = activeParent
-        ? chapterPoints.filter((point) => point.parentId === activeParent.id)
-        : [];
-      if (root) {
-        renderedPointIds.add(root.id);
-        nodes.push(createMapNode(
-          root.id,
-          isMobile ? 400 : activeParent ? 155 : 180,
-          isMobile ? 70 : 310,
-          {
-          label: root.name,
-          subtitle: `${levelTwo.length} 个主题${chapterProgress === null ? '' : ` · ${chapterProgress}%`}`,
-          levelLabel: 'L1',
-          tone,
-          size: isMobile ? 'compactChapterCard' : 'chapterCard',
-          selected: root.id === selectedId,
-          visible: visibleIds.has(root.id),
-          chapter,
-          mastery: masteryByKa?.[root.id],
-          experiments: expTitlesOf(root, false),
         }));
       }
-
-      if (activeParent) {
-        renderedPointIds.add(activeParent.id);
-        nodes.push(createMapNode(activeParent.id, isMobile ? 400 : 470, isMobile ? 205 : 310, {
-          label: activeParent.name,
-          subtitle: `${activeChildren.length} 个知识单元 · 逐项完成`,
-          levelLabel: activeParent.id,
-          tone,
-          size: isMobile ? 'compactTopicCard' : 'topicCard',
-          selected: activeParent.id === selectedId,
-          visible: visibleIds.has(activeParent.id),
-          chapter,
-          mastery: masteryByKa?.[activeParent.id],
-          experiments: expTitlesOf(activeParent, false),
-        }));
-        if (root) {
-          edges.push({
-            id: `kg-hier-${root.id}-${activeParent.id}`,
-            source: root.id,
-            target: activeParent.id,
-            sourceHandle: isMobile ? undefined : 'rs',
-            targetHandle: isMobile ? undefined : 'lt',
-            type: 'default',
-            animated: false,
-            style: { stroke: graphEdgeTone[tone], strokeWidth: 2.4, opacity: 0.78, strokeLinecap: 'round' },
-            markerEnd: { type: MarkerType.ArrowClosed, color: graphEdgeTone[tone], width: 9, height: 9 },
-            data: { kind: 'hier' },
-          });
-        }
-
-        const columns = 2;
-        const rows = Math.max(1, Math.ceil(activeChildren.length / columns));
-        const startY = isMobile ? 350 : 145;
-        activeChildren.forEach((child, childIndex) => {
-          const row = Math.floor(childIndex / columns);
-          const rowStart = row * columns;
-          const rowCount = Math.min(columns, activeChildren.length - rowStart);
-          const column = childIndex - rowStart;
-          const columnGap = isMobile ? 220 : 270;
-          const rowWidth = (rowCount - 1) * columnGap;
-          const childX = (isMobile ? 400 : 925) - rowWidth / 2 + column * columnGap;
-          const childY = startY + row * (isMobile ? 105 : 108);
-          renderedPointIds.add(child.id);
-          nodes.push(createMapNode(child.id, childX, childY, {
-            label: child.name,
-            levelLabel: 'L3',
-            sequence: childIndex + 1,
-            // 学习单元用稳定的冷青色建立同组识别；掌握度仅由卡片右侧
-            // 状态点编码，避免“章节色”和“成绩色”争夺整张卡片。
-            tone: 'cyan',
-            size: isMobile ? 'compactLearningUnit' : 'learningUnit',
-            selected: child.id === selectedId,
-            visible: visibleIds.has(child.id),
-            chapter,
-            mastery: masteryByKa?.[child.id],
-            experiments: expTitlesOf(child, false),
-          }));
-          edges.push({
-            id: `kg-hier-${activeParent.id}-${child.id}`,
-            source: activeParent.id,
-            target: child.id,
-            sourceHandle: isMobile ? undefined : 'rs',
-            targetHandle: isMobile ? undefined : 'lt',
-            type: 'default',
-            animated: false,
-            style: {
-              stroke: child.id === selectedId ? graphEdgeTone.cyan : graphEdgeTone[tone],
-              strokeWidth: child.id === selectedId ? 2.2 : 1.35,
-              opacity: child.id === selectedId ? 0.95 : 0.52,
-              strokeLinecap: 'round',
-            },
-            data: { kind: 'hier' },
-          });
-        });
-      } else {
-        // 章根视图只展示六个可进入主题；进入任一主题后，主舞台立即收敛为
-        // “章—当前主题—知识单元”。不再把未选主题塞进聚焦画布制造噪声。
-        const columns = isMobile ? 2 : 3;
-        levelTwo.forEach((parent, parentIndex) => {
-          const row = Math.floor(parentIndex / columns);
-          const column = parentIndex % columns;
-          const parentX = isMobile ? 300 + column * 200 : 620 + column * 205;
-          const parentY = isMobile ? 240 + row * 145 : 225 + row * 170;
-          const childPoints = chapterPoints.filter((point) => point.parentId === parent.id);
-          renderedPointIds.add(parent.id);
-          nodes.push(createMapNode(parent.id, parentX, parentY, {
-            label: parent.name,
-            levelLabel: 'L2',
-            tone,
-            size: 'leaf',
-            selected: parent.id === selectedId,
-            visible: visibleIds.has(parent.id),
-            chapter,
-            mastery: masteryByKa?.[parent.id],
-            childCount: childPoints.length,
-            experiments: expTitlesOf(parent, true),
-          }));
-          if (root) {
-            edges.push({
-              id: `kg-hier-${root.id}-${parent.id}`,
-              source: root.id,
-              target: parent.id,
-              sourceHandle: isMobile ? undefined : 'rs',
-              targetHandle: isMobile ? undefined : 'lt',
-              type: 'default',
-              animated: false,
-              style: { stroke: graphEdgeTone[tone], strokeWidth: 1.2, opacity: 0.48, strokeLinecap: 'round' },
-              data: { kind: 'hier' },
-            });
-          }
-        });
-      }
-
-      // Prerequisite arrows stay semantically distinct from containment and
-      // are emitted only when both endpoints are on this editorial stage.
-      if (selectedPoint && selectedPoint.chapter === chapter && selectedPoint.level === 3) {
-        chapterPoints.forEach((point) => {
-          (point.prerequisites || []).forEach((prerequisiteId) => {
-            const prerequisite = pointById[prerequisiteId];
-            if (!prerequisite || prerequisite.chapter !== chapter) return;
-            if (!renderedPointIds.has(point.id) || !renderedPointIds.has(prerequisite.id)) return;
-            if (!focusIds.has(point.id) || !focusIds.has(prerequisite.id)) return;
-            const prerequisiteNode = nodes.find((node) => node.id === prerequisite.id);
-            const targetNode = nodes.find((node) => node.id === point.id);
-            if (!prerequisiteNode || !targetNode) return;
-            const deltaX = targetNode.position.x - prerequisiteNode.position.x;
-            const deltaY = targetNode.position.y - prerequisiteNode.position.y;
-            const prefersHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 0.8;
-            const sourceHandle = prefersHorizontal
-              ? (deltaX >= 0 ? 'rs' : 'ls')
-              : (deltaY >= 0 ? undefined : 'ts');
-            const targetHandle = prefersHorizontal
-              ? (deltaX >= 0 ? 'lt' : 'rt')
-              : (deltaY >= 0 ? undefined : 'bt');
-            edges.push({
-              id: `kg-dep-local-${prerequisite.id}-${point.id}`,
-              source: prerequisite.id,
-              target: point.id,
-              sourceHandle,
-              targetHandle,
-              type: 'default',
-              animated: point.id === selectedId || prerequisite.id === selectedId,
-              style: {
-                stroke: 'url(#kg-dep-gradient)',
-                strokeWidth: point.id === selectedId || prerequisite.id === selectedId ? 2.2 : 1.3,
-                opacity: point.id === selectedId || prerequisite.id === selectedId ? 0.92 : 0.52,
-                strokeDasharray: '7 5',
-                strokeLinecap: 'round',
-                cursor: 'pointer',
-              },
-              interactionWidth: 16,
-              markerEnd: { type: MarkerType.ArrowClosed, color: graphEdgeTone.amber, width: 9, height: 9 },
-              ...getDependencyEdgeAccessibility(prerequisite.name, point.name, 1),
-              data: { kind: 'dep', pairs: [[prerequisite.id, point.id]] },
-            });
-          });
-        });
-      }
     }
+    return { nodes, edges };
+  }, [points, pointById, selectedId, selectedPoint, visibleIds, chapterFilter, root, activeTopic, masteryByKa, experimentTitleByRefId, showPrerequisites]);
 
-    // —— Focus pass ——
-    // 悬停提示需要节点描述，先给所有 mapNode 挂上；有选中节点时，
-    // 把选中节点的关联链路（前置链+后继链+层级亲缘）保持明亮，
-    // 其余节点与边降透明度，让"这个知识点从哪来、支撑什么"一眼可见。
-    nodes.forEach((node) => {
-      if (node.type !== 'mapNode') return;
-      const data = node.data as MapNodeData;
-      const point = pointById[node.id];
-      if (point && !data.description) data.description = point.description;
-    });
-    // 全景下选中 L1（页面初始化的兜底选中就是第 1 章根节点）不进入聚焦调光：
-    // 否则首屏整张网络被压暗成"只亮第一章"；链路聚焦叙事留给 L2/L3 的点击。
-    const selPoint = pointById[selectedId];
-    const hasFocus = focusIds.size > 0 && Boolean(selPoint) && !(chapterFilter === 'all' && selPoint.level === 1);
-    if (chapterFilter === 'all') {
-      if (hasFocus) {
-        const inUp = (id: string) => id === selectedId || chain.up.has(id);
-        const inDown = (id: string) => id === selectedId || chain.down.has(id);
-        nodes.forEach((node) => {
-          if (node.type !== 'mapNode') return;
-          const data = node.data as MapNodeData;
-          if (!focusIds.has(node.id)) data.dimmed = true;
-        });
-        edges.forEach((edge) => {
-          const kind = (edge.data as { kind?: string } | undefined)?.kind;
-          if (kind === 'dep') {
-            // 依赖边是否落在选中节点的链路上：按折算前的原始节点对判定，
-            // 前置链内部的边与后继链内部的边都算链上边。
-            const pairs = (edge.data as { pairs?: Array<[string, string]> }).pairs || [];
-            const onChain = pairs.some(([f, t]) => (inUp(f) && inUp(t)) || (inDown(f) && inDown(t)));
-            if (onChain) {
-              edge.style = { ...edge.style, opacity: 0.95, strokeWidth: 2.6 };
-              edge.animated = true;
-            } else {
-              edge.style = { ...edge.style, opacity: 0.05 };
-              edge.animated = false;
-            }
-          } else if (kind === 'hier') {
-            const active = focusIds.has(edge.source) && focusIds.has(edge.target);
-            edge.style = { ...edge.style, opacity: active ? 0.62 : 0.05 };
-          } else if (kind === 'main') {
-            edge.style = { ...edge.style, opacity: 0.07 };
-            edge.animated = false;
-          }
-        });
-      }
-    } else if (hasFocus) {
-      nodes.forEach((node) => {
-        if (node.type !== 'mapNode') return;
-        const data = node.data as MapNodeData;
-        if (!focusIds.has(node.id)) data.dimmed = true;
-      });
-      edges.forEach((edge) => {
-        if (focusIds.has(edge.source) && focusIds.has(edge.target)) return;
-        edge.style = {
-          ...edge.style,
-          opacity: typeof edge.style?.opacity === 'number' ? edge.style.opacity * 0.18 : 0.08,
-        };
-        edge.animated = false;
-      });
-    }
-
-    return { nodes, edges, hasFocus };
-  }, [points, progress, selectedId, visibleIds, chapterFilter, masteryByKa, focusIds, chain, repOf, experimentTitleByRefId, isMobile]);
-
-  // 选中的聚合依赖边：从当前布局的边集里按 id 找回它折算前的具体节点对
-  const selectedEdge = useMemo(() => {
-    if (!selectedEdgeKey) return null;
-    const edge = layout.edges.find((e) => e.id === selectedEdgeKey);
-    if (!edge) return null;
-    const pairs = (edge.data as { pairs?: Array<[string, string]> } | undefined)?.pairs || [];
-    return { id: edge.id, pairs };
-  }, [layout.edges, selectedEdgeKey]);
-
-  const stageEdges = useMemo(() => layout.edges.map((edge) => {
-    const kind = (edge.data as { kind?: string } | undefined)?.kind;
-    if (kind !== 'dep') return edge;
-    return {
-      ...edge,
-      domAttributes: {
-        ...edge.domAttributes,
-        'aria-controls': DEPENDENCY_EDGE_DETAIL_ID,
-        'aria-expanded': edge.id === selectedEdgeKey,
-      },
-    };
-  }), [layout.edges, selectedEdgeKey]);
-
-  useEffect(() => {
-    if (!selectedEdge || !shouldFocusEdgeDetailRef.current) return;
-    shouldFocusEdgeDetailRef.current = false;
-    edgeDetailPanelRef.current?.focus({ preventScroll: true });
-  }, [selectedEdge]);
-
-  const closeEdgeDetail = (): void => {
-    const returnTarget = edgeFocusReturnRef.current;
-    edgeFocusReturnRef.current = null;
-    shouldFocusEdgeDetailRef.current = false;
+  const selectedEdge = layout.edges.find((edge) => edge.id === selectedEdgeKey);
+  const selectedPairsKey = JSON.stringify((selectedEdge?.data as { pairs?: Array<[string, string]> } | undefined)?.pairs || []);
+  const closeEdgeDetail = useCallback(() => {
     setSelectedEdgeKey(null);
-    if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
-  };
-
-  const selectDependencyEdge = (edgeId: string, keyboardTrigger?: Element): void => {
-    if (selectedEdgeKey === edgeId) {
-      closeEdgeDetail();
-      return;
+    const trigger = edgeFocusReturnRef.current;
+    edgeFocusReturnRef.current = null;
+    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+  }, []);
+  const dependencyDetail = useMemo(() => {
+    const pairs = JSON.parse(selectedPairsKey) as Array<[string, string]>;
+    return pairs.length ? <DepEdgeDetailPanel ref={edgeDetailPanelRef} pairs={pairs} pointById={pointById} onClose={closeEdgeDetail}
+      onSelectPoint={(id) => { const point = pointById[id]; if (point) onSelectRef.current(point); }} /> : null;
+  }, [selectedPairsKey, pointById, closeEdgeDetail]);
+  useEffect(() => {
+    dependencyDetailCallback.current?.(dependencyDetail);
+    if (dependencyDetail && edgeFocusReturnRef.current) {
+      const frame = requestAnimationFrame(() => edgeDetailPanelRef.current?.focus({ preventScroll: true }));
+      return () => cancelAnimationFrame(frame);
     }
-    const focusableTrigger = keyboardTrigger
-      && 'focus' in keyboardTrigger
-      && typeof keyboardTrigger.focus === 'function'
-      ? keyboardTrigger as Element & { focus: (options?: FocusOptions) => void }
-      : null;
-    edgeFocusReturnRef.current = focusableTrigger;
-    shouldFocusEdgeDetailRef.current = Boolean(focusableTrigger);
-    setSelectedEdgeKey(edgeId);
-  };
+  }, [dependencyDetail]);
+
+  const breadcrumbItems: Array<{ id: string; label: string; onSelect?: () => void }> = [
+    { id: 'course', label: '课程总览', onSelect: onReturnOverview },
+  ];
+  if (root) breadcrumbItems.push({ id: root.id, label: root.name, onSelect: () => onSelect(root) });
+  if (activeTopic) breadcrumbItems.push({ id: activeTopic.id, label: activeTopic.name, onSelect: () => onSelect(activeTopic) });
+  if (activeTopic && selectedPoint?.level === 3) breadcrumbItems.push({ id: selectedPoint.id, label: selectedPoint.name });
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      {/* relative 定位容器：DepEdgeDetailPanel 以 absolute 浮层叠加在画布内部，
-          不再作为文档流的兄弟块参与高度计算。此前面板是画布下方的普通块级元素，
-          若外层容器高度（继承自更外层 main/body）超出视口，画布会把面板推到
-          document 里很靠下的位置——1280×720 录制分辨率下实测面板 top ≈ 981px，
-          而视口只有 720px 高，评委点击后完全看不到展开内容。浮层化后面板永远
-          锚定在画布可视区域内，不受外层容器实际高度影响。 */}
-      <div className="relative min-h-0 flex-1">
-        {chapterFilter !== 'all' && (
-          <div className="pointer-events-none absolute inset-x-7 top-4 z-10 hidden grid-cols-[25%_28%_1fr] gap-5 md:grid" aria-hidden>
-            <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-              <b className="grid h-6 w-6 place-items-center rounded-md border border-white/[0.09] bg-white/[0.035] text-[8px] text-slate-300">01</b>
-              章节定位 <i className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent" />
-            </span>
-            <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-              <b className="grid h-6 w-6 place-items-center rounded-md border border-amber-300/20 bg-amber-300/[0.06] text-[8px] text-amber-200">02</b>
-              当前主题 <i className="h-px flex-1 bg-gradient-to-r from-amber-300/15 to-transparent" />
-            </span>
-            <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-              <b className="grid h-6 w-6 place-items-center rounded-md border border-cyan-300/20 bg-cyan-300/[0.06] text-[8px] text-cyan-200">03</b>
-              学习单元 <i className="h-px flex-1 bg-gradient-to-r from-cyan-300/15 to-transparent" />
-            </span>
-          </div>
-        )}
-        <GraphMapStage
-          key={`knowledge-stage-${isMobile ? 'compact' : 'wide'}`}
-          ref={stageHandleRef}
-          nodes={layout.nodes}
-          edges={stageEdges}
-          onSelect={(id) => {
-            const point = points.find((item) => item.id === id);
-            if (!point) return;
-            // 全景视图点击章节 hub：进入该章的单章放射树（既有视图），
-            // 在那里整簇 L3 全部展开。先让镜头飞到该 hub（420ms），
-            // 播完再真正切数据——避免"瞬间跳变"的生硬感。
-            if (chapterFilter === 'all' && point.level === 1) {
-              if (pendingFocusTimer.current) clearTimeout(pendingFocusTimer.current);
-              const transitionDuration = currentGraphMotionDuration(420);
-              if (transitionDuration === 0) {
-                onFocusChapter?.(point.chapter);
-                return;
-              }
-              stageHandleRef.current?.flyToNode(point.id, { duration: transitionDuration });
-              pendingFocusTimer.current = setTimeout(() => {
-                onFocusChapter?.(point.chapter);
-                pendingFocusTimer.current = null;
-              }, transitionDuration);
-              return;
-            }
-            edgeFocusReturnRef.current = null;
-            shouldFocusEdgeDetailRef.current = false;
-            setSelectedEdgeKey(null);
-            onSelect(point);
-          }}
-          selectedId={selectedId}
-          // 未进入聚焦态（如初始化兜底选中章根）时不传 focus 集，镜头保持全景
-          // 单章教学视图保持镜头稳定：选中只改变关系和高亮，不突然缩放。
-          // 全景网络仍保留聚焦镜头，便于在 279 个节点中追踪关系。
-          focusIds={chapterFilter === 'all' && layout.hasFocus ? cameraFocusIds : undefined}
-          // 跟随外层容器高度，避免内层画布高于容器把 MiniMap/Controls 裁掉
-          heightClassName="h-full"
-          fitPadding={chapterFilter === 'all' ? 0.05 : 0.035}
-          onEdgeSelect={selectDependencyEdge}
-          emptyState={visibleIds.size === 0 ? {
-            title: '没有匹配的知识点',
-            description: '当前章节与关键词组合没有结果。清除搜索后可恢复完整课程位置。',
-            actionLabel: '清除搜索',
-            onAction: onClearVisibility,
-          } : undefined}
-        />
-        {selectedEdge && selectedEdge.pairs.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
-            <div className="pointer-events-auto w-full max-w-2xl">
-              <DepEdgeDetailPanel
-                ref={edgeDetailPanelRef}
-                pairs={selectedEdge.pairs}
-                pointById={relationIndex.byId}
-                onClose={closeEdgeDetail}
-                onSelectPoint={(id) => {
-                  const point = relationIndex.byId[id];
-                  if (point) onSelect(point);
-                }}
-              />
+    <div className="flex h-full min-h-0 flex-col gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 px-1">
+        <GraphBreadcrumb items={breadcrumbItems} />
+        {chapterFilter !== 'all' && !compactViewport && <button type="button" aria-pressed={showPrerequisites}
+          onClick={() => setShowPrerequisites((show) => !show)}
+          className={cn('min-h-10 rounded-md border px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', showPrerequisites ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 text-slate-400')}>
+          {showPrerequisites ? '隐藏先修关系' : '显示先修关系'}
+        </button>}
+      </div>
+      <div className="min-h-0 flex-1">
+        {compactViewport && chapterFilter === 'all' ? (
+          <div className="kg-scrollbar h-full overflow-y-auto px-2 pb-3" aria-label="课程单元总览">
+            <div className="mx-auto mb-3 max-w-sm rounded-md border border-cyan-200/35 bg-cyan-200/[0.10] px-4 py-3 text-center">
+              <div className="text-sm font-semibold text-cyan-50">单片机原理与应用</div>
+              <div className="mt-1 text-xs text-cyan-100/65">{overviewRoots.length} 个平台单元</div>
+            </div>
+            <div className="mx-auto mb-2 h-5 w-px bg-cyan-200/25" aria-hidden />
+            <div className="grid grid-cols-2 gap-2" aria-label="十个平台单元">
+              {overviewRoots.map((point) => {
+                const themeCount = points.filter((child) => child.parentId === point.id).length;
+                return (
+                  <button
+                    key={point.id}
+                    type="button"
+                    onClick={() => {
+                      onFocusChapter?.(point.chapter);
+                      onSelect(point);
+                    }}
+                    className="min-h-[92px] rounded-md border border-white/[0.11] bg-[#102027] px-3 py-3 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+                    aria-label={`单元 ${point.chapter} ${point.name}，${themeCount} 个主题`}
+                  >
+                    <span className="block font-mono text-[11px] text-cyan-200/65">单元 {point.chapter}</span>
+                    <span className="mt-1 block text-sm font-semibold leading-5 text-slate-50">{point.name}</span>
+                    <span className="mt-1 block text-xs text-slate-400">{themeCount} 个主题</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
+        ) : compactViewport && root ? (
+          <div className="kg-scrollbar h-full overflow-y-auto px-2 pb-3" aria-label={`单元 ${root.chapter} 层级总览`}>
+            <button
+              type="button"
+              onClick={() => onSelect(root)}
+              aria-current={!activeTopic ? 'page' : undefined}
+              className={cn(
+                'mx-auto block w-full max-w-sm rounded-md border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                !activeTopic
+                  ? 'border-cyan-200/40 bg-cyan-200/[0.11] text-cyan-50'
+                  : 'border-white/[0.11] bg-[#102027] text-slate-100 hover:border-cyan-200/30',
+              )}
+              aria-label={`单元 ${root.chapter} ${root.name}，${compactTopics.length} 个主题`}
+            >
+              <span className="block font-mono text-[11px] text-cyan-200/65">单元 {root.chapter}</span>
+              <span className="mt-1 block text-base font-semibold leading-6">{root.name}</span>
+              <span className="mt-1 block text-xs text-slate-400">{compactTopics.length} 个主题</span>
+            </button>
+
+            <div className="mx-auto h-5 w-px bg-cyan-200/25" aria-hidden />
+            <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+              <span>{activeTopic ? '同级主题' : '选择主题继续展开'}</span>
+              <span>{compactTopics.length} 项</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2" aria-label={`${root.name}主题`}>
+              {compactTopics.map((topic) => {
+                const childCount = points.filter((point) => point.parentId === topic.id).length;
+                const active = activeTopic?.id === topic.id;
+                return (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => onSelect(topic)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'min-h-[88px] rounded-md border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                      active
+                        ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
+                        : 'border-white/[0.10] bg-[#102027] text-slate-100 hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]',
+                    )}
+                    aria-label={`主题 ${topic.name}，${childCount} 个知识点`}
+                  >
+                    <span className="block text-sm font-semibold leading-5">{topic.name}</span>
+                    <span className="mt-1 block text-xs text-slate-400">{childCount} 个知识点</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeTopic && (
+              <>
+                <div className="mx-auto h-5 w-px bg-cyan-200/25" aria-hidden />
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                  <span>{activeTopic.name} · 知识点</span>
+                  <span>{compactLeaves.length} 项</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2" aria-label={`${activeTopic.name}知识点`}>
+                  {compactLeaves.map((point) => {
+                    const active = selectedPoint?.id === point.id;
+                    return (
+                      <button
+                        key={point.id}
+                        type="button"
+                        onClick={() => onSelect(point)}
+                        aria-current={active ? 'page' : undefined}
+                        className={cn(
+                          'min-h-[72px] rounded-md border px-3 py-2.5 text-left text-sm font-medium leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                          active
+                            ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
+                            : 'border-white/[0.10] bg-black/20 text-slate-200 hover:border-cyan-200/30 hover:bg-cyan-200/[0.07]',
+                          !visibleIds.has(point.id) && 'opacity-45',
+                        )}
+                        aria-label={`知识点 ${point.name}`}
+                      >
+                        {point.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        ) : <GraphMapStage nodes={layout.nodes} edges={layout.edges.map((edge) => (edge.data as { kind?: string })?.kind === 'dep' ? { ...edge, domAttributes: { ...edge.domAttributes, 'aria-expanded': edge.id === selectedEdgeKey } } : edge)}
+          viewportKey={viewportKey} selectedId={selectedId} heightClassName="h-full" fitPadding={0.08} fitMaxZoom={1.1}
+          onSelect={(id) => {
+            const point = pointById[id];
+            if (!point) return;
+            setSelectedEdgeKey(null);
+            if (chapterFilter === 'all') onFocusChapter?.(point.chapter);
+            onSelect(point);
+          }}
+          onEdgeSelect={(id, trigger) => {
+            if (id === selectedEdgeKey) { closeEdgeDetail(); return; }
+            edgeFocusReturnRef.current = trigger && 'focus' in trigger ? trigger as Element & { focus: (options?: FocusOptions) => void } : null;
+            setSelectedEdgeKey(id);
+          }}
+          emptyState={visibleIds.size === 0 ? { title: '没有匹配的知识点', description: '清除搜索后可恢复完整课程位置。', actionLabel: '清除搜索', onAction: onClearVisibility } : undefined}
+        />}
       </div>
     </div>
   );
@@ -3506,12 +2880,12 @@ const DepEdgeDetailPanel = forwardRef<HTMLDivElement, {
         event.stopPropagation();
         onClose();
       }}
-      className="glass-hover max-h-[280px] shrink-0 overflow-y-auto rounded-md border border-amber-300/25 bg-[#0b1117]/95 p-4 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+      className="h-full min-h-0 overflow-y-auto border-l border-amber-300/25 bg-[#0b1117] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
     >
       <div className="mb-3 flex items-center justify-between">
-        <div id={`${DEPENDENCY_EDGE_DETAIL_ID}-title`} className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-200">
+        <div id={`${DEPENDENCY_EDGE_DETAIL_ID}-title`} className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.1em] text-amber-200">
           <GitBranch className="h-3.5 w-3.5" />
-          聚合边展开 · 内含 {pairs.length} 条具体依赖
+          先修关系 · {pairs.length} 条
         </div>
         <button
           type="button"
@@ -3532,7 +2906,7 @@ const DepEdgeDetailPanel = forwardRef<HTMLDivElement, {
               key={`${fromId}-${toId}`}
               className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2"
             >
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 text-base">
                 <button
                   type="button"
                   onClick={() => onSelectPoint(fromId)}
@@ -3550,9 +2924,9 @@ const DepEdgeDetailPanel = forwardRef<HTMLDivElement, {
                 </button>
               </div>
               {reason ? (
-                <div className="mt-1 text-[11px] leading-snug text-slate-400">{reason}</div>
+                <div className="mt-1 text-base leading-7 text-slate-400">{reason}</div>
               ) : (
-                <div className="mt-1 text-[11px] leading-snug text-slate-600">暂无课程逻辑理由说明</div>
+                <div className="mt-1 text-base leading-7 text-slate-600">暂无课程逻辑理由说明</div>
               )}
             </div>
           );
@@ -3561,16 +2935,6 @@ const DepEdgeDetailPanel = forwardRef<HTMLDivElement, {
     </div>
   );
 });
-
-type ProblemVisualNode = {
-  id: string;
-  label: string;
-  category: ProblemNode['category'];
-  level: ProblemNode['level'];
-  x: number;
-  y: number;
-  r: number;
-};
 
 /**
  * Canvas focus is a teaching view, not a miniature of the full problem domain.
@@ -3602,56 +2966,19 @@ export function getFocusedProblemNodeIds(selectedId: string, fallbackIds: Set<st
 
   return new Set([
     root.id,
-    domain.id,
+    ...problemGraph.filter((node) => node.parentId === root.id).map((node) => node.id),
     ...problemGraph.filter((node) => node.parentId === domain.id).map((node) => node.id),
   ]);
 }
 
 export function getProblemOverviewCenters(
-  compactViewport: boolean,
-  teachingFocus: boolean,
+  _compactViewport: boolean,
+  _teachingFocus: boolean,
 ): Array<{ x: number; y: number }> {
-  if (compactViewport) {
-    return [
-      { x: 285, y: 250 },
-      { x: 515, y: 250 },
-      { x: 285, y: 470 },
-      { x: 515, y: 470 },
-    ];
-  }
-  if (teachingFocus) {
-    return [
-      { x: 260, y: 400 },
-      { x: 600, y: 400 },
-      { x: 940, y: 400 },
-      { x: 1280, y: 400 },
-    ];
-  }
-  // Default judging view: a centered 2×2 composition. The four domains have
-  // no causal relationship, so proximity and reading order provide grouping
-  // without adding a synthetic hub or misleading edges.
-  return [
-    { x: 660, y: 390 },
-    { x: 980, y: 390 },
-    { x: 660, y: 610 },
-    { x: 980, y: 610 },
-  ];
-}
-
-function useCompactGraphLayout(active: boolean): boolean {
-  const [compact, setCompact] = useState(false);
-  useEffect(() => {
-    if (!active || typeof window === 'undefined') {
-      setCompact(false);
-      return;
-    }
-    const query = window.matchMedia('(max-width: 640px)');
-    const update = (): void => setCompact(query.matches);
-    update();
-    query.addEventListener?.('change', update);
-    return (): void => query.removeEventListener?.('change', update);
-  }, [active]);
-  return compact;
+  return Array.from({ length: 4 }, (_, index) => ({
+    x: 140 + (index % 2) * 300,
+    y: 120 + Math.floor(index / 2) * 150,
+  }));
 }
 
 export function shouldKeepGraphRootFocus(disableRootFocus: boolean, compactViewport: boolean): boolean {
@@ -3659,13 +2986,8 @@ export function shouldKeepGraphRootFocus(disableRootFocus: boolean, compactViewp
 }
 
 function ProblemGraphCanvas({
-  selectedId,
-  visibleIds,
-  onSelect,
-  disableRootFocus = false,
-  teachingFocus = false,
-  heightClassName = 'h-[clamp(420px,calc(100vh-292px),720px)]',
-  emptyState,
+  selectedId, visibleIds, onSelect, disableRootFocus = false, teachingFocus: _teachingFocus = false,
+  heightClassName = 'h-[clamp(420px,calc(100vh-292px),720px)]', emptyState,
 }: {
   selectedId: string;
   visibleIds: Set<string>;
@@ -3675,212 +2997,55 @@ function ProblemGraphCanvas({
   heightClassName?: string;
   emptyState?: GraphCanvasEmptyState;
 }) {
-  const compactGraphViewport = useCompactGraphLayout(true);
-  const useTeachingLayout = teachingFocus || compactGraphViewport;
+  const selected = problemGraph.find((node) => node.id === selectedId);
+  const topic = selected?.level === 2 ? selected : selected?.level === 3 ? problemGraph.find((node) => node.id === selected.parentId) : undefined;
+  const root = selected?.level === 1 ? selected : topic ? problemGraph.find((node) => node.id === topic.parentId) : undefined;
   const layout = useMemo(() => {
-    const roots = problemGraph.filter((node) => node.level === 1);
-    const selectedProblem = problemGraph.find((node) => node.id === selectedId);
-    const selectedParent = selectedProblem?.parentId
-      ? problemGraph.find((node) => node.id === selectedProblem.parentId)
-      : null;
-    const selectedDomainId = selectedProblem?.level === 2
-      ? selectedProblem.id
-      : selectedProblem?.level === 3
-        ? selectedProblem.parentId || null
-        : null;
-    const selectedRootId = selectedProblem?.level === 1
-      ? selectedProblem.id
-      : selectedParent?.level === 1
-        ? selectedParent.id
-        : selectedParent?.parentId || null;
-    // Desktop cross-filter mode may compare several branches at once. On a
-    // phone, the result chips below remain the comparison surface while the
-    // canvas keeps the currently selected branch readable and tappable.
-    const activeRootId = shouldKeepGraphRootFocus(disableRootFocus, compactGraphViewport)
-      ? selectedRootId
-      : null;
-    // 四个问题域按“概念理解→编程实现→实验操作→项目设计”的教学环节顺序
-    // 摆成中央 2×2。桌面中心距 320×220，卡片净距 110×172；画布四周留白
-    // 对称而不把入口推到角落。四域没有真实依赖关系，因此不添加中心锚点或
-    // 连线，只用阅读顺序、统一卡片与数量徽标表达同级分组。≤640px 使用独立
-    // 的 230×220 紧凑坐标和 62px 高触达卡片，不把桌面布局机械缩小。
-    const isDomainOverview = !activeRootId
-      && visibleIds.size === roots.length
-      && roots.every((root) => visibleIds.has(root.id));
-    const centers = isDomainOverview
-      ? getProblemOverviewCenters(compactGraphViewport, teachingFocus)
-      : [
-          { x: 480, y: 330 },
-          { x: 1180, y: 330 },
-          { x: 480, y: 850 },
-          { x: 1180, y: 850 },
-        ];
-    // 每域固定 10 个二级问题类（数据口径），ellipse 半径按"横向空间比纵向
-    // 紧张"原则收成竖向椭圆——呼应专业图谱 ringGeometry 的同一条经验，
-    // 具体数值按问题图谱自身间距(500×400)重新标定，不是照抄专业图谱的值。
-    const domainRx = 300;
-    const domainRy = 205;
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
-
-    roots.forEach((root, rootIndex) => {
-      if (!visibleIds.has(root.id)) return;
-      // 一旦进入某个问题域，主画布只保留该域。其他问题域仍可从“筛选”
-      // 进入，不再以半透明残影占据边缘、干扰当前诊断阅读。
-      if (activeRootId && root.id !== activeRootId) return;
-      const visibleDomains = problemGraph.filter((node) => node.parentId === root.id && visibleIds.has(node.id));
-      const domains = compactGraphViewport && selectedDomainId
-        ? visibleDomains.filter((domain) => domain.id === selectedDomainId)
-        : visibleDomains;
-      const isFocusedRootMap = useTeachingLayout && selectedProblem?.level === 1 && selectedProblem.id === root.id;
-      const isFocusedBranch = useTeachingLayout
-        && Boolean(selectedDomainId && domains.some((domain) => domain.id === selectedDomainId));
-      const center = isFocusedRootMap || isFocusedBranch
-        ? compactGraphViewport ? { x: 400, y: 90 } : { x: 250, y: 400 }
-        : centers[rootIndex] || centers[0];
-      const tone = problemTone(root.category);
-      const leafTotal = problemGraph.filter((node) => node.category === root.category && node.level === 3).length;
-
-      // 无边框径向光晕只用于已展开的问题域分组。总览态只有四个入口，
-      // 若仍按完整子树尺寸绘制 780×540 光晕，React Flow 会为装饰层缩小
-      // 真正节点，在 1280×720 首屏形成“大片留白+小字入口”。
-      if (!isDomainOverview) {
-        const haloW = isFocusedRootMap || isFocusedBranch
-          ? compactGraphViewport ? 460 : 1300
-          : domainRx * 2 + 180;
-        const haloH = isFocusedRootMap || isFocusedBranch
-          ? compactGraphViewport ? 720 : 500
-          : domainRy * 2 + 130;
-        nodes.push({
-          id: `problem-halo-${root.id}`,
-          type: 'clusterHalo',
-          position: isFocusedRootMap || isFocusedBranch
-            ? compactGraphViewport ? { x: 170, y: 20 } : { x: 140, y: 150 }
-            : { x: center.x - haloW / 2, y: center.y - haloH / 2 },
-          draggable: false,
-          selectable: false,
-          style: { zIndex: 0 },
-          data: { color: graphTone[tone].color, width: haloW, height: haloH },
-        });
-      }
-
-      nodes.push(createMapNode(root.id, center.x, center.y, {
-        label: root.name,
-        subtitle: `${leafTotal}项`,
-        levelLabel: 'L1',
-        tone,
-        // 总览的四个问题域是导航入口，使用完整文字卡而非微缩圆点；
-        // 进入某域后恢复根节点圆盘，保留层级对比。
-        size: isDomainOverview
-          ? compactGraphViewport ? 'compactDiagnosticUnit' : 'diagnosticUnit'
-          : 'root',
-        selected: root.id === selectedId,
-        visible: visibleIds.has(root.id),
-        dimmed: Boolean(activeRootId && root.id !== activeRootId),
+    const matchesFilter = (point: ProblemNode): boolean => !disableRootFocus || visibleIds.has(point.id);
+    const add = (point: ProblemNode, x: number, y: number, subtitle: string): void => {
+      if (!matchesFilter(point)) return;
+      nodes.push(createMapNode(point.id, x, y, {
+        label: point.name, subtitle, tone: problemTone(point.category), size: point.level === 1 ? 'diagnosticUnit' : point.level === 3 ? 'learningUnit' : 'topicCard',
+        selected: point.id === selectedId, visible: true, labelPlacement: 'inside',
       }));
-
-      domains.forEach((domain, domainIndex) => {
-        const angle = -Math.PI / 2 + (Math.PI * 2 * domainIndex) / Math.max(domains.length, 1);
-        const domainX = isFocusedBranch
-          ? compactGraphViewport ? 400 : 610
-          : isFocusedRootMap
-            ? compactGraphViewport ? 285 + (domainIndex % 2) * 230 : 560 + (domainIndex % 5) * 205
-            : center.x + Math.cos(angle) * domainRx;
-        const domainY = isFocusedBranch
-          ? compactGraphViewport ? 255 : 400
-          : isFocusedRootMap
-            ? compactGraphViewport ? 210 + Math.floor(domainIndex / 2) * 125 : 280 + Math.floor(domainIndex / 5) * 240
-            : center.y + Math.sin(angle) * domainRy;
-        const allLeaves = problemGraph.filter((node) => node.parentId === domain.id);
-        const leaves = allLeaves.filter((node) => visibleIds.has(node.id));
-        nodes.push(createMapNode(domain.id, domainX, domainY, {
-          label: domain.name,
-          subtitle: `${allLeaves.length}`,
-          levelLabel: 'L2',
-          tone,
-          size: compactGraphViewport ? 'compactDiagnosticUnit' : 'diagnosticUnit',
-          selected: domain.id === selectedId,
-          visible: visibleIds.has(domain.id),
-          dimmed: Boolean(activeRootId && root.id !== activeRootId),
-        }));
-        edges.push(graphAssociationEdge(
-          root.id,
-          domain.id,
-          tone,
-          visibleIds.has(root.id) && visibleIds.has(domain.id) && (!activeRootId || root.id === activeRootId),
-          1.5,
-        ));
-
-        leaves.forEach((leaf, leafIndex) => {
-          const leafSpread = Math.PI / 1.35;
-          const leafAngle = angle - leafSpread / 2 + (leafSpread * (leafIndex + 0.5)) / Math.max(leaves.length, 1);
-          const leafRadius = 168 + Math.min(leaves.length, 10) * 3;
-          const leafX = isFocusedBranch
-            ? compactGraphViewport ? 285 + (leafIndex % 2) * 230 : 950 + (leafIndex % 2) * 285
-            : domainX + Math.cos(leafAngle) * leafRadius;
-          const leafY = isFocusedBranch
-            ? compactGraphViewport ? 455 + Math.floor(leafIndex / 2) * 155 : 280 + Math.floor(leafIndex / 2) * 240
-            : domainY + Math.sin(leafAngle) * leafRadius;
-          nodes.push(createMapNode(leaf.id, leafX, leafY, {
-            label: leaf.name,
-            levelLabel: 'L3',
-            tone: problemTone(leaf.category),
-            size: compactGraphViewport ? 'compactDiagnosticUnit' : 'diagnosticUnit',
-            selected: leaf.id === selectedId,
-            visible: true,
-            dimmed: Boolean(activeRootId && root.id !== activeRootId),
-          }));
-          edges.push(graphAssociationEdge(domain.id, leaf.id, tone, !activeRootId || root.id === activeRootId, 0.85));
-        });
+      if (point.parentId && nodes.some((node) => node.id === point.parentId)) {
+        edges.push(graphAssociationEdge(point.parentId, point.id, problemTone(point.category), true, 1.35, false, { sourceHandle: 'rs', targetHandle: 'lt' }));
+      }
+    };
+    if (!root) {
+      problemGraph.filter((node) => node.level === 1 && visibleIds.has(node.id)).forEach((point, index) => {
+        add(point, getProblemOverviewCenters(false, false)[index]!.x, getProblemOverviewCenters(false, false)[index]!.y, `${problemGraph.filter((node) => node.parentId === point.id).length} 类问题`);
       });
-    });
-
-    return { nodes, edges };
-  }, [compactGraphViewport, disableRootFocus, selectedId, useTeachingLayout, visibleIds]);
-
-  const cameraFocusIds = useMemo(() => {
-    const selected = problemGraph.find((node) => node.id === selectedId);
-    if (!selected) return new Set<string>();
-    const ids = new Set<string>([selected.id]);
-    const parent = selected.parentId ? problemGraph.find((node) => node.id === selected.parentId) : null;
-    const root = selected.level === 1
-      ? selected
-      : parent?.level === 1
-        ? parent
-        : parent?.parentId
-          ? problemGraph.find((node) => node.id === parent.parentId) || null
-          : null;
-    if (root) ids.add(root.id);
-    if (parent) ids.add(parent.id);
-    if (selected.level === 1) {
-      problemGraph.filter((node) => node.parentId === selected.id).forEach((node) => ids.add(node.id));
-    } else if (selected.level === 2) {
-      problemGraph.filter((node) => node.parentId === selected.id).forEach((node) => ids.add(node.id));
-    } else if (parent) {
-      problemGraph.filter((node) => node.parentId === parent.id).forEach((node) => ids.add(node.id));
+    } else {
+      const topics = problemGraph.filter((node) => node.parentId === root.id && matchesFilter(node));
+      const leaves = topic ? problemGraph.filter((node) => node.parentId === topic.id && matchesFilter(node)) : [];
+      const maxLeafCount = Math.max(0, ...topics.map((topic) => problemGraph.filter((point) => point.parentId === topic.id && matchesFilter(point)).length));
+      const middle = Math.max(topics.length * 88, maxLeafCount * 80, 220) / 2 + 44;
+      add(root, 120, middle, `${topics.length} 类问题`);
+      topics.forEach((point, index) => add(point, 410, middle + (index - (topics.length - 1) / 2) * 88, `${problemGraph.filter((node) => node.parentId === point.id && matchesFilter(node)).length} 个典型问题`));
+      leaves.forEach((point, index) => add(point, 700, middle + (index - (leaves.length - 1) / 2) * 80, ''));
     }
-    return ids;
-  }, [selectedId]);
-
+    return { nodes, edges };
+  }, [selectedId, visibleIds, root, topic, disableRootFocus]);
+  const breadcrumb: Array<{ id: string; label: string; onSelect?: () => void }> = [{ id: 'problem-all', label: '问题诊断总览', onSelect: () => onSelect('') }];
+  if (root) breadcrumb.push({ id: root.id, label: root.name, onSelect: () => onSelect(root.id) });
+  if (topic) breadcrumb.push({ id: topic.id, label: topic.name, onSelect: () => onSelect(topic.id) });
+  if (selected?.level === 3) breadcrumb.push({ id: selected.id, label: selected.name });
   return (
-    <GraphMapStage
-      nodes={layout.nodes}
-      edges={layout.edges}
-      onSelect={onSelect}
-      selectedId={selectedId}
-      focusIds={cameraFocusIds}
-      controlsPosition="top-right"
-      heightClassName={heightClassName}
-      fitPadding={selectedId ? 0.12 : 0.08}
-      fitMaxZoom={selectedId ? 1.08 : 1.18}
-      focusFitPadding={compactGraphViewport ? 0.08 : teachingFocus ? 0.2 : 0.25}
-      focusFitMaxZoom={compactGraphViewport ? 1 : teachingFocus ? 1.25 : 1.35}
-      emptyState={emptyState}
-    />
+    <div className={cn('flex min-h-0 flex-col gap-1', heightClassName)}>
+      <GraphBreadcrumb items={breadcrumb} />
+      <div className="min-h-0 flex-1">
+        <GraphMapStage nodes={layout.nodes} edges={layout.edges} onSelect={onSelect} selectedId={selectedId}
+          viewportKey={`problem:${root?.id || 'all'}:${topic?.id || 'root'}`} heightClassName="h-full" fitPadding={0.08} fitMaxZoom={1.1} emptyState={emptyState} />
+      </div>
+    </div>
   );
 }
 
-function ProblemGraphView({
+export function ProblemGraphView({
+  workspace,
   query,
   onQueryChange,
   selectedId,
@@ -3899,6 +3064,7 @@ function ProblemGraphView({
   onToggleInspector,
   onOpenKnowledgePoint,
 }: {
+  workspace: GraphWorkspaceState;
   query: string;
   onQueryChange: (value: string) => void;
   selectedId: string;
@@ -3917,12 +3083,13 @@ function ProblemGraphView({
   onToggleInspector: () => void;
   onOpenKnowledgePoint: (id: string) => void;
 }) {
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const isMobileFilterOpen = workspace.directoryOpen;
+  const setIsMobileFilterOpen = workspace.setDirectory;
   const mobileFilterTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileFilterPanelRef = useRef<HTMLElement>(null);
   const mobileInspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileInspectorPanelRef = useRef<HTMLElement>(null);
-  const closeMobileFilter = useCallback(() => setIsMobileFilterOpen(false), []);
+  const closeMobileFilter = useCallback(() => setIsMobileFilterOpen(false), [setIsMobileFilterOpen]);
   const deferredQuery = useDeferredValue(query);
   const isSearchPending = query !== deferredQuery;
   const q = deferredQuery.trim().toLowerCase();
@@ -3992,8 +3159,10 @@ function ProblemGraphView({
     return ids;
   }, [activeProblemDomainId, activeProblemRootId, categoryFilter, filteredProblems, roots, usesConcreteProblemFilter]);
   const canvasVisibleProblemIds = useMemo(
-    () => isCanvasFocus ? getFocusedProblemNodeIds(selected?.id || '', visibleProblemIds) : visibleProblemIds,
-    [isCanvasFocus, selected?.id, visibleProblemIds],
+    () => isCanvasFocus && !usesConcreteProblemFilter
+      ? getFocusedProblemNodeIds(selected?.id || '', visibleProblemIds)
+      : visibleProblemIds,
+    [isCanvasFocus, selected?.id, usesConcreteProblemFilter, visibleProblemIds],
   );
   const canvasProblemNodeCount = canvasVisibleProblemIds.size;
 
@@ -4005,12 +3174,7 @@ function ProblemGraphView({
     if (activeProblemRootId) {
       return problemGraph.filter((node) => node.level === 2 && node.parentId === activeProblemRootId);
     }
-    const visibleRootIds = new Set(
-      roots
-        .filter((root) => categoryFilter === 'all' || root.category === categoryFilter)
-        .map((root) => root.id),
-    );
-    return problemGraph.filter((node) => node.level === 2 && Boolean(node.parentId && visibleRootIds.has(node.parentId)));
+    return roots.filter((root) => categoryFilter === 'all' || root.category === categoryFilter);
   }, [activeProblemDomainId, activeProblemRootId, categoryFilter, filteredProblems, roots, usesConcreteProblemFilter]);
 
   const hasActiveFilter = Boolean(q) || categoryFilter !== 'all' || difficultyFilter !== 'all';
@@ -4032,7 +3196,7 @@ function ProblemGraphView({
   };
 
   useEffect(() => {
-    if (isCanvasFocus) closeMobileFilter();
+    // Presentation mode is independent from reading panels.
   }, [closeMobileFilter, isCanvasFocus]);
 
   return (
@@ -4042,10 +3206,10 @@ function ProblemGraphView({
       aria-labelledby="graph-tab-problem"
       data-graph-workspace="problem"
       data-canvas-focus={isCanvasFocus ? 'true' : 'false'}
-      className={getGraphWorkspaceClassName(isCanvasFocus, isMobileFilterOpen)}
+      className={getGraphWorkspaceClassName(workspace.mode, isMobileFilterOpen, isInspectorOpen)}
     >
-      {!isCanvasFocus && <MobileDrawerDialog
-        open={isMobileFilterOpen}
+      {<GraphReadingPanel compact={workspace.mode === 'single'}
+        open={workspace.directoryOpen}
         onClose={closeMobileFilter}
         triggerRef={mobileFilterTriggerRef}
         panelRef={mobileFilterPanelRef}
@@ -4053,14 +3217,11 @@ function ProblemGraphView({
         label="问题类型与难度筛选"
         labelId="problem-graph-filter-title"
         backdropLabel="关闭问题筛选遮罩"
-        className={cn(
-          'fixed inset-y-3 left-3 z-[80] w-[min(350px,calc(100vw-24px))] overflow-y-auto rounded-xl border border-white/[0.10] bg-[#0a1017]/98 p-4 shadow-[0_30px_100px_rgba(0,0,0,0.58)] backdrop-blur-2xl transition-[transform,visibility] duration-300 lg:visible lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:rounded-lg lg:border-border lg:bg-card/70 lg:p-3 lg:shadow-none lg:backdrop-blur-none',
-          isMobileFilterOpen ? 'visible translate-x-0' : 'invisible -translate-x-[115%]',
-        )}
+        className="kg-scrollbar"
       >
         <div className="mb-3 flex items-center justify-between border-b border-white/[0.07] pb-3">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/65">Diagnostic filter</div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-200/65">问题筛选</div>
             <div id="problem-graph-filter-title" className="mt-0.5 text-xs font-semibold text-slate-100">问题类型与难度</div>
           </div>
           <button
@@ -4068,35 +3229,12 @@ function ProblemGraphView({
             aria-label="收起问题筛选"
             data-drawer-initial-focus="true"
             onClick={closeMobileFilter}
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06] lg:hidden"
+            className="grid min-h-11 min-w-11 place-items-center rounded-md border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <Input
-            ref={searchInputRef}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索问题、原因、解法..."
-            aria-label="搜索问题节点"
-            className="h-11 rounded-xl border-white/[0.09] bg-black/25 pl-10 pr-12 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
-          />
-          {query ? (
-            <button
-              type="button"
-              aria-label="清除问题搜索"
-              onClick={() => onQueryChange('')}
-              className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-white/[0.1] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">/</kbd>
-          )}
-        </div>
-        <div className="mb-2 flex items-center justify-between px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+        <div className="mb-2 flex items-center justify-between px-2 font-mono text-xs uppercase tracking-[0.1em] text-slate-500">
           <span>问题类型 · 4类问题域</span>
           {hasActiveFilter && (
             <button type="button" onClick={resetFilters} className="inline-flex min-h-11 items-center rounded-md px-2 text-cyan-200 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
@@ -4121,14 +3259,14 @@ function ProblemGraphView({
                   setIsMobileFilterOpen(false);
                 }}
                 className={cn(
-                  'min-h-11 w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                  'min-h-11 w-full rounded-md border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
                   categoryFilter === root.category || selected?.id === root.id ? meta.tone : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
                 )}
               >
                 <div className="flex items-center gap-2">
                   <Icon className="h-4 w-4" />
                   <span className="text-sm font-semibold">{root.name}</span>
-                  <span className="ml-auto font-mono text-[10px] opacity-70">{count}</span>
+                  <span className="ml-auto font-mono text-xs opacity-70">{count}</span>
                 </div>
                 <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-75">{root.description}</p>
               </button>
@@ -4146,37 +3284,42 @@ function ProblemGraphView({
                 setIsMobileFilterOpen(false);
               }}
               className={cn(
-                'min-h-11 rounded-xl border p-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                'min-h-11 rounded-md border p-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
                 difficultyTone[difficulty],
                 difficultyFilter !== 'all' && difficultyFilter !== difficulty && 'opacity-35 grayscale',
               )}
             >
               <div className="font-mono text-lg">{problemGraphStats.byDifficulty[difficulty]}</div>
-              <div className="text-[10px] opacity-75">{difficultyLabel[difficulty]}</div>
+              <div className="text-xs opacity-75">{difficultyLabel[difficulty]}</div>
             </button>
           ))}
         </div>
-      </MobileDrawerDialog>}
+      </GraphReadingPanel>}
 
-      <section className="min-w-0 space-y-3">
-        <div className="glass-hover overflow-hidden rounded-lg border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)] transition-all">
+      <section hidden={workspace.mode === 'single' && (isMobileFilterOpen || isInspectorOpen)} className="kg-canvas-column min-w-0 space-y-3">
+        <div className="glass-hover overflow-hidden rounded-md border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)] transition-all">
           <div className="flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-5 py-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-amber-200/70">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <div className="chip-mark mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-md">
+                <AlertTriangle className="h-4 w-4 text-cyan-100" />
+              </div>
+              <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-200/75">
                 <span>
-                  Diagnostic topology · {usesConcreteProblemFilter
-                    ? `${filteredProblems.length} matched`
-                    : `${canvasProblemNodeCount} nodes`}
+                  诊断结构 · {usesConcreteProblemFilter
+                    ? `${filteredProblems.length} 条匹配`
+                    : `${canvasProblemNodeCount} 个节点`}
                 </span>
                 {isSearchPending && <span role="status" className="text-cyan-200/80">搜索中…</span>}
                 {selected && (
-                  <span className="max-w-[260px] truncate rounded-full border border-amber-200/15 bg-amber-200/[0.06] px-2 py-0.5 text-amber-100/85" aria-live="polite">
+                  <span className="max-w-[260px] truncate rounded-md border border-cyan-200/20 bg-cyan-200/[0.06] px-2 py-0.5 text-cyan-100/85" aria-live="polite">
                     当前 · {selected.name}
                   </span>
                 )}
               </div>
               <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-50">问题诊断图谱</h2>
               <p className="mt-1 text-xs text-slate-400">先定位问题域与问题类型，再展开具体症状；连线仅表示分类归属，不表示因果关系。</p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -4184,10 +3327,10 @@ function ProblemGraphView({
                 type="button"
                 aria-expanded={isMobileFilterOpen}
                 aria-controls="problem-graph-filter"
-                aria-haspopup={isDrawerViewport ? 'dialog' : undefined}
+                aria-haspopup={undefined}
                 aria-label="展开问题筛选"
                 onClick={() => setIsMobileFilterOpen(true)}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-2.5 text-[11px] font-medium text-slate-400 transition hover:border-amber-200/25 hover:bg-amber-200/[0.06] hover:text-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 lg:hidden"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/[0.08] bg-black/20 px-2.5 text-[11px] font-medium text-slate-400 transition hover:border-cyan-200/25 hover:bg-cyan-200/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
               >
                 <Menu className="h-3.5 w-3.5" />筛选
               </button>
@@ -4201,27 +3344,15 @@ function ProblemGraphView({
                 <ListTree className="h-3.5 w-3.5" />图例与操作
               </button>
               <button
-                type="button"
-                data-kg-focus-exit="true"
-                aria-pressed={isCanvasFocus}
-                aria-label={isCanvasFocus ? '退出问题图谱专注画布' : '进入问题图谱专注画布，扩大节点阅读区域'}
-                title={isCanvasFocus ? '恢复筛选与详情面板' : '隐藏筛选与详情，扩大图谱画布'}
-                onClick={onToggleCanvasFocus}
-                className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200', isCanvasFocus ? 'border-amber-200/40 bg-amber-200/[0.14] text-amber-50' : 'border-amber-200/22 bg-amber-200/[0.07] text-amber-100 hover:border-amber-200/35 hover:bg-amber-200/[0.11]')}
-              >
-                {isCanvasFocus ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                {isCanvasFocus ? '退出专注' : '专注画布'}
-              </button>
-              <button
                 ref={mobileInspectorTriggerRef}
                 type="button"
-                aria-expanded={isInspectorOpen && !isCanvasFocus}
+                aria-expanded={isInspectorOpen}
                 aria-controls="problem-graph-inspector"
-                aria-haspopup={isDrawerViewport ? 'dialog' : undefined}
+                aria-haspopup={undefined}
                 onClick={onToggleInspector}
-                className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', isInspectorOpen && !isCanvasFocus ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}
+                className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', isInspectorOpen ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}
               >
-                {isInspectorOpen && !isCanvasFocus ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+                {isInspectorOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
                 问题详情
               </button>
             </div>
@@ -4245,16 +3376,17 @@ function ProblemGraphView({
             disableRootFocus={usesConcreteProblemFilter}
             teachingFocus={isCanvasFocus}
             onSelect={(id) => {
+              if (!id) { resetFilters(); return; }
               onSelect(id);
               if (shouldAutoOpenGraphInspector(isCanvasFocus, isInspectorOpen)) onToggleInspector();
             }}
             heightClassName={isCanvasFocus
               ? showLegend
                 ? 'h-[clamp(320px,calc(100dvh-390px),560px)] sm:h-[clamp(360px,calc(100dvh-280px),680px)]'
-                : 'h-[clamp(420px,calc(100dvh-208px),780px)]'
+                : 'h-[max(520px,calc(100dvh-180px))]'
               : selected
-                ? 'h-[600px] sm:h-[clamp(380px,calc(100dvh-320px),680px)]'
-                : 'h-[360px] sm:h-[clamp(380px,calc(100dvh-320px),680px)]'}
+                ? 'h-[600px] sm:h-[max(520px,calc(100dvh-270px))]'
+                : 'h-[520px] sm:h-[max(520px,calc(100dvh-270px))]'}
             emptyState={contextualProblemNodes.length === 0 ? {
               title: '没有匹配的问题节点',
               description: '请调整错误现象、原因、解法关键词，或清除当前类型与难度筛选。',
@@ -4264,7 +3396,7 @@ function ProblemGraphView({
           />
         </div>
 
-        <div className="glass-hover rounded-lg border border-white/[0.08] bg-[#0b1118]/94 p-4 transition-all">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-[#0b1118]/94 p-4 transition-all">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
@@ -4274,7 +3406,7 @@ function ProblemGraphView({
                   ? '当前类型的具体问题'
                   : activeProblemRootId
                     ? '当前问题域下的类型'
-                    : '全部问题类型'}
+                    : '问题域入口'}
             </div>
             <span className="font-mono text-[11px] text-slate-400">共 {contextualProblemNodes.length} 项</span>
           </div>
@@ -4293,11 +3425,11 @@ function ProblemGraphView({
                 )}
               >
                 <span>{node.name}</span>
-                <span className="ml-1.5 font-mono text-[9px] opacity-55">L{node.level}</span>
+                <span className="ml-1.5 font-mono text-[11px] opacity-55">L{node.level}</span>
               </button>
             ))}
             {contextualProblemNodes.length === 0 && (
-              <div className="w-full rounded-xl border border-dashed border-white/[0.1] px-3 py-5 text-center text-xs text-slate-500">
+              <div className="w-full rounded-md border border-dashed border-white/[0.1] px-3 py-5 text-center text-xs text-slate-500">
                 <p>未找到匹配问题。请尝试错误现象、原因或解法关键词。</p>
                 <button type="button" onClick={resetFilters} className="mt-2 min-h-11 font-medium text-cyan-200 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
                   清除筛选
@@ -4308,8 +3440,8 @@ function ProblemGraphView({
         </div>
       </section>
 
-      {isInspectorOpen && !isCanvasFocus && <MobileDrawerDialog
-        open={isDrawerViewport}
+      {isInspectorOpen && <GraphReadingPanel compact={workspace.mode === 'single'}
+        open={isInspectorOpen}
         onClose={onToggleInspector}
         triggerRef={mobileInspectorTriggerRef}
         panelRef={mobileInspectorPanelRef}
@@ -4318,7 +3450,7 @@ function ProblemGraphView({
         labelId="problem-graph-inspector-title"
         backdropLabel="关闭问题详情遮罩"
         closeOnDesktop={false}
-        className="kg-inspector fixed inset-x-3 bottom-3 z-[80] max-h-[76dvh] space-y-3 overflow-y-auto rounded-lg border border-border bg-background/98 p-3 shadow-2xl backdrop-blur-xl lg:inset-x-auto lg:right-6 lg:top-20 lg:z-[60] lg:w-[min(390px,calc(100vw-32px))]"
+        className="kg-inspector space-y-3"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border border-border bg-card/95 px-3 py-2 backdrop-blur">
           <span id="problem-graph-inspector-title" className="text-xs font-semibold text-slate-100">问题详情</span>
@@ -4326,7 +3458,7 @@ function ProblemGraphView({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="glass-hover rounded-lg border border-white/[0.08] bg-[#0b1118]/95 transition-all">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-[#0b1118]/95 transition-all">
           <div className="border-b border-white/[0.08] p-5">
             <div className="font-mono text-[11px] text-cyan-200">PROBLEM · {selected?.id || 'N/A'}</div>
             <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择问题'}</h2>
@@ -4366,7 +3498,7 @@ function ProblemGraphView({
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold text-slate-100">
                     <span>关联知识点</span>
-                    <span className="text-[10px] font-normal text-slate-500">点击回到专业知识图谱</span>
+                    <span className="text-xs font-normal text-slate-500">点击回到专业知识图谱</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selected.relatedKnowledgePoints.map((id) => (
@@ -4374,7 +3506,7 @@ function ProblemGraphView({
                         key={id}
                         type="button"
                         onClick={() => onOpenKnowledgePoint(id)}
-                        className="min-h-11 rounded-lg border border-white/[0.08] bg-black/20 px-2.5 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+                        className="min-h-11 rounded-md border border-white/[0.08] bg-black/20 px-2.5 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                       >
                         KP {id} <ArrowRight className="ml-1 inline h-3 w-3" />
                       </button>
@@ -4383,9 +3515,9 @@ function ProblemGraphView({
                 </div>
               )}
               {remediationPlan && (
-                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] p-4">
+                <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.045] p-4">
                   <div className="flex items-start gap-3">
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100">
                       <CheckCircle2 className="h-4 w-4" />
                     </div>
                     <div>
@@ -4396,25 +3528,25 @@ function ProblemGraphView({
 
                   <ol className="mt-4 space-y-2">
                     {remediationPlan.actions.map((action, index) => (
-                      <li key={action.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-2 rounded-lg border border-white/[0.07] bg-black/20 p-2.5">
-                        <span className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] bg-white/[0.04] font-mono text-[10px] text-emerald-100">
+                      <li key={action.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-2 rounded-md border border-white/[0.07] bg-black/20 p-2.5">
+                        <span className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] bg-white/[0.04] font-mono text-xs text-emerald-100">
                           {String(index + 1).padStart(2, '0')}
                         </span>
                         <div className="min-w-0">
                           <div className="text-xs font-semibold text-slate-100">{action.title}</div>
-                          <p className="mt-1 text-[10px] leading-4 text-slate-400">{action.purpose}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">{action.purpose}</p>
                           {action.id === 'review' && action.knowledgePointId ? (
                             <button
                               type="button"
                               onClick={() => onOpenKnowledgePoint(action.knowledgePointId!)}
-                              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] px-3 text-[11px] font-medium text-cyan-100 transition hover:bg-cyan-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
+                              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-cyan-300/20 bg-cyan-300/[0.06] px-3 text-[11px] font-medium text-cyan-100 transition hover:bg-cyan-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
                             >
                               开始补学 <ArrowRight className="h-3.5 w-3.5" />
                             </button>
                           ) : (
                             <Link
                               href={action.href}
-                              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.06] px-3 text-[11px] font-medium text-emerald-100 transition hover:bg-emerald-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+                              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-emerald-300/20 bg-emerald-300/[0.06] px-3 text-[11px] font-medium text-emerald-100 transition hover:bg-emerald-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
                             >
                               进入该步骤 <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
@@ -4424,11 +3556,11 @@ function ProblemGraphView({
                     ))}
                   </ol>
 
-                  <div className="mt-3 rounded-lg border border-white/[0.07] bg-black/20 p-3">
-                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/80">完成判定</div>
+                  <div className="mt-3 rounded-md border border-white/[0.07] bg-black/20 p-3">
+                    <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-emerald-200/80">完成判定</div>
                     <p className="mt-1 text-[11px] leading-5 text-slate-300">{remediationPlan.completionRule}</p>
                   </div>
-                  <div role="note" className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] p-3 text-[10px] leading-4 text-amber-50/75">
+                  <div role="note" className="mt-2 rounded-md border border-amber-300/15 bg-amber-300/[0.04] p-3 text-xs leading-5 text-amber-50/75">
                     {remediationPlan.stateBoundary}
                     <Link href={remediationPlan.taskHref} className="ml-1 inline-flex min-h-8 items-center font-semibold text-cyan-200 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100">
                       查看我的任务 <ArrowRight className="ml-1 h-3 w-3" />
@@ -4447,8 +3579,8 @@ function ProblemGraphView({
                         onClick={() => onSelect(node.id)}
                         className="flex min-h-11 w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
                       >
-                        <span className="line-clamp-1">{node.name}</span>
-                        <span className="font-mono text-[10px] text-slate-600">L{node.level}</span>
+                        <span className="min-w-0 flex-1 break-words leading-snug">{node.name}</span>
+                        <span className="font-mono text-xs text-slate-600">L{node.level}</span>
                       </button>
                     ))}
                   </div>
@@ -4457,31 +3589,14 @@ function ProblemGraphView({
             </div>
           )}
         </div>
-      </MobileDrawerDialog>}
+      </GraphReadingPanel>}
     </section>
   );
 }
 
-type IdeologicalVisualNode = {
-  id: string;
-  label: string;
-  category?: IdeologicalCategory;
-  level: number;
-  x: number;
-  y: number;
-  r: number;
-  selectable: boolean;
-};
-
 function IdeologicalGraphCanvas({
-  selectedId,
-  visibleIds,
-  onSelect,
-  chapterFilter,
-  disableRootFocus = false,
-  teachingFocus = false,
-  heightClassName = 'h-[clamp(420px,calc(100vh-292px),720px)]',
-  emptyState,
+  selectedId, visibleIds, onSelect, chapterFilter, disableRootFocus = false,
+  teachingFocus: _teachingFocus = false, heightClassName = 'h-[clamp(420px,calc(100vh-292px),720px)]', emptyState,
 }: {
   selectedId: string;
   visibleIds: Set<string>;
@@ -4492,173 +3607,48 @@ function IdeologicalGraphCanvas({
   heightClassName?: string;
   emptyState?: GraphCanvasEmptyState;
 }) {
-  // Standard mobile pages need their own coordinates just as much as the
-  // full-screen focus mode. Reusing the desktop constellation here made the
-  // browser fit a 700px-wide graph into 390px and reduced nodes below 44px.
-  const compactGraphViewport = useCompactGraphLayout(true);
+  const selected = ideologicalNodes.find((node) => node.id === selectedId);
+  const root = selected?.level === 1 ? selected : ideologicalNodes.find((node) => node.id === selected?.parentId);
   const layout = useMemo(() => {
-    const roots = ideologicalNodes.filter((node) => node.level === 1);
-    const selectedIdeological = ideologicalNodes.find((node) => node.id === selectedId);
-    const selectedRootId = selectedIdeological?.level === 1
-      ? selectedIdeological.id
-      : selectedIdeological?.parentId || null;
-    // Cross-theme filters can stay comparative on desktop. Mobile retains the
-    // full result trail below the canvas and presents one selected theme here,
-    // preventing several desktop constellations from being miniaturised.
-    const activeRootId = shouldKeepGraphRootFocus(disableRootFocus, compactGraphViewport)
-      ? selectedRootId
-      : null;
-    const cx = compactGraphViewport ? 195 : activeRootId ? 235 : 750;
-    const cy = compactGraphViewport ? 55 : activeRootId ? 390 : 400;
-    const nodes: RFNode[] = [
-      createMapNode('sip-core', cx, cy, {
-        label: '课程思政',
-        subtitle: `${ideologicalGraphStats.totalElements}`,
-        levelLabel: 'SIP',
-        tone: 'cyan',
-        size: 'core',
-        selected: false,
-        visible: true,
-        clickable: false,
-      }),
-    ];
+    const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
-
-    // 半径重新标定（原 325/270、150/126 是早期写死值，未经 DOM 实测校验）：
-    // 收紧到 295/215（一级主题环）与 150/112（二级元素环）后，元素环最低点
-    // Y≈727，与底部章节映射行(y=790)之间留出约63px干净间隙，不再挨得死近；
-    // 同时保持竖向椭圆（ry<rx）呼应专业图谱"横向空间更紧张"的同一套经验。
-    const rootRx = 295;
-    const rootRy = 215;
-    const elementRx = 225;
-    const elementRy = 135;
-
-    roots.forEach((root, index) => {
-      if (!visibleIds.has(root.id)) return;
-      if (activeRootId && root.id !== activeRootId) return;
-      const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(roots.length, 1);
-      const rootX = compactGraphViewport
-        ? activeRootId
-          ? 195
-          : 100 + (index % 2) * 190
-        : activeRootId
-          ? 555
-          : cx + Math.cos(angle) * rootRx;
-      const rootY = compactGraphViewport
-        ? activeRootId
-          ? 150
-          : 185 + Math.floor(index / 2) * 140
-        : activeRootId
-          ? 390
-          : cy + Math.sin(angle) * rootRy;
-      const tone = ideologicalTone(root.category);
-      const allElements = ideologicalNodes.filter((node) => node.parentId === root.id);
-      const elements = allElements.filter((node) => visibleIds.has(node.id));
-      nodes.push(createMapNode(root.id, rootX, rootY, {
-        label: root.name,
-        subtitle: `${allElements.length}`,
-        levelLabel: 'L1',
-        tone,
-        size: 'root',
-        selected: root.id === selectedId,
-        visible: visibleIds.has(root.id),
-        dimmed: Boolean(activeRootId && root.id !== activeRootId),
+    const matchesFilter = (point: IdeologicalNode): boolean => !disableRootFocus || visibleIds.has(point.id);
+    const add = (point: IdeologicalNode, x: number, y: number, subtitle: string): void => {
+      if (!matchesFilter(point)) return;
+      nodes.push(createMapNode(point.id, x, y, {
+        label: point.name, subtitle, tone: ideologicalTone(point.category), size: point.level === 1 ? 'thematicUnit' : 'topicCard',
+        selected: point.id === selectedId, visible: true, labelPlacement: 'inside',
       }));
-      edges.push(graphAssociationEdge(
-        'sip-core',
-        root.id,
-        tone,
-        visibleIds.has(root.id) && (!activeRootId || root.id === activeRootId),
-        1.7,
-      ));
-
-      elements.forEach((element, elementIndex) => {
-        // 扇面从 π/1.25 拉宽到 π：4 元素域(S1/S3/S6)顶点朝上/朝下时，中间两个
-        // 元素此前几乎水平并排(仅82px)，标签(104px宽)必然相撞——拉宽扇面后
-        // 同一根上相邻元素间距全部拉开到 88px+ 中心距，DOM 实测验证零重叠。
-        const spread = Math.PI;
-        const elementAngle = angle - spread / 2 + (spread * (elementIndex + 0.5)) / Math.max(elements.length, 1);
-        const columns = 2;
-        const row = Math.floor(elementIndex / columns);
-        const rowStart = row * columns;
-        const rowCount = Math.min(columns, elements.length - rowStart);
-        const column = elementIndex - rowStart;
-        const focusedRowWidth = (rowCount - 1) * 250;
-        const focusedRows = Math.max(1, Math.ceil(elements.length / columns));
-        const focusedStartY = 390 - ((focusedRows - 1) * 125) / 2;
-        const elementX = compactGraphViewport && activeRootId
-          ? elementIndex % 2 === 0 ? 155 : 235
-          : activeRootId
-            ? 965 - focusedRowWidth / 2 + column * 250
-            : rootX + Math.cos(elementAngle) * elementRx;
-        const elementY = compactGraphViewport && activeRootId
-          ? 260 + elementIndex * 70
-          : activeRootId
-            ? focusedStartY + row * 125
-            : rootY + Math.sin(elementAngle) * elementRy;
-        const explicitWeekCount = sipMappings.filter((mapping) => mapping.ideologicalNodeIds.includes(element.id)).length;
-        nodes.push(createMapNode(element.id, elementX, elementY, {
-          label: element.name,
-          subtitle: explicitWeekCount > 0 ? `${explicitWeekCount}次` : '关联',
-          levelLabel: 'L2',
-          tone,
-          size: compactGraphViewport ? 'compactThematicUnit' : 'thematicUnit',
-          selected: element.id === selectedId,
-          visible: visibleIds.has(element.id),
-          dimmed: Boolean(activeRootId && root.id !== activeRootId),
-        }));
-        edges.push(graphAssociationEdge(
-          root.id,
-          element.id,
-          tone,
-          visibleIds.has(root.id) && visibleIds.has(element.id) && (!activeRootId || root.id === activeRootId),
-          1.1,
-        ));
+      if (point.parentId && nodes.some((node) => node.id === point.parentId)) edges.push(graphAssociationEdge(point.parentId, point.id, ideologicalTone(point.category), true, 1.35, false, { sourceHandle: 'rs', targetHandle: 'lt' }));
+    };
+    if (!root) {
+      ideologicalNodes.filter((node) => node.level === 1 && visibleIds.has(node.id)).forEach((point, index) => {
+        add(point, 140 + (index % 2) * 300, 100 + Math.floor(index / 2) * 120, `${ideologicalNodes.filter((node) => node.parentId === point.id).length} 个育人元素`);
       });
-    });
-
-    // 章节与周次映射已经在画布下方的“周次映射轨迹”逐项呈现。
-    // 过去再次塞进十个 CH 节点，会迫使镜头缩小并制造交叉虚线；
-    // 主画布现在只承担“课程思政→当前主题→教学元素”的清晰关系。
-
-    return { nodes, edges };
-  }, [chapterFilter, compactGraphViewport, disableRootFocus, selectedId, visibleIds]);
-
-  const cameraFocusIds = useMemo(() => {
-    const selected = ideologicalNodes.find((node) => node.id === selectedId);
-    const ids = new Set<string>(['sip-core']);
-    if (!selected) return ids;
-    ids.add(selected.id);
-    const rootId = selected.level === 1 ? selected.id : selected.parentId;
-    if (rootId) {
-      ids.add(rootId);
-      ideologicalNodes
-        .filter((node) => node.parentId === rootId)
-        .forEach((node) => ids.add(node.id));
+    } else {
+      const children = ideologicalNodes.filter((node) => node.parentId === root.id && matchesFilter(node));
+      const middle = Math.max(children.length * 104, 220) / 2 + 44;
+      add(root, 140, middle, `${children.length} 个育人元素`);
+      children.forEach((point, index) => add(point, 440, middle + (index - (children.length - 1) / 2) * 104, ''));
     }
-    return ids;
-  }, [selectedId]);
-
+    return { nodes, edges };
+  }, [selectedId, visibleIds, root, chapterFilter, disableRootFocus]);
+  const breadcrumb: Array<{ id: string; label: string; onSelect?: () => void }> = [{ id: 'sip-all', label: '育人主题总览', onSelect: () => onSelect('') }];
+  if (root) breadcrumb.push({ id: root.id, label: root.name, onSelect: () => onSelect(root.id) });
+  if (selected?.level === 2) breadcrumb.push({ id: selected.id, label: selected.name });
   return (
-    <GraphMapStage
-      key={`ideological-stage-${compactGraphViewport ? 'compact' : 'wide'}-${teachingFocus ? 'focus' : 'standard'}`}
-      nodes={layout.nodes}
-      edges={layout.edges}
-      onSelect={onSelect}
-      selectedId={selectedId}
-      controlsPosition="top-right"
-      focusIds={cameraFocusIds}
-      heightClassName={heightClassName}
-      fitPadding={compactGraphViewport ? 0.08 : 0.18}
-      fitMaxZoom={compactGraphViewport ? 1.05 : 1.1}
-      focusFitPadding={compactGraphViewport ? 0.04 : 0.3}
-      focusFitMaxZoom={compactGraphViewport ? 1.05 : 1.35}
-      emptyState={emptyState}
-    />
+    <div className={cn('flex min-h-0 flex-col gap-1', heightClassName)}>
+      <GraphBreadcrumb items={breadcrumb} />
+      <div className="min-h-0 flex-1">
+        <GraphMapStage nodes={layout.nodes} edges={layout.edges} onSelect={onSelect} selectedId={selectedId}
+          viewportKey={`ideological:${chapterFilter}:${root?.id || 'all'}`} heightClassName="h-full" fitPadding={0.08} fitMaxZoom={1.1} emptyState={emptyState} />
+      </div>
+    </div>
   );
 }
 
 function IdeologicalGraphView({
+  workspace,
   query,
   onQueryChange,
   selectedId,
@@ -4677,6 +3667,7 @@ function IdeologicalGraphView({
   onToggleInspector,
   onOpenKnowledgePoint,
 }: {
+  workspace: GraphWorkspaceState;
   query: string;
   onQueryChange: (value: string) => void;
   selectedId: string;
@@ -4695,12 +3686,13 @@ function IdeologicalGraphView({
   onToggleInspector: () => void;
   onOpenKnowledgePoint: (id: string) => void;
 }) {
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const isMobileFilterOpen = workspace.directoryOpen;
+  const setIsMobileFilterOpen = workspace.setDirectory;
   const mobileFilterTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileFilterPanelRef = useRef<HTMLElement>(null);
   const mobileInspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileInspectorPanelRef = useRef<HTMLElement>(null);
-  const closeMobileFilter = useCallback(() => setIsMobileFilterOpen(false), []);
+  const closeMobileFilter = useCallback(() => setIsMobileFilterOpen(false), [setIsMobileFilterOpen]);
   const [activeMappingWeek, setActiveMappingWeek] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
   const isSearchPending = query !== deferredQuery;
@@ -4815,7 +3807,6 @@ function IdeologicalGraphView({
     if (!target) return;
     setActiveMappingWeek(mapping.weekRange);
     onSelect(target.id);
-    if (isCanvasFocus) onToggleCanvasFocus();
     if (!isInspectorOpen) onToggleInspector();
   };
 
@@ -4826,7 +3817,7 @@ function IdeologicalGraphView({
   }, [activeMappingWeek, selected]);
 
   useEffect(() => {
-    if (isCanvasFocus) closeMobileFilter();
+    // Presentation mode is independent from reading panels.
   }, [closeMobileFilter, isCanvasFocus]);
 
   return (
@@ -4836,61 +3827,35 @@ function IdeologicalGraphView({
       aria-labelledby="graph-tab-ideological"
       data-graph-workspace="ideological"
       data-canvas-focus={isCanvasFocus ? 'true' : 'false'}
-      className={getGraphWorkspaceClassName(isCanvasFocus, isMobileFilterOpen)}
+      className={getGraphWorkspaceClassName(workspace.mode, isMobileFilterOpen, isInspectorOpen)}
     >
-      {!isCanvasFocus && <MobileDrawerDialog
-        open={isMobileFilterOpen}
+      {<GraphReadingPanel compact={workspace.mode === 'single'}
+        open={workspace.directoryOpen}
         onClose={closeMobileFilter}
         triggerRef={mobileFilterTriggerRef}
         panelRef={mobileFilterPanelRef}
         id="ideological-graph-filter"
-        label="育人主题与章节筛选"
+        label="育人主题与平台单元筛选"
         labelId="ideological-graph-filter-title"
         backdropLabel="关闭育人主题筛选遮罩"
-        className={cn(
-          'fixed inset-y-3 left-3 z-[80] w-[min(350px,calc(100vw-24px))] overflow-y-auto rounded-xl border border-white/[0.10] bg-[#0a1017]/98 p-4 shadow-[0_30px_100px_rgba(0,0,0,0.58)] backdrop-blur-2xl transition-[transform,visibility] duration-300 lg:visible lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:rounded-lg lg:border-border lg:bg-card/70 lg:p-3 lg:shadow-none lg:backdrop-blur-none',
-          isMobileFilterOpen ? 'visible translate-x-0' : 'invisible -translate-x-[115%]',
-        )}
+        className="kg-scrollbar"
       >
         <div className="mb-3 flex items-center justify-between border-b border-white/[0.07] pb-3">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/65">Value filter</div>
-            <div id="ideological-graph-filter-title" className="mt-0.5 text-xs font-semibold text-slate-100">育人主题与章节</div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-200/65">主题筛选</div>
+            <div id="ideological-graph-filter-title" className="mt-0.5 text-xs font-semibold text-slate-100">育人主题与平台单元</div>
           </div>
           <button
             type="button"
             aria-label="收起育人主题筛选"
             data-drawer-initial-focus="true"
             onClick={closeMobileFilter}
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06] lg:hidden"
+            className="grid min-h-11 min-w-11 place-items-center rounded-md border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <Input
-            ref={searchInputRef}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索思政主题、周次..."
-            aria-label="搜索思政主题"
-            className="h-11 rounded-xl border-white/[0.09] bg-black/25 pl-10 pr-12 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
-          />
-          {query ? (
-            <button
-              type="button"
-              aria-label="清除思政搜索"
-              onClick={() => onQueryChange('')}
-              className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-white/[0.1] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">/</kbd>
-          )}
-        </div>
-        <div className="mb-2 flex items-center justify-between px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+        <div className="mb-2 flex items-center justify-between px-2 font-mono text-xs uppercase tracking-[0.1em] text-slate-500">
           <span>一级主题 · 6类</span>
           {hasActiveFilter && (
             <button type="button" onClick={resetFilters} className="inline-flex min-h-11 items-center rounded-md px-2 text-cyan-200 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
@@ -4915,7 +3880,7 @@ function IdeologicalGraphView({
                   setIsMobileFilterOpen(false);
                 }}
                 className={cn(
-                  'min-h-11 w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                  'min-h-11 w-full rounded-md border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
                   categoryFilter === root.category || selected?.id === root.id ? 'text-slate-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.06] hover:text-slate-100',
                 )}
                 style={categoryFilter === root.category || selected?.id === root.id ? { borderColor: `${meta.color}66`, backgroundColor: `${meta.color}18` } : undefined}
@@ -4923,14 +3888,14 @@ function IdeologicalGraphView({
                 <div className="flex items-center gap-2">
                   <Icon className="h-4 w-4" style={{ color: meta.color }} />
                   <span className="text-sm font-semibold">{root.name}</span>
-                  <span className="ml-auto font-mono text-[10px] opacity-70">{count}</span>
+                  <span className="ml-auto font-mono text-xs opacity-70">{count}</span>
                 </div>
                 <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-75">{root.description}</p>
               </button>
             );
           })}
         </div>
-        <div className="mt-4 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">按明确周次定位</div>
+        <div className="mt-4 px-2 font-mono text-xs uppercase tracking-[0.1em] text-slate-500">按明确周次定位</div>
         <div className="mt-2 grid grid-cols-5 gap-1.5">
           <button
             type="button"
@@ -4939,7 +3904,7 @@ function IdeologicalGraphView({
               onChapterFilterChange('all');
               setIsMobileFilterOpen(false);
             }}
-            className={cn('col-span-2 min-h-11 rounded-lg border px-2 font-mono text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', chapterFilter === 'all' ? 'border-cyan-200/30 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:text-slate-200')}
+            className={cn('col-span-2 min-h-11 rounded-md border px-2 font-mono text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', chapterFilter === 'all' ? 'border-cyan-200/30 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:text-slate-200')}
           >
             全部
           </button>
@@ -4947,32 +3912,37 @@ function IdeologicalGraphView({
             <button
               key={value}
               type="button"
+              aria-label={`平台单元 ${value}`}
               aria-pressed={chapterFilter === value}
               onClick={() => {
                 onChapterFilterChange(chapterFilter === value ? 'all' : value);
                 setIsMobileFilterOpen(false);
               }}
-              className={cn('min-h-11 rounded-lg border font-mono text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', chapterFilter === value ? 'border-cyan-200/30 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:text-slate-200')}
+              className={cn('min-h-11 rounded-md border font-mono text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', chapterFilter === value ? 'border-cyan-200/30 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:text-slate-200')}
             >
-              CH{value}
+              U{value}
             </button>
           ))}
         </div>
-      </MobileDrawerDialog>}
+      </GraphReadingPanel>}
 
-      <section className="min-w-0 space-y-3">
-        <div className="glass-hover overflow-hidden rounded-lg border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)] transition-all">
+      <section hidden={workspace.mode === 'single' && (isMobileFilterOpen || isInspectorOpen)} className="kg-canvas-column min-w-0 space-y-3">
+        <div className="glass-hover overflow-hidden rounded-md border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)] transition-all">
           <div className="flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-5 py-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-rose-200/75">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <div className="chip-mark mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-md">
+                <Flag className="h-4 w-4 text-cyan-100" />
+              </div>
+              <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-200/75">
                 <span>
-                  Value mapping · {usesCrossThemeFilter
-                    ? `${filteredNodes.length} matched`
-                    : `${canvasIdeologicalNodeCount} nodes`} · {filteredMappings.length} mappings
+                  育人映射 · {usesCrossThemeFilter
+                    ? `${filteredNodes.length} 条匹配`
+                    : `${canvasIdeologicalNodeCount} 个节点`} · {filteredMappings.length} 条周次
                 </span>
                 {isSearchPending && <span role="status" className="text-cyan-200/80">搜索中…</span>}
                 {selected && (
-                  <span className="max-w-[260px] truncate rounded-full border border-rose-200/15 bg-rose-200/[0.06] px-2 py-0.5 text-rose-100/85" aria-live="polite">
+                  <span className="max-w-[260px] truncate rounded-md border border-cyan-200/20 bg-cyan-200/[0.06] px-2 py-0.5 text-cyan-100/85" aria-live="polite">
                     当前 · {selected.name}
                   </span>
                 )}
@@ -4982,6 +3952,7 @@ function IdeologicalGraphView({
                 {ideologicalGraphStats.totalCategories}个一级主题、{ideologicalGraphStats.totalElements}个二级元素；
                 {ideologicalGraphStats.totalWeeklyMappings}条周次安排在下方逐项核验，内容关联不自动视为已实施。
               </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -4992,27 +3963,15 @@ function IdeologicalGraphView({
                 aria-haspopup="dialog"
                 aria-label="展开育人主题筛选"
                 onClick={() => setIsMobileFilterOpen(true)}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-2.5 text-[11px] font-medium text-slate-400 transition hover:border-rose-200/25 hover:bg-rose-200/[0.06] hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 lg:hidden"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/[0.08] bg-black/20 px-2.5 text-[11px] font-medium text-slate-400 transition hover:border-cyan-200/25 hover:bg-cyan-200/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
               >
                 <Menu className="h-3.5 w-3.5" />筛选
               </button>
               <button type="button" aria-expanded={showLegend} aria-controls="ideological-graph-legend" onClick={onToggleLegend} className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', showLegend ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}>
                 <ListTree className="h-3.5 w-3.5" />图例与操作
               </button>
-              <button
-                type="button"
-                data-kg-focus-exit="true"
-                aria-pressed={isCanvasFocus}
-                aria-label={isCanvasFocus ? '退出育人图谱专注画布' : '进入育人图谱专注画布，扩大节点阅读区域'}
-                title={isCanvasFocus ? '恢复筛选与详情面板' : '隐藏筛选与详情，扩大图谱画布'}
-                onClick={onToggleCanvasFocus}
-                className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200', isCanvasFocus ? 'border-rose-200/40 bg-rose-200/[0.14] text-rose-50' : 'border-rose-200/22 bg-rose-200/[0.07] text-rose-100 hover:border-rose-200/35 hover:bg-rose-200/[0.11]')}
-              >
-                {isCanvasFocus ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                {isCanvasFocus ? '退出专注' : '专注画布'}
-              </button>
-              <button ref={mobileInspectorTriggerRef} type="button" aria-expanded={isInspectorOpen && !isCanvasFocus} aria-controls="ideological-graph-inspector" aria-haspopup={isDrawerViewport ? 'dialog' : undefined} onClick={onToggleInspector} className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', isInspectorOpen && !isCanvasFocus ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}>
-                {isInspectorOpen && !isCanvasFocus ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+              <button ref={mobileInspectorTriggerRef} type="button" aria-expanded={isInspectorOpen} aria-controls="ideological-graph-inspector" aria-haspopup={undefined} onClick={onToggleInspector} className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200', isInspectorOpen ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100')}>
+                {isInspectorOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
                 主题详情
               </button>
             </div>
@@ -5035,6 +3994,7 @@ function IdeologicalGraphView({
             disableRootFocus={usesCrossThemeFilter}
             teachingFocus={isCanvasFocus}
             onSelect={(id) => {
+              if (!id) { resetFilters(); return; }
               onSelect(id);
               if (shouldAutoOpenGraphInspector(isCanvasFocus, isInspectorOpen)) onToggleInspector();
             }}
@@ -5042,26 +4002,26 @@ function IdeologicalGraphView({
             heightClassName={isCanvasFocus
               ? showLegend
                 ? 'h-[clamp(320px,calc(100dvh-390px),560px)] sm:h-[clamp(360px,calc(100dvh-280px),680px)]'
-                : 'h-[clamp(420px,calc(100dvh-208px),780px)]'
+                : 'h-[max(520px,calc(100dvh-180px))]'
               : selected
-                ? 'h-[480px] sm:h-[clamp(380px,calc(100dvh-320px),680px)]'
-                : 'h-[360px] sm:h-[clamp(380px,calc(100dvh-320px),680px)]'}
+                ? 'h-[520px] sm:h-[max(520px,calc(100dvh-270px))]'
+                : 'h-[520px] sm:h-[max(520px,calc(100dvh-270px))]'}
             emptyState={filteredNodes.length === 0 && filteredMappings.length === 0 ? {
               title: '没有匹配的育人主题',
-              description: '请调整周次、案例或价值主题关键词，或清除当前主题与章节筛选。',
+              description: '请调整周次、案例或价值主题关键词，或清除当前主题与平台单元筛选。',
               actionLabel: '清除筛选',
               onAction: resetFilters,
             } : undefined}
           />
         </div>
 
-        <div className="glass-hover rounded-lg border border-white/[0.08] bg-[#0b1118]/94 p-4 transition-all">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-[#0b1118]/94 p-4 transition-all">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <BookOpen className="h-4 w-4 text-cyan-200" />
               周次映射轨迹
             </div>
-            <span className="font-mono text-[10px] text-slate-500">{filteredMappings.length}/{sipMappings.length}</span>
+            <span className="font-mono text-xs text-slate-500">{filteredMappings.length}/{sipMappings.length}</span>
           </div>
           <p className="mb-3 text-xs leading-5 text-slate-400">点击周次可查看本周知识点、课堂判断、教学动作与完成证据。</p>
           <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
@@ -5087,7 +4047,7 @@ function IdeologicalGraphView({
               </button>
             ))}
             {filteredMappings.length === 0 && (
-              <div className="w-full rounded-xl border border-dashed border-white/[0.1] px-3 py-5 text-center text-xs text-slate-500">
+              <div className="w-full rounded-md border border-dashed border-white/[0.1] px-3 py-5 text-center text-xs text-slate-500">
                 <p>未找到匹配主题。请尝试周次、案例或价值主题关键词。</p>
                 <button type="button" onClick={resetFilters} className="mt-2 min-h-11 font-medium text-cyan-200 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
                   清除筛选
@@ -5098,8 +4058,8 @@ function IdeologicalGraphView({
         </div>
       </section>
 
-      {isInspectorOpen && !isCanvasFocus && <MobileDrawerDialog
-        open={isDrawerViewport}
+      {isInspectorOpen && <GraphReadingPanel compact={workspace.mode === 'single'}
+        open={isInspectorOpen}
         onClose={onToggleInspector}
         triggerRef={mobileInspectorTriggerRef}
         panelRef={mobileInspectorPanelRef}
@@ -5108,31 +4068,31 @@ function IdeologicalGraphView({
         labelId="ideological-graph-inspector-title"
         backdropLabel="关闭育人主题详情遮罩"
         closeOnDesktop={false}
-        className="kg-inspector fixed inset-x-3 bottom-3 z-[80] max-h-[76dvh] space-y-3 overflow-y-auto rounded-lg border border-border bg-background/98 p-3 shadow-2xl backdrop-blur-xl lg:inset-x-auto lg:right-6 lg:top-20 lg:z-[60] lg:w-[min(390px,calc(100vw-32px))]"
+        className="kg-inspector space-y-3"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border border-border bg-card/95 px-3 py-2 backdrop-blur">
           <span id="ideological-graph-inspector-title" className="text-xs font-semibold text-slate-100">育人主题详情</span>
-          <button type="button" data-drawer-initial-focus="true" onClick={onToggleInspector} aria-label="关闭育人主题详情" className="grid min-h-11 min-w-11 place-items-center rounded-md text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200">
+          <button type="button" data-drawer-initial-focus="true" onClick={onToggleInspector} aria-label="关闭育人主题详情" className="grid min-h-11 min-w-11 place-items-center rounded-md text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
             <X className="h-4 w-4" />
           </button>
         </div>
         {activeMapping && (
-          <div id="ideological-week-detail" className="glass-hover rounded-lg border border-cyan-300/20 bg-[#0b1118]/95 p-4 transition-all">
+          <div id="ideological-week-detail" className="glass-hover rounded-md border border-cyan-300/20 bg-[#0b1118]/95 p-4 transition-all">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border border-cyan-300/25 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[10px] text-cyan-100">{activeMapping.weekRange}</span>
-              <span className="font-mono text-[10px] text-slate-500">KP {activeMapping.knowledgePointId}</span>
+              <span className="rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-2 py-1 font-mono text-xs text-cyan-100">{activeMapping.weekRange}</span>
+              <span className="font-mono text-xs text-slate-500">KP {activeMapping.knowledgePointId}</span>
             </div>
             <h2 className="mt-2 text-base font-semibold text-slate-50">{activeMapping.knowledgePointName} · {activeMapping.ideologicalTheme}</h2>
-            <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/20 p-3">
+            <div className="mt-3 rounded-md border border-white/[0.08] bg-black/20 p-3">
               <div className="text-xs font-semibold text-cyan-100">本周课堂判断</div>
               <p className="mt-1.5 text-xs leading-5 text-slate-300">{activeMapping.ideologicalContent}</p>
             </div>
             <div className="mt-3 space-y-2">
-              <div className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
+              <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
                 <div className="text-xs font-semibold text-slate-100">教学动作</div>
                 <p className="mt-1.5 text-xs leading-5 text-slate-400">{activeMapping.teachingMethod}</p>
               </div>
-              <div className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
+              <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
                 <div className="text-xs font-semibold text-slate-100">完成证据</div>
                 <p className="mt-1.5 text-xs leading-5 text-slate-400">{activeMapping.expectedOutcome}</p>
               </div>
@@ -5150,7 +4110,7 @@ function IdeologicalGraphView({
                       aria-pressed={selected?.id === id}
                       onClick={() => onSelect(id)}
                       className={cn(
-                        'min-h-11 rounded-lg border px-2.5 py-1 text-left text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                        'min-h-11 rounded-md border px-2.5 py-1 text-left text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
                         selected?.id === id
                           ? 'border-cyan-300/30 bg-cyan-300/[0.08] text-cyan-50'
                           : 'border-white/[0.08] bg-black/20 text-slate-400 hover:border-cyan-300/25 hover:text-slate-100',
@@ -5165,7 +4125,7 @@ function IdeologicalGraphView({
             </div>
           </div>
         )}
-        <div className="glass-hover rounded-lg border border-white/[0.08] bg-[#0b1118]/95 transition-all">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-[#0b1118]/95 transition-all">
           <div className="border-b border-white/[0.08] p-5">
             <div className="font-mono text-[11px] text-cyan-200">SIP · {selected?.id || 'N/A'}</div>
             <h2 className="mt-2 text-xl font-semibold text-slate-50">{selected?.name || '未选择主题'}</h2>
@@ -5180,7 +4140,7 @@ function IdeologicalGraphView({
                 </div>
                 <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
                   <div className="font-mono text-lg text-slate-50">{selected.relatedChapters.join('/') || '-'}</div>
-                  <div className="text-xs text-slate-500">内容关联章节</div>
+                  <div className="text-xs text-slate-500">内容关联平台单元</div>
                 </div>
               </div>
               <div className={cn(
@@ -5193,7 +4153,7 @@ function IdeologicalGraphView({
                 {selectedScheduledMappings.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {selectedScheduledMappings.map((mapping) => (
-                      <span key={`${mapping.weekRange}-${mapping.knowledgePointId}`} className="rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[10px] text-slate-300">
+                      <span key={`${mapping.weekRange}-${mapping.knowledgePointId}`} className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-xs text-slate-300">
                         {mapping.weekRange} · KP {mapping.knowledgePointId}
                       </span>
                     ))}
@@ -5220,7 +4180,7 @@ function IdeologicalGraphView({
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold text-slate-100">
                     <span>关联知识点</span>
-                    <span className="text-[10px] font-normal text-slate-500">点击回到专业知识图谱</span>
+                    <span className="text-xs font-normal text-slate-500">点击回到专业知识图谱</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selected.relatedKnowledgePoints.map((id) => (
@@ -5228,7 +4188,7 @@ function IdeologicalGraphView({
                         key={id}
                         type="button"
                         onClick={() => onOpenKnowledgePoint(id)}
-                        className="min-h-11 rounded-lg border border-white/[0.08] bg-black/20 px-2.5 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+                        className="min-h-11 rounded-md border border-white/[0.08] bg-black/20 px-2.5 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                       >
                         KP {id} <ArrowRight className="ml-1 inline h-3 w-3" />
                       </button>
@@ -5245,10 +4205,10 @@ function IdeologicalGraphView({
                         key={node.id}
                         type="button"
                         onClick={() => onSelect(node.id)}
-                        className="flex min-h-11 w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                        className="flex min-h-11 w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                       >
-                        <span className="line-clamp-1">{node.name}</span>
-                        <span className="font-mono text-[10px] text-slate-600">CH {node.relatedChapters.join('/')}</span>
+                        <span className="min-w-0 flex-1 break-words leading-snug">{node.name}</span>
+                        <span className="font-mono text-xs text-slate-600">CH {node.relatedChapters.join('/')}</span>
                       </button>
                     ))}
                   </div>
@@ -5257,7 +4217,7 @@ function IdeologicalGraphView({
             </div>
           )}
         </div>
-        <div className="glass-hover rounded-lg border border-white/[0.08] bg-[#0b1118]/95 p-4 transition-all">
+        <div className="glass-hover rounded-md border border-white/[0.08] bg-[#0b1118]/95 p-4 transition-all">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Target className="h-4 w-4 text-cyan-200" />
             思政图谱统计
@@ -5277,11 +4237,11 @@ function IdeologicalGraphView({
             </div>
             <div className="rounded-md border border-white/[0.08] bg-black/20 p-3">
               <div className="font-mono text-xl text-slate-50">{ideologicalGraphStats.chaptersWithSip.length}</div>
-              <div className="text-xs text-slate-500">覆盖章节</div>
+              <div className="text-xs text-slate-500">覆盖平台单元</div>
             </div>
           </div>
         </div>
-      </MobileDrawerDialog>}
+      </GraphReadingPanel>}
     </section>
   );
 }
@@ -5318,16 +4278,21 @@ export function HyperKnowledgeGraphPage() {
   const [kaScores, setKaScores] = useState<Record<string, number>>({});
   const [latestAssessmentSnapshot, setLatestAssessmentSnapshot] = useState<NextStepSnapshot | null | undefined>(undefined);
   const workbenchRef = useRef<HTMLDivElement>(null);
-  const isDrawerViewport = useGraphDrawerViewport();
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isCanvasFocus, setIsCanvasFocus] = useState(false);
+  const [presentationStep, setPresentationStep] = useState(0);
+  const workspace = useGraphWorkspace(workbenchRef, !kgLoading, isCanvasFocus);
+  const isDrawerViewport = workspace.mode === 'single';
+  const isMobileSidebarOpen = workspace.directoryOpen;
+  const setIsMobileSidebarOpen = workspace.setDirectory;
   const mobileSidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileSidebarPanelRef = useRef<HTMLElement>(null);
   const mobileInspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileInspectorPanelRef = useRef<HTMLElement>(null);
-  const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), [setIsMobileSidebarOpen]);
+  const isInspectorOpen = workspace.inspectorOpen;
+  const setIsInspectorOpen = workspace.setInspector;
+  const [dependencyDetail, setDependencyDetail] = useState<ReactNode>(null);
   const [showLegend, setShowLegend] = useState(false);
-  const [isCanvasFocus, setIsCanvasFocus] = useState(false);
   const closeCanvasFocus = useCallback(() => setIsCanvasFocus(false), []);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const headerSearchInputRef = useRef<HTMLInputElement>(null);
@@ -5590,6 +4555,28 @@ export function HyperKnowledgeGraphPage() {
       )).slice(0, 8)
     : [];
 
+  const captureGraphContext = () => ({
+    view, selectedId, selectedProblemId, selectedIdeologicalId, chapter, query,
+    problemCategoryFilter, problemDifficultyFilter, ideologicalCategoryFilter,
+    ideologicalChapterFilter, directoryOpen: isMobileSidebarOpen, inspectorOpen: isInspectorOpen,
+    label: view === 'knowledge' ? selected?.name || '课程总览'
+      : view === 'problem' ? problemGraph.find((item) => item.id === selectedProblemId)?.name || '问题总览'
+        : ideologicalNodes.find((item) => item.id === selectedIdeologicalId)?.name || '育人总览',
+  });
+  const [returnContexts, setReturnContexts] = useState<Array<ReturnType<typeof captureGraphContext>>>([]);
+  const rememberSource = () => setReturnContexts((items) => [...items, captureGraphContext()]);
+  const returnToSource = () => {
+    const previous = returnContexts[returnContexts.length - 1];
+    if (!previous) return;
+    setReturnContexts((items) => items.slice(0, -1));
+    setView(previous.view); setChapter(previous.chapter); setQuery(previous.query); setUrlQuery(previous.query);
+    setSelectedId(previous.selectedId); setSelectedProblemId(previous.selectedProblemId); setSelectedIdeologicalId(previous.selectedIdeologicalId);
+    setProblemCategoryFilter(previous.problemCategoryFilter); setProblemDifficultyFilter(previous.problemDifficultyFilter);
+    setIdeologicalCategoryFilter(previous.ideologicalCategoryFilter); setIdeologicalChapterFilter(previous.ideologicalChapterFilter);
+    setDependencyDetail(null);
+    workspace.setDirectory(previous.directoryOpen); workspace.setInspector(previous.inspectorOpen);
+  };
+
   const replaceSelectedNodeInUrl = useCallback((
     targetView: GraphView,
     nodeId: string,
@@ -5620,18 +4607,23 @@ export function HyperKnowledgeGraphPage() {
     const target = pointById[id];
     if (!target) return;
     if (isAddressingTaskContext && id !== '3.1' && !id.startsWith('3.1.')) return;
+    setDependencyDetail(null);
+    setQuery(''); setUrlQuery('');
     setSelectedId(id);
+    setChapter(target.chapter);
     replaceSelectedNodeInUrl('knowledge', id, target.chapter);
     if (shouldAutoOpenGraphInspector(isCanvasFocus, isInspectorOpen)) setIsInspectorOpen(true);
   };
 
   const selectProblemNode = (id: string): void => {
+    if (!id) { setSelectedProblemId(''); setIsInspectorOpen(false); return; }
     if (!problemGraph.some((node) => node.id === id)) return;
     setSelectedProblemId(id);
     replaceSelectedNodeInUrl('problem', id);
   };
 
   const selectIdeologicalNode = (id: string): void => {
+    if (!id) { setSelectedIdeologicalId(''); setIsInspectorOpen(false); return; }
     if (!ideologicalNodes.some((node) => node.id === id)) return;
     setSelectedIdeologicalId(id);
     replaceSelectedNodeInUrl('ideological', id);
@@ -5639,10 +4631,11 @@ export function HyperKnowledgeGraphPage() {
 
   const revealInspector = useCallback(() => {
     setIsInspectorOpen(true);
-  }, []);
+  }, [setIsInspectorOpen]);
 
   const focusChapter = (value: number) => {
     if (isAddressingTaskContext && value !== 3) return;
+    setDependencyDetail(null);
     setChapter(value);
     const nextSelectedId = resolveChapterSelection(knowledgePoints, value, selectedId);
     if (nextSelectedId) setSelectedId(nextSelectedId);
@@ -5652,11 +4645,12 @@ export function HyperKnowledgeGraphPage() {
     const target = pointById[id] || knowledgePoints.find((point) => point.id.startsWith(`${id}.`));
     if (!target) return;
     if (isAddressingTaskContext && target.id !== '3.1' && !target.id.startsWith('3.1.')) return;
+    if (view !== 'knowledge') rememberSource();
+    setDependencyDetail(null);
     setView('knowledge');
     setSelectedId(target.id);
     setChapter(target.chapter);
     setQuery('');
-    setIsCanvasFocus(false);
     setIsInspectorOpen(true);
   };
 
@@ -5664,12 +4658,13 @@ export function HyperKnowledgeGraphPage() {
     if (isAddressingTaskContext) return;
     const target = problemGraph.find((node) => node.id === id);
     if (!target) return;
+    if (view !== 'problem') rememberSource();
+    setDependencyDetail(null);
     setView('problem');
     setSelectedProblemId(target.id);
     setProblemCategoryFilter(target.category);
     setProblemDifficultyFilter('all');
     setQuery('');
-    setIsCanvasFocus(false);
     setIsInspectorOpen(true);
   };
 
@@ -5677,13 +4672,64 @@ export function HyperKnowledgeGraphPage() {
     if (isAddressingTaskContext) return;
     const target = ideologicalNodes.find((node) => node.id === id);
     if (!target) return;
+    if (view !== 'ideological') rememberSource();
+    setDependencyDetail(null);
     setView('ideological');
     setSelectedIdeologicalId(target.id);
     setIdeologicalCategoryFilter(target.category);
     setIdeologicalChapterFilter('all');
     setQuery('');
-    setIsCanvasFocus(false);
     setIsInspectorOpen(true);
+  };
+
+  const runPresentationStep = (nextStep: number): void => {
+    const boundedStep = Math.max(0, Math.min(graphPresentationSteps.length - 1, nextStep));
+    setPresentationStep(boundedStep);
+    setQuery('');
+    setUrlQuery('');
+    setDependencyDetail(null);
+    workspace.setDirectory(false);
+
+    const showKnowledgePoint = (id: string, inspectorOpen: boolean): void => {
+      const target = pointById[id];
+      if (!target) return;
+      setView('knowledge');
+      setChapter(target.chapter);
+      setSelectedId(id);
+      setIsInspectorOpen(inspectorOpen);
+      replaceSelectedNodeInUrl('knowledge', id, target.chapter);
+    };
+
+    if (boundedStep === 0) {
+      setView('knowledge');
+      setChapter('all');
+      setSelectedId('');
+      setIsInspectorOpen(false);
+      setReturnContexts([]);
+      return;
+    }
+    if (boundedStep === 1) {
+      showKnowledgePoint('3', false);
+      return;
+    }
+    if (boundedStep === 2) {
+      showKnowledgePoint('3.1', false);
+      return;
+    }
+    if (boundedStep === 3) {
+      showKnowledgePoint('3.1', true);
+      return;
+    }
+    if (boundedStep === 4) {
+      showKnowledgePoint('3.1.2', true);
+      return;
+    }
+    if (boundedStep === 5) {
+      openProblemNode('P1.2.1');
+      return;
+    }
+    if (returnContexts.length > 0) returnToSource();
+    else showKnowledgePoint('3.1.2', true);
   };
 
   useEffect(() => {
@@ -5699,8 +4745,8 @@ export function HyperKnowledgeGraphPage() {
       // Avoid closing a second layer on the same key press.
       if (document.querySelector('[data-kg-mobile-drawer-open="true"]')) return;
       if (isMobileSidebarOpen) closeMobileSidebar();
-      else if (isCanvasFocus) setIsCanvasFocus(false);
       else if (isInspectorOpen) setIsInspectorOpen(false);
+      else if (isCanvasFocus) setIsCanvasFocus(false);
       else if (showLegend) setShowLegend(false);
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -5922,8 +4968,27 @@ export function HyperKnowledgeGraphPage() {
   const navigatorList = useMemo(() => {
     if (deferredQuery.trim()) return filteredList;
     if (chapter === 'all') return filteredList.filter((point) => point.level === 1);
-    return filteredList;
-  }, [chapter, deferredQuery, filteredList]);
+    const current = pointById[selectedId];
+    const topicId = current?.level === 2 ? current.id : current?.level === 3 ? current.parentId : null;
+    return filteredList.filter((point) => point.level <= 2 || point.parentId === topicId);
+  }, [chapter, deferredQuery, filteredList, pointById, selectedId]);
+  const navigatorIndex = navigatorList.findIndex((point) => point.id === selectedId);
+  const previousNavigatorPoint = navigatorIndex > 0 ? navigatorList[navigatorIndex - 1] : null;
+  const nextNavigatorPoint = navigatorIndex >= 0 && navigatorIndex < navigatorList.length - 1
+    ? navigatorList[navigatorIndex + 1]
+    : null;
+  const selectedPathLabel = useMemo(() => {
+    if (!selected) return '课程总览';
+    const items: string[] = [selected.name];
+    let parentId = selected.parentId;
+    while (parentId) {
+      const parent = pointById[parentId];
+      if (!parent) break;
+      items.unshift(parent.name);
+      parentId = parent.parentId;
+    }
+    return items.join(' › ');
+  }, [pointById, selected]);
   const navigatorMode = isAddressingTaskContext
     ? 'task'
     : deferredQuery.trim()
@@ -5951,12 +5016,12 @@ export function HyperKnowledgeGraphPage() {
   useEffect(() => {
     // A URL-selected node is applied by the hydration effect above. Do not
     // repair the still-stale in-memory selection during the same render.
-    if (isExternalSearchPending) return;
+    if (isExternalSearchPending || query !== deferredQuery) return;
     if (!deferredQuery.trim() && chapter === 'all' && !selectedId) return;
     if (filteredList.some((point) => point.id === selectedId)) return;
     const nextId = filteredList[0]?.id || '';
     if (nextId !== selectedId) setSelectedId(nextId);
-  }, [chapter, deferredQuery, filteredList, isExternalSearchPending, selectedId]);
+  }, [chapter, query, deferredQuery, filteredList, isExternalSearchPending, selectedId]);
 
   const visibleKnowledgeIds = useMemo(() => {
     const ids = new Set(filteredList.map((point) => point.id));
@@ -6016,10 +5081,11 @@ export function HyperKnowledgeGraphPage() {
   const activateGraphView = (nextView: GraphView): void => {
     if (isAddressingTaskContext && nextView !== 'knowledge') return;
     if (nextView === view) return;
+    setReturnContexts([]);
+    setDependencyDetail(null);
     setView(nextView);
     setQuery('');
     setIsMobileSidebarOpen(false);
-    setIsCanvasFocus(false);
     setShowLegend(false);
     setIsInspectorOpen(false);
   };
@@ -6033,7 +5099,7 @@ export function HyperKnowledgeGraphPage() {
       ? [
           { value: ideologicalNodes.length, label: '育人节点' },
           { value: ideologicalGraphStats.totalWeeklyMappings, label: '周次安排' },
-          { value: ideologicalGraphStats.chaptersWithSip.length, label: '覆盖章节' },
+          { value: ideologicalGraphStats.chaptersWithSip.length, label: '覆盖平台单元' },
         ]
       : [
           { value: knowledgePoints.length, label: '知识节点' },
@@ -6043,11 +5109,11 @@ export function HyperKnowledgeGraphPage() {
 
   if (kgLoading) {
     return (
-      <div className="relative flex min-h-[calc(100dvh-8rem)] items-center justify-center overflow-hidden rounded-lg border border-border bg-background" role="status" aria-live="polite">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(103,232,249,.10),transparent_32%)]" aria-hidden />
+      <div className="relative flex min-h-[calc(100dvh-8rem)] items-center justify-center overflow-hidden rounded-md border border-border bg-background" role="status" aria-live="polite">
+        <div className="pointer-events-none absolute inset-0 circuit-grid opacity-40" aria-hidden />
         <div className="relative flex flex-col items-center px-6 text-center">
           <div className="absolute h-36 w-36 animate-pulse rounded-full bg-cyan-300/10 blur-3xl" />
-          <div className="relative grid h-14 w-14 place-items-center rounded-lg border border-cyan-200/25 bg-cyan-200/[0.08] text-cyan-100">
+          <div className="chip-mark relative grid h-14 w-14 place-items-center rounded-md text-cyan-100">
             <Network className="h-6 w-6" />
           </div>
           <div className="mt-5 text-sm font-semibold text-slate-100">正在准备知识图谱</div>
@@ -6062,25 +5128,33 @@ export function HyperKnowledgeGraphPage() {
       ref={workbenchRef}
       role={isCanvasFocus ? 'dialog' : undefined}
       aria-modal={isCanvasFocus ? true : undefined}
-      aria-label={isCanvasFocus ? `${activeGraphMeta.label}图谱专注画布` : undefined}
+      aria-label={isCanvasFocus ? `${activeGraphMeta.label}图谱演示模式` : undefined}
       tabIndex={isCanvasFocus ? -1 : undefined}
       className={cn(
-        'kg-workbench relative m-0 min-h-[calc(100dvh-8rem)] min-w-0 rounded-lg border border-border bg-background text-foreground',
+        'kg-workbench relative m-0 min-h-[calc(100dvh-8rem)] min-w-0 rounded-md border border-border bg-background text-foreground',
         isCanvasFocus
           ? 'fixed inset-0 z-[80] h-dvh min-h-0 overflow-y-auto overscroll-contain rounded-none border-0'
           : 'overflow-hidden',
       )}
       data-view={view}
+      data-layout={workspace.mode}
+      data-inspector={isInspectorOpen ? 'open' : 'closed'}
     >
       <style>{`
+        .kg-workspace > [hidden] { display: none !important; }
+        .kg-workbench .kg-map-stage { padding: 0; }
+        .kg-reading-panel { max-height: calc(100dvh - 190px); overflow-y: auto; scrollbar-width: thin; }
+        .kg-reading-panel[hidden] { display: none !important; }
+        .kg-inspector p { font-size: 16px; line-height: 1.65; }
+        .kg-inspector button { white-space: normal; }
+        .kg-reading-panel summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+        .kg-workbench[data-layout="single"] .kg-reading-panel { min-height: 420px; max-height: calc(100dvh - 150px); }
         .kg-workbench {
           --kg-accent: 103 232 249;
           --kg-accent-soft: 34 211 238;
           --kg-muted: #94a3b8;
           --kg-muted-subtle: #8796aa;
         }
-        .kg-workbench[data-view="problem"] { --kg-accent: 253 224 71; --kg-accent-soft: 245 158 11; }
-        .kg-workbench[data-view="ideological"] { --kg-accent: 253 164 175; --kg-accent-soft: 244 63 94; }
         .kg-workbench .text-slate-500 { color: var(--kg-muted); }
         .kg-workbench .text-slate-600 { color: var(--kg-muted-subtle); }
         .kg-workbench [class*="placeholder:text-slate-500"]::placeholder {
@@ -6109,7 +5183,7 @@ export function HyperKnowledgeGraphPage() {
         .kg-workbench a { -webkit-tap-highlight-color: transparent; }
         .kg-workbench header button,
         .kg-workbench header a,
-        .kg-panel > div:first-child button { border-radius: var(--radius) !important; }
+        .kg-panel > div:first-child button { border-radius: calc(var(--radius) - 2px) !important; }
         html.kg-focus-active [data-variant="sidebar"],
         html.kg-focus-active [data-sidebar="sidebar"] {
           visibility: hidden !important;
@@ -6117,25 +5191,34 @@ export function HyperKnowledgeGraphPage() {
         }
         .kg-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(103,232,249,.25) transparent; }
         .kg-inspector { scrollbar-width: thin; scrollbar-color: rgba(103,232,249,.25) transparent; }
+        .kg-header { container-type: inline-size; container-name: kg-header; }
+        @container kg-header (min-width: 760px) {
+          .kg-header-grid { grid-template-columns: minmax(180px, .7fr) minmax(400px, 1.3fr); align-items: center; }
+          .kg-header-actions { grid-column: 1 / -1; justify-content: flex-end; }
+        }
+        @container kg-header (min-width: 1200px) {
+          .kg-header-grid { grid-template-columns: minmax(180px, .7fr) minmax(430px, 1.15fr) auto; }
+          .kg-header-actions { grid-column: auto; }
+        }
         @media (prefers-reduced-motion: reduce) { .kg-workbench *, .kg-workbench *::before, .kg-workbench *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
       `}</style>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgb(var(--kg-accent-soft)/0.045),transparent)]" aria-hidden />
 
-      <header className={cn('relative z-10 border-b border-border bg-background/95 px-3 backdrop-blur-xl sm:px-4', isCanvasFocus ? 'py-2' : 'py-2.5')}>
-        <div className="grid min-w-0 gap-2.5 lg:grid-cols-[minmax(180px,.7fr)_minmax(330px,1.15fr)_auto] lg:items-center">
+      <header className={cn('kg-header relative z-10 border-b border-border bg-background/95 px-3 backdrop-blur-xl sm:px-4', isCanvasFocus ? 'py-2' : 'py-2.5')}>
+        <div className="kg-header-grid grid min-w-0 gap-2.5">
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-card text-[rgb(var(--kg-accent))]">
-                <Network className="h-5 w-5" />
+              <div className="chip-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
+                <Network className="h-4 w-4 text-cyan-100" />
               </div>
               <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium tracking-[0.06em] text-[rgb(var(--kg-accent)/0.75)]">
+                <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium tracking-[0.06em] text-cyan-200/80">
                   <span>教学分析图谱</span>
                   <span
                     role="status"
                     title={kgDataNote}
                     className={cn(
-                      'truncate rounded border px-1.5 py-0.5 text-[10px] tracking-normal',
+                      'truncate rounded border px-1.5 py-0.5 text-xs tracking-normal',
                       kgDataSource === 'client-fallback'
                         ? 'border-amber-300/25 bg-amber-300/[0.07] text-amber-100'
                         : 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100',
@@ -6144,19 +5227,19 @@ export function HyperKnowledgeGraphPage() {
                     {kgDataSource === 'db' ? '服务端数据' : kgDataSource === 'server-static' ? '内置基线' : '内置回退'}
                   </span>
                 </div>
-                <h1 className="kg-display mt-0.5 truncate text-xl font-semibold leading-tight text-slate-50">{activeGraphMeta.label}图谱</h1>
+                <h1 className="heading-gradient mt-0.5 truncate text-lg font-semibold leading-tight">{activeGraphMeta.label}图谱</h1>
               </div>
             </div>
-            <div className="mt-1.5 hidden flex-wrap items-center gap-1 font-mono text-[10px] text-slate-400 sm:flex">
+            <div className="mt-1.5 hidden flex-wrap items-center gap-1 font-mono text-xs text-slate-400 sm:flex">
               {activeHeaderStats.map((stat) => (
-                <span key={stat.label} className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-1.5 py-0.5">
+                <span key={stat.label} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5">
                   <b className="text-[11px] font-semibold text-slate-50">{stat.value}</b> {stat.label}
                 </span>
               ))}
             </div>
           </div>
 
-          <nav className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-black/30 p-1 sm:gap-1" aria-label="图谱类型" role="tablist">
+          <nav className="grid grid-cols-3 gap-1 rounded-md border border-border bg-black/30 p-1 sm:gap-1" aria-label="图谱类型" role="tablist">
             {graphViewItems.map((item, itemIndex) => {
               const Icon = item.icon;
               const tone = graphViewTone[item.id];
@@ -6204,18 +5287,18 @@ export function HyperKnowledgeGraphPage() {
                         : 'border-transparent text-slate-400 hover:border-white/[0.09] hover:bg-white/[0.06] hover:text-slate-100',
                   )}
                 >
-                  <span className={cn('hidden font-mono text-[8px] tracking-[0.14em] sm:inline', view === item.id ? tone.icon : 'text-slate-600')}>{tone.index}</span>
+                  <span className={cn('hidden font-mono text-[11px] tracking-[0.12em] sm:inline', view === item.id ? tone.icon : 'text-slate-600')}>{tone.index}</span>
                   <Icon className={cn('h-[17px] w-[17px] shrink-0', view === item.id ? tone.icon : 'text-slate-500 group-hover:text-slate-300')} />
                   <span className="min-w-0">
-                    <span className="block whitespace-nowrap text-[12px] font-semibold sm:text-[13px]">{item.label} <span className="ml-1 hidden font-mono text-[9px] opacity-60 md:inline">{item.count}</span></span>
+                    <span className="block whitespace-nowrap text-xs font-semibold sm:text-sm">{item.label} <span className="ml-1 hidden font-mono text-[11px] opacity-60 md:inline">{item.count}</span></span>
                   </span>
                 </button>
               );
             })}
           </nav>
 
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
-            <div className="relative min-w-0 flex-1 sm:w-48 sm:flex-none">
+          <div className="kg-header-actions flex min-w-0 shrink-0 flex-wrap items-center gap-2 [&>button]:shrink-0 [&>button]:whitespace-nowrap [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+            <div className="relative w-full min-w-0 sm:w-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
               <Input
                 ref={headerSearchInputRef}
@@ -6239,7 +5322,7 @@ export function HyperKnowledgeGraphPage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               ) : !isAddressingTaskContext ? (
-                <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-white/[0.1] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-slate-400">/</kbd>
+                <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-white/[0.1] bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-slate-400">/</kbd>
               ) : null}
             </div>
             <button
@@ -6255,7 +5338,8 @@ export function HyperKnowledgeGraphPage() {
                 setIdeologicalCategoryFilter('all');
                 setIdeologicalChapterFilter('all');
                 setShowLegend(false);
-                setIsCanvasFocus(false);
+                setReturnContexts([]);
+                setDependencyDetail(null);
                 setIsInspectorOpen(isAddressingTaskContext);
               }}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
@@ -6263,18 +5347,75 @@ export function HyperKnowledgeGraphPage() {
               <RotateCcw className="h-4 w-4" />
               {isAddressingTaskContext ? '返回 3.1' : '重置'}
             </button>
+            <button type="button" data-kg-focus-exit="true" aria-pressed={isCanvasFocus}
+              aria-label={isCanvasFocus ? '退出演示模式' : '进入演示模式'}
+              onClick={() => {
+                if (isCanvasFocus) setIsCanvasFocus(false);
+                else {
+                  setIsCanvasFocus(true);
+                  if (!isAddressingTaskContext) runPresentationStep(0);
+                }
+              }}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-cyan-200/25 bg-cyan-200/[0.08] px-3 text-xs font-medium text-cyan-100">
+              {isCanvasFocus ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {isCanvasFocus ? '退出演示' : '演示讲解'}
+            </button>
             <Link href={isAddressingTaskContext ? '/tasks' : '/'} className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
               {isAddressingTaskContext ? '返回任务' : '课程内容'} <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
+        {returnContexts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 pb-2 pt-1">
+          {returnContexts.length > 0 && <button type="button" onClick={returnToSource} className="min-h-11 rounded-md border border-cyan-200/20 bg-cyan-200/[0.06] px-3 text-sm text-cyan-100">← 返回来源：{returnContexts[returnContexts.length - 1].label}</button>}
+        </div>}
+        {view === 'knowledge' && query.trim() && <div className="border-t border-white/10 py-2" aria-label="知识搜索结果">
+          <div className="mb-2 text-xs text-slate-400">{isSearchPending ? '正在搜索…' : `${filteredList.length} 条匹配 · 选择结果进入对应位置`}</div>
+          <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
+            {filteredList.slice(0, 8).map((point) => <button key={point.id} type="button" onClick={() => goToPoint(point.id)}
+              className="min-h-11 rounded-md border border-cyan-200/20 bg-cyan-200/[0.05] px-3 py-2 text-left text-sm text-cyan-100">
+              {point.name}<span className="ml-2 text-xs text-slate-400">单元 {point.chapter} · {point.id}</span>
+            </button>)}
+            {filteredList.length > 8 && <button type="button" onClick={() => workspace.setDirectory(true)} className="min-h-11 px-3 text-sm text-cyan-100">查看全部结果</button>}
+            {!isSearchPending && filteredList.length === 0 && <span className="text-sm text-slate-300">没有匹配内容，请调整关键词。</span>}
+          </div>
+        </div>}
       </header>
+
+      {isCanvasFocus && !isAddressingTaskContext && (
+        <section className="relative z-10 border-b border-white/[0.08] bg-[#091017]/96 px-3 py-2.5 sm:px-4" aria-label="预设讲解路径">
+          <div className="mx-auto flex max-w-[1500px] flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-cyan-200">
+                <PlayCircle className="h-4 w-4" aria-hidden="true" />
+                预设讲解 · {presentationStep + 1} / {graphPresentationSteps.length}
+              </div>
+              <div className="mt-1 flex min-w-0 items-baseline gap-2">
+                <strong className="truncate text-sm text-slate-50">{graphPresentationSteps[presentationStep].title}</strong>
+                <span className="truncate text-xs text-slate-400">{graphPresentationSteps[presentationStep].detail}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="mr-1 hidden items-center gap-1.5 xl:flex" aria-hidden="true">
+                {graphPresentationSteps.map((step, index) => (
+                  <span key={step.title} className={cn('h-1.5 w-8 rounded-full', index <= presentationStep ? 'bg-cyan-300' : 'bg-white/[0.12]')} />
+                ))}
+              </div>
+              <button type="button" disabled={presentationStep === 0} onClick={() => runPresentationStep(presentationStep - 1)} className="inline-flex min-h-11 items-center rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+                ← 上一步
+              </button>
+              <button type="button" disabled={presentationStep === graphPresentationSteps.length - 1} onClick={() => runPresentationStep(presentationStep + 1)} className="inline-flex min-h-11 items-center rounded-md bg-cyan-300 px-3 text-xs font-semibold text-[#001014] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100">
+                下一步 →
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {view === 'knowledge' && activeTaskPathId && !isCanvasFocus && (
         <div className="relative z-10 min-h-[68px] px-4 pt-3 md:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200/20 bg-[#0a151b]/88 px-3 py-2.5 text-sm text-cyan-50 shadow-lg backdrop-blur" role="status">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-200/20 bg-[#0a151b]/88 px-3 py-2.5 text-sm text-cyan-50 shadow-lg backdrop-blur" role="status">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-cyan-200/20 bg-cyan-200/[0.08] font-mono text-xs font-semibold text-cyan-100">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-cyan-200/20 bg-cyan-200/[0.08] font-mono text-xs font-semibold text-cyan-100">
                 {activeTaskStepId === 'addressing-animation' ? '02' : '01'}
               </div>
               <div className="min-w-0">
@@ -6292,7 +5433,7 @@ export function HyperKnowledgeGraphPage() {
             </div>
             <Link
               href="/tasks"
-              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/20 bg-cyan-200/[0.07] px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-200/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border border-cyan-200/20 bg-cyan-200/[0.07] px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-200/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
             >
               返回我的任务
               <ArrowRight className="h-3.5 w-3.5" />
@@ -6301,14 +5442,9 @@ export function HyperKnowledgeGraphPage() {
         </div>
       )}
 
-      {view === 'knowledge' && !activeTaskPathId && !isCanvasFocus && (
-        <div className="relative z-10 min-h-[72px] px-4 pt-3 md:px-5">
-          <NextStepBanner compact assessmentManaged assessmentSnapshot={latestAssessmentSnapshot} />
-        </div>
-      )}
-
       {view === 'problem' ? (
         <ProblemGraphView
+          workspace={workspace}
           query={query}
           onQueryChange={setQuery}
           selectedId={selectedProblemId}
@@ -6325,9 +5461,8 @@ export function HyperKnowledgeGraphPage() {
           onToggleLegend={() => setShowLegend((value) => !value)}
           onToggleCanvasFocus={() => setIsCanvasFocus((value) => !value)}
           onToggleInspector={() => {
-            if (isInspectorOpen && !isCanvasFocus) setIsInspectorOpen(false);
+            if (isInspectorOpen) setIsInspectorOpen(false);
             else {
-              setIsCanvasFocus(false);
               setIsInspectorOpen(true);
             }
           }}
@@ -6335,6 +5470,7 @@ export function HyperKnowledgeGraphPage() {
         />
       ) : view === 'ideological' ? (
         <IdeologicalGraphView
+          workspace={workspace}
           query={query}
           onQueryChange={setQuery}
           selectedId={selectedIdeologicalId}
@@ -6351,9 +5487,8 @@ export function HyperKnowledgeGraphPage() {
           onToggleLegend={() => setShowLegend((value) => !value)}
           onToggleCanvasFocus={() => setIsCanvasFocus((value) => !value)}
           onToggleInspector={() => {
-            if (isInspectorOpen && !isCanvasFocus) setIsInspectorOpen(false);
+            if (isInspectorOpen) setIsInspectorOpen(false);
             else {
-              setIsCanvasFocus(false);
               setIsInspectorOpen(true);
             }
           }}
@@ -6366,34 +5501,30 @@ export function HyperKnowledgeGraphPage() {
         aria-labelledby="graph-tab-knowledge"
         data-graph-workspace="knowledge"
         data-canvas-focus={isCanvasFocus ? 'true' : 'false'}
-        className={getGraphWorkspaceClassName(isCanvasFocus, isMobileSidebarOpen)}
+        className={getGraphWorkspaceClassName(workspace.mode, isMobileSidebarOpen, isInspectorOpen)}
       >
-        <MobileDrawerDialog
-          open={isMobileSidebarOpen}
+        <GraphReadingPanel compact={workspace.mode === 'single'}
+          open={workspace.directoryOpen}
           onClose={closeMobileSidebar}
           triggerRef={mobileSidebarTriggerRef}
           panelRef={mobileSidebarPanelRef}
           id="knowledge-graph-directory"
           label="知识点目录"
           labelId="knowledge-graph-directory-title"
-          backdropLabel="关闭章节目录遮罩"
-          className={cn(
-            'kg-scrollbar fixed inset-y-3 left-3 z-[80] w-[min(340px,calc(100vw-24px))] transform overflow-y-auto rounded-xl border border-white/[0.11] bg-[#0a1017]/98 p-4 text-slate-100 shadow-[0_30px_100px_rgba(0,0,0,0.58)] backdrop-blur-2xl transition-[transform,visibility] duration-300 lg:visible lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:rounded-lg lg:border-border lg:bg-card/70 lg:p-3 lg:shadow-none lg:backdrop-blur-none',
-            isCanvasFocus && 'hidden',
-            isMobileSidebarOpen ? 'visible translate-x-0' : 'invisible -translate-x-[115%]',
-          )}
-        >
+          backdropLabel="关闭平台单元目录遮罩"
+          className="kg-scrollbar"
+      >
           <div className="mb-3 flex items-center justify-between border-b border-white/[0.07] pb-3">
             <div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/65">Map navigator</div>
-              <span id="knowledge-graph-directory-title" className="mt-0.5 block text-xs font-semibold text-slate-100">章节与知识点</span>
+              <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-200/65">目录导航</div>
+              <span id="knowledge-graph-directory-title" className="mt-0.5 block text-xs font-semibold text-slate-100">平台单元与知识点</span>
             </div>
             <button
               type="button"
-              aria-label="收起章节目录"
+              aria-label="收起平台单元目录"
               data-drawer-initial-focus="true"
               onClick={closeMobileSidebar}
-              className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06] lg:hidden"
+              className="grid min-h-11 min-w-11 place-items-center rounded-md border border-white/[0.08] bg-black/30 text-slate-300 hover:bg-white/[0.06]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -6414,62 +5545,21 @@ export function HyperKnowledgeGraphPage() {
                 chapter === 'all' ? 'border-cyan-200/35 bg-cyan-200/[0.11] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.06]',
               )}
             >
-              全部章节
+              全部平台单元
             </button>
             <div className="flex min-h-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/20 px-2 py-2 text-center font-mono text-[11px] text-slate-400">
               目录 <span className="mx-1 text-slate-200">{navigatorList.length}</span> / {knowledgePoints.length}
             </div>
           </div>
-          <div className="mb-3 grid grid-cols-5 gap-1.5">
-            {chapterNumbers.map((value) => (
-              <button
-                key={value}
-                type="button"
-                disabled={isAddressingTaskContext && value !== 3}
-                onClick={() => focusChapter(value)}
-                className={cn(
-                  'min-h-11 rounded-md border font-mono text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                  isAddressingTaskContext && value !== 3 && 'cursor-not-allowed opacity-35',
-                  chapter === value ? 'border-cyan-200/35 bg-cyan-200/[0.11] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-500 hover:bg-white/[0.06] hover:text-slate-200',
-                )}
-              >
-                CH{value}
-              </button>
-            ))}
-          </div>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <Input
-              ref={searchInputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              disabled={isAddressingTaskContext}
-              placeholder={isAddressingTaskContext ? '当前任务固定在 3.1' : '搜索知识点...'}
-              aria-label="搜索知识点"
-              className="h-11 rounded-xl border-white/[0.09] bg-black/25 pl-10 pr-12 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
-            />
-            {query ? (
-              <button
-                type="button"
-                aria-label="清除知识点搜索"
-                onClick={() => setQuery('')}
-                className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : !isAddressingTaskContext ? (
-              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-white/[0.1] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] text-slate-500">/</kbd>
-            ) : null}
-          </div>
-          <div className="mb-3 rounded-xl border border-cyan-200/12 bg-cyan-200/[0.035] px-3 py-2.5 text-[11px] leading-5 text-slate-400" role="note">
+          <div className="mb-3 rounded-md border border-cyan-200/12 bg-cyan-200/[0.035] px-3 py-2.5 text-[11px] leading-5 text-slate-400" role="note">
             {navigatorMode === 'task' && '当前任务仅开放 3.1 与七个子节点；逐项完成后返回任务页进入下一步。'}
-            {navigatorMode === 'overview' && '先选章节建立课程位置；全景只展开到“节”，三级知识点在进入章节或搜索后出现。'}
-            {navigatorMode === 'chapter' && '当前按 L1 章 → L2 节 → L3 知识点排列；选择节点后核对层级、先修关系与实践入口。'}
-            {navigatorMode === 'search' && `正在显示 ${navigatorList.length} 条匹配结果，并保留所属章节与上级位置。`}
+            {navigatorMode === 'overview' && '先选平台单元建立课程位置；总览显示各单元，进入单元后逐层展开主题与知识点。'}
+            {navigatorMode === 'chapter' && '当前按 L1 单元 → L2 主题 → L3 知识点排列；选择节点后核对层级、先修关系与实践入口。'}
+            {navigatorMode === 'search' && `正在显示 ${navigatorList.length} 条匹配结果，并保留所属平台单元与上级位置。`}
           </div>
-          <div className="mb-2 flex items-center justify-between px-2 font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">
-            <span>{navigatorMode === 'task' ? 'Task scope' : navigatorMode === 'overview' ? 'Chapter entrances' : navigatorMode === 'search' ? 'Search results' : 'Chapter hierarchy'}</span>
-            <span>{navigatorList.length} ITEMS</span>
+          <div className="mb-2 flex items-center justify-between px-2 font-mono text-[11px] uppercase tracking-[0.1em] text-slate-500">
+            <span>{navigatorMode === 'task' ? '任务范围' : navigatorMode === 'overview' ? '单元入口' : navigatorMode === 'search' ? '搜索结果' : '单元层级'}</span>
+            <span>{navigatorList.length} 项</span>
           </div>
           <div className="kg-scrollbar max-h-[min(660px,calc(100vh-350px))] space-y-1 overflow-y-auto pr-1">
             {navigatorList.map((point) => {
@@ -6480,12 +5570,14 @@ export function HyperKnowledgeGraphPage() {
                 <button
                   key={point.id}
                   type="button"
+                  aria-expanded={point.level < 3 ? (point.level === 1 ? chapter === point.chapter : selectedId === point.id || selected?.parentId === point.id) : undefined}
                   onClick={() => {
                     // L1 即章节根：点击列表里的章节直接聚焦到该章单章树，
                     // 而不是只在原地高亮
-                    if (point.level === 1) focusChapter(point.chapter);
+                    if (point.level === 1) goToPoint(point.id);
+                    else if (point.level === 2 && (selectedId === point.id || selected?.parentId === point.id)) goToPoint(point.parentId!);
                     else goToPoint(point.id);
-                    setIsMobileSidebarOpen(false);
+                    if (workspace.mode === 'single') setIsMobileSidebarOpen(false);
                   }}
                   className={cn(
                     'group flex min-h-11 w-full items-start gap-2 rounded-md border py-2 pr-2.5 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
@@ -6497,15 +5589,15 @@ export function HyperKnowledgeGraphPage() {
                 >
                   {point.level === 1 ? <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-200/80" /> : <ListTree className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-slate-400" />}
                   <span className="min-w-0 flex-1">
-                    <span className="block line-clamp-1">{point.name}</span>
+                    <span className="block break-words leading-snug">{point.name}</span>
                     {navigatorMode === 'overview' && chapterCounts && (
-                      <span className="mt-0.5 block font-mono text-[9px] text-slate-600">CH{point.chapter} · {chapterCounts.level2} 节 · {chapterCounts.level3} 点 · 点击进入</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-slate-600">单元 {point.chapter} · {chapterCounts.level2} 个主题 · {chapterCounts.level3} 点 · 点击进入</span>
                     )}
                     {navigatorMode === 'search' && (
-                      <span className="mt-0.5 block line-clamp-1 font-mono text-[9px] text-slate-600">CH{point.chapter}{parentPoint ? ` / ${parentPoint.name}` : ''}</span>
+                      <span className="mt-0.5 block line-clamp-1 font-mono text-[11px] text-slate-600">单元 {point.chapter}{parentPoint ? ` / ${parentPoint.name}` : ''}</span>
                     )}
                   </span>
-                  <span className="ml-auto flex shrink-0 items-center gap-1 pt-0.5 font-mono text-[10px] text-slate-500">
+                  <span className="ml-auto flex shrink-0 items-center gap-1 pt-0.5 font-mono text-xs text-slate-500">
                     {point.level === 1 && chapterProgress !== null && <span>{chapterProgress}%</span>}
                     <span>L{point.level}</span>
                   </span>
@@ -6513,43 +5605,44 @@ export function HyperKnowledgeGraphPage() {
               );
             })}
             {navigatorList.length === 0 && (
-              <div className="rounded-xl border border-dashed border-white/[0.1] bg-black/15 px-3 py-5 text-center">
+              <div className="rounded-md border border-dashed border-white/[0.1] bg-black/15 px-3 py-5 text-center">
                 <Search className="mx-auto h-4 w-4 text-slate-600" />
                 <p className="mt-2 text-xs text-slate-400">没有匹配的知识点</p>
                 <button type="button" onClick={() => setQuery('')} className="mt-2 min-h-11 rounded-md px-3 text-xs font-medium text-cyan-200 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">清除搜索</button>
               </div>
             )}
           </div>
-        </MobileDrawerDialog>
+        </GraphReadingPanel>
 
-        <section className="kg-panel min-w-0 overflow-hidden rounded-lg border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)]">
+        <section hidden={workspace.mode === 'single' && (isMobileSidebarOpen || isInspectorOpen)} className="kg-canvas-column kg-panel min-w-0 overflow-hidden rounded-md border border-border bg-background shadow-[0_18px_54px_rgba(0,0,0,0.30)]">
           <div className="flex min-h-[66px] flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 lg:px-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <button
                 ref={mobileSidebarTriggerRef}
                 type="button"
-                aria-label="展开章节目录"
+                aria-label="打开层级阅读"
                 aria-expanded={isMobileSidebarOpen}
                 aria-controls="knowledge-graph-directory"
-                aria-haspopup={isDrawerViewport ? 'dialog' : undefined}
+                aria-haspopup={undefined}
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-white/[0.12] bg-white/[0.055] text-slate-200 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.10] hover:text-cyan-100 lg:hidden"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/[0.12] bg-white/[0.055] px-2.5 text-xs text-slate-200 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.10] hover:text-cyan-100"
               >
                 <Menu className="h-4 w-4" />
+                <span className="lg:hidden">层级</span>
               </button>
-              <div className="grid h-10 w-10 place-items-center rounded-md border border-cyan-200/22 bg-cyan-200/[0.09] text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.12)]">
-                <Network className="h-[18px] w-[18px]" />
+              <div className="chip-mark grid h-9 w-9 place-items-center rounded-md">
+                <Network className="h-4 w-4 text-cyan-100" />
               </div>
               <div className="min-w-0" aria-live="polite">
-                <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
-                  {chapter === 'all' ? 'COURSE ATLAS' : `CHAPTER ${chapter}`} · {canvasKnowledgeNodeCount} NODES
+                <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                  {chapter === 'all' ? `课程总览 · ${levelCounts.l1} 个单元` : `平台单元 ${chapter} · 本单元 ${canvasKnowledgeNodeCount} 个节点`}
                   {isSearchPending
                     ? <span className="ml-1.5 text-cyan-200/70" role="status">· 搜索中…</span>
-                    : deferredQuery.trim() && <span className="ml-1.5 text-cyan-200/70">· {filteredList.length} MATCHED</span>}
+                    : deferredQuery.trim() && <span className="ml-1.5 text-cyan-200/70">· {filteredList.length} 条匹配</span>}
                 </div>
                 <div className="truncate text-base font-semibold text-slate-50">
-                  {selected ? selected.name : chapter === 'all' ? '十章课程总览' : `第 ${chapter} 章`}
-                  {selected && <span className="ml-2 font-mono text-[9px] font-normal text-cyan-200/70">#{selected.id}</span>}
+                  {selected ? selected.name : chapter === 'all' ? '十个平台单元总览' : `平台单元 ${chapter}`}
+                  {selected && <span className="ml-2 font-mono text-[11px] font-normal text-cyan-200/70">#{selected.id}</span>}
                 </div>
               </div>
             </div>
@@ -6568,74 +5661,67 @@ export function HyperKnowledgeGraphPage() {
                 图例与操作
               </button>
               <button
-                type="button"
-                data-kg-focus-exit="true"
-                aria-pressed={isCanvasFocus}
-                aria-label={isCanvasFocus ? '退出专业知识图谱专注画布' : '进入专业知识图谱专注画布，扩大节点阅读区域'}
-                title={isCanvasFocus ? '恢复章节目录与详情面板' : '隐藏目录与详情，扩大图谱画布'}
-                onClick={() => setIsCanvasFocus((value) => !value)}
-                className={cn(
-                  'inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                  isCanvasFocus ? 'border-cyan-200/40 bg-cyan-200/[0.14] text-cyan-50' : 'border-cyan-200/22 bg-cyan-200/[0.07] text-cyan-100 hover:border-cyan-200/35 hover:bg-cyan-200/[0.11]',
-                )}
-              >
-                {isCanvasFocus ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                {isCanvasFocus ? '退出专注' : '专注画布'}
-              </button>
-              <button
                 ref={mobileInspectorTriggerRef}
                 type="button"
-                aria-expanded={isInspectorOpen && !isCanvasFocus}
+                aria-expanded={isInspectorOpen}
                 aria-controls="kg-node-inspector"
-                aria-haspopup={isDrawerViewport ? 'dialog' : undefined}
+                aria-haspopup={undefined}
                 onClick={() => {
-                  if (isInspectorOpen && !isCanvasFocus) setIsInspectorOpen(false);
+                  if (isInspectorOpen) setIsInspectorOpen(false);
                   else {
-                    setIsCanvasFocus(false);
                     revealInspector();
                   }
                 }}
                 className={cn(
                   'inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                  isInspectorOpen && !isCanvasFocus ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100',
+                  isInspectorOpen ? 'border-cyan-200/25 bg-cyan-200/[0.09] text-cyan-50' : 'border-white/[0.08] bg-black/20 text-slate-400 hover:bg-white/[0.05] hover:text-slate-100',
                 )}
               >
-                {isInspectorOpen && !isCanvasFocus ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+                {isInspectorOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
                 节点详情
               </button>
             </div>
           </div>
+          {workspace.mode === 'single' && (
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0a0f15]/96 px-3 py-2 backdrop-blur" aria-label="手机节点导航">
+              <span className="min-w-0 flex-1 truncate text-xs text-slate-300" title={selectedPathLabel}>当前位置：{selectedPathLabel}</span>
+              <span className="flex shrink-0 items-center gap-1">
+                <button type="button" disabled={!previousNavigatorPoint} onClick={() => previousNavigatorPoint && goToPoint(previousNavigatorPoint.id)} className="min-h-11 rounded-md px-2.5 text-xs text-slate-300 hover:bg-white/[0.06] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">上一节点</button>
+                <button type="button" disabled={!nextNavigatorPoint} onClick={() => nextNavigatorPoint && goToPoint(nextNavigatorPoint.id)} className="min-h-11 rounded-md px-2.5 text-xs text-cyan-100 hover:bg-cyan-300/[0.07] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">下一节点</button>
+              </span>
+            </div>
+          )}
           {showLegend && (
             <div id="knowledge-graph-legend" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.08] bg-black/15 px-4 py-2.5 font-mono text-[11px] text-slate-300" role="note">
               <span className="text-slate-500">节点层级</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-cyan-300/65 bg-cyan-300/15" />L1 章 {levelCounts.l1}</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-cyan-300/45 bg-cyan-300/10" />L2 节 {levelCounts.l2}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-cyan-300/65 bg-cyan-300/15" />L1 单元 {levelCounts.l1}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-cyan-300/45 bg-cyan-300/10" />L2 主题 {levelCounts.l2}</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm border border-cyan-300/35 bg-cyan-300/[0.08]" />L3 知识单元 {levelCounts.l3}</span>
               <span className="h-3 w-px bg-white/10" aria-hidden />
               <span className="inline-flex items-center gap-1.5">
                 <svg width="24" height="6" aria-hidden>
                   <defs>
                     <linearGradient id="kg-legend-dep" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#67e8f9" />
-                      <stop offset="100%" stopColor="#fbbf24" />
+                      <stop offset="0%" stopColor="#A87513" />
+                      <stop offset="100%" stopColor="#A87513" />
                     </linearGradient>
                   </defs>
                   <line x1="1" y1="3" x2="19" y2="3" stroke="url(#kg-legend-dep)" strokeWidth="1.8" strokeDasharray="5 3" strokeLinecap="round" />
-                  <path d="M18 0.5 23 3 18 5.5 Z" fill="#fbbf24" opacity="0.85" />
+                  <path d="M18 0.5 23 3 18 5.5 Z" fill="#A87513" opacity="0.85" />
                 </svg>
                 先修依赖 · 指向后学内容
               </span>
               {chapter === 'all' && (
                 <span className="inline-flex items-center gap-1.5">
-                  <svg width="24" height="6" aria-hidden><line x1="1" y1="3" x2="23" y2="3" stroke="#67e8f9" strokeWidth="1.6" strokeDasharray="4 4" strokeLinecap="round" opacity="0.6" /></svg>
-                  课程章序 · 非先修
+                  <svg width="24" height="6" aria-hidden><line x1="1" y1="3" x2="23" y2="3" stroke="#5B8FC7" strokeWidth="1.6" strokeDasharray="4 4" strokeLinecap="round" opacity="0.6" /></svg>
+                  单元顺序 · 非先修
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">
                 <svg width="24" height="6" aria-hidden><line x1="1" y1="3" x2="23" y2="3" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" opacity="0.5" /></svg>
                 层级归属 · 非先修
               </span>
-              <span className="inline-flex items-center gap-1"><span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-emerald-300/60 bg-[#04231a] text-emerald-200"><FlaskConical className="h-2 w-2" /></span>实践入口</span>
+                <span className="inline-flex items-center gap-1"><span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-[#1D8076]/55 bg-[#0a1c1a] text-[#5BA89F]"><FlaskConical className="h-2 w-2" /></span>实践入口</span>
               {Object.keys(kaScores).length > 0 && (
                 <span className="inline-flex flex-wrap items-center gap-2 text-slate-300">
                   <span className="text-slate-500">最近掌握度</span>
@@ -6659,17 +5745,27 @@ export function HyperKnowledgeGraphPage() {
               outer overflow-auto remains as a scroll fallback for
               viewports too short even for the floor (e.g. 1024x768). */}
           <div
-            key={`kg-canvas-${chapter}-${isCanvasFocus ? 'focus' : 'standard'}`}
+            key="knowledge-canvas"
             className={cn(
               'animate-fade-in',
               isCanvasFocus
                 ? showLegend
                   ? 'h-[clamp(320px,calc(100dvh-390px),560px)] sm:h-[clamp(360px,calc(100dvh-280px),680px)]'
-                  : 'h-[clamp(420px,calc(100dvh-208px),780px)]'
-                : 'h-[360px] sm:h-[clamp(380px,calc(100dvh-320px),680px)]',
+                  : 'h-[max(520px,calc(100dvh-180px))]'
+                : 'h-[560px] sm:h-[max(560px,calc(100dvh-270px))]',
             )}
           >
             <FullKnowledgeMap
+              onReturnOverview={() => {
+                setChapter('all');
+                setSelectedId('');
+                setQuery('');
+                setUrlQuery('');
+                setIsInspectorOpen(false);
+                replaceSelectedNodeInUrl('knowledge', '');
+              }}
+              dependencyDetailVisible={dependencyDetail !== null && isInspectorOpen}
+              onDependencyDetail={(content) => { setDependencyDetail(content); if (content) setIsInspectorOpen(true); }}
               points={knowledgePoints}
               selectedId={selectedId}
               visibleIds={visibleKnowledgeIds}
@@ -6683,13 +5779,14 @@ export function HyperKnowledgeGraphPage() {
               masteryByKa={kaScores}
               experimentTitleByRefId={experimentTitleByRefId}
               onClearVisibility={() => setQuery('')}
+              compactViewport={workspace.mode === 'single'}
             />
           </div>
         </section>
 
-        {isInspectorOpen && !isCanvasFocus && (
-        <MobileDrawerDialog
-          open={isDrawerViewport}
+        {isInspectorOpen && (
+        <GraphReadingPanel compact={workspace.mode === 'single'}
+          open={isInspectorOpen}
           onClose={() => setIsInspectorOpen(false)}
           triggerRef={mobileInspectorTriggerRef}
           panelRef={mobileInspectorPanelRef}
@@ -6698,15 +5795,15 @@ export function HyperKnowledgeGraphPage() {
           labelId="kg-node-inspector-title"
           backdropLabel="关闭知识节点详情遮罩"
           closeOnDesktop={false}
-          className="kg-inspector fixed inset-x-3 bottom-3 z-[80] max-h-[76dvh] space-y-3 overflow-y-auto rounded-lg border border-border bg-background/98 p-3 shadow-2xl backdrop-blur-xl lg:inset-x-auto lg:right-6 lg:top-20 lg:z-[60] lg:w-[min(410px,calc(100vw-32px))]"
-        >
+          className="kg-inspector space-y-3"
+      >
           <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border border-border bg-card/95 px-3 py-2 backdrop-blur">
             <span id="kg-node-inspector-title" className="text-xs font-semibold text-slate-100">知识节点详情</span>
             <button type="button" data-drawer-initial-focus="true" onClick={() => setIsInspectorOpen(false)} aria-label="关闭知识节点详情" className="grid min-h-11 min-w-11 place-items-center rounded-md text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
               <X className="h-4 w-4" />
             </button>
           </div>
-          <DetailPanel
+          {dependencyDetail || <DetailPanel
             point={selected}
             childPoints={childPoints}
             pointById={pointById}
@@ -6715,11 +5812,11 @@ export function HyperKnowledgeGraphPage() {
             onOpenProblemNode={openProblemNode}
             onOpenIdeologicalNode={openIdeologicalNode}
             allPoints={knowledgePoints}
-          />
-          <div className="rounded-lg border border-white/[0.09] bg-[#0b1118]/95 p-4 shadow-xl">
+          />}
+          <div className="rounded-md border border-white/[0.09] bg-[#0b1118]/95 p-4 shadow-xl">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <ListTree className="h-4 w-4 text-cyan-200" />
-              {isAddressingTaskContext ? '本任务节点' : '同章知识点'}
+              {isAddressingTaskContext ? '本任务节点' : '同单元知识点'}
             </div>
             <div className="space-y-1">
               {siblings.map((point) => (
@@ -6729,14 +5826,14 @@ export function HyperKnowledgeGraphPage() {
                   onClick={() => goToPoint(point.id)}
                   className="flex min-h-11 w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                 >
-                  <span className="line-clamp-1">{point.name}</span>
-                  <span className="font-mono text-[10px] text-slate-600">L{point.level}</span>
+                  <span className="min-w-0 flex-1 break-words leading-snug">{point.name}</span>
+                  <span className="font-mono text-xs text-slate-600">L{point.level}</span>
                 </button>
               ))}
-              {siblings.length === 0 && <div className="text-xs text-slate-500">暂无同章节点。</div>}
+              {siblings.length === 0 && <div className="text-xs text-slate-500">暂无同单元节点。</div>}
             </div>
           </div>
-          <div className="rounded-lg border border-white/[0.09] bg-[#0b1118]/95 p-4 shadow-xl">
+          <div className="rounded-md border border-white/[0.09] bg-[#0b1118]/95 p-4 shadow-xl">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Target className="h-4 w-4 text-cyan-200" />
               图谱统计
@@ -6748,7 +5845,7 @@ export function HyperKnowledgeGraphPage() {
               </div>
               <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
                 <div className="font-mono text-xl text-slate-50">{new Set(knowledgePoints.map((point) => point.chapter)).size}</div>
-                <div className="text-xs text-slate-500">章节</div>
+                <div className="text-xs text-slate-500">平台单元</div>
               </div>
               <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3">
                 <div className="font-mono text-xl text-slate-50">{levelCounts.l2}</div>
@@ -6760,7 +5857,7 @@ export function HyperKnowledgeGraphPage() {
               </div>
               <div className="rounded-md border border-amber-300/15 bg-amber-300/[0.04] p-3">
                 <div className="font-mono text-xl text-amber-100">{relationCounts.deps}</div>
-                <div className="text-xs text-slate-500">先修依赖 · 跨章 {relationCounts.cross}</div>
+                <div className="text-xs text-slate-500">先修依赖 · 跨单元 {relationCounts.cross}</div>
               </div>
               <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.04] p-3">
                 <div className="font-mono text-xl text-emerald-100">{relationCounts.expLinks}</div>
@@ -6768,10 +5865,16 @@ export function HyperKnowledgeGraphPage() {
               </div>
             </div>
           </div>
-        </MobileDrawerDialog>
+        </GraphReadingPanel>
         )}
       </section>
       )}
+      {view === 'knowledge' && !activeTaskPathId && !isCanvasFocus && (
+        <div className="relative z-10 min-h-[72px] px-4 pt-3 md:px-5">
+          <NextStepBanner compact assessmentManaged assessmentSnapshot={latestAssessmentSnapshot} />
+        </div>
+      )}
+
     </div>
   );
 }

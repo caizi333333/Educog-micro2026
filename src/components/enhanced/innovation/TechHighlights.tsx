@@ -43,8 +43,8 @@ export default function TechHighlights(): React.JSX.Element {
     {
       title: '本地回退',
       value: `${benchmarkReport.localFallback.effectiveAnswerCoverageRate}%`,
-      metric: '有效覆盖',
-      note: `n=${benchmarkReport.localFallback.sampleSize} · 触发 ${benchmarkReport.localFallback.triggerSuccessRate}% · p95 ${benchmarkReport.localFallback.latencyMs.p95}ms`,
+      metric: '主题匹配',
+      note: `n=${benchmarkReport.localFallback.sampleSize} · 仅核对节点或平台单元，不代表答案正确率 · p95 ${benchmarkReport.localFallback.latencyMs.p95}ms`,
       Icon: ShieldCheck,
       tone: 'text-sky-100 border-sky-300/20 bg-sky-300/[0.06]',
     },
@@ -56,7 +56,7 @@ export default function TechHighlights(): React.JSX.Element {
       metric: generativeCompleted ? '必需事实通过' : 'NOT_RUN',
       note: generativeCompleted
         ? `n=${generative.sampleSize ?? 0} · p95 ${generative.latencyMs?.p95 ?? '—'}ms`
-        : '未消耗外部额度；不填推测值，也不声称已完成生成式质量实测。',
+        : '固定基准尚未运行，生成式回答质量未评定。',
       Icon: Brain,
       tone: 'text-amber-100 border-amber-300/20 bg-amber-300/[0.06]',
     },

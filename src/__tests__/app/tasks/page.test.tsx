@@ -494,7 +494,6 @@ describe('MyTasksPage', () => {
     expect(screen.getByText(/本次已解除：/).closest('p')).toHaveTextContent('3.1.1');
     expect(screen.getByText(/仍需关注：/).closest('p')).toHaveTextContent('3.1.2');
     expect(screen.getByText(/不外推为真实教学成效/)).toBeInTheDocument();
-    expect(screen.getByText(/演示数据：/)).toBeInTheDocument();
     expect(screen.getByText(/已记录寻址方式：立即寻址、直接寻址/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '重新进入 exp02' })).toHaveAttribute('href', '/simulation?experiment=exp02');
     expect(screen.queryByRole('link', { name: '查看 exp02 记录' })).not.toBeInTheDocument();

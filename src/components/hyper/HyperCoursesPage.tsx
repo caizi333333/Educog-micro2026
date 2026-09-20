@@ -48,7 +48,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
+import { EvidenceIdentity, PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
 import { ADDRESSING_TASK_PRESET, type LearningTaskStepType } from '@/lib/lesson-tasks';
+import { COURSE_SYLLABUS_TOPICS, COURSE_UNIT_ALIGNMENT } from '@/lib/course-curriculum';
 
 const topicIcons: Record<string, LucideIcon> = {
   基础入门: ToggleRight,
@@ -75,6 +77,7 @@ export interface HyperCoursesPageProps {
 }
 
 const courseChapters = getPointsByLevel(1).sort((a, b) => a.chapter - b.chapter);
+const RESOURCE_PREVIEW_LIMIT = 10;
 
 const labReportMaterial = {
   title: '微控制器原理及应用技术实验报告（1-8）',
@@ -137,14 +140,17 @@ function hrefForResource(resource: KnowledgePointResource, chapter?: number): st
   if (resource.type === 'animation' && resource.refId === 'anim-addressing-modes') {
     return '/simulation?experiment=exp02&view=guide';
   }
-  if (resource.type === 'quiz') return resolveKnowledgeResourceHref(resource, chapter);
-  return null;
+  return resolveKnowledgeResourceHref(resource, chapter);
+}
+
+function opensResourceInNewTab(href: string): boolean {
+  return /^https?:/i.test(href) || /\.pdf(?:[?#]|$)/i.test(href);
 }
 
 function buildChapterSummary(chapter: KnowledgePoint, childPoints: KnowledgePoint[]): string {
   const keyTopics = childPoints.slice(0, 5).map((point) => point.name).join('、');
   const topicText = keyTopics ? `重点覆盖${keyTopics}等内容` : `重点围绕${chapter.name}展开`;
-  return `本章围绕${chapter.description || chapter.name}展开，${topicText}。学生完成本章后，可继续进入知识图谱查看概念关系，并通过测验、实验和资料阅读完成巩固。`;
+  return `本单元${topicText}。可先从下方知识点进入概念学习，再按本单元实际提供的资源继续练习。`;
 }
 
 function formatDate(value: string | null): string {
@@ -209,7 +215,7 @@ function LabThumb({ lab, showPersonalProgress }: { lab: HyperExperimentCard; sho
         </text>
         <circle cx="54" cy="104" r="5" fill={showPersonalProgress ? statusDot : '#22d3ee'} opacity={showPersonalProgress && lab.state === 'pending' ? 0.55 : 0.9} />
       </svg>
-      <div className="absolute left-3 top-3 rounded-md border border-white/[0.08] bg-black/40 px-2 py-1 font-mono text-[10px] text-slate-400">
+      <div className="absolute left-3 top-3 rounded-md border border-white/[0.08] bg-black/40 px-2 py-1 font-mono text-xs text-slate-400">
         {lab.id.toUpperCase()}
       </div>
       <div className="absolute right-3 top-3">
@@ -302,7 +308,7 @@ function LabCard({ lab, showPersonalProgress }: { lab: HyperExperimentCard; show
                 <div className="mb-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">涉及知识点</div>
                 <div className="flex flex-wrap gap-1.5">
                   {knowledgePoints.slice(0, 6).map((kp, i) => (
-                    <span key={i} className="rounded-sm border border-white/[0.06] bg-black/20 px-1.5 py-0.5 text-[10px] text-slate-300">
+                    <span key={i} className="rounded-sm border border-white/[0.06] bg-black/20 px-1.5 py-0.5 text-xs text-slate-300">
                       {kp}
                     </span>
                   ))}
@@ -315,7 +321,7 @@ function LabCard({ lab, showPersonalProgress }: { lab: HyperExperimentCard; show
                   <div className="font-mono text-xs uppercase tracking-[0.1em] text-slate-400">参考代码（节选）</div>
                   <span className="font-mono text-xs text-slate-400">8051 ASM</span>
                 </div>
-                <pre className="max-h-[280px] overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-2 font-mono text-[10px] leading-4 text-slate-300">
+                <pre className="max-h-[280px] overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-2 font-mono text-xs leading-5 text-slate-300">
                   {code}
                 </pre>
               </div>
@@ -374,7 +380,7 @@ function CourseSideNav({
       <div className="mt-3 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">导航</div>
       <button type="button" aria-pressed={activeSection === 'chapters'} className={navClass(activeSection === 'chapters')} onClick={() => setSection('chapters')}>
         <BookOpen className="h-3.5 w-3.5" />
-        课程章节
+        平台单元
         <span className="ml-auto font-mono text-xs text-slate-400">{chapters.length}</span>
       </button>
       <button type="button" aria-pressed={activeSection === 'labs'} className={navClass(activeSection === 'labs')} onClick={() => setSection('labs')}>
@@ -385,7 +391,7 @@ function CourseSideNav({
 
       {activeSection === 'chapters' && (
         <>
-          <div className="mt-4 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">章节目录</div>
+          <div className="mt-4 px-2 py-1 font-mono text-xs uppercase tracking-[0.1em] text-slate-400">单元目录</div>
           {chapters.map((chapter) => (
             <a
               key={chapter.id}
@@ -393,7 +399,7 @@ function CourseSideNav({
               className={navClass(false)}
               onClick={() => setSection('chapters')}
             >
-              <span className="font-mono text-xs text-cyan-200">CH{chapter.chapter}</span>
+              <span className="font-mono text-xs text-cyan-200">单元 {chapter.chapter}</span>
               <span className="min-w-0 truncate">{chapter.name}</span>
             </a>
           ))}
@@ -486,19 +492,19 @@ function MobileCourseNavigation({
       <div className="grid grid-cols-2 gap-2">
         <button type="button" aria-pressed={activeSection === 'chapters'} onClick={() => setSection('chapters')} className={segmentClass(activeSection === 'chapters')}>
           <BookOpen className="h-4 w-4" aria-hidden="true" />
-          章节内容 <span className="font-mono text-[10px] opacity-70">{chapters.length}</span>
+          单元内容 <span className="font-mono text-xs opacity-70">{chapters.length}</span>
         </button>
         <button type="button" aria-pressed={activeSection === 'labs'} onClick={() => setSection('labs')} className={segmentClass(activeSection === 'labs')}>
           <LayoutGrid className="h-4 w-4" aria-hidden="true" />
-          实验内容 <span className="font-mono text-[10px] opacity-70">{labs.length}</span>
+          实验内容 <span className="font-mono text-xs opacity-70">{labs.length}</span>
         </button>
       </div>
 
-      <div className="mt-3 max-w-full overflow-x-auto pb-1" role="navigation" aria-label={activeSection === 'chapters' ? '章节快捷跳转' : '实验快捷筛选'}>
+      <div className="mt-3 max-w-full overflow-x-auto pb-1" role="navigation" aria-label={activeSection === 'chapters' ? '单元快捷跳转' : '实验快捷筛选'}>
         <div className="flex min-w-max gap-2">
           {activeSection === 'chapters' ? chapters.map((chapter) => (
             <a key={chapter.id} href={`#item-${chapter.chapter}`} className={chipClass(false)}>
-              <span className="mr-1.5 font-mono text-[10px] text-cyan-200">CH{chapter.chapter}</span>
+              <span className="mr-1.5 font-mono text-xs text-cyan-200">单元 {chapter.chapter}</span>
               {chapter.name}
             </a>
           )) : (
@@ -515,7 +521,7 @@ function MobileCourseNavigation({
           )}
         </div>
       </div>
-      <p className="mt-2 text-xs text-slate-400">可左右滑动查看更多{activeSection === 'chapters' ? '章节' : '筛选条件'}</p>
+      <p className="mt-2 text-xs text-slate-400">可左右滑动查看更多{activeSection === 'chapters' ? '单元' : '筛选条件'}</p>
     </section>
   );
 }
@@ -523,6 +529,9 @@ function MobileCourseNavigation({
 function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource; chapter: number }) {
   const Icon = resourceIcons[resource.type];
   const href = hrefForResource(resource, chapter);
+  const resourceLabel = resource.type === 'quiz' && href && /^\/quiz\?chapter=/.test(href)
+    ? '单元练习'
+    : resourceLabels[resource.type];
 
   // Inline image preview: any type='image' with a real URL gets rendered as
   // a small thumbnail card instead of a text chip, so students see the
@@ -539,7 +548,7 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
         target="_blank"
         rel="noreferrer"
         aria-label={`${resource.title}，在新标签打开`}
-        className="group col-span-full block overflow-hidden rounded-md border border-white/[0.08] bg-[#0c1117] sm:col-span-2"
+        className="group col-span-full block min-h-11 overflow-hidden rounded-md border border-white/[0.08] bg-[#0c1117] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:col-span-2"
         title={`点击查看大图：${resource.title}`}
       >
         <div className="flex items-center justify-center p-3">
@@ -558,9 +567,9 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
   const content = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{resource.title}</span>
+      <span className="min-w-0 break-words leading-5">{resource.title}</span>
       <span className="shrink-0 rounded-sm bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-slate-400">
-        {resourceLabels[resource.type]}
+        {resourceLabel}
       </span>
     </>
   );
@@ -570,13 +579,13 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 
   if (!href) {
     return (
-      <span className={cn(className, 'hover:border-white/[0.08] hover:bg-white/[0.035] hover:text-slate-300')} title={`第${chapter}章资料位`}>
+      <span className={cn(className, 'hover:border-white/[0.08] hover:bg-white/[0.035] hover:text-slate-300')} title={`平台单元${chapter}资料位`}>
         {content}
       </span>
     );
   }
 
-  if (href.startsWith('http')) {
+  if (opensResourceInNewTab(href)) {
     return (
       <a href={href} target="_blank" rel="noreferrer" aria-label={`${resource.title}，在新标签打开`} className={className}>
         {content}
@@ -591,7 +600,34 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
   );
 }
 
+function CourseUnitOverview() {
+  return (
+    <section aria-labelledby="unit-overview-title" className="mb-5 rounded-lg border border-white/[0.09] bg-[#0b1117] p-4 sm:p-5">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div className="font-mono text-xs uppercase tracking-[0.13em] text-cyan-200">Course Structure · 课程结构</div>
+          <h2 id="unit-overview-title" className="mt-1.5 text-xl font-semibold text-slate-50">10 个平台单元</h2>
+        </div>
+        <span className="text-xs text-slate-400">选择单元后查看知识点与资源</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+        {courseChapters.map((chapter) => {
+          const topicCount = getChildPoints(chapter.id).filter((point) => point.level === 2).length;
+          return (
+            <a key={chapter.id} href={`#item-${chapter.chapter}`} className="group min-h-[88px] rounded-md border border-white/[0.08] bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">
+              <span className="font-mono text-xs text-cyan-200">单元 {chapter.chapter}</span>
+              <span className="mt-2 block text-sm font-semibold leading-5 text-slate-100 group-hover:text-cyan-50">{chapter.name}</span>
+              <span className="mt-1.5 block text-xs text-slate-400">{topicCount} 个主题</span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; role?: string | null }) {
+  const [expanded, setExpanded] = useState(false);
   const resolveHref = (href: string): string => (
     isPublicShell ? `/login?role=student&from=${encodeURIComponent(href)}` : href
   );
@@ -606,7 +642,7 @@ function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; ro
         ? '/teacher'
         : '/tasks';
   const primaryLabel = isPublicShell
-    ? '教师登录复核样板课'
+    ? '教师登录查看样板课'
     : isAdminReview
       ? '返回管理工作台'
       : isTeacherReview
@@ -617,36 +653,37 @@ function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; ro
     <section
       id="addressing-sample"
       aria-labelledby="addressing-sample-title"
-      className="relative mb-5 overflow-hidden rounded-lg border border-cyan-300/18 bg-[#0b1117] shadow-[0_22px_70px_rgba(0,0,0,0.28)]"
+      className="relative mb-5 overflow-hidden rounded-lg border border-cyan-300/16 bg-[#0b1117]"
     >
       <div className="absolute inset-0 circuit-grid opacity-55" aria-hidden="true" />
       <div className="relative grid gap-5 border-b border-white/[0.08] px-4 py-5 sm:px-5 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.13em] text-cyan-100">
+            <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-xs uppercase tracking-[0.13em] text-cyan-100">
               Sample Lesson · 教学流程样板
             </span>
-            <span className="rounded-md border border-amber-300/18 bg-amber-300/[0.06] px-2 py-1 text-[10px] text-amber-100">
-              非教学成效数据
-            </span>
+            <EvidenceIdentity kind="demo" compact />
           </div>
           <h2 id="addressing-sample-title" className="mt-3 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">
             3.1 寻址方式专项学习任务
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-            从知识结构定位开始，完成学习、诊断、补弱、实践和复测；每一步都有完成规则，结果以服务端保存记录为准。
+            从知识结构定位开始，完成学习、诊断、补弱、实践和复测；每一步都有完成规则，完成情况可在个人学习记录中查看。
           </p>
         </div>
-        <Link
-          href={primaryHref}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1117]"
-        >
-          {primaryLabel}
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-expanded={expanded} aria-controls="addressing-sample-steps" onClick={() => setExpanded((value) => !value)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">
+            <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />
+            {expanded ? '收起完成规则' : '展开完成规则'}
+          </button>
+          <Link href={primaryHref} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1117]">
+            {primaryLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
 
-      <ol className="relative grid gap-px bg-white/[0.07] sm:grid-cols-2 xl:grid-cols-3">
+      <ol id="addressing-sample-steps" className="relative flex snap-x gap-px overflow-x-auto bg-white/[0.07]" aria-label="寻址方式样板课六步流程">
         {ADDRESSING_TASK_PRESET.steps.map((step, index) => {
           const Icon = lessonStepIcons[step.type];
           const stepBody = (
@@ -657,8 +694,8 @@ function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; ro
               <span className="min-w-0">
                 <span className="block font-mono text-xs uppercase tracking-[0.12em] text-slate-400">STEP {String(index + 1).padStart(2, '0')}</span>
                 <span className="mt-1 block text-sm font-semibold text-slate-100 transition-colors group-hover:text-cyan-100">{step.title}</span>
-                <span className="mt-1 block text-xs leading-5 text-slate-300">目的：{step.purpose}</span>
-                <span className="mt-1.5 block border-l border-cyan-300/25 pl-2 text-xs leading-5 text-slate-400">完成条件：{step.completionRule}</span>
+                <span className={cn('mt-1 block text-xs leading-5 text-slate-300', !expanded && 'line-clamp-2')}>目的：{step.purpose}</span>
+                {expanded && <span className="mt-1.5 block border-l border-cyan-300/25 pl-2 text-xs leading-5 text-slate-400">完成条件：{step.completionRule}</span>}
                 {!showStudentStepLinks && (
                   <span className="mt-2 inline-flex rounded-md border border-white/[0.1] bg-white/[0.04] px-2 py-1 text-xs text-slate-300">学生动作预览</span>
                 )}
@@ -666,7 +703,7 @@ function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; ro
             </>
           );
           return (
-            <li key={step.stepId} className="bg-[#0b1117]/95 p-4 transition-colors hover:bg-cyan-300/[0.045]">
+            <li key={step.stepId} className="min-w-[240px] flex-1 snap-start bg-[#0b1117]/95 p-4 transition-colors hover:bg-cyan-300/[0.045]">
               {showStudentStepLinks ? (
                 <Link
                   href={resolveHref(step.href)}
@@ -689,7 +726,7 @@ function SampleLessonPanel({ isPublicShell, role }: { isPublicShell: boolean; ro
       </ol>
 
       <div className="relative flex flex-col gap-2 border-t border-white/[0.08] bg-black/15 px-4 py-3 text-xs leading-5 text-slate-300 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <span>正式资源：CH3 · 3.1 · quiz-ch3-addressing · exp02</span>
+        <span>学习主题：寻址方式 · 专项测验 · 实验2</span>
         <span className="font-mono text-xs text-emerald-200">AI 仅作解释辅助</span>
       </div>
     </section>
@@ -784,18 +821,28 @@ function CourseMaterialPanel() {
   );
 }
 
-function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoint; forceExpanded?: boolean }) {
+function ChapterCard({ chapter, forceExpanded = false, defaultExpanded = false }: { chapter: KnowledgePoint; forceExpanded?: boolean; defaultExpanded?: boolean }) {
   const childPoints = getChildPoints(chapter.id);
   const chapterPoints = childPoints.length + 1;
   const resources = getResourcesByChapter(chapter.chapter);
   // 只展示有真实链接的资源，避免出现点不动的条目
   const linkedResources = resources.filter((r) => hrefForResource(r, chapter.chapter) !== null);
-  const video = resources.find((resource) => resource.type === 'video' && resource.url);
-  const visibleResources = linkedResources.slice(0, 10);
+  const unavailableCount = resources.length - linkedResources.length;
+  const availableTypes = Array.from(new Set(linkedResources.map((resource) => resourceLabels[resource.type])));
+  const video = linkedResources.find((resource) => resource.type === 'video' && resource.url);
+  const [showAllResources, setShowAllResources] = useState(false);
+  const resourcesExpanded = forceExpanded || showAllResources;
+  const visibleResources = resourcesExpanded ? linkedResources : linkedResources.slice(0, RESOURCE_PREVIEW_LIMIT);
+  const nextResource = linkedResources.find((resource) => resource.type === 'slide' || resource.type === 'document')
+    ?? linkedResources.find((resource) => resource.type === 'experiment' || resource.type === 'animation')
+    ?? linkedResources.find((resource) => resource.type === 'quiz');
+  const nextResourceHref = nextResource ? hrefForResource(nextResource, chapter.chapter) : null;
+  const nextResourceOpensNewTab = nextResourceHref !== null && opensResourceInNewTab(nextResourceHref);
+  const NextResourceLink = nextResourceOpensNewTab ? 'a' : Link;
   const summary = buildChapterSummary(chapter, childPoints);
-  const hasQuiz = resources.some((resource) => resource.type === 'quiz');
+  const hasQuiz = linkedResources.some((resource) => resource.type === 'quiz');
   const [showTop5, setShowTop5] = useState(false);
-  const [expanded, setExpanded] = useState(chapter.chapter === 3);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const top5 = childPoints.slice(0, 5);
   const isOpen = forceExpanded || expanded;
 
@@ -819,20 +866,20 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[11px] text-cyan-100">
-            CH{chapter.chapter}
+            单元 {chapter.chapter}
           </span>
           <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-xs text-slate-400">
             {chapterPoints} 个核心条目
           </span>
           <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-xs text-slate-400">
-            {linkedResources.length} 项资源
+            {linkedResources.length} 项可用资源
           </span>
           {hasQuiz && (
             <Link
               href={`/quiz?chapter=${chapter.chapter}`}
               className="inline-flex min-h-11 items-center rounded-md border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2 font-mono text-[11px] text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
             >
-              进入章节测验
+              进入单元测验
             </Link>
           )}
             </div>
@@ -842,8 +889,8 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
           <button
             type="button"
             aria-label={forceExpanded
-              ? `第${chapter.chapter}章${chapter.name}搜索结果已展开`
-              : `${isOpen ? '收起' : '展开'}第${chapter.chapter}章${chapter.name}详情`}
+              ? `平台单元${chapter.chapter}${chapter.name}搜索结果已展开`
+              : `${isOpen ? '收起' : '展开'}平台单元${chapter.chapter}${chapter.name}详情`}
             aria-expanded={isOpen}
             aria-controls={`chapter-${chapter.chapter}-details`}
             disabled={forceExpanded}
@@ -860,8 +907,11 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
       <div id={`chapter-${chapter.chapter}-details`} className="grid gap-4 p-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="min-w-0 space-y-4">
           <div>
-            <h4 className="mb-2 text-sm font-semibold text-slate-100">章节概要</h4>
+            <h4 className="mb-2 text-sm font-semibold text-slate-100">单元概要</h4>
             <p className="text-sm leading-6 text-slate-400">{summary}</p>
+            <p className="mt-2 border-l border-cyan-300/25 pl-3 text-xs leading-5 text-slate-300">
+              课程主题对照：{COURSE_UNIT_ALIGNMENT[chapter.chapter]}
+            </p>
           </div>
 
           <div>
@@ -899,7 +949,7 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
                       className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2 text-xs"
                     >
                       <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[10px] text-cyan-300">#{point.id}</span>
+                        <span className="font-mono text-xs text-cyan-300">#{point.id}</span>
                         <Link
                           href={`/knowledge-graph?chapter=${chapter.chapter}&node=${encodeURIComponent(point.id)}`}
                           className="inline-flex min-h-11 items-center text-sm font-medium text-slate-100 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
@@ -921,12 +971,31 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
           )}
 
           <div>
-            <h4 className="mb-2 text-sm font-semibold text-slate-100">章节资源</h4>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <h4 className="mb-2 text-sm font-semibold text-slate-100">单元资源</h4>
+            <p className="mb-2 text-xs leading-5 text-slate-400" aria-live="polite">
+              {linkedResources.length > 0
+                ? `已显示 ${visibleResources.length} / ${linkedResources.length} 项可用资源。`
+                : '本单元暂未提供可打开的学习资源，可先通过知识图谱学习。'}
+              {unavailableCount > 0 && `另有 ${unavailableCount} 项资源尚未提供链接，暂不可打开。`}
+            </p>
+            <div id={`chapter-${chapter.chapter}-resources`} className="grid gap-2 sm:grid-cols-2">
               {visibleResources.map((resource) => (
                 <ResourceChip key={`${resource.type}-${resource.refId || resource.url || resource.title}`} resource={resource} chapter={chapter.chapter} />
               ))}
             </div>
+            {linkedResources.length > RESOURCE_PREVIEW_LIMIT && !forceExpanded && (
+              <button
+                type="button"
+                aria-expanded={showAllResources}
+                aria-controls={`chapter-${chapter.chapter}-resources`}
+                aria-label={`${showAllResources ? '收起' : '展开'}平台单元${chapter.chapter}的全部资源`}
+                onClick={() => setShowAllResources((value) => !value)}
+                className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+              >
+                {showAllResources ? '收起资源' : `查看其余 ${linkedResources.length - RESOURCE_PREVIEW_LIMIT} 项资源`}
+                <ChevronDown className={cn('h-4 w-4 transition-transform', showAllResources && 'rotate-180')} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -949,11 +1018,27 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
             <div className="flex min-h-[180px] flex-col justify-center rounded-md border border-white/[0.08] bg-black/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                 <div className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></div>
-                章节内容已接入
+                继续学习
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                本章已接入知识点、课件、测验与实验入口，可按学习目的选择相应资源。
+                {availableTypes.length > 0
+                  ? `当前可用：${availableTypes.join('、')}。先阅读知识点，再选择资料或练习。`
+                  : '先进入知识图谱，查看本单元的概念及其相互关系。'}
               </p>
+              {nextResource && nextResourceHref && (
+                <NextResourceLink
+                  href={nextResourceHref}
+                  target={nextResourceOpensNewTab ? '_blank' : undefined}
+                  rel={nextResourceOpensNewTab ? 'noreferrer' : undefined}
+                  aria-label={nextResourceOpensNewTab
+                    ? `打开${resourceLabels[nextResource.type]}：${nextResource.title}，在新标签打开`
+                    : undefined}
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 self-start rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-2 text-xs leading-5 text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+                >
+                  <span>打开{resourceLabels[nextResource.type]}：{nextResource.title}</span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                </NextResourceLink>
+              )}
             </div>
           )}
         </div>
@@ -973,6 +1058,76 @@ function ChapterCard({ chapter, forceExpanded = false }: { chapter: KnowledgePoi
   );
 }
 
+function CourseTopicAlignmentPanel({ onSelectUnit }: { onSelectUnit: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section id="course-topic-alignment" className="mb-5 rounded-md border border-white/[0.08] bg-white/[0.035] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-100">课程主题对照</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            按大纲主题查找平台单元；C51 编程与前沿应用另列为拓展内容。
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls="course-topic-alignment-table"
+          onClick={() => setExpanded((value) => !value)}
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+        >
+          {expanded ? '收起课程主题对照' : '查看课程主题对照'}
+          <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />
+        </button>
+      </div>
+      {expanded && (
+        <div id="course-topic-alignment-table" className="mt-4">
+          <p className="mb-3 text-xs leading-5 text-slate-400">
+            依据《微控制器原理及应用技术》教学大纲表2，共48理论学时。原表章号为1—6、8—11，未列第7章；下表保留原章号。
+          </p>
+          <div className="max-w-full overflow-x-auto">
+            <table className="w-full min-w-[580px] text-left text-xs leading-5 text-slate-300">
+              <caption className="sr-only">教学大纲章节、理论学时与平台学习位置</caption>
+              <thead className="border-b border-white/[0.12] text-slate-100">
+                <tr>
+                  <th scope="col" className="pb-2 pr-3 font-medium">大纲主题</th>
+                  <th scope="col" className="pb-2 pr-3 font-medium">理论学时</th>
+                  <th scope="col" className="pb-2 pr-3 font-medium">平台位置</th>
+                  <th scope="col" className="pb-2 font-medium">学习说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COURSE_SYLLABUS_TOPICS.map((topic) => (
+                  <tr key={topic.chapterNumber} className="border-b border-white/[0.06] align-top">
+                    <th scope="row" className="py-2 pr-3 font-normal text-slate-200">第{topic.chapterNumber}章 {topic.name}</th>
+                    <td className="py-2 pr-3">{topic.theoryHours}</td>
+                    <td className="py-1 pr-3">
+                      <div className="flex flex-wrap gap-1">
+                        {topic.platformUnits.map((unit) => (
+                          <a
+                            key={unit}
+                            href={`#item-${unit}`}
+                            onClick={onSelectUnit}
+                            className="inline-flex min-h-11 items-center whitespace-nowrap rounded px-2 text-cyan-100 hover:bg-cyan-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+                          >
+                            单元 {unit}
+                          </a>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2">{topic.studyNote}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CourseChaptersView({
   query,
   isPublicShell,
@@ -984,39 +1139,46 @@ function CourseChaptersView({
   role?: string | null;
   onClearQuery: () => void;
 }) {
+  const isSearching = query.trim().length > 0;
   const filteredChapters = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return courseChapters;
     return courseChapters.filter((chapter) => {
       const children = getChildPoints(chapter.id).map((point) => point.name).join(' ');
       const resources = getResourcesByChapter(chapter.chapter).map((resource) => resource.title).join(' ');
-      return `${chapter.name} ${chapter.description || ''} ${children} ${resources}`.toLowerCase().includes(q);
+      return `${chapter.name} ${chapter.description || ''} ${COURSE_UNIT_ALIGNMENT[chapter.chapter]} ${children} ${resources}`.toLowerCase().includes(q);
     });
   }, [query]);
 
   return (
     <div className="order-1 min-w-0 lg:order-2">
-      <SampleLessonPanel isPublicShell={isPublicShell} role={role} />
-      <CourseMaterialPanel />
+      {!isSearching && (
+        <>
+          <CourseUnitOverview />
+          <SampleLessonPanel isPublicShell={isPublicShell} role={role} />
+          <CourseMaterialPanel />
+          <CourseTopicAlignmentPanel onSelectUnit={onClearQuery} />
+        </>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
           <span className="chip-mark flex h-7 w-7 items-center justify-center rounded-md"><BookOpen className="h-4 w-4 text-cyan-200" /></span>
-          课程章节
+          平台单元
         </h2>
-        <div className="font-mono text-xs text-slate-400">{filteredChapters.length} / {courseChapters.length} CHAPTERS</div>
+        <div className="font-mono text-xs text-slate-400">{filteredChapters.length} / {courseChapters.length} UNITS</div>
       </div>
 
       {filteredChapters.length > 0 ? (
         <div className="grid gap-4">
           {filteredChapters.map((chapter) => (
-            <ChapterCard key={chapter.id} chapter={chapter} forceExpanded={query.trim().length > 0} />
+            <ChapterCard key={chapter.id} chapter={chapter} forceExpanded={isSearching} defaultExpanded={!isPublicShell && chapter.chapter === 3} />
           ))}
         </div>
       ) : (
         <div className="rounded-md border border-white/[0.08] bg-white/[0.035] p-8 text-center sm:p-10" role="status">
           <Search className="mx-auto h-6 w-6 text-slate-500" aria-hidden="true" />
-          <p className="mt-3 text-sm text-slate-300">没有找到与“{query.trim()}”匹配的章节、知识点或资源。</p>
+          <p className="mt-3 text-sm text-slate-300">没有找到与“{query.trim()}”匹配的单元、知识点或资源。</p>
           <button
             type="button"
             onClick={onClearQuery}
@@ -1024,6 +1186,12 @@ function CourseChaptersView({
           >
             清除搜索
           </button>
+        </div>
+      )}
+
+      {isSearching && (
+        <div className="mt-5">
+          <CourseTopicAlignmentPanel onSelectUnit={onClearQuery} />
         </div>
       )}
 
@@ -1187,42 +1355,7 @@ export function HyperCoursesPage({ initialFilters }: HyperCoursesPageProps = {})
           >
             跳到主要内容
           </a>
-          <header className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-3 backdrop-blur-xl md:px-6">
-          <nav aria-label="公开课程导航" className="flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="flex min-h-11 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
-          >
-            <div className="chip-mark flex h-8 w-8 items-center justify-center rounded-md">
-              <Cpu aria-hidden="true" className="h-[18px] w-[18px] text-primary" />
-            </div>
-            <div>
-              <span className="block text-base font-bold tracking-tight text-slate-50">芯智育才</span>
-              <span className="block font-mono text-xs uppercase tracking-[0.16em] text-slate-400">8051 Lab</span>
-            </div>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/welcome"
-              className="hidden min-h-11 items-center rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:inline-flex"
-            >
-              平台介绍
-            </Link>
-            <a
-              href="#addressing-sample"
-              className="hidden min-h-11 items-center rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 md:inline-flex"
-            >
-              样板课
-            </a>
-            <Link
-              href="/login?role=teacher&from=%2Fteacher"
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
-            >
-              教师登录
-            </Link>
-          </div>
-          </nav>
-          </header>
+          <PublicSiteHeader active="course" />
         </>
       )}
       <ContentLandmark
@@ -1242,17 +1375,17 @@ export function HyperCoursesPage({ initialFilters }: HyperCoursesPageProps = {})
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {section === 'chapters'
-                ? '按教学大纲组织 10 个章节，当前资源以知识图谱、课件、测验和仿真实验为主。'
+                ? '课程按主题组织为 10 个平台单元。单元编号与大纲章号不同，可通过课程主题对照找到授课内容。'
                 : '以实验为主线组织 8051 学习内容，直接连接仿真器、知识图谱和学习进度。'}
             </p>
           </div>
           <div className="relative w-full max-w-md">
             <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
-              aria-label={section === 'chapters' ? '搜索课程章节、知识点或资源' : '搜索实验、主题或编号'}
+              aria-label={section === 'chapters' ? '搜索平台单元、知识点或资源' : '搜索实验、主题或编号'}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={section === 'chapters' ? '搜索章节、知识点、资源...' : '搜索实验、主题、编号...'}
+              placeholder={section === 'chapters' ? '搜索单元、知识点、资源...' : '搜索实验、主题、编号...'}
               className="min-h-11 border-white/[0.09] bg-black/25 pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-300/70"
             />
           </div>

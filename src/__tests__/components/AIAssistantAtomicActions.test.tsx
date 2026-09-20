@@ -102,9 +102,46 @@ function RouteHarness({ route }: { route: 'course' | 'ai' }): React.JSX.Element 
   return route === 'ai' ? <AiAssistantPageWrapper /> : <div>课程首页占位</div>;
 }
 
+const prepSource = {
+  refId: 'course-slide-baud-error', pointId: '7.2.3', pointName: '波特率设置与计算',
+  title: '授课 PPT 第 6 章：波特率误差分析',
+  href: '/resources/course/course-slides.pdf#page=45', pdfPage: 45,
+  available: true, textIncluded: false, excerpt: '波特率误差应结合晶振频率及通信要求判断。',
+  readingNotes: [{ text: '计算前请确认经典 12T 内核及 SMOD 的取值。', title: '对照课件中的计算条件', url: '/resources/course/course-slides.pdf#page=45' }],
+};
+const prepCatalog = (generationAvailable = true, drafts: unknown[] = []) => ({
+  success: true,
+  data: {
+    ownerId: 'teacher-1',
+    capability: { generationAvailable, provider: 'DeepSeek', model: 'deepseek-chat', message: generationAvailable ? '可按选定课件生成备课草稿。' : '生成服务暂未配置，可阅读课件、手写并保存备课草稿。' },
+    sources: [prepSource], drafts,
+    limits: { instruction: 2000, submission: 6000, title: 160, content: 12000 },
+  },
+});
+const prepGenerated = {
+  ownerId: 'teacher-1',
+  generationId: `prep_${'a'.repeat(40)}`, title: '串口通信课堂案例', content: '比较两组晶振频率下的波特率误差，说明适用条件。',
+  kind: 'case', pointId: '7.2.3', slideRefId: prepSource.refId, instruction: '设计一个波特率误差讨论案例',
+  mode: 'generated', sources: [{ ...prepSource, textIncluded: true }],
+};
+const prepSnapshot = {
+  ...prepGenerated, id: `prep_${'b'.repeat(40)}`, snapshot: 'b123456789ab', savedAt: '2026-09-05T02:00:00.000Z',
+};
+
+function useTeacher(role: 'TEACHER' | 'ADMIN' = 'TEACHER') {
+  mockGetStoredAccessToken.mockReturnValue('teacher-token');
+  mockUseAuth.mockReturnValue({ user: { id: 'teacher-1', username: 'teacher', name: '教师甲', email: 'teacher@example.com', role }, loading: false, refreshUser: jest.fn().mockResolvedValue(undefined) } as unknown as ReturnType<typeof useAuth>);
+}
+
+async function openTeacherPrep() {
+  fireEvent.click(screen.getByRole('tab', { name: '教师备课' }));
+  await waitFor(() => expect(screen.queryByText('正在读取备课资料与本人草稿…')).not.toBeInTheDocument());
+}
+
 describe('AI assistant atomic actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
     jest.useRealTimers();
     mockGetStoredAccessToken.mockReturnValue('student-token');
     mockUseAuth.mockReturnValue({
@@ -119,6 +156,11 @@ describe('AI assistant atomic actions', () => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: jest.fn().mockResolvedValue(undefined) },
+    });
+    let uuidSequence = 0;
+    Object.defineProperty(crypto, 'randomUUID', {
+      configurable: true,
+      value: jest.fn(() => `00000000-0000-4000-8000-${String(++uuidSequence).padStart(12, '0')}`),
     });
   });
 
@@ -142,6 +184,18 @@ describe('AI assistant atomic actions', () => {
       .toBe('来源未确认');
     expect(classifyAnswerSource({ source: 'GENERATED', mode: 'GENERATED', relatedNodes }, answer))
       .toBe('来源未确认');
+  });
+
+  it('keeps the offline LED prompt explicit about loop counts and the complete blink period after an API failure', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('offline'));
+    render(<AiAssistantPageWrapper />);
+    fireEvent.change(screen.getByRole('textbox', { name: '向 AI 助手提问' }), { target: { value: '如何让LED闪烁？' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送问题' }));
+    expect(await screen.findByText(/循环次数不能直接换算为毫秒/)).toBeInTheDocument();
+    expect(screen.getByText(/完整亮灭周期约2s/)).toBeInTheDocument();
+    expect(screen.getByLabelText('回答来源：本地回退')).toBeInTheDocument();
+    expect(screen.queryByText(/延时500ms|精确的1秒/)).not.toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('mounts from another route, switches modes, leaves and re-enters with a stable hook order', () => {
@@ -334,7 +388,7 @@ describe('AI assistant atomic actions', () => {
     expect(screen.getByRole('button', { name: '取消本次回答' })).toBeInTheDocument();
 
     await act(async () => {
-      jest.advanceTimersByTime(20_000);
+      jest.advanceTimersByTime(35_000);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -418,7 +472,7 @@ describe('AI assistant atomic actions', () => {
     fireEvent.click(screen.getByRole('button', { name: '发送问题' }));
 
     expect(await screen.findByText('当前为固定回退说明。')).toBeInTheDocument();
-    expect(screen.getByLabelText('回答来源：本地回退')).toHaveTextContent('未形成生成式回答');
+    expect(screen.getByLabelText('回答来源：本地回退')).toHaveTextContent('未调用外部生成模型');
     expect(screen.queryByLabelText('回答来源：课程检索')).not.toBeInTheDocument();
   });
 
@@ -481,5 +535,343 @@ describe('AI assistant atomic actions', () => {
       await Promise.resolve();
     });
     expect(screen.queryByText('这是旧代码的解释')).not.toBeInTheDocument();
+  });
+
+  it('shows course page text and excludes a purported external course source', async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ data: {
+      answer: '请对照课件中的波特率条件。', source: 'generated', mode: 'generated',
+      courseSources: [
+        { id: 'course-slide-45', title: '串行通信技术', page: 45, sourcePage: 45, href: '/resources/course/course-slides.pdf#page=45', excerpt: '课件给出的波特率计算条件。' },
+        { id: 'external', title: '不可信外站资料', page: 45, sourcePage: 45, href: 'https://untrusted.example/course.pdf', excerpt: '不得显示的外站资料。' },
+      ],
+    } }));
+    render(<IntelligentQA />);
+    fireEvent.change(screen.getByRole('textbox', { name: '向 AI 助手提问' }), { target: { value: '解释波特率计算条件' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送问题' }));
+    const summary = await screen.findByText('对照授课课件（1页）');
+    fireEvent.click(summary);
+    const link = screen.getByRole('link', { name: '串行通信技术 · 原课件第45页（PDF第45页）' });
+    expect(link).toHaveAttribute('href', '/resources/course/course-slides.pdf#page=45');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByText('课件给出的波特率计算条件。')).toBeInTheDocument();
+    expect(screen.queryByText('不可信外站资料')).not.toBeInTheDocument();
+  });
+
+  it('keeps teacher preparation hidden for students without fetching teacher data', () => {
+    render(<AiAssistantPageWrapper />);
+    expect(screen.queryByRole('tab', { name: '教师备课' })).not.toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('releases the preparation loading state when the response body ignores cancellation', async () => {
+    useTeacher();
+    const body = new Promise(() => {});
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => body });
+    jest.useFakeTimers();
+    render(<AiAssistantPageWrapper />);
+    fireEvent.click(screen.getByRole('tab', { name: '教师备课' }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(35_000); });
+    expect(screen.getByRole('alert')).toHaveTextContent('备课资料读取超时');
+    expect(screen.getByRole('button', { name: '重新读取备课资料' })).toBeEnabled();
+    expect(screen.queryByText('正在读取备课资料与本人草稿…')).not.toBeInTheDocument();
+  });
+
+  it.each(['TEACHER', 'ADMIN'] as const)('offers preparation to %s and requests private sources only on opening it', async (role) => {
+    useTeacher(role);
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)));
+    render(<AiAssistantPageWrapper />);
+    expect(mockFetch).not.toHaveBeenCalled();
+    await openTeacherPrep();
+    expect(mockFetch).toHaveBeenCalledWith('/api/ai/chat?mode=teacher-prep', expect.objectContaining({ headers: { Authorization: 'Bearer teacher-token' }, signal: expect.any(AbortSignal) }));
+    expect(screen.getByRole('button', { name: '生成备课草稿' })).toBeDisabled();
+    expect(screen.getByText(/生成服务暂未配置/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /授课 PPT 第 6 章/ })).toHaveAttribute('href', prepSource.href);
+    expect(screen.getByText('计算前请确认经典 12T 内核及 SMOD 的取值。')).toBeInTheDocument();
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+  });
+
+  it('allows manual writing without a model and confirms saving only from a concrete idempotent receipt', async () => {
+    useTeacher();
+    const manual = { ...prepSnapshot, mode: 'manual', generationId: null, title: '教师自编案例', content: '先讨论误差条件，再核对计算。', sources: [prepSource] };
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: {} }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: manual, duplicate: true }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...manual, id: `prep_${'c'.repeat(40)}`, snapshot: 'c123456789ab', content: '修改后的课堂讨论方案。' }, duplicate: false }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('草稿标题'), { target: { value: manual.title } });
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: manual.content } });
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('未收到明确的保存回执');
+    expect(screen.queryByText(/已保存草稿 ·/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue(manual.content);
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    expect(await screen.findByText(/已保存草稿 · b123456789ab/)).toBeInTheDocument();
+    const first = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const retry = JSON.parse(mockFetch.mock.calls[2][1].body);
+    expect(first).toEqual(retry);
+    expect(first).toMatchObject({ mode: 'teacher-prep', expectedUserId: 'teacher-1', action: 'save', title: manual.title, content: manual.content });
+    expect(first).not.toHaveProperty('generationId');
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: '修改后的课堂讨论方案。' } });
+    expect(screen.queryByText(/已保存草稿 ·/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    expect(await screen.findByText(/已保存草稿 · c123456789ab/)).toBeInTheDocument();
+    expect(JSON.parse(mockFetch.mock.calls[3][1].body).requestId).not.toBe(first.requestId);
+    expect(screen.getAllByRole('button', { name: /教师自编案例/ })).toHaveLength(2);
+  });
+
+  it('previews and adopts a grounded course template without generation, then saves the teacher edit as manual', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...prepSnapshot, mode: 'manual', generationId: null, sources: [prepSource] } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    const templateButton = screen.getByRole('button', { name: '预览课程模板（不调用生成）' });
+    expect(templateButton).toBeEnabled();
+    expect(screen.getByRole('button', { name: '生成备课草稿' })).toBeDisabled();
+    fireEvent.click(templateButton);
+    expect(screen.getByRole('heading', { name: '课程模板预览 · 非生成内容' })).toBeVisible();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '采用此模板' }));
+    const content = (screen.getByLabelText('草稿正文') as HTMLTextAreaElement).value;
+    expect(content).toContain('课程备课模板（非生成内容）');
+    expect(content).toContain('合并 PDF 第 45 页');
+    expect(content).toContain(prepSource.href);
+    expect(content).toContain(prepSource.excerpt);
+    expect(content).toContain(prepSource.readingNotes[0].text);
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: `${content}\n教师补充：核对晶振和SMOD。` } });
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    await screen.findByText(/已保存草稿 · b123456789ab/);
+    const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+    expect(body).toMatchObject({ action: 'save', pointId: prepSource.pointId, slideRefId: prepSource.refId });
+    expect(body.content).toContain('教师补充：核对晶振和SMOD。');
+    expect(body).not.toHaveProperty('generationId');
+    expect(mockFetch.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('leaves an unsaved draft untouched during preview and appends only after the teacher applies it', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('草稿标题'), { target: { value: '教师原来的标题' } });
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: '教师未保存的课堂设计。' } });
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    fireEvent.click(screen.getByRole('button', { name: '关闭预览' }));
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('教师未保存的课堂设计。');
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    fireEvent.click(screen.getByRole('button', { name: '追加到当前草稿' }));
+    expect(screen.getByLabelText('草稿标题')).toHaveValue('教师原来的标题');
+    expect((screen.getByLabelText('草稿正文') as HTMLTextAreaElement).value).toMatch(/^教师未保存的课堂设计。\n\n课程备课模板/);
+    expect(screen.getByText(/已追加课程模板，原草稿内容保留/)).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the same local template after the server reports generation unavailable', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog()))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ownerId: 'teacher-1', mode: 'unavailable', message: '生成服务暂不可用。' } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('教学要求'), { target: { value: '核对晶振条件' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    await screen.findByText('生成服务暂不可用。');
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    fireEvent.click(screen.getByRole('button', { name: '采用此模板' }));
+    expect((screen.getByLabelText('草稿正文') as HTMLTextAreaElement).value).toContain('教学要求：核对晶振条件');
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { available: false, excerpt: prepSource.excerpt },
+    { available: true, excerpt: '' },
+  ])('does not manufacture a template when the selected page lacks readable source: %j', async (missing) => {
+    useTeacher();
+    const catalog = prepCatalog(false);
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ...catalog, data: { ...catalog.data, sources: [{ ...prepSource, ...missing }] } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    expect(screen.getByRole('button', { name: '预览课程模板（不调用生成）' })).toBeDisabled();
+    expect(screen.getByLabelText('草稿正文')).toBeEnabled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a stale preview on a task or source change and distinguishes exercise and review frameworks', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    fireEvent.change(screen.getByLabelText('备课任务'), { target: { value: 'exercise' } });
+    expect(screen.queryByRole('heading', { name: '课程模板预览 · 非生成内容' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    expect(document.querySelector('#course-prep-template')).toHaveTextContent('本模板未自动生成标准答案或判分规则');
+    fireEvent.change(screen.getByLabelText('备课任务'), { target: { value: 'review' } });
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    expect(document.querySelector('#course-prep-template')).toHaveTextContent('本模板未评价该作业');
+    fireEvent.change(screen.getByLabelText('选择依据'), { target: { value: 'knowledge' } });
+    fireEvent.change(screen.getByLabelText('平台单元'), { target: { value: '1' } });
+    expect(screen.queryByRole('heading', { name: '课程模板预览 · 非生成内容' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '预览课程模板（不调用生成）' })).toBeDisabled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an existing draft instead of truncating it when a template would exceed the content limit', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false)));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    const original = '教师原文'.repeat(3000);
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: original } });
+    fireEvent.click(screen.getByRole('button', { name: '预览课程模板（不调用生成）' }));
+    fireEvent.click(screen.getByRole('button', { name: '追加到当前草稿' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('将超过 12000 字');
+    expect(screen.getByLabelText('草稿正文')).toHaveValue(original);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps generated content editable and sends generation provenance only while its task inputs match', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog()))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: prepGenerated }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...prepSnapshot, content: '教师已核对后的案例。' } }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...prepSnapshot, id: `prep_${'c'.repeat(40)}`, snapshot: 'c123456789ab', mode: 'manual', generationId: null } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('教学要求'), { target: { value: prepGenerated.instruction } });
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    expect(await screen.findByText('已生成可编辑草稿，请核对内容后保存。')).toBeInTheDocument();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue(prepGenerated.content);
+    expect(screen.getByText('生成时已提供该来源的文字内容。')).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({ mode: 'teacher-prep', expectedUserId: 'teacher-1', action: 'generate', kind: 'case', pointId: '7.2.3', slideRefId: prepSource.refId, instruction: prepGenerated.instruction });
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: '教师已核对后的案例。' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    await screen.findByText(/已保存草稿 · b123456789ab/);
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toMatchObject({ generationId: prepGenerated.generationId, content: '教师已核对后的案例。' });
+    fireEvent.change(screen.getByLabelText('备课任务'), { target: { value: 'exercise' } });
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    await screen.findByText(/已保存草稿 · c123456789ab/);
+    expect(JSON.parse(mockFetch.mock.calls[3][1].body)).not.toHaveProperty('generationId');
+  });
+
+  it('preserves a manual draft when generation is unavailable and when switching tabs', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog()))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...prepGenerated, generationId: null, mode: 'unavailable', content: '', message: '生成服务暂不可用；可以阅读课件并手写保存草稿。' } }))
+      .mockResolvedValueOnce(jsonResponse(prepCatalog()));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('教学要求'), { target: { value: prepGenerated.instruction } });
+    fireEvent.change(screen.getByLabelText('草稿标题'), { target: { value: '尚未保存的思路' } });
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: '保留教师当前编写内容。' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    expect(await screen.findByText(/生成服务暂不可用；/)).toBeInTheDocument();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('保留教师当前编写内容。');
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '智能问答' }));
+    await openTeacherPrep();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('保留教师当前编写内容。');
+    expect(screen.getByLabelText('草稿标题')).toHaveValue('尚未保存的思路');
+  });
+
+  it('requires anonymized assignment confirmation and sends review input without assigning a grade', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog()))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ...prepGenerated, kind: 'review', content: '建议学生补充晶振频率与误差计算过程。' } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('备课任务'), { target: { value: 'review' } });
+    fireEvent.change(screen.getByLabelText('教学要求'), { target: { value: '检查计算假设' } });
+    fireEvent.change(screen.getByLabelText('作业内容（请先删除姓名、学号等个人信息）'), { target: { value: 'TH1=FDH，未说明晶振。' } });
+    expect(screen.getByRole('button', { name: '生成备课草稿' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: '已移除姓名、学号等个人信息' }));
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    await screen.findByText('已生成可编辑草稿，请核对内容后保存。');
+    const request = JSON.parse(mockFetch.mock.calls[1][1].body);
+    expect(request).toMatchObject({ kind: 'review', submission: 'TH1=FDH，未说明晶振。', instruction: '检查计算假设' });
+    expect(request).not.toHaveProperty('grade');
+    fireEvent.change(screen.getByLabelText('作业内容（请先删除姓名、学号等个人信息）'), { target: { value: '补充了晶振频率。' } });
+    expect(screen.getByRole('checkbox', { name: '已移除姓名、学号等个人信息' })).not.toBeChecked();
+    expect(screen.getByText('手动编写草稿')).toBeInTheDocument();
+  });
+
+  it('reopens a saved snapshot and keeps an unmapped knowledge point available for manual work', async () => {
+    useTeacher();
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(true, [prepSnapshot])));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.click(screen.getByRole('button', { name: /串口通信课堂案例 ·?案例设计|串口通信课堂案例案例设计/ }));
+    expect(screen.getByLabelText('草稿正文')).toHaveValue(prepSnapshot.content);
+    expect(screen.getByText(/已保存草稿 · b123456789ab/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('选择依据'), { target: { value: 'knowledge' } });
+    fireEvent.change(screen.getByLabelText('平台单元'), { target: { value: '1' } });
+    expect(screen.getByLabelText('课程知识点')).toHaveValue('1');
+    expect(screen.getByRole('button', { name: '生成备课草稿' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
+    expect(screen.getByText(/此知识点暂无可用于生成的课件正文/)).toBeInTheDocument();
+  });
+
+  it('ignores a cancelled generation, permits retry immediately and resets drafts after account changes', async () => {
+    useTeacher();
+    const pending = deferredResponse();
+    let signal: AbortSignal | undefined;
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog()))
+      .mockImplementationOnce((_url: RequestInfo | URL, init: RequestInit) => { signal = init.signal as AbortSignal; return pending.promise; })
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: prepGenerated }));
+    const view = render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('教学要求'), { target: { value: prepGenerated.instruction } });
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '取消生成' }));
+    expect(signal?.aborted).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '生成备课草稿' }));
+    await screen.findByText('已生成可编辑草稿，请核对内容后保存。');
+    await act(async () => { pending.resolve(jsonResponse({ success: true, data: { ...prepGenerated, content: '已经取消的迟到草稿' } })); await pending.promise; });
+    expect(screen.getByLabelText('草稿正文')).toHaveValue(prepGenerated.content);
+    mockUseAuth.mockReturnValue({ user: { id: 'student-2', username: 'student2', name: '学生乙', email: 'student2@example.com', role: 'STUDENT' }, loading: false } as ReturnType<typeof useAuth>);
+    view.rerender(<AiAssistantPageWrapper />);
+    expect(screen.queryByRole('tab', { name: '教师备课' })).not.toBeInTheDocument();
+    expect(screen.queryByText(prepGenerated.content)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '智能问答助手' })).toBeInTheDocument();
+  });
+
+  it('rejects a catalog belonging to a different cookie account and revalidates identity before showing drafts', async () => {
+    useTeacher();
+    const refreshUser = mockUseAuth.getMockImplementation()!().refreshUser as jest.Mock;
+    const catalog = prepCatalog(true, [{ ...prepSnapshot, ownerId: 'teacher-2', title: '另一个账号的备课' }]);
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ...catalog, data: { ...catalog.data, ownerId: 'teacher-2' } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    expect(screen.getByRole('alert')).toHaveTextContent('登录账号已变化');
+    expect(screen.queryByRole('button', { name: /另一个账号的备课/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('');
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeDisabled();
+    expect(refreshUser).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['conflict', 'mismatched-receipt'])('clears a stale account editor after a %s and never confirms its save', async (failure) => {
+    useTeacher();
+    const refreshUser = mockUseAuth.getMockImplementation()!().refreshUser as jest.Mock;
+    mockFetch.mockResolvedValueOnce(jsonResponse(prepCatalog(false))).mockResolvedValueOnce(failure === 'conflict'
+      ? jsonResponse({ error: '登录账号已变化', code: 'ACCOUNT_CHANGED' }, 409)
+      : jsonResponse({ success: true, data: { ...prepSnapshot, ownerId: 'teacher-2', title: '另一账号的草稿' } }));
+    render(<AiAssistantPageWrapper />);
+    await openTeacherPrep();
+    fireEvent.change(screen.getByLabelText('草稿标题'), { target: { value: '旧账号的私有草稿' } });
+    fireEvent.change(screen.getByLabelText('草稿正文'), { target: { value: '旧账号的私有正文。' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('登录账号已变化');
+    expect(screen.getByLabelText('草稿正文')).toHaveValue('');
+    expect(screen.getByLabelText('草稿标题')).toHaveValue('');
+    expect(screen.queryByText(/已保存草稿 ·/)).not.toBeInTheDocument();
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({ expectedUserId: 'teacher-1' });
+    expect(refreshUser).toHaveBeenCalledTimes(1);
   });
 });

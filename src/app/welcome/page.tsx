@@ -7,15 +7,14 @@ import {
   Bot,
   CheckCircle2,
   CircuitBoard,
-  Cpu,
   FlaskConical,
   GitBranch,
   GraduationCap,
-  ShieldCheck,
   Target,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
+import { EvidenceIdentity, PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
 
 const lessonSteps: Array<{ code: string; title: string; detail: string; icon: LucideIcon }> = [
   { code: '01', title: '图谱定位', detail: '定位 3.1 及其子节点', icon: GitBranch },
@@ -71,42 +70,12 @@ export default function WelcomePage() {
       >
         跳到主要内容
       </a>
-      <nav className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#080c11]/90 backdrop-blur-xl" aria-label="平台入口">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link
-            href="/welcome"
-            aria-label="芯智育才平台介绍"
-            className="flex min-h-11 items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
-          >
-            <div className="chip-mark flex h-9 w-9 items-center justify-center rounded-md">
-              <Cpu className="h-[18px] w-[18px] text-cyan-100" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <span className="block truncate text-sm font-semibold tracking-wide text-slate-50 sm:text-base">芯智育才</span>
-              <span className="block font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">8051 Teaching Lab</span>
-            </div>
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/"
-              className="hidden min-h-11 items-center rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 sm:inline-flex"
-            >
-              公开课程
-            </Link>
-            <Link href="/login?role=teacher" className={secondaryActionClass.replace('min-h-12', 'min-h-11').replace('px-6', 'px-3 sm:px-4')}>
-              登录
-            </Link>
-            <Link href="/register" className={primaryActionClass.replace('min-h-12', 'min-h-11').replace('px-6', 'px-3 sm:px-4')}>
-              学生注册
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicSiteHeader active="welcome" />
 
       <main id="main-content" tabIndex={-1} className="outline-none">
         <section className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[minmax(0,0.86fr)_minmax(520px,1.14fr)] lg:items-center lg:gap-14 lg:pt-20">
           <div className="animate-fade-in motion-reduce:animate-none">
-            <div className="inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100">
+            <div className="inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-3 py-1.5 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100">
               <CircuitBoard className="h-3.5 w-3.5" aria-hidden="true" />
               8051 Course · Teaching Loop
             </div>
@@ -117,10 +86,7 @@ export default function WelcomePage() {
             <p className="mt-6 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
               教师定向布置，学生依次完成图谱、动画、专项测评、薄弱补学、仿真实践和再次测评，教师再依据已保存的过程记录复核与干预。
             </p>
-            <div className="mt-5 flex max-w-xl items-start gap-2 rounded-md border border-amber-300/18 bg-amber-300/[0.055] px-3 py-2.5 text-xs leading-5 text-amber-100/90">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>平台演示记录明确标识数据身份；没有真实教学结果时显示“待采集”，不生成教学成效数值。</span>
-            </div>
+            <div className="mt-5"><EvidenceIdentity kind="pending" /></div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/login?role=teacher" className={primaryActionClass}>
                 教师端登录 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -136,7 +102,7 @@ export default function WelcomePage() {
                 ['图谱系列', '3'],
               ].map(([label, value], index) => (
                 <div key={label} className={index > 0 ? 'border-l border-white/[0.08] px-3 py-3' : 'px-3 py-3'}>
-                  <dt className="text-[10px] tracking-[0.08em] text-slate-400">{label}</dt>
+                  <dt className="text-xs tracking-[0.08em] text-slate-400">{label}</dt>
                   <dd className="mt-1 font-mono text-lg font-semibold text-slate-100">{value}</dd>
                 </div>
               ))}
@@ -152,12 +118,10 @@ export default function WelcomePage() {
             <div className="relative border-b border-white/[0.08] px-5 py-4 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-cyan-200">Sample Lesson · 教学流程样板</div>
+                  <div className="font-mono text-xs uppercase tracking-[0.15em] text-cyan-200">Sample Lesson · 教学流程样板</div>
                   <h2 id="sample-loop-title" className="mt-1.5 text-xl font-semibold text-slate-50">3.1 寻址方式</h2>
                 </div>
-                <span className="rounded-md border border-amber-300/20 bg-amber-300/[0.07] px-2.5 py-1 font-mono text-[10px] text-amber-100">
-                  非成效数据
-                </span>
+                <EvidenceIdentity kind="demo" compact />
               </div>
             </div>
             <ol className="relative grid gap-px bg-white/[0.07] sm:grid-cols-2">
@@ -178,7 +142,7 @@ export default function WelcomePage() {
             </ol>
             <div className="relative flex flex-col gap-2 border-t border-white/[0.08] bg-black/15 px-5 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <span>教师复核：任务状态 · 作答变化 · 实验完成 · 数据不足</span>
-              <span className="font-mono text-[10px] text-emerald-200">AI = EXPLANATION ONLY</span>
+              <span className="font-mono text-xs text-emerald-200">AI = EXPLANATION ONLY</span>
             </div>
           </section>
         </section>
@@ -211,7 +175,7 @@ export default function WelcomePage() {
         <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16">
           <div className="edu-panel grid gap-8 rounded-lg p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center lg:p-10">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-cyan-200">Role-aware Entrance · 角色入口</div>
+              <div className="font-mono text-xs uppercase tracking-[0.15em] text-cyan-200">Role-aware Entrance · 角色入口</div>
               <h2 className="mt-3 text-2xl font-semibold text-slate-50">从当前角色的下一项教学动作开始</h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
                 学生可注册后进入学习空间；教师与管理员使用已分配账号登录，平台根据角色显示学习任务、教学复核或系统管理入口。

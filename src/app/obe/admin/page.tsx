@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
@@ -295,6 +296,8 @@ function DataProvenancePanel({
       </div>
     );
   }
+
+  if (!SHOW_DATA_PROVENANCE_NOTICE) return null;
 
   return (
     <div

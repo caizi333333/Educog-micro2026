@@ -1,3 +1,4 @@
+jest.mock('@/lib/env', () => ({ ...jest.requireActual('@/lib/env'), SHOW_DATA_PROVENANCE_NOTICE: true }));
 import React from 'react';
 import { createHash, webcrypto } from 'node:crypto';
 import { TextEncoder } from 'node:util';
@@ -92,6 +93,7 @@ jest.mock('lucide-react', () => {
     ClipboardCopy: Icon,
     Clock3: Icon,
     Clock: Icon,
+    Cpu: Icon,
     Database: Icon,
     Eye: Icon,
     EyeOff: Icon,
@@ -152,6 +154,22 @@ describe('HyperLoginPage role recovery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearStoredAuth();
+  });
+
+  it('prevents credential submission before the login page is interactive', () => {
+    mockUseSearchParams.mockReturnValue({ get: jest.fn(() => null) } as any);
+    const { renderToString } = require('react-dom/server.node') as typeof import('react-dom/server');
+    const initial = document.createElement('div');
+    initial.innerHTML = renderToString(<HyperLoginPage />);
+    const form = initial.querySelector('form')!;
+    expect(form.method).toBe('post');
+    expect(form.querySelector<HTMLInputElement>('[name="emailOrUsername"]')!.disabled).toBe(true);
+    expect(form.querySelector<HTMLInputElement>('[name="password"]')!.disabled).toBe(true);
+    expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true);
+    expect(initial.textContent).toContain('正在准备登录');
+
+    render(<HyperLoginPage />);
+    expect(screen.getByRole('button', { name: '进入学习空间' })).toBeEnabled();
   });
 
   it('preselects the teacher role for a protected teacher return path', () => {
@@ -1602,7 +1620,9 @@ describe('HyperTeacherPage recovery states', () => {
     expect(screen.getByRole('button', { name: '确认布置' })).toBeDisabled();
     expect(dialog).toHaveTextContent('目标：样板班 · 1 名学生');
     expect(dialog).toHaveTextContent('我的任务 → 课前实验任务');
-    expect(dialog).toHaveTextContent('程序无故障运行至正常结束后点击“完成实验”');
+    expect(dialog).toHaveTextContent('满足所选实验的对应输出观测条件后停止，再点击“保存运行记录”');
+    expect(dialog).toHaveTextContent('持续循环程序无需运行至结束');
+    expect(dialog).toHaveTextContent('学习目标与实物性能需另行评价');
     expect(dialog).toHaveTextContent('推送回查 → 本教师布置的实验任务');
 
     fireEvent.click(confirmation);
@@ -1614,7 +1634,16 @@ describe('HyperTeacherPage recovery states', () => {
     expect(confirmation).not.toBeChecked();
     expect(screen.getByRole('button', { name: '确认布置' })).toBeDisabled();
     expect(dialog).toHaveTextContent('至少 20 条指令');
-    expect(dialog).toHaveTextContent('五种数据寻址方式');
+    expect(dialog).toHaveTextContent('代码需包含规定的五种数据寻址形式');
+    expect(dialog).toHaveTextContent('不代表已执行或掌握全部形式');
+
+    fireEvent.keyDown(experiment, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('option', { name: /proj04/ }));
+    expect(dialog).toHaveTextContent('无故障运行至少 200 条指令');
+    expect(dialog).toHaveTextContent('完整 temp/humi 遥测帧');
+    expect(dialog).toHaveTextContent('草稿与五项里程碑自检均已保存');
+    expect(dialog).not.toHaveTextContent('运行至正常结束');
+    expect(dialog).not.toHaveTextContent('点击“完成实验”');
   });
 
   it('does not open supplemental intervention when the manageable student is outside the requested batch', async () => {
@@ -2394,7 +2423,7 @@ describe('HyperTeacherPage recovery states', () => {
     expect(emptyDetail).not.toBeNull();
     expect(within(emptyDetail as HTMLElement).getAllByText('暂无记录')).toHaveLength(3);
     expect(screen.getByText('暂无可比较的分阶段作答记录。每名学生至少完成 2 次测验后，才计算较早与较晚记录变化。')).toBeInTheDocument();
-    expect(screen.getByText('已作答学生排名')).toBeInTheDocument();
+    expect(screen.getByText(/已作答学生排名/)).toHaveTextContent('按全部作答均分');
     expect(screen.getAllByText('0% · 1次').length).toBeGreaterThan(0);
     expect(screen.getByText('实验 0/1')).toBeInTheDocument();
 

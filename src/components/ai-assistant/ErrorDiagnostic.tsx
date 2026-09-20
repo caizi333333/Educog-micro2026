@@ -227,6 +227,57 @@ export function runStaticCheck(code: string): DiagnosticResult[] {
       return;
     }
 
+    // 操作数取值范围与间接寻址形式检查（此前只查个数，MOV A,#300 之类越界值会漏报）
+    const parseNum = (raw: string): number | null => {
+      const t = raw.trim().toUpperCase();
+      const m = /^([0-9A-F]+)([HBDO]?)$/.exec(t) ?? /^0X([0-9A-F]+)()$/.exec(t);
+      if (!m) return null;
+      const [, digits, suf] = m;
+      const base = t.startsWith('0X') ? 16 : suf === 'H' ? 16 : suf === 'B' ? 2 : suf === 'O' ? 8 : 10;
+      if (base === 10 && !/^\d+$/.test(digits)) return null;
+      if (base === 2 && !/^[01]+$/.test(digits)) return null;
+      const v = parseInt(digits, base);
+      return Number.isFinite(v) ? v : null;
+    };
+    operands.forEach((op, idx) => {
+      const t = op.trim();
+      if (t.startsWith('#')) {
+        const v = parseNum(t.slice(1));
+        if (v === null) return;                                   // 符号常量/表达式交给汇编器
+        const is16 = mnemonic === 'MOV' && idx === 1 && operands[0].trim().toUpperCase() === 'DPTR';
+        const max = is16 ? 0xFFFF : 0xFF;
+        if (v > max) {
+          push({
+            severity: 'error',
+            line: lineNo,
+            message: `立即数 ${t} 超出范围（${is16 ? '16 位，最大 0FFFFH' : '8 位，最大 0FFH'}）`,
+            description: is16 ? '只有 MOV DPTR,#data16 接受 16 位立即数。' : '8051 通用寄存器与 RAM 单元均为 8 位，立即数不能超过 255（0FFH）。',
+            suggestion: is16 ? '把立即数改为不超过 0FFFFH 的值。' : `把 ${t} 改为 0–0FFH 范围内的值，例如 #30H。`,
+          });
+        }
+      } else if (t.startsWith('@')) {
+        const u = t.toUpperCase().replace(/\s+/g, '');
+        if (!['@R0', '@R1', '@DPTR', '@A+DPTR', '@A+PC'].includes(u)) {
+          push({
+            severity: 'error',
+            line: lineNo,
+            message: `间接寻址写法 ${t} 不合法`,
+            description: '8051 只支持 @R0、@R1、@DPTR、@A+DPTR、@A+PC 五种间接寻址形式；R2–R7 不能作地址指针。',
+            suggestion: '把地址指针换成 R0 或 R1，例如 MOV @R0,A。',
+          });
+        }
+      }
+    });
+    if (mnemonic === 'DJNZ' && operands[0] && operands[0].trim().startsWith('#')) {
+      push({
+        severity: 'error',
+        line: lineNo,
+        message: 'DJNZ 的第一个操作数必须是寄存器或直接地址',
+        description: 'DJNZ 先把计数单元减 1 再判断是否为 0，立即数不能被修改。',
+        suggestion: '例如 DJNZ R0,MAIN 或 DJNZ 30H,MAIN。',
+      });
+    }
+
     // 跳转/调用目标标号登记（第二遍结束后统一复核）
     const labelIdx = LABEL_OPERAND_INDEX[mnemonic];
     if (labelIdx !== undefined && operands[labelIdx]) {
@@ -426,7 +477,7 @@ const ErrorDiagnostic: React.FC = () => {
         <CardHeader>
           <CardTitle>代码输入</CardTitle>
           <CardDescription>
-            请输入 8051 汇编代码，系统将进行逐行静态检查（未知助记符、缺逗号、标号未定义等）
+            请输入 8051 汇编代码，系统将进行逐行静态检查（未知助记符、操作数个数与取值范围、间接寻址形式、标号未定义等）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

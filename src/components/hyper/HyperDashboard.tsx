@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
@@ -914,7 +915,7 @@ export function HyperDashboard() {
           </StatusBanner>
         )}
 
-        {state.dataProvenance && (
+        {SHOW_DATA_PROVENANCE_NOTICE && state.dataProvenance && (
           <div
             role="note"
             className={cn(

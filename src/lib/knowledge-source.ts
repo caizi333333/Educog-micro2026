@@ -7,7 +7,7 @@
 // request.
 
 import { prisma } from '@/lib/prisma';
-import { knowledgePoints, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
+import { knowledgePoints, resolveKnowledgeResourceHref, type KnowledgePoint, type KnowledgePointResource } from '@/lib/knowledge-points';
 
 type CachedSnapshot = { points: KnowledgePoint[]; source: 'db' | 'static'; ts: number };
 const TTL_MS = 30_000;
@@ -57,6 +57,17 @@ export function validateKnowledgeNodeShape(input: KnowledgeNodeShapeInput): stri
   return null;
 }
 
+function isKnowledgeResource(value: unknown): value is KnowledgePointResource {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const resource = value as Record<string, unknown>;
+  return typeof resource.title === 'string'
+    && typeof resource.type === 'string'
+    && ['video', 'animation', 'slide', 'quiz', 'document', 'experiment', 'image'].includes(resource.type)
+    && (resource.url === undefined || typeof resource.url === 'string')
+    && (resource.refId === undefined || typeof resource.refId === 'string')
+    && (resource.duration === undefined || (typeof resource.duration === 'number' && Number.isFinite(resource.duration)));
+}
+
 function rowToKnowledgePoint(row: {
   id: string;
   name: string;
@@ -77,7 +88,9 @@ function rowToKnowledgePoint(row: {
     description: row.description ?? undefined,
     graphNodeId: row.graphNodeId ?? undefined,
     parentId: row.parentId ?? undefined,
-    resources: Array.isArray(row.resources) ? (row.resources as KnowledgePointResource[]) : undefined,
+    // The write API accepts JSON null and [] as clearing the resource field.
+    // Do not reinterpret an explicit empty value as permission to restore it.
+    resources: Array.isArray(row.resources) ? row.resources.filter(isKnowledgeResource) : row.resources === null ? [] : undefined,
     prerequisites: row.prerequisites ?? [],
     appliedIn: row.appliedIn ?? [],
   };
@@ -87,6 +100,45 @@ function withoutUndefined<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined),
   ) as Partial<T>;
+}
+
+// These four old, unlinked placeholders were replaced by verified course
+// resources. Match their complete visible identity, not a teacher's custom URL.
+const legacyResourceReplacements: Readonly<Record<string, { refId: string; type: KnowledgePointResource['type']; title: string; replacementRefId: string }>> = {
+  '3.5': { refId: 'ch03-ppt-s5', type: 'slide', title: '3.5 控制转移指令 课件', replacementRefId: 'course-lab-carry-branch' },
+  '3.6': { refId: 'ch03-ppt-s6', type: 'slide', title: '3.6 位操作指令 课件', replacementRefId: 'course-lab-carry-branch' },
+  '4.2': { refId: 'ch04-ppt-s2', type: 'slide', title: '4.2 C51数据类型 课件', replacementRefId: 'course-lab-c51-basics' },
+  '5.4': { refId: 'anim-interrupt-response', type: 'animation', title: '中断响应全过程时序动画', replacementRefId: 'anim-interrupt-flow' },
+};
+
+function mergeCourseResources(base: KnowledgePoint, overlay: KnowledgePoint): KnowledgePointResource[] | undefined {
+  if (overlay.resources === undefined) return base.resources;
+  // A missing item may have been deliberately removed. Only replace existing
+  // legacy placeholders; never fill gaps in a teacher-maintained resource array.
+  const merged = overlay.resources.map((resource) => {
+    if (!resource.refId || resource.url || resolveKnowledgeResourceHref(resource, overlay.chapter) !== null) return resource;
+    const alias = legacyResourceReplacements[base.id];
+    const matchesAlias = alias && resource.refId === alias.refId
+      && resource.type === alias.type && resource.title === alias.title;
+    const replacement = base.resources?.find((candidate) => candidate.refId === (matchesAlias ? alias.replacementRefId : resource.refId));
+    if (!replacement || resolveKnowledgeResourceHref(replacement, base.chapter) === null) return resource;
+    const oldSlideTitle = base.level === 1
+      ? `第${base.chapter}章 ${base.name} 课件PPT`
+      : `${base.id} ${base.name} 课件`;
+    const matchesOldSlide = resource.type === 'slide' && resource.title === oldSlideTitle;
+    const matchesOldDocument = resource.type === 'document' && (
+      (resource.refId === 'doc-dev-workflow' && resource.title === '嵌入式系统开发流程指南')
+      || (resource.refId === 'doc-report-template' && resource.title === '技术报告写作规范模板')
+    );
+    return matchesAlias || matchesOldSlide || matchesOldDocument ? replacement : resource;
+  });
+  const seen = new Set<string>();
+  return merged.filter((resource) => {
+    const signature = JSON.stringify(Object.entries(resource).sort(([left], [right]) => left.localeCompare(right)));
+    if (seen.has(signature)) return false;
+    seen.add(signature);
+    return true;
+  });
 }
 
 /**
@@ -114,7 +166,17 @@ export function mergeKnowledgePointCatalog(databasePoints: KnowledgePoint[]): Kn
 
   const merged = knowledgePoints.map((base) => {
     const overlay = databaseById.get(base.id);
-    return overlay ? { ...base, ...withoutUndefined(overlay) } : base;
+    if (!overlay) return base;
+    const point = { ...base, ...withoutUndefined(overlay), resources: mergeCourseResources(base, overlay) };
+    // Keep the teacher's text while displaying the shipped erratum next to the
+    // actual source it qualifies. Do not attach it to a custom replacement URL.
+    const correctedSource = base.resources?.find((resource) => resource.refId === 'course-lab-c51-basics');
+    if (base.id === '4.2' && correctedSource && base.description
+      && point.resources?.some((resource) => resource.refId === correctedSource.refId && resource.url === correctedSource.url)
+      && !point.description?.includes(base.description)) {
+      point.description = [point.description, `课程资料阅读提示：${base.description}`].filter(Boolean).join('\n\n');
+    }
+    return point;
   });
   databaseById.forEach((point, id) => {
     if (!staticIds.has(id)) merged.push(point);

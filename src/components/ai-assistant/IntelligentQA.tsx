@@ -30,7 +30,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const AI_REQUEST_TIMEOUT_MS = 20_000;
+// Allow the API's 30-second response window plus a short transport margin.
+const AI_REQUEST_TIMEOUT_MS = 35_000;
 const FEEDBACK_REQUEST_TIMEOUT_MS = 10_000;
 
 type FeedbackVote = 'up' | 'down';
@@ -44,26 +45,6 @@ function throwIfRequestAborted(signal: AbortSignal): void {
   if (!signal.aborted) return;
   if (signal.reason instanceof Error) throw signal.reason;
   throw new DOMException('请求已取消', 'AbortError');
-}
-
-function waitForAbortableDelay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const onAbort = (): void => {
-      clearTimeout(timeoutId);
-      signal.removeEventListener('abort', onAbort);
-      try {
-        throwIfRequestAborted(signal);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    const timeoutId = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    if (signal.aborted) onAbort();
-    else signal.addEventListener('abort', onAbort, { once: true });
-  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +64,26 @@ interface RelatedNode {
   name: string;
   chapter: number;
   level: number;
+}
+
+type CourseSource = {
+  id: string; title: string; page: number; sourcePage: number; href: string; excerpt: string;
+  readingNotes?: { text: string; title: string; url: string }[];
+};
+
+function isReadingNote(value: unknown): value is NonNullable<CourseSource['readingNotes']>[number] {
+  return isRecord(value) && typeof value.text === 'string' && typeof value.title === 'string'
+    && typeof value.url === 'string' && (/^https:\/\/[^\s]+$/.test(value.url)
+      || /^\/resources\/course\/course-slides\.pdf#page=\d+$/.test(value.url));
+}
+
+export function isCourseSource(value: unknown): value is CourseSource {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.title === 'string'
+    && Number.isInteger(value.page) && Number(value.page) >= 1 && Number(value.page) <= 167
+    && Number.isInteger(value.sourcePage) && Number(value.sourcePage) > 0
+    && value.href === `/resources/course/course-slides.pdf#page=${value.page}`
+    && typeof value.excerpt === 'string' && value.excerpt.length > 0
+    && (value.readingNotes === undefined || (Array.isArray(value.readingNotes) && value.readingNotes.every(isReadingNote)));
 }
 
 function isRelatedNode(value: unknown): value is RelatedNode {
@@ -139,7 +140,7 @@ function describeAnswerSource(
   relatedNodes: RelatedNode[],
 ): string {
   if (sourceType === '课程检索') {
-    return `当前回答由服务端课程检索直接组织；返回 ${relatedNodes.length} 个可核对节点，未调用外部生成服务。`;
+    return '当前回答直接采用检索到的课程内容；请对照所列课程节点或课件页。本回答不属于生成式解释。';
   }
   if (sourceType === '生成解释（引用课程节点）') {
     const citationCount = citedRelatedNodeIds(answer, relatedNodes).length;
@@ -151,7 +152,7 @@ function describeAnswerSource(
       : '服务端生成了解释，但未返回可核验的课程节点；请结合教材与实验结果复核。';
   }
   if (sourceType === '本地回退') {
-    return '服务端外部生成不可用，当前为固定回退内容；未形成生成式回答，请结合教材与实验条件复核。';
+    return '本回答为课程要点摘录，未调用外部生成模型；请结合教材与实验条件复核。';
   }
   return '服务端未返回一致、可核验的来源字段；不将本回答标作生成内容、课程检索或本地回退。';
 }
@@ -317,6 +318,7 @@ interface Message {
   sourceType?: AnswerSourceType;
   sourceDetail?: string;
   relatedNodes?: RelatedNode[];
+  courseSources?: CourseSource[];
 }
 
 interface CodeBlock {
@@ -473,6 +475,7 @@ const IntelligentQA: React.FC = memo(() => {
               timestamp: new Date(),
               relatedTopics,
               relatedNodes: visibleRelatedNodes,
+              courseSources: Array.isArray(data?.courseSources) ? data.courseSources.filter(isCourseSource).slice(0, 3) : [],
               sourceType,
               sourceDetail: describeAnswerSource(sourceType, answer, relatedNodes),
             };
@@ -484,8 +487,7 @@ const IntelligentQA: React.FC = memo(() => {
       console.warn('AI chat API failed, falling back to canned response:', err);
     }
 
-    // 模拟API调用延迟（fallback 路径）
-    await waitForAbortableDelay(1500, signal);
+    // 固定提示无需人为等待；取消后的请求仍不得写入回答。
     throwIfRequestAborted(signal);
 
     // 根据问题类型生成不同的回答
@@ -510,7 +512,7 @@ const IntelligentQA: React.FC = memo(() => {
 
 **I/O系统**
 - 4个8位并行I/O端口（P0-P3）
-- 每个端口都可以独立配置
+- 经典8051端口结构及第二功能各异，使用前需核对对应引脚
 
 **特殊功能**
 - 2个16位定时器/计数器
@@ -539,21 +541,24 @@ const IntelligentQA: React.FC = memo(() => {
         codeBlocks: [
           {
             language: 'c',
-            code: `// 定时器0配置示例
+            code: `// 定时器0配置示例（经典12T内核、12MHz晶振）
 // 工作模式1，16位定时器
-TMOD = 0x01;
+TR0 = 0;
+TMOD = (TMOD & 0xF0) | 0x01;
 
 // 设置初值，定时50ms（12MHz晶振）
 TH0 = 0x3C;
 TL0 = 0xB0;
+TF0 = 0;
 
 // 启动定时器
 TR0 = 1;
 
 // 等待定时器溢出
 while(!TF0);
+TR0 = 0;
 TF0 = 0;  // 清除溢出标志`,
-            explanation: '这段代码配置定时器0为16位模式，实现50ms定时功能'
+            explanation: '经典12T、12MHz条件下，从3CB0H计数至溢出需要50000个计数周期，即50ms；程序执行和轮询开销另计。'
           }
         ],
         relatedTopics: ['TMOD寄存器', 'TCON寄存器', '定时计算', '中断处理'],
@@ -571,7 +576,7 @@ TF0 = 0;  // 清除溢出标志`,
 - 低电平点亮，高电平熄灭
 
 **软件实现**
-- 配置P1.0为输出模式
+- 经典8051的P1为准双向口，通过写P1.0控制输出电平
 - 循环切换P1.0的电平状态
 - 在状态切换间加入适当延时`,
         timestamp: new Date(),
@@ -583,30 +588,34 @@ TF0 = 0;  // 清除溢出标志`,
 // 定义LED连接的引脚
 sbit LED = P1^0;
 
-// 延时函数
-void delay(unsigned int ms) {
-    unsigned int i, j;
-    for(i = 0; i < ms; i++)
+// 软件等待示例：参数为循环次数，不代表毫秒
+// 时长受晶振、内核与编译优化影响，需实测校准
+void delay_loops(unsigned int rounds) {
+    volatile unsigned int i, j;
+    for(i = 0; i < rounds; i++)
         for(j = 0; j < 123; j++);
 }
 
 void main() {
     while(1) {
         LED = 0;        // 点亮LED
-        delay(500);     // 延时500ms
+        delay_loops(500); // 循环等待
         LED = 1;        // 熄灭LED
-        delay(500);     // 延时500ms
+        delay_loops(500); // 循环等待
     }
 }`,
-            explanation: '使用软件延时实现LED每秒闪烁一次的效果'
+            explanation: '用循环等待演示LED亮灭切换；循环次数不能直接换算为毫秒，实际周期需测量。'
           },
           {
             language: 'c',
-            code: `// 使用定时器实现更精确的闪烁
+            code: `// 接续上方reg51.h与LED定义；经典12T内核、12MHz晶振
+// 以20次溢出累计约1秒，每约1秒翻转一次
 void timer0_init() {
-    TMOD = 0x01;    // 定时器0，模式1
+    TR0 = 0;
+    TMOD = (TMOD & 0xF0) | 0x01; // 保留T1设置，T0模式1
     TH0 = 0x3C;     // 50ms定时初值
     TL0 = 0xB0;
+    TF0 = 0;
     ET0 = 1;        // 允许定时器0中断
     EA = 1;         // 开总中断
     TR0 = 1;        // 启动定时器0
@@ -618,12 +627,12 @@ void timer0_isr() interrupt 1 {
     TL0 = 0xB0;
     
     count++;
-    if(count >= 20) {  // 1秒到
+    if(count >= 20) {  // 累计约1秒，响应与重装开销另计
         LED = ~LED;    // 翻转LED状态
         count = 0;
     }
 }`,
-            explanation: '使用定时器中断实现精确的1秒间隔LED闪烁'
+            explanation: '20次×50ms约为1s，每次翻转亮灭状态，因此完整亮灭周期约2s；实际时间还包含中断响应和软件重装开销。调用timer0_init后应保持主循环运行。'
           }
         ],
         relatedTopics: ['GPIO控制', '延时函数', '定时器中断', 'sbit关键字'],
@@ -997,6 +1006,30 @@ void timer0_isr() interrupt 1 {
                                   {message.sourceDetail && <p className="mt-1">{message.sourceDetail}</p>}
                                   <p className="mt-1 text-slate-500">仅作学习解释，不改变测验得分、实验完成状态或教师评价。</p>
                                 </div>
+
+                                {message.courseSources && message.courseSources.length > 0 && (
+                                  <details className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.04] px-3">
+                                    <summary className="flex min-h-11 cursor-pointer items-center text-sm text-cyan-100">对照授课课件（{message.courseSources.length}页）</summary>
+                                    <p className="mb-3 text-xs leading-5 text-slate-400">这些是本次检索到的课件原页文字，供核对回答。电路连线、图示和动画请打开原页查看。</p>
+                                    <div className="space-y-3 pb-3">
+                                      {message.courseSources.map((source) => (
+                                        <div key={source.id}>
+                                          <a href={source.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center break-words text-xs leading-5 text-cyan-200 underline underline-offset-4">
+                                            {source.title} · 原课件第{source.sourcePage}页（PDF第{source.page}页）
+                                          </a>
+                                          <p className="whitespace-pre-wrap break-words text-xs leading-6 text-slate-300">{source.excerpt}</p>
+                                          {source.readingNotes?.map((note, index) => (
+                                            <div key={index} className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/5 p-3 text-xs leading-6 text-amber-100">
+                                              <p className="font-medium">阅读提示</p>
+                                              <p>{note.text}</p>
+                                              <a href={note.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-4">{note.title}</a>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )}
 
                                 {/* 知识图谱节点（点击跳转到 /knowledge-graph 对应节点） */}
                                 {message.relatedNodes && message.relatedNodes.length > 0 && (

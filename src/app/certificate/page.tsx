@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { z } from 'zod';
 import {
@@ -273,7 +274,7 @@ export default function CertificatePage(): React.JSX.Element {
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-400">
             当前{data ? ROLE_LABELS[data.profile.role] : '账号'}没有服务端已颁发的证书记录。本页不会依据学习时长、最高分或账号角色临时生成证明。
           </p>
-          {data && (
+          {SHOW_DATA_PROVENANCE_NOTICE && data && (
             <div role="note" className="mx-auto mt-4 max-w-md rounded-md border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-left text-xs leading-5 text-amber-100">
               <span className="font-semibold">{data.dataProvenance.label}：</span>{data.dataProvenance.note}
             </div>
@@ -329,6 +330,7 @@ export default function CertificatePage(): React.JSX.Element {
       </header>
 
       <section aria-labelledby="certificate-page-title" className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8">
+        {SHOW_DATA_PROVENANCE_NOTICE && (
         <div
           role="note"
           className={`mb-5 rounded-md border px-4 py-3 text-xs leading-5 ${data.dataProvenance.mode === 'REAL'
@@ -338,6 +340,7 @@ export default function CertificatePage(): React.JSX.Element {
           <div><span className="font-semibold">{data.dataProvenance.label}：</span>{data.dataProvenance.note}</div>
           <div className="mt-1 opacity-70">记录核对截至 {new Date(data.asOf).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })}</div>
         </div>
+        )}
         <article className="relative overflow-hidden rounded-md border border-amber-200/20 bg-[#0d1218] shadow-[0_24px_80px_rgba(0,0,0,0.34)]" aria-labelledby="persisted-certificate-name">
           <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-amber-200/10" />

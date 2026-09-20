@@ -7,6 +7,65 @@ describe('Simulator Peripherals Tests', () => {
     simulator = new Simulator();
   });
 
+  describe('validated external inputs and interrupt delivery', () => {
+    it('ignores invalid pin, level and pulse duration values without mutating ports', () => {
+      for (const bit of [-1, 8, 0.5, NaN, Infinity]) simulator.setPortBit('P1', bit, false);
+      simulator.setPortBit('P9' as 'P1', 0, false);
+      simulator.setPortBit('P1', 0, 0 as unknown as boolean);
+      for (const duration of [-1, 0, 0.5, NaN, Infinity, 200001]) simulator.pulsePortBit('P1', 0, duration);
+      expect(simulator.getState().portValues).toEqual({ P0: 255, P1: 255, P2: 255, P3: 255 });
+    });
+
+    it('accepts only one valid byte with reception enabled, and reset clears received state', () => {
+      simulator.updateCode('MOV SCON, #50H\nLOOP: SJMP LOOP');
+      expect(simulator.receiveUartByte(65)).toBe(false);
+      simulator.step();
+      for (const value of [-1, 256, 1.5, NaN, Infinity, '65']) {
+        expect(simulator.receiveUartByte(value as number)).toBe(false);
+      }
+      expect(simulator.receiveUartByte(0)).toBe(true);
+      expect(simulator.receiveUartByte(255)).toBe(false);
+      expect(simulator.getState().uart.RI).toBe(true);
+      simulator.reset();
+      expect(simulator.getState().uart.RI).toBe(false);
+      expect(simulator.getState().uart.receiveBuffer).toBe('');
+      expect(simulator.receiveUartByte(65)).toBe(false);
+    });
+
+    it('preserves a pending received byte while the same SBUF address is used for transmission', () => {
+      simulator.updateCode('MOV SCON, #50H\nMOV SBUF, #42H\nCLR RI\nMOV A, SBUF\nEND');
+      simulator.step();
+      expect(simulator.receiveUartByte(65)).toBe(true);
+      simulator.stepBatch(4);
+      expect(simulator.getState().registers.A).toBe(65);
+      expect(simulator.getState().uart.transmitBuffer).toBe('B');
+      simulator.updateCode('MOV SBUF, #43H\nMOV A, SBUF\nEND');
+      simulator.stepBatch(3);
+      expect(simulator.getState().registers.A).toBe(67);
+    });
+
+    it.each([true, false])('external INT0 respects %s edge selection and interrupt enable', edge => {
+      simulator.updateCode(`ORG 0\nLJMP MAIN\nORG 3\nINC 30H\nRETI\nORG 30H\nMAIN:\n${edge ? 'SETB IT0' : 'CLR IT0'}\nLOOP: SJMP LOOP`);
+      simulator.stepBatch(20);
+      simulator.setPortBit('P3', 2, false);
+      simulator.stepBatch(20);
+      expect(simulator.getState().ram[0x30]).toBe(0);
+      simulator.state.interrupts.EA = true;
+      simulator.state.interrupts.EX0 = true;
+      simulator.stepBatch(20);
+      const handled = simulator.getState().ram[0x30];
+      expect(edge ? handled === 1 : handled > 1).toBe(true);
+      simulator.setPortBit('P3', 2, true);
+      simulator.stepBatch(20);
+      const released = simulator.getState().ram[0x30];
+      simulator.stepBatch(20);
+      expect(simulator.getState().ram[0x30]).toBe(released);
+      simulator.setPortBit('P3', 2, false);
+      simulator.stepBatch(20);
+      expect(simulator.getState().ram[0x30]).toBeGreaterThan(released);
+    });
+  });
+
   describe('定时器模拟测试', () => {
     it('应该正确初始化定时器状态', () => {
       expect(simulator.state.timers.TCON).toBe(0x00);

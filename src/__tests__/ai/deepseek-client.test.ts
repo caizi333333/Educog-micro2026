@@ -45,6 +45,45 @@ describe('DeepSeekClient', () => {
       }
     };
 
+    it.each([true, false])('times out a stalled successful response body even when abort is respected: %s', async (respectsAbort) => {
+      jest.useFakeTimers();
+      try {
+        (fetch as jest.Mock).mockImplementationOnce(async (_url: string, init: RequestInit) => {
+          const readBody = () => new Promise((_resolve, reject) => {
+            if (respectsAbort) init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+          });
+          return { ok: true, status: 200, json: readBody };
+        });
+        const pending = client.chat(mockMessages);
+        const expectation = expect(pending).rejects.toThrow('DeepSeek API request timeout');
+        await jest.advanceTimersByTimeAsync(25_000);
+        await expectation;
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('times out when the transport never resolves and ignores abort', async () => {
+      jest.useFakeTimers();
+      try {
+        (fetch as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+        const pending = expect(client.chat(mockMessages)).rejects.toThrow('DeepSeek API request timeout');
+        await jest.advanceTimersByTimeAsync(25_000);
+        await pending;
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('rejects provider status without reading private or stalled error bodies', async () => {
+      const readBody = jest.fn(() => new Promise(() => {}));
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 402, text: readBody });
+      await expect(client.chat(mockMessages)).rejects.toThrow('DeepSeek API error: 402');
+      expect(readBody).not.toHaveBeenCalled();
+    });
+
     it('should fail before making a request when the API key is missing', async () => {
       const clientWithoutKey = new DeepSeekClient('');
 
@@ -110,7 +149,7 @@ describe('DeepSeekClient', () => {
 
       await expect(client.chat(mockMessages))
         .rejects
-        .toThrow('DeepSeek API error: 401 - API key not valid');
+        .toThrow('DeepSeek API error: 401');
     });
 
     it('should handle network errors', async () => {
@@ -223,7 +262,7 @@ describe('DeepSeekClient', () => {
 
       await expect(client.generateText('Hello world'))
         .rejects
-        .toThrow('DeepSeek API error: 500 - Internal server error');
+        .toThrow('DeepSeek API error: 500');
     });
   });
 

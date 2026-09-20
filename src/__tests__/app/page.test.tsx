@@ -1,11 +1,13 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { HyperCoursesPage as HomePage } from '@/components/hyper/HyperCoursesPage';
 import CourseRoute from '@/app/page';
 import ClearAuthPage from '@/app/clear-auth/page';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import * as knowledgePoints from '@/lib/knowledge-points';
+import { COURSE_SYLLABUS_TOPICS, COURSE_UNIT_ALIGNMENT } from '@/lib/course-curriculum';
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
@@ -64,7 +66,7 @@ describe('HomePage', () => {
     render(<HomePage />);
 
     expect(screen.getByText('课程内容')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('搜索章节、知识点、资源...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('搜索单元、知识点、资源...')).toBeInTheDocument();
   });
 
   it('renders experiment section when toggled', () => {
@@ -77,15 +79,116 @@ describe('HomePage', () => {
     expect(screen.getByPlaceholderText('搜索实验、主题、编号...')).toBeInTheDocument();
   });
 
+  it('shows every linked resource on demand and reports unavailable materials separately', () => {
+    const resources: knowledgePoints.KnowledgePointResource[] = [
+      ...Array.from({ length: 12 }, (_, index) => ({
+        type: 'document' as const,
+        title: `学习资料 ${index + 1}`,
+        url: `/resources/course/reading-${index + 1}.pdf#page=2`,
+      })),
+      { type: 'slide', title: '尚未提供的课件', refId: 'pending-slide' },
+      { type: 'video', title: '尚未提供的视频', refId: 'pending-video' },
+    ];
+    jest.spyOn(knowledgePoints, 'getResourcesByChapter').mockImplementation((chapter) => chapter === 3 ? resources : []);
+    render(<HomePage />);
+
+    const chapter = within(document.getElementById('item-3')!);
+    expect(chapter.getByText('已显示 10 / 12 项可用资源。另有 2 项资源尚未提供链接，暂不可打开。')).toBeInTheDocument();
+    expect(chapter.queryByRole('link', { name: /学习资料 12/ })).not.toBeInTheDocument();
+    expect(chapter.queryByText('尚未提供的课件')).not.toBeInTheDocument();
+    expect(chapter.getByText('当前可用：文档。先阅读知识点，再选择资料或练习。')).toBeInTheDocument();
+    expect(chapter.queryByText(/本章已接入/)).not.toBeInTheDocument();
+    const nextResource = chapter.getByRole('link', { name: '打开文档：学习资料 1，在新标签打开' });
+    expect(nextResource).toHaveAttribute('href', '/resources/course/reading-1.pdf#page=2');
+    expect(nextResource).toHaveAttribute('target', '_blank');
+    expect(nextResource).toHaveAttribute('rel', 'noreferrer');
+
+    const expand = chapter.getByRole('button', { name: '展开平台单元3的全部资源' });
+    expect(expand).toHaveClass('min-h-11', 'focus-visible:ring-2');
+    expect(expand).toHaveAttribute('aria-controls', 'chapter-3-resources');
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(expand);
+
+    const lastResource = chapter.getByRole('link', { name: /学习资料 12/ });
+    expect(lastResource).toHaveAttribute('href', '/resources/course/reading-12.pdf#page=2');
+    expect(lastResource).toHaveAttribute('target', '_blank');
+    expect(lastResource).toHaveAccessibleName(/在新标签打开/);
+    expect(chapter.getByText(/已显示 12 \/ 12 项可用资源/)).toBeInTheDocument();
+    fireEvent.click(chapter.getByRole('button', { name: '收起平台单元3的全部资源' }));
+    expect(chapter.queryByRole('link', { name: /学习资料 12/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the next experiment action on the existing internal route', () => {
+    jest.spyOn(knowledgePoints, 'getResourcesByChapter').mockImplementation((chapter) => chapter === 3
+      ? [{ type: 'experiment', title: '指令练习', refId: 'exp02' }]
+      : []);
+    render(<HomePage />);
+
+    const nextResource = within(document.getElementById('item-3')!).getByRole('link', { name: /打开实验：指令练习/ });
+    expect(nextResource).toHaveAttribute('href', '/simulation?experiment=exp02');
+    expect(nextResource).not.toHaveAttribute('target');
+  });
+
+  it('reveals matching resources beyond the initial preview in search results', () => {
+    const resources = Array.from({ length: 12 }, (_, index) => ({
+      type: 'document' as const,
+      title: `讲义条目${index + 1}`,
+      url: `/resources/course/reading-${index + 1}.pdf`,
+    }));
+    jest.spyOn(knowledgePoints, 'getResourcesByChapter').mockImplementation((chapter) => chapter === 3 ? resources : []);
+    render(<HomePage />);
+    expect(screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('搜索单元、知识点、资源...'), { target: { value: '讲义条目12' } });
+
+    expect(screen.getByRole('link', { name: /讲义条目12/ })).toBeInTheDocument();
+    expect(screen.getByText('已显示 12 / 12 项可用资源。')).toBeInTheDocument();
+    expect(screen.getByText('1 / 10 UNITS')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '3.1 寻址方式专项学习任务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '内嵌预览' })).not.toBeInTheDocument();
+    const results = document.getElementById('item-3')!;
+    const alignment = screen.getByRole('heading', { name: '课程主题对照' });
+    expect(results.compareDocumentPosition(alignment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('搜索单元、知识点、资源...'), { target: { value: '' } });
+    expect(screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '内嵌预览' })).toBeInTheDocument();
+  });
+
+  it('distinguishes the syllabus chapter numbers from platform units and opens a matching topic', () => {
+    expect(COURSE_SYLLABUS_TOPICS.map((topic) => topic.chapterNumber)).toEqual([1, 2, 3, 4, 5, 6, 8, 9, 10, 11]);
+    expect(COURSE_SYLLABUS_TOPICS.reduce((hours, topic) => hours + topic.theoryHours, 0)).toBe(48);
+    expect(COURSE_SYLLABUS_TOPICS.find((topic) => topic.chapterNumber === 6)?.platformUnits).toEqual([7]);
+    expect(COURSE_SYLLABUS_TOPICS.find((topic) => topic.chapterNumber === 10)?.platformUnits).toEqual([8]);
+    expect(COURSE_UNIT_ALIGNMENT[4]).toContain('C51 编程拓展');
+    expect(COURSE_UNIT_ALIGNMENT[10]).toContain('前沿应用拓展');
+    render(<HomePage />);
+
+    fireEvent.change(screen.getByPlaceholderText('搜索单元、知识点、资源...'), { target: { value: '不存在的课程主题' } });
+    const toggle = screen.getByRole('button', { name: '查看课程主题对照' });
+    expect(toggle).toHaveClass('min-h-11', 'focus-visible:ring-2');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: '收起课程主题对照' })).toHaveAttribute('aria-expanded', 'true');
+    const row = screen.getByRole('row', { name: /第6章 微控制器的串行通信技术/ });
+    const target = within(row).getByRole('link', { name: '单元 7' });
+    expect(target).toHaveAttribute('href', '#item-7');
+    target.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    fireEvent.click(target);
+
+    expect(screen.getByPlaceholderText('搜索单元、知识点、资源...')).toHaveValue('');
+    expect(screen.getByRole('button', { name: '展开平台单元7串行通信详情' })).toBeInTheDocument();
+    expect(screen.getByText('10 / 10 UNITS')).toBeInTheDocument();
+  });
+
   it('lets users recover from empty chapter and experiment searches in one action', () => {
     render(<HomePage />);
 
-    const chapterSearch = screen.getByPlaceholderText('搜索章节、知识点、资源...');
+    const chapterSearch = screen.getByPlaceholderText('搜索单元、知识点、资源...');
     fireEvent.change(chapterSearch, { target: { value: '不存在的课程内容' } });
     expect(screen.getByText(/没有找到与“不存在的课程内容”匹配/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '清除搜索' }));
     expect(chapterSearch).toHaveValue('');
-    expect(screen.getByText('10 / 10 CHAPTERS')).toBeInTheDocument();
+    expect(screen.getByText('10 / 10 UNITS')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /实验工作台/ }));
     const experimentSearch = screen.getByPlaceholderText('搜索实验、主题、编号...');
@@ -195,17 +298,21 @@ describe('HomePage', () => {
       expect(window.location.search).toContain('chapter=2');
       expect(window.location.hash).toBe('#item-2');
     });
-    expect(await screen.findByRole('button', { name: /收起第2章/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('button', { name: /收起平台单元2/ })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('routes specialized course quizzes to their formal assessment instead of a chapter fallback', () => {
     render(<HomePage />);
 
+    const unitPractice = screen.getByRole('link', { name: /平台单元 3 测验 单元练习/ });
+    expect(unitPractice).toHaveAttribute('href', '/quiz?chapter=3');
     expect(screen.getByRole('link', { name: /寻址方式 练习题/ })).toHaveAttribute(
       'href',
       '/quiz?topic=addressing-modes',
     );
-    fireEvent.click(screen.getByRole('button', { name: '展开第10章前沿应用详情' }));
+    expect(screen.getByRole('link', { name: /寻址方式 练习题/ })).toHaveTextContent('测验');
+    expect(screen.getByRole('link', { name: /寻址方式 练习题/ })).not.toHaveTextContent('单元练习');
+    fireEvent.click(screen.getByRole('button', { name: '展开平台单元10前沿应用详情' }));
     expect(screen.getByRole('link', { name: /AI素养情境测验/ })).toHaveAttribute(
       'href',
       '/quiz?topic=ai-literacy',
@@ -215,35 +322,39 @@ describe('HomePage', () => {
   it('keeps public course actions touch-sized and keyboard-visible on mobile', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false } as ReturnType<typeof useAuth>);
     render(<HomePage />);
+    fireEvent.click(screen.getByRole('button', { name: '展开平台单元3指令系统详情' }));
 
     for (const control of [
       screen.getByRole('link', { name: /芯智育才/ }),
       screen.getByRole('link', { name: '教师登录' }),
-      screen.getByRole('button', { name: /章节内容/ }),
+      screen.getByRole('button', { name: /单元内容/ }),
       screen.getByRole('button', { name: /实验内容/ }),
       screen.getByRole('button', { name: /内嵌预览/ }),
       screen.getByRole('link', { name: /新标签打开/ }),
-      screen.getByRole('button', { name: /课程章节/ }),
+      within(screen.getByRole('navigation', { name: '课程目录与筛选' })).getByRole('button', { name: /平台单元/ }),
       screen.getByRole('button', { name: /实验工作台/ }),
-      screen.getAllByRole('link', { name: /进入章节测验/ })[0],
+      screen.getAllByRole('link', { name: /进入单元测验/ })[0],
       screen.getByRole('link', { name: /寻址方式$/ }),
       screen.getByRole('link', { name: /寻址方式 练习题/ }),
       screen.getAllByRole('link', { name: /知识图谱$/ })[0],
-      screen.getAllByRole('link', { name: /章节测验$/ })[0],
+      screen.getByRole('button', { name: '查看课程主题对照' }),
     ]) {
       expect(control).toHaveClass('min-h-11', 'focus-visible:ring-2');
     }
 
-    expect(screen.getByPlaceholderText('搜索章节、知识点、资源...')).toHaveClass('min-h-11');
+    expect(screen.getByPlaceholderText('搜索单元、知识点、资源...')).toHaveClass('min-h-11');
     expect(screen.getByLabelText('课程移动导航')).toHaveClass('min-w-0');
-    expect(screen.getByRole('navigation', { name: '章节快捷跳转' })).toHaveClass('max-w-full', 'overflow-x-auto');
+    expect(screen.getByRole('navigation', { name: '单元快捷跳转' })).toHaveClass('max-w-full', 'overflow-x-auto');
   });
 
-  it('places the six-step addressing sample before supporting course materials for public reviewers', () => {
+  it('places the course structure before the compact six-step sample and supporting materials', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false } as ReturnType<typeof useAuth>);
     render(<HomePage />);
 
     expect(screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' })).toBeInTheDocument();
+    const unitOverview = screen.getByRole('heading', { name: '10 个平台单元' });
+    const sampleHeading = screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' });
+    expect(unitOverview.compareDocumentPosition(sampleHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByLabelText(/样板课第\d步/)).toHaveLength(6);
     expect(screen.getByLabelText(/样板课第1步/)).toHaveAttribute(
       'href',
@@ -253,7 +364,7 @@ describe('HomePage', () => {
       'href',
       '/login?role=student&from=%2Fknowledge-graph%3Fchapter%3D3%26node%3D3.1%23addressing-compare',
     );
-    expect(screen.getByRole('link', { name: '教师登录复核样板课' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '教师登录查看样板课' })).toHaveAttribute(
       'href',
       '/login?role=teacher&from=%2Fteacher',
     );
@@ -261,15 +372,16 @@ describe('HomePage', () => {
       'href',
       '/login?role=teacher&from=%2Fteacher',
     );
-    expect(screen.getByRole('navigation', { name: '公开课程导航' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '平台主导航' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: '课程内容' }));
-    expect(screen.getByText('非教学成效数据')).toBeInTheDocument();
+    expect(screen.getByText('演示样板')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '展开完成规则' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: '查看图纸' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: '查看图纸' })).toHaveAttribute('aria-controls', 'course-material-diagrams');
     expect(screen.getByRole('button', { name: '内嵌预览' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: '内嵌预览' })).toHaveAttribute('aria-controls', 'course-material-pdf');
-    expect(screen.getByRole('button', { name: '展开第1章单片机概述详情' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: '收起第3章指令系统详情' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '展开平台单元1单片机概述详情' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: '展开平台单元3指令系统详情' })).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(screen.getByRole('button', { name: /实验工作台/ }));
     expect(screen.queryByText('未开始')).not.toBeInTheDocument();

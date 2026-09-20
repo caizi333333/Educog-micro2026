@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -760,7 +761,7 @@ export default function WeakNodesPage(): React.JSX.Element {
               <span className="font-mono text-slate-500">{snapshot.quizId ?? requestedQuizId}</span>
               {snapshot.timestamp && <span className="text-slate-500">服务端回执 {new Date(snapshot.timestamp).toLocaleString('zh-CN')}</span>}
             </div>
-            {recordProvenance && (
+            {SHOW_DATA_PROVENANCE_NOTICE && recordProvenance && (
               <p className="mt-2 text-[11px] leading-5 text-amber-100">
                 <span className="font-semibold">{recordProvenance.label}：</span>{recordProvenance.note}
               </p>
@@ -776,7 +777,7 @@ export default function WeakNodesPage(): React.JSX.Element {
           </section>
         )}
 
-        {!loading && snapshot && recordProvenance && !hasExactReceiptContext && (
+        {SHOW_DATA_PROVENANCE_NOTICE && !loading && snapshot && recordProvenance && !hasExactReceiptContext && (
           <div
             role="note"
             className={cn(
@@ -1061,9 +1062,11 @@ function WeakNodeCard({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {supportResources.map((resource) => {
-                  const addressingGraphHref = '/knowledge-graph?chapter=3&node=3.1';
+                  // 只有真有地址的资源才可点；寻址动画有固定入口；其余指向该薄弱节点自己的图谱页，不再一律跳到 3.1
                   const href = resource.url
-                    ?? (resource.refId === 'anim-addressing-modes' ? `${addressingGraphHref}#addressing-compare` : addressingGraphHref);
+                    ?? (resource.refId === 'anim-addressing-modes'
+                      ? '/knowledge-graph?chapter=3&node=3.1#addressing-compare'
+                      : `/knowledge-graph?node=${encodeURIComponent(node.id)}`);
                   return (
                     <Link
                       key={`${resource.type}-${resource.refId ?? resource.title}`}

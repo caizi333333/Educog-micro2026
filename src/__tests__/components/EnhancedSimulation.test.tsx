@@ -2,6 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EnhancedSimulation from '@/components/EnhancedSimulation';
+import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
+import { Simulator } from '@/lib/simulator';
+import {
+  collectExperimentObservation, createExperimentObservation, getExperimentConfig,
+  validateExperimentObservation,
+} from '@/lib/experiment-config';
 import { clearAllMocks, mockPrisma } from '../utils/test-mocks';
 
 // Mock lucide-react icons
@@ -24,7 +30,18 @@ jest.mock('lucide-react', () => ({
   Info: () => <div data-testid="info-icon" />,
   Target: () => <div data-testid="target-icon" />,
   Lightbulb: () => <div data-testid="lightbulb-icon" />,
-  Clock: () => <div data-testid="clock-icon" />
+  Clock: () => <div data-testid="clock-icon" />,
+  Activity: () => <div />,
+  ArrowDown: () => <div />,
+  ArrowUp: () => <div />,
+  Car: () => <div />,
+  Keyboard: () => <div />,
+  Radio: () => <div />,
+  TerminalSquare: () => <div />,
+  Thermometer: () => <div />,
+  Waypoints: () => <div />,
+  ZoomIn: () => <div />,
+  ZoomOut: () => <div />
 }));
 
 // Mock UI components
@@ -239,5 +256,159 @@ describe('EnhancedSimulation Component', () => {
     render(<EnhancedSimulation />);
     
     expect(screen.getByText('实时调试')).toBeInTheDocument();
+  });
+});
+
+describe('HyperExperimentCanvas simulated ADC input', () => {
+  const inputName = 'P0 模拟 ADC 输入（0–255）';
+
+  function ConnectedCanvas({ simulator }: { simulator: Simulator }) {
+    const [state, setState] = React.useState(() => simulator.getState());
+    return (
+      <HyperExperimentCanvas
+        experimentId="proj02"
+        simulatorState={state}
+        onSetPortBit={(port, bit, level) => {
+          simulator.setPortBit(port, bit, level);
+          setState(simulator.getState());
+        }}
+      />
+    );
+  }
+
+  it.each([0, 127, 255])('writes input %i to actual P0 and the original program reads its complement', value => {
+    const simulator = new Simulator(getExperimentConfig('proj02')!.code);
+    render(<ConnectedCanvas simulator={simulator} />);
+    const input = screen.getByRole('slider', { name: inputName });
+
+    // Move away from the reset value first so the 255 case also exercises a change.
+    fireEvent.change(input, { target: { value: '64' } });
+    fireEvent.change(input, { target: { value: String(value) } });
+    expect(input).toHaveValue(String(value));
+    expect(simulator.getState().portValues.P0).toBe(value);
+    expect(simulator.getState().portValues.P1).toBe(255);
+
+    expect(() => simulator.stepBatch(30_000)).not.toThrow();
+    const state = simulator.getState();
+    expect(state.terminated).toBe(false);
+    expect(state.ram[0x32]).toBe(value);
+    expect(state.ram[0x30]).toBe(255 - value);
+  });
+
+  it('allows the original project to satisfy output observations after an intermediate input', () => {
+    const simulator = new Simulator(getExperimentConfig('proj02')!.code);
+    simulator.stepBatch(1_024);
+    render(<ConnectedCanvas simulator={simulator} />);
+    fireEvent.change(screen.getByRole('slider', { name: inputName }), { target: { value: '127' } });
+
+    let observation = createExperimentObservation();
+    expect(() => {
+      for (let batch = 0; batch < 2_000; batch++) {
+        const result = simulator.stepBatch(257);
+        observation = collectExperimentObservation(observation, simulator.getState(), result.executed);
+        if (validateExperimentObservation('proj02', observation).ok) break;
+      }
+    }).not.toThrow();
+    expect(simulator.getState().terminated).toBe(false);
+    expect(observation.adcPwmPairs).toContainEqual({ adc: 127, duty: 128 });
+    expect(new Set(observation.portValues.P2.map(value => value & 1))).toEqual(new Set([0, 1]));
+    expect(validateExperimentObservation('proj02', observation).ok).toBe(true);
+    expect(screen.getByText(/非真实 ADC 或光照测量/)).toBeInTheDocument();
+  });
+
+  it('disables input before initialization and when no actual setter is supplied', () => {
+    const setter = jest.fn();
+    const { rerender } = render(
+      <HyperExperimentCanvas experimentId="proj02" simulatorState={null} onSetPortBit={setter} />,
+    );
+    expect(screen.getByRole('slider', { name: inputName })).toBeDisabled();
+    expect(screen.getByText(/先运行或单步初始化/)).toBeInTheDocument();
+    expect(setter).not.toHaveBeenCalled();
+
+    rerender(<HyperExperimentCanvas experimentId="proj02" simulatorState={new Simulator().getState()} />);
+    expect(screen.getByRole('slider', { name: inputName })).toBeDisabled();
+    expect(screen.getByText(/当前视图仅显示端口值/)).toBeInTheDocument();
+  });
+
+  it('does not expose an ADC input for another project', () => {
+    render(<HyperExperimentCanvas experimentId="proj03" simulatorState={new Simulator().getState()} onSetPortBit={jest.fn()} />);
+    expect(screen.queryByRole('slider', { name: inputName })).not.toBeInTheDocument();
+  });
+});
+
+describe('HyperExperimentCanvas serial and car controls', () => {
+  function ConnectedCanvas({ simulator, experimentId, enabled = true }: {
+    simulator: Simulator; experimentId: string; enabled?: boolean;
+  }) {
+    const [state, setState] = React.useState(() => simulator.getState());
+    return <>
+      <button onClick={() => { simulator.stepBatch(1000); setState(simulator.getState()); }}>执行观测批次</button>
+      <HyperExperimentCanvas experimentId={experimentId} simulatorState={state} inputEnabled={enabled}
+        onReceiveUartByte={value => { const accepted = simulator.receiveUartByte(value); setState(simulator.getState()); return accepted; }}
+        onSetPortBit={(port, bit, level) => { simulator.setPortBit(port, bit, level); setState(simulator.getState()); }}
+        onPulsePortBit={(port, bit) => { simulator.pulsePortBit(port, bit); setState(simulator.getState()); }} />
+    </>;
+  }
+
+  it('sends car commands through the program, observes motor output, and switches sensor controls by mode', () => {
+    const simulator = new Simulator(getExperimentConfig('proj03')!.code);
+    simulator.stepBatch(1000);
+    render(<ConnectedCanvas simulator={simulator} experimentId="proj03" />);
+    expect(screen.getByRole('button', { name: '左侧障碍 · P3.2' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'F 前进' }));
+    expect(simulator.getState().ram[0x31]).toBe('S'.charCodeAt(0));
+    expect(screen.getByRole('button', { name: 'B 后退' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
+    expect(simulator.getState().portValues.P2 & 15).toBe(5);
+    expect(screen.getByText('前进')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '2 · 循迹模式' }));
+    fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
+    expect(screen.getByRole('button', { name: 'F 前进' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '左黑线' }));
+    fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
+    expect(simulator.getState().portValues.P1 & 7).toBe(6);
+    expect(simulator.getState().portValues.P2 & 15).toBe(4);
+  });
+
+  it('accepts one printable ASCII character and displays the actual echo after execution', () => {
+    const simulator = new Simulator(getExperimentConfig('exp09')!.code);
+    simulator.stepBatch(1000);
+    render(<ConnectedCanvas simulator={simulator} experimentId="exp09" />);
+    const input = screen.getByRole('textbox', { name: '串口接收字符（一个可打印 ASCII 字符）' });
+    fireEvent.change(input, { target: { value: '中' } });
+    expect(screen.getByRole('button', { name: '输入并回显' })).toBeDisabled();
+    fireEvent.change(input, { target: { value: '~' } });
+    fireEvent.click(screen.getByRole('button', { name: '输入并回显' }));
+    expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n');
+    expect(input).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
+    expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n~');
+    expect(input).toBeEnabled();
+  });
+
+  it('disables all external controls after stopping or reset and removes previous car controls when switching experiments', () => {
+    const simulator = new Simulator(getExperimentConfig('proj03')!.code);
+    simulator.stepBatch(1000);
+    const receive = jest.fn();
+    const { rerender } = render(<HyperExperimentCanvas experimentId="proj03" simulatorState={simulator.getState()}
+      inputEnabled={false} onReceiveUartByte={receive} onSetPortBit={jest.fn()} onPulsePortBit={jest.fn()} />);
+    for (const name of ['F 前进', '1 · 避障模式', '左黑线', '左侧障碍 · P3.2']) {
+      expect(screen.getByRole('button', { name })).toBeDisabled();
+    }
+    rerender(<HyperExperimentCanvas experimentId="proj03" simulatorState={null} onReceiveUartByte={receive} />);
+    expect(screen.getByRole('button', { name: '0 · 遥控模式' })).toBeDisabled();
+    rerender(<HyperExperimentCanvas experimentId="exp09" simulatorState={null} onReceiveUartByte={receive} />);
+    expect(screen.queryByRole('button', { name: 'F 前进' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '输入并回显' })).toBeDisabled();
+    expect(receive).not.toHaveBeenCalled();
+  });
+
+  it('shows the real P0 numeric segment output for proj01', () => {
+    const state = new Simulator().getState();
+    state.portValues.P0 = 0x5b;
+    render(<HyperExperimentCanvas experimentId="proj01" simulatorState={state} />);
+    expect(screen.getByLabelText('项目一数码管显示')).toHaveTextContent('2');
+    expect(screen.getByText('P0 = 0x5B')).toBeInTheDocument();
   });
 });

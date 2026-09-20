@@ -74,7 +74,8 @@ describe('public and account pages mobile contracts', () => {
     }
     expect(screen.getAllByRole('link', { name: /教师端登录|教师与管理员登录|学生注册|创建学生账号/ }).length).toBeGreaterThan(2);
     expect(screen.getByRole('heading', { name: /3.1 寻址方式.*教学闭环样板/ })).toBeInTheDocument();
-    expect(screen.getByText('非成效数据')).toBeInTheDocument();
+    expect(screen.getByText('待采集')).toBeInTheDocument();
+    expect(screen.getByText(/当前没有可核验结果，不生成成效数值/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '查看公开课程' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: '教师端登录' })).toHaveAttribute('href', '/login?role=teacher');
   });

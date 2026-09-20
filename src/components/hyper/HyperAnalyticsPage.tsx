@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
@@ -562,7 +563,7 @@ export function HyperAnalyticsPage() {
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               {isTeacherView
-                ? '汇总当前教师范围内的班级测评、学习过程、重复作答和AI使用记录；所有结果均显示数据身份与可解释边界。'
+                ? '汇总当前教师范围内的班级测评、学习过程、重复作答和AI使用记录，并标明各项的有效样本量。'
                 : '汇总你的测评、知识掌握度和成就记录；班级排行与教师专属分析不会在学生视图展示。'}
             </p>
           </div>
@@ -570,7 +571,7 @@ export function HyperAnalyticsPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
-        {dataProvenance && (
+        {SHOW_DATA_PROVENANCE_NOTICE && dataProvenance && (
           <div
             role="note"
             className={cn(
@@ -584,16 +585,6 @@ export function HyperAnalyticsPage() {
             <div>
               <div className="text-sm font-semibold">{dataProvenance.label}</div>
               <p className="mt-1 text-xs leading-5 opacity-80">{dataProvenance.note}</p>
-              {!isTeacherView && overviewAsOf && overviewSampleSize && (
-                <p className="mt-1 font-mono text-[10px] leading-5 opacity-70">
-                  截止 {new Date(overviewAsOf).toLocaleString('zh-CN', { hour12: false })}
-                  {' · '}测评 n={overviewSampleSize.quizAttempts}
-                  {' · '}学习 n={overviewSampleSize.learningProgressRecords}
-                  {' · '}实验 n={overviewSampleSize.experimentRecords}
-                  {' · '}成就 n={overviewSampleSize.achievementRecords}/{overviewSampleSize.achievementRules}
-                  {' · '}0 为已确认零记录，N/A 为无可计算记录或读取失败
-                </p>
-              )}
             </div>
           </div>
         )}
@@ -780,7 +771,7 @@ export function HyperAnalyticsPage() {
               <h2 className="text-lg font-semibold text-slate-50">教学过程数据</h2>
               <span className="text-xs text-slate-500">
                 {gainsData
-                  ? `${gainsData.dataProvenance?.label ?? '数据身份未标注'} · ${gainsData.scoreSummary.total} 名学生有测评记录`
+                  ? `${gainsData.scoreSummary.total} 名学生有测评记录`
                   : '教师专属分析'}
               </span>
             </div>

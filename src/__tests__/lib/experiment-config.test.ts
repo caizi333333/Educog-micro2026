@@ -5,9 +5,181 @@ import {
   OFFICIAL_EXPERIMENT_IDS,
   getExperimentConfig,
   getExperimentsByCategory,
-  checkPrerequisites
+  checkPrerequisites,
+  collectExperimentObservation,
+  createExperimentObservation,
+  validateExperimentObservation,
+  hasProj04TelemetryFrame,
+  PROJ04_MIN_OBSERVATION_STEPS,
 } from '@/lib/experiment-config';
 import { knowledgePoints, resolveKnowledgeResourceHref } from '@/lib/knowledge-points';
+import { getTeachingContent } from '@/lib/teaching-content';
+import { Simulator } from '@/lib/simulator';
+
+describe('Original experiment programs with available canvas inputs', () => {
+  it.each(experiments)('$id reaches its observation gate without editing the program', experiment => {
+    const simulator = new Simulator(experiment.code);
+    simulator.setBuzzerPin(experiment.peripheral?.buzzerPin ?? null);
+    let observation = createExperimentObservation();
+    let inputApplied = false;
+    const ready = (): boolean => experiment.id === 'exp02'
+      ? observation.steps >= 20
+      : experiment.id === 'proj04'
+        ? observation.steps >= PROJ04_MIN_OBSERVATION_STEPS && hasProj04TelemetryFrame(observation.uartText)
+        : validateExperimentObservation(experiment.id, observation).ok;
+    for (let index = 0; index < 22000 && !ready(); index++) {
+      const batch = simulator.stepBatch(257);
+      const state = simulator.getState();
+      observation = collectExperimentObservation(observation, state, batch.executed);
+      if (index >= 4 && !inputApplied) {
+        switch (experiment.id) {
+          case 'exp05': simulator.setPortBit('P3', 1, false); break;
+          case 'exp08': simulator.pulsePortBit('P3', 2); break;
+          case 'proj02':
+            for (let bit = 0; bit < 8; bit++) simulator.setPortBit('P0', bit, ((127 >> bit) & 1) === 1);
+            break;
+          case 'proj03': expect(simulator.receiveUartByte('F'.charCodeAt(0))).toBe(true); break;
+        }
+        inputApplied = true;
+      }
+      if (state.terminated) break;
+    }
+    expect({ id: experiment.id, ready: ready(), steps: observation.steps }).toEqual({
+      id: experiment.id, ready: true, steps: expect.any(Number),
+    });
+  });
+
+  it('proj03 handles all remote commands and leaves the stack balanced', () => {
+    const simulator = new Simulator(getExperimentConfig('proj03')!.code);
+    simulator.stepBatch(1000);
+    for (const [command, expected] of [['F', 5], ['B', 10], ['L', 4], ['R', 1], ['S', 0]] as const) {
+      expect(simulator.receiveUartByte(command.charCodeAt(0))).toBe(true);
+      simulator.stepBatch(1000);
+      // Stop on the top-level loop so a transient single-bit motor write is not mistaken for a settled state.
+      for (let index = 0; index < 100 && simulator.getState().registers.SP !== 0x60; index++) simulator.step();
+      expect(simulator.getState().portValues.P2 & 15).toBe(expected);
+      expect(simulator.getState().uart.RI).toBe(false);
+      expect(simulator.getState().registers.SP).toBe(0x60);
+    }
+  });
+
+  it('proj03 switches modes through serial reception and handles both obstacle inputs', () => {
+    const simulator = new Simulator(getExperimentConfig('proj03')!.code);
+    simulator.stepBatch(1000);
+    expect(simulator.receiveUartByte('1'.charCodeAt(0))).toBe(true);
+    simulator.stepBatch(1000);
+    expect(simulator.getState().ram[0x30]).toBe(1);
+    for (const [bit, turn] of [[2, 1], [3, 4]]) {
+      simulator.pulsePortBit('P3', bit);
+      simulator.stepBatch(100);
+      expect(simulator.getState().portValues.P2 & 15).toBe(turn);
+      simulator.stepBatch(100000);
+      expect(simulator.getState().portValues.P3 & (1 << bit)).not.toBe(0);
+      expect(simulator.getState().portValues.P2 & 15).toBe(5);
+    }
+    expect(simulator.receiveUartByte('2'.charCodeAt(0))).toBe(true);
+    simulator.stepBatch(1000);
+    expect(simulator.getState().ram[0x30]).toBe(2);
+    for (const [input, motion] of [[5, 5], [6, 4], [3, 1], [7, 0]]) {
+      for (let bit = 0; bit < 3; bit++) simulator.setPortBit('P1', bit, ((input >> bit) & 1) === 1);
+      simulator.stepBatch(1000);
+      for (let index = 0; index < 100 && simulator.getState().registers.SP !== 0x60; index++) simulator.step();
+      expect(simulator.getState().portValues.P2 & 15).toBe(motion);
+    }
+    expect(simulator.receiveUartByte('0'.charCodeAt(0))).toBe(true);
+    simulator.stepBatch(1000);
+    expect(simulator.getState().ram[0x30]).toBe(0);
+    expect(simulator.getState().portValues.P2 & 15).toBe(0);
+  });
+
+  it('exp09 displays welcome text and echoes actual received characters exactly once', () => {
+    const simulator = new Simulator(getExperimentConfig('exp09')!.code);
+    simulator.stepBatch(1000);
+    expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n');
+    for (const character of ['A', '0', '~', ' ']) {
+      expect(simulator.receiveUartByte(character.charCodeAt(0))).toBe(true);
+      expect(simulator.receiveUartByte(66)).toBe(false);
+      simulator.stepBatch(1000);
+    }
+    expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\nA0~ ');
+    expect(simulator.getState().uart.receiveBuffer).toBe('A0~ ');
+    expect(simulator.getState().registers.SP).toBe(7);
+  });
+
+  it.each([1, -1])('exp08 produces the expected half-step order for direction %i', direction => {
+    const simulator = new Simulator(getExperimentConfig('exp08')!.code);
+    simulator.stepBatch(1000);
+    expect(simulator.getState().ram[0x26]).toBe(0xf6);
+    expect(simulator.getState().ram[0x27]).toBe(0);
+    if (direction === -1) {
+      simulator.pulsePortBit('P3', 3);
+      simulator.stepBatch(10000);
+    }
+    simulator.pulsePortBit('P3', 2);
+    simulator.stepBatch(10000);
+    const phases = [0x10, 0x30, 0x20, 0x60, 0x40, 0xc0, 0x80, 0x90];
+    const observed: number[] = [];
+    for (let index = 0; index < 200 && observed.length < 10; index++) {
+      simulator.stepBatch(257);
+      const phase = simulator.getState().portValues.P1 & 0xf0;
+      if (phases.includes(phase) && observed.at(-1) !== phase) observed.push(phase);
+    }
+    expect(observed).toHaveLength(10);
+    for (let index = 1; index < observed.length; index++) {
+      expect(phases.indexOf(observed[index])).toBe((phases.indexOf(observed[index - 1]) + direction + 8) % 8);
+    }
+    simulator.pulsePortBit('P3', 2);
+    simulator.stepBatch(10000);
+    expect(simulator.getState().ram[0x22] & 1).toBe(0);
+    expect(simulator.getState().portValues.P1 & 0xf0).toBe(0);
+  });
+
+  it('exp08 obeys speed limits and stops after exactly 100 timer-driven steps', () => {
+    const simulator = new Simulator(getExperimentConfig('exp08')!.code);
+    simulator.stepBatch(1000);
+    const press = (bit: number): void => { simulator.pulsePortBit('P3', bit); simulator.stepBatch(10000); };
+    for (let index = 0; index < 6; index++) press(4);
+    expect(simulator.getState().ram[0x23]).toBe(9);
+    expect(simulator.getState().ram[0x26]).toBe(0xfe);
+    for (let index = 0; index < 10; index++) press(5);
+    expect(simulator.getState().ram[0x23]).toBe(1);
+    expect(simulator.getState().ram[0x26]).toBe(0xe0);
+    simulator.pulsePortBit('P3', 6);
+    let started = false;
+    for (let index = 0; index < 4000; index++) {
+      simulator.stepBatch(257);
+      const state = simulator.getState();
+      if (state.ram[0x22] & 1) started = true;
+      if (started && !(state.ram[0x22] & 1)) break;
+    }
+    expect(started).toBe(true);
+    expect(simulator.getState().ram[0x22] & 1).toBe(0);
+    expect(simulator.getState().timers.TR0).toBe(false);
+    expect(simulator.getState().timers.overflowCount0).toBe(100);
+  });
+
+  it('exp08 changes the very next energized phase when reversing an already running motor', () => {
+    const simulator = new Simulator(getExperimentConfig('exp08')!.code);
+    const phases = [0x10, 0x30, 0x20, 0x60, 0x40, 0xc0, 0x80, 0x90];
+    simulator.stepBatch(1000);
+    simulator.pulsePortBit('P3', 2);
+    simulator.stepBatch(20000);
+    for (const direction of [0, 1]) {
+      simulator.pulsePortBit('P3', 3);
+      const observed: number[] = [];
+      for (let index = 0; index < 30000 && observed.length < 5; index++) {
+        simulator.stepBatch(1);
+        const state = simulator.state;
+        const phase = state.portValues.P1 & 0xf0;
+        if ((state.ram[0x21] & 1) === direction && phases.includes(phase) && observed.at(-1) !== phase) observed.push(phase);
+      }
+      expect(observed).toHaveLength(5);
+      for (let index = 1; index < observed.length; index++) {
+        expect(phases.indexOf(observed[index])).toBe((phases.indexOf(observed[index - 1]) + (direction ? 1 : -1) + 8) % 8);
+      }
+    }
+  });
+});
 
 describe('Experiment Configuration', () => {
   describe('experiments array', () => {
@@ -208,7 +380,189 @@ describe('Experiment Configuration', () => {
     });
   });
 
+  describe('exp05 四路独立按键的实际执行', () => {
+    function makeKeyboardSimulator() {
+      const simulator = new Simulator(getExperimentConfig('exp05')!.code);
+      simulator.stepBatch(64);
+      expect(simulator.state.ram[0x21]).toBe(0);
+      expect(simulator.state.portValues.P0).toBe(0xff);
+      return simulator;
+    }
+
+    it.each([0, 1, 2, 3])('键%i应稳定输出自身编码，长按只接受一次，释放后重按可再次接受', (key) => {
+      const simulator = makeKeyboardSimulator();
+      simulator.setPortBit('P3', key, false);
+      simulator.stepBatch(20_000);
+      expect(simulator.state.portValues.P0).toBe(key);
+      expect(simulator.state.ram[0x20]).toBe(key);
+      expect(simulator.state.ram[0x21]).toBe(1);
+
+      simulator.stepBatch(100_000);
+      expect(simulator.state.ram[0x21]).toBe(1);
+      simulator.setPortBit('P3', key, true);
+      simulator.stepBatch(20_000);
+      simulator.setPortBit('P3', key, false);
+      simulator.stepBatch(20_000);
+      expect(simulator.state.ram[0x21]).toBe(2);
+      expect(simulator.state.portValues.P0).toBe(key);
+      expect(simulator.state.interrupts.EA).toBe(false);
+      expect(simulator.state.portValues.P1).toBe(0xff);
+    });
+
+    it('两次采样之间换键应拒绝本次候选，全部释放后新键才可接受', () => {
+      const simulator = makeKeyboardSimulator();
+      simulator.setPortBit('P3', 0, false);
+      simulator.stepBatch(100); // 已保存候选，但尚未完成确认延时。
+      expect(simulator.state.ram[0x22]).toBe(0);
+      simulator.setPortBit('P3', 0, true);
+      simulator.setPortBit('P3', 3, false);
+      simulator.stepBatch(30_000);
+      expect(simulator.state.ram[0x21]).toBe(0);
+      expect(simulator.state.portValues.P0).toBe(0xff);
+
+      simulator.setPortBit('P3', 3, true);
+      simulator.stepBatch(20_000);
+      simulator.setPortBit('P3', 3, false);
+      simulator.stepBatch(20_000);
+      expect(simulator.state.ram[0x21]).toBe(1);
+      expect(simulator.state.portValues.P0).toBe(3);
+    });
+
+    it('确认期间释放或同时多键都不能接受候选键', () => {
+      for (const nextInput of ['released', 'multiple'] as const) {
+        const simulator = makeKeyboardSimulator();
+        simulator.setPortBit('P3', 1, false);
+        simulator.stepBatch(100);
+        expect(simulator.state.ram[0x22]).toBe(1);
+        if (nextInput === 'released') simulator.setPortBit('P3', 1, true);
+        else simulator.setPortBit('P3', 2, false);
+        simulator.stepBatch(30_000);
+        expect(simulator.state.ram[0x21]).toBe(0);
+        expect(simulator.state.portValues.P0).toBe(0xff);
+      }
+    });
+
+    it('同时多键不能被误作全部释放，也不能重新允许接受按键', () => {
+      const simulator = makeKeyboardSimulator();
+      simulator.setPortBit('P3', 0, false);
+      simulator.setPortBit('P3', 1, false);
+      simulator.stepBatch(30_000);
+      expect(simulator.state.ram[0x21]).toBe(0);
+      simulator.setPortBit('P3', 1, true);
+      simulator.stepBatch(20_000);
+      expect(simulator.state.ram[0x21]).toBe(1);
+
+      simulator.setPortBit('P3', 1, false);
+      simulator.stepBatch(20_000);
+      simulator.setPortBit('P3', 0, true);
+      simulator.stepBatch(20_000);
+      expect(simulator.state.ram[0x21]).toBe(1);
+      expect(simulator.state.portValues.P0).toBe(0);
+    });
+
+    it('短暂回高后再次拉低不能绕过释放确认', () => {
+      const simulator = makeKeyboardSimulator();
+      simulator.setPortBit('P3', 2, false);
+      simulator.stepBatch(20_000);
+      simulator.setPortBit('P3', 2, true);
+      simulator.stepBatch(100);
+      simulator.setPortBit('P3', 2, false);
+      simulator.stepBatch(30_000);
+      expect(simulator.state.ram[0x21]).toBe(1);
+    });
+
+    it('完整按键处理应保护工作寄存器且不覆盖计数变量', () => {
+      const simulator = makeKeyboardSimulator();
+      const initialRegisters = Array.from({ length: 8 }, (_, index) => 0x30 + index);
+      simulator.state.ram.set(initialRegisters, 0);
+      simulator.state.registers.B = 0x5a;
+      simulator.state.registers.DPL = 0x12;
+      simulator.state.registers.DPH = 0x34;
+      simulator.setPortBit('P3', 3, false);
+      simulator.stepBatch(20_000);
+      expect(Array.from(simulator.state.ram.slice(0, 8))).toEqual(initialRegisters);
+      expect(simulator.state.registers).toMatchObject({ B: 0x5a, DPL: 0x12, DPH: 0x34, SP: 0x2f });
+      expect(simulator.state.ram[0x21]).toBe(1);
+    });
+
+    it('应按实际延时指令复算12MHz且每机器周期12个晶振周期时的理论间隔', () => {
+      const code = getExperimentConfig('exp05')!.code;
+      const delayBody = code.split('\nDELAY_20MS:')[1]!.split('\nEND')[0]!;
+      const simulator = new Simulator(`ORG 0000H\nMOV SP, #2FH\nACALL DELAY_20MS\nEND\nDELAY_20MS:${delayBody}`);
+      simulator.step(); // 初始化堆栈不计入子程序调用时间。
+      const machineCycles: Record<string, number> = { ACALL: 2, PUSH: 2, MOV: 1, DJNZ: 2, POP: 2, RET: 2 };
+      let cycles = 0;
+      for (let index = 0; index < 20_000 && !simulator.state.terminated; index += 1) {
+        const { trace } = simulator.stepWithTrace();
+        const mnemonic = trace.instruction.split(' ')[0]!;
+        if (mnemonic === 'END') break;
+        expect(machineCycles[mnemonic]).toBeDefined();
+        cycles += machineCycles[mnemonic]!;
+      }
+      expect(simulator.state.terminated).toBe(true);
+      expect(cycles).toBe(20_313);
+      expect((cycles * 12 / 12_000_000) * 1000).toBeCloseTo(20.313, 6);
+      expect(getTeachingContent('exp05').theory.map(section => section.content).join(' ')).toContain('约20.313ms');
+    });
+
+    it('应将exp05关联到独立按键，矩阵和按键中断保留为理论内容', () => {
+      expect(knowledgePoints.find(point => point.id === '8.2.1')?.appliedIn).toContain('exp05');
+      for (const id of ['8.2.2', '5.3.3', '5.6.1']) {
+        expect(knowledgePoints.find(point => point.id === id)?.appliedIn ?? []).not.toContain('exp05');
+      }
+      const comparison = knowledgePoints.find(point => point.id === '5.3')?.resources?.find(resource => resource.refId === 'exp05');
+      expect(comparison?.title).toContain('不含外部中断');
+      const experiment = getExperimentConfig('exp05')!;
+      expect(experiment.peripheral?.keys?.map(key => key.label)).toEqual(['键0', '键1', '键2', '键3']);
+      expect(experiment.peripheral?.label).toContain('四路独立按键');
+    });
+  });
+
   describe('实验内容验证', () => {
+    it('串口示例应发出欢迎帧，且重装值在课件晶振条件下对应9600bit/s', () => {
+      const experiment = getExperimentConfig('exp09')!;
+      const simulator = new Simulator();
+      simulator.updateCode(experiment.code);
+      for (let step = 0; step < 6000 && !simulator.state.uart.transmitBuffer.includes('HELLO WORLD!\r\n'); step += 1) {
+        simulator.step();
+      }
+      expect(simulator.state.uart.transmitBuffer).toContain('HELLO WORLD!\r\n');
+      expect(simulator.state.timers.TMOD & 0xf0).toBe(0x20);
+      expect(experiment.code).toMatch(/ANL PCON, #7FH/);
+      // 最新第6章课件第45、47页：12T、SMOD=0、11.0592MHz。
+      const divisor = 12 * 32 * (256 - simulator.state.timers.TH1);
+      expect(11_059_200 / divisor).toBe(9600);
+      const errorPercentAt12MHz = ((12_000_000 / divisor) / 9600 - 1) * 100;
+      expect(errorPercentAt12MHz).toBeCloseTo(8.50694, 4);
+    });
+
+    it('大纲实验主题学时与平台拓展项目应分开，不能把自编项目合计进16学时', () => {
+      const matchedPracticeIds = ['exp01', 'exp02', 'exp03', 'exp04', 'exp06', 'exp07', 'exp08'];
+      matchedPracticeIds.forEach((id) => {
+        const mapping = getTeachingContent(id).syllabusMapping!;
+        expect(mapping.hours).toBe(2);
+        expect(mapping.hoursLabel).toContain('大纲实验');
+      });
+      ['proj01', 'proj02', 'proj03', 'proj04'].forEach((id) => {
+        const mapping = getTeachingContent(id).syllabusMapping!;
+        expect(mapping.hours).toBe(0);
+        expect(mapping.hoursLabel).toBe('平台拓展项目');
+      });
+      expect(getTeachingContent('exp09').syllabusMapping?.hoursLabel).toBe('对应理论章节');
+      expect(getTeachingContent('exp05').syllabusMapping?.hours).toBe(0);
+    });
+
+    it('路灯示例应按程序初值说明约3.91Hz的观察时序，不能称为无闪烁照明', () => {
+      const experiment = getExperimentConfig('proj02')!;
+      const high = Number.parseInt(experiment.code.match(/MOV TH0, #([0-9A-F]+)H/i)![1]!, 16);
+      const low = Number.parseInt(experiment.code.match(/MOV TL0, #([0-9A-F]+)H/i)![1]!, 16);
+      const timerCounts = 65536 - ((high << 8) | low);
+      const pwmHz = 12_000_000 / (12 * timerCounts * 256);
+      expect(pwmHz).toBeCloseTo(3.90625, 5);
+      expect(experiment.expectedResults.join(' ')).toContain('会闪烁');
+      expect(getTeachingContent('proj02').theory.map((section) => section.content).join(' ')).toContain('约3.91Hz');
+    });
+
     it('所有实验应该有有效的汇编代码', () => {
       experiments.forEach((experiment) => {
         expect(experiment.code).toBeDefined();

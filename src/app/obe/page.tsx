@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { CLIENT_READ_TIMEOUT_MS, fetchClientRequest } from '@/lib/client-fetch';
@@ -494,7 +495,7 @@ export default function OBEStudentPage() {
         </div>
       </div>
 
-      {progress && (
+      {SHOW_DATA_PROVENANCE_NOTICE && progress && (
         <div className="px-4 pt-5 md:px-6">
           <div
             role="note"
@@ -507,13 +508,6 @@ export default function OBEStudentPage() {
           >
             <div className="text-sm font-semibold">{progress.dataProvenance.label}</div>
             <p className="mt-1 text-xs leading-5 opacity-80">{progress.dataProvenance.note}</p>
-            <p className="mt-1 font-mono text-[10px] leading-5 opacity-70">
-              截止 {new Date(progress.asOf).toLocaleString('zh-CN', { hour12: false })}
-              {' · '}学生 n={progress.sampleSize.students}
-              {' · '}课程目标记录 n={progress.sampleSize.courseObjectiveRecords}
-              {' · '}指标点记录 n={progress.sampleSize.indicatorRecords}
-              {' · '}0 为已确认零记录，N/A 为班级、配置或同口径记录不足，不能计算
-            </p>
           </div>
         </div>
       )}

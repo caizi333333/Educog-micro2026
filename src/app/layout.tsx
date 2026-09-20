@@ -48,8 +48,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={`dark ${inter.variable} ${sourceCodePro.variable}`}>
-      <body className="font-body antialiased">
+    <html lang="zh-CN" className={`dark ${inter.variable} ${sourceCodePro.variable}`} suppressHydrationWarning>
+      <body className="font-body antialiased" suppressHydrationWarning>
         <ErrorBoundary>
           <AuthProvider>
             <ClientLayout>

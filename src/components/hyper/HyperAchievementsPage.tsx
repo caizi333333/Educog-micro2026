@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -439,7 +440,7 @@ export function HyperAchievementsPage() {
         </div>
       </div>
 
-      {dataProvenance && asOf && sampleSize && (
+      {SHOW_DATA_PROVENANCE_NOTICE && dataProvenance && asOf && sampleSize && (
         <div className="px-4 pt-5 md:px-6">
           <div
             role="note"
@@ -452,14 +453,6 @@ export function HyperAchievementsPage() {
           >
             <div className="text-sm font-semibold">{dataProvenance.label}</div>
             <p className="mt-1 text-xs leading-5 opacity-80">{dataProvenance.note}</p>
-            <p className="mt-1 font-mono text-[10px] leading-5 opacity-70">
-              截止 {new Date(asOf).toLocaleString('zh-CN', { hour12: false })}
-              {' · '}已解锁 n={sampleSize.unlockedAchievementRecords}/{sampleSize.achievementRules}
-              {' · '}学习 n={sampleSize.learningProgressRecords}
-              {' · '}测评 n={sampleSize.quizAttempts}
-              {' · '}实验 n={sampleSize.experimentRecords}
-              {' · '}0 为已确认零记录，N/A 为尚未取得可核验结果
-            </p>
           </div>
         </div>
       )}

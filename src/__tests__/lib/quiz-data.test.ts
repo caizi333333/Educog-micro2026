@@ -1,5 +1,6 @@
-import { quizQuestions, type MultipleChoiceQuestion, type CodeCompletionQuestion } from '@/lib/quiz-data';
+import { quizQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
+import { getTeachingContent } from '@/lib/teaching-content';
 import {
   ADDRESSING_INITIAL_QUESTION_IDS,
   ADDRESSING_RETEST_QUESTION_IDS,
@@ -7,6 +8,183 @@ import {
 } from '@/lib/lesson-tasks';
 
 describe('Quiz Data Tests', () => {
+  describe('网页指导练习与真实知识点覆盖', () => {
+    const additions = quizQuestions.filter((question) => question.id >= 366 && question.id <= 497);
+
+    it('顺延132题并使49个有具体指导依据的三级节点实际达到3题', () => {
+      expect(additions.map((question) => question.id)).toEqual(Array.from({ length: 132 }, (_, index) => index + 366));
+      const leafIds = new Set(additions.map((question) => question.ka));
+      expect(leafIds.size).toBe(49);
+      for (const id of leafIds) {
+        expect(knowledgePoints.find((point) => point.id === id)?.level).toBe(3);
+        expect(quizQuestions.filter((question) => question.ka === id)).toHaveLength(3);
+      }
+      expect(quizQuestions.filter((question) => question.id <= 365)).toHaveLength(365);
+      expect(new Set(quizQuestions.map((question) => question.questionText)).size).toBe(quizQuestions.length);
+    });
+
+    it('每题链接准确的现有指导章节，解析和答案仅在提交后公开', () => {
+      for (const question of additions) {
+        expect(isQuestionSource(question.source)).toBe(true);
+        const source = question.source;
+        if (source?.kind !== 'guide') throw new Error(`Question ${question.id} has no guide source`);
+        const section = getTeachingContent(source.experimentId)?.theory.find((candidate) => candidate.title === source.section);
+        expect(section?.content.trim().length).toBeGreaterThan(100);
+        expect(knowledgePoints.find((point) => point.id === question.ka)?.resources?.some((resource) => resource.url === source.url)).toBe(true);
+        expect(question.explanation?.length).toBeGreaterThan(20);
+        expect(toPublicQuestion(question)).not.toHaveProperty('correctAnswer');
+        expect(toPublicQuestion(question)).not.toHaveProperty('explanation');
+        expect(toPublicQuestion(question).source).toEqual(source);
+        if (question.type !== 'multiple-choice') throw new Error(`Unexpected question type: ${question.id}`);
+        expect(new Set(question.options).size).toBe(4);
+        expect(question.options.filter((option) => option === question.correctAnswer)).toHaveLength(1);
+      }
+    });
+
+    it('独立回算算术、寻址、定时、量化和负温度结果', () => {
+      const answer = (id: number) => quizQuestions.find((question) => question.id === id)?.correctAnswer;
+      const hex = (value: number, width = 2) => value.toString(16).toUpperCase().padStart(width, '0') + 'H';
+      expect(answer(388)).toBe(`${(5 - 2) / 0.0015 / 1000}kΩ`);
+      expect(answer(394)).toBe(hex(0x1200 + 3, 4));
+      expect(answer(395)).toBe(hex(0x100 + 2 + 5, 4));
+      expect(answer(408)).toBe(hex(0x12 + 0x20 + 1));
+      expect(answer(410)).toBe(hex(0x10 - 3 - 1));
+      expect(answer(411)).toBe(`A=${hex((0x20 - 0x30) & 0xFF)}，CY=1`);
+      expect(answer(413)).toBe(`A=${hex((0x20 * 0x10) & 0xFF)}，B=${hex((0x20 * 0x10) >> 8)}`);
+      expect(answer(416)).toBe(`A=${Math.floor(29 / 10)}，B=${29 % 10}`);
+      expect(answer(419)).toBe(hex(0x09 + 0x01 + 0x06));
+      expect(answer(422)).toBe(hex(0xA5 & 0x3C));
+      expect(answer(425)).toBe(hex(0x40 | 0x05));
+      expect(answer(427)).toBe(hex(0x5A ^ 0xFF));
+      expect(answer(430)).toBe(hex((~0x0F) & 0xFF));
+      expect(answer(448)).toBe(hex(65536 - 1000, 4));
+      expect(answer(449)).toBe(`${(65536 - 0xD8F0) / 1000}ms`);
+      expect(answer(455)).toBe(hex(256 - 200));
+      expect(answer(457)).toBe(`${1e6 / (2 * 1000)}μs`);
+      expect(answer(460)).toBe(`${1 / 4 * 100}%`);
+      expect(answer(461)).toBe(`${5 * 0.4}V`);
+      expect(answer(462)).toBe(`256ms、${(1000 / 256).toFixed(2)}Hz`);
+      expect(answer(463)).toBe(`${1000 / 50}次`);
+      expect(answer(465)).toBe(`${20 * 0.1}ms`);
+      expect(answer(467)).toBe(hex(0x3F ^ 0xFF));
+      expect(answer(469)).toBe(`${4 * 2}ms、${1000 / (4 * 2)}Hz`);
+      expect(answer(479)).toBe(String(2 * 4 + 3));
+      expect(answer(487)).toBe(`${(5 / 256 * 1000).toFixed(2)}mV`);
+      expect(answer(490)).toBe(`${0x0191 * 0.0625}°C`);
+      expect(answer(491)).toBe(`${(0xFF5E - 65536) * 0.0625}°C`.replace('-', '−'));
+    });
+
+    it('来源校验拒绝外部、伪造实验、空标题与越界页码，同时兼容旧PDF来源', () => {
+      const guide = additions[0]!.source!;
+      expect(isQuestionSource(guide)).toBe(true);
+      expect(isQuestionSource({ ...guide, url: 'javascript:alert(1)' })).toBe(false);
+      expect(isQuestionSource({ ...guide, experimentId: 'exp99', url: '/simulation?experiment=exp99&view=guide' })).toBe(false);
+      expect(isQuestionSource({ ...guide, section: '' })).toBe(false);
+      expect(isQuestionSource({ ...guide, page: 1 })).toBe(false);
+      expect(isQuestionSource({ title: '旧课件', page: 1, url: '/resources/course/course-slides.pdf#page=1' })).toBe(true);
+      expect(isQuestionSource({ title: '越界', page: 168, url: '/resources/course/course-slides.pdf#page=168' })).toBe(false);
+    });
+  });
+  describe('课件补充练习', () => {
+    const additions = quizQuestions.filter((question) => question.id >= 314 && question.id <= 365);
+    const supportedLeafIds = [
+      '7.1.1', '7.1.2', '7.1.3', '7.1.4', '7.1.5',
+      '7.2.1', '7.2.2', '7.2.3', '7.2.4',
+      '7.3.1', '7.3.2', '7.3.3', '7.3.4',
+      '7.4.1', '7.4.2', '8.5.1', '8.5.2',
+    ];
+
+    it('保留原313题ID，52道补充题顺延编号并直接关联已有三级知识点', () => {
+      expect(quizQuestions.filter((question) => question.id <= 313).map((question) => question.id))
+        .toEqual(Array.from({ length: 313 }, (_, index) => index + 1));
+      expect(additions.map((question) => question.id))
+        .toEqual(Array.from({ length: 52 }, (_, index) => index + 314));
+      for (const id of supportedLeafIds) {
+        expect(knowledgePoints.find((point) => point.id === id)?.level).toBe(3);
+        expect(additions.filter((question) => question.ka === id)).toHaveLength(3);
+      }
+      expect(additions.filter((question) => question.ka === '8.6.1')).toHaveLength(1);
+      expect(additions.some((question) => ['7.4.3', '7.4.4'].includes(question.ka))).toBe(false);
+    });
+
+    it('每道补充题都有独立题干、解析和有效的合并PDF页码', () => {
+      expect(new Set(additions.map((question) => question.questionText)).size).toBe(additions.length);
+      for (const question of additions) {
+        expect(question.explanation?.trim().length).toBeGreaterThan(20);
+        expect(question.source).toBeDefined();
+        const source = question.source!;
+        if (source.kind === 'guide') throw new Error('The original slide additions must retain PDF sources');
+        expect(Number.isInteger(source.page)).toBe(true);
+        expect(source.page).toBeGreaterThanOrEqual(1);
+        expect(source.page).toBeLessThanOrEqual(167);
+        expect(source.url).toBe(`/resources/course/course-slides.pdf#page=${source.page}`);
+        if (question.chapter === 7) {
+          expect(source.page).toBeLessThanOrEqual(77);
+          expect(source.title).toContain('第6章');
+          expect(source.title).toContain(`课件第${source.page}页`);
+        } else {
+          expect(source.page).toBeGreaterThan(77);
+          expect(source.title).toContain('第10章');
+          expect(source.title).toContain(`课件第${source.page - 77}页`);
+        }
+        if (question.type === 'multiple-choice') {
+          expect(new Set(question.options).size).toBe(question.options.length);
+          expect(question.options.filter((option) => option === question.correctAnswer)).toHaveLength(1);
+        }
+      }
+    });
+
+    it('计算题答案与帧长度、T1分频和电机控制公式一致', () => {
+      const answer = (id: number) => quizQuestions.find((question) => question.id === id)?.correctAnswer;
+      expect(answer(320)).toBe(`${1920 * (1 + 8 + 1)} Baud`);
+      expect(answer(321)).toBe(`${(1e6 / 4800).toFixed(2)} μs`);
+      expect(answer(322)).toBe(`${240 * 10 / 9600} s`);
+      expect(answer(323)).toBe(Array.from({ length: 8 }, (_, bit) => (0x96 >> bit) & 1).join('、'));
+      expect(answer(324)).toBe(`${8 / 10 * 100}%`);
+      expect(answer(325)).toBe(`${1 + 7 + 1 + 1}位`);
+      const reload = 256 - 11059200 / (12 * 32 * 4800);
+      expect(answer(335)).toBe(`${reload.toString(16).toUpperCase()}H`);
+      expect(answer(336)).toBe(`${11059200 / (12 * 16 * (256 - 0xFD))} Baud`);
+      const actualBaud = 12000000 / (12 * 32 * (256 - 0xFD));
+      expect(answer(337)).toBe(`${actualBaud.toFixed(2)} Baud，+${((actualBaud / 9600 - 1) * 100).toFixed(2)}%`);
+      expect(answer(338)).toBe(`${6000000 / 12} bit/s`);
+      expect(answer(361)).toBe(`${0.6 / 2 * 100}%`);
+      expect(answer(362)).toBe(`${360 / (40 * 6)}°`);
+    });
+
+    it('公开题目剔除答案和解析，保留课件出处，且不改动服务端原题', () => {
+      for (const question of additions) {
+        const publicQuestion = toPublicQuestion(question);
+        expect(publicQuestion).not.toHaveProperty('correctAnswer');
+        expect(publicQuestion).not.toHaveProperty('explanation');
+        expect(publicQuestion.source).toEqual(question.source);
+        expect(question.explanation).toBeDefined();
+        expect(question.correctAnswer).toBeDefined();
+      }
+      const source = additions[0]!.source!;
+      const codeQuestion: Question = {
+        id: 9999,
+        type: 'code-completion',
+        questionText: '启动T1的位操作是？',
+        code: 'SETB ___',
+        correctAnswer: 'TR1',
+        ka: '7.3.1',
+        chapter: 7,
+        explanation: 'TR1为T1运行控制位。',
+        source,
+      };
+      expect(toPublicQuestion(codeQuestion)).toEqual({
+        id: 9999,
+        type: 'code-completion',
+        questionText: '启动T1的位操作是？',
+        code: 'SETB ___',
+        ka: '7.3.1',
+        chapter: 7,
+        source,
+      });
+    });
+  });
+
   describe('Quiz Questions Structure', () => {
     it('应该包含测验问题', () => {
       expect(quizQuestions).toBeDefined();

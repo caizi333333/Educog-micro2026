@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { z } from 'zod';
@@ -30,7 +31,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { experiments as experimentCatalog } from '@/lib/experiment-config';
+import { experiments as experimentCatalog, PROJ04_MIN_OBSERVATION_STEPS } from '@/lib/experiment-config';
 import { getPointsByLevel } from '@/lib/knowledge-points';
 import { ADDRESSING_TASK_PRESET, ADDRESSING_TOPIC_ID } from '@/lib/lesson-tasks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -591,6 +592,7 @@ function hasLearningTimeRecord(student: TeacherStudent): boolean {
 }
 
 function studentQuizLabel(student: TeacherStudent, compact = false): string {
+  if (student.analysisEligible === false) return compact ? '演示账号' : '演示账号 · 不纳入分析';
   if (!hasQuizRecord(student)) return compact ? '未作答' : '暂无记录';
   return `${Math.round(student.avgScore ?? student.avgQuizScore ?? 0)}%`;
 }
@@ -1743,7 +1745,7 @@ export function HyperTeacherPage(): JSX.Element {
     <div className="-m-4 grid min-h-[calc(100vh-3.5rem)] animate-fade-in bg-[#070a0d] text-slate-100 sm:-m-6 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)_360px]">
       <aside aria-label="学生列表" className="order-2 hidden border-b border-white/[0.08] bg-[#0c1117] xl:sticky xl:top-0 xl:order-1 xl:block xl:h-[calc(100dvh-3.5rem)] xl:self-start xl:overflow-hidden xl:border-b-0 xl:border-r">
         <div className="border-b border-white/[0.08] p-4">
-          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">学生 · {data?.dataProvenance.label}</div>
+          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">学生</div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
@@ -1808,7 +1810,7 @@ export function HyperTeacherPage(): JSX.Element {
             </div>
             <h1 id="teacher-workspace-title" className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">教师工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              汇聚班级学情、预警干预与任务推送；所有统计均保留数据身份与样本边界。
+              汇聚班级学情、预警干预与任务推送；各项统计标明事件窗口与样本量。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1960,6 +1962,7 @@ export function HyperTeacherPage(): JSX.Element {
           </div>
         </div>
 
+        {SHOW_DATA_PROVENANCE_NOTICE && (
         <div
           role="note"
           aria-label="教师看板数据范围"
@@ -2001,6 +2004,7 @@ export function HyperTeacherPage(): JSX.Element {
             </p>
           )}
         </div>
+        )}
 
         {selectedStudent && (
           <section aria-label="当前复核对象" className="mb-5 overflow-hidden rounded-md border border-cyan-300/20 bg-gradient-to-r from-cyan-300/[0.08] via-white/[0.035] to-transparent">
@@ -2119,7 +2123,7 @@ export function HyperTeacherPage(): JSX.Element {
         <section className="stagger-children mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {([
             ['学生总数', data?.overview?.totalStudents ?? 0, Users],
-            ['今日活跃', data?.overview?.activeToday ?? 0, CheckCircle2],
+            ['24小时内有学习事件', data?.overview?.activeToday ?? 0, CheckCircle2],
             ['平均测验', overviewHasQuizRecords ? `${Math.round(data?.overview?.avgQuizScore ?? 0)}%` : '暂无记录', BarChart3],
             ['实验完成', overviewHasExperimentRecords ? `${Math.round(data?.overview?.avgExpCompletion ?? 0)}%` : '暂无记录', Target],
             ['平均时长', overviewHasLearningTimeRecords ? formatSecondsAsHours(data?.overview?.avgTimeSpent) : '暂无记录', Clock],
@@ -2208,7 +2212,7 @@ export function HyperTeacherPage(): JSX.Element {
                       <span className="font-mono text-emerald-100">{cycleData.inClass.totalEvents}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">近7日活跃学生</span>
+                      <span className="text-slate-400">近7日有学习事件的学生</span>
                       <span className="font-mono text-emerald-100">{cycleData.inClass.recentActiveStudents}</span>
                     </div>
                     <div className="flex justify-between text-xs">
@@ -2288,7 +2292,7 @@ export function HyperTeacherPage(): JSX.Element {
                   )}
                   {cycleData.postClass.topStudents.length > 0 && (
                     <div className="mt-3 space-y-1">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500">已作答学生排名</div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">已作答学生排名（按全部作答均分；报告页按各测验最高分均值，两者口径不同）</div>
                       {cycleData.postClass.topStudents.map((s, i) => (
                         <div key={s.name} className="flex items-center justify-between text-xs">
                           <span className="text-slate-300">{i + 1}. {s.name}</span>
@@ -2498,7 +2502,7 @@ export function HyperTeacherPage(): JSX.Element {
                       </div>
                       {student.weakChapters && student.weakChapters.length > 0 && (
                         <div className="border-t border-red-300/10 px-3 py-2">
-                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">薄弱章节</div>
+                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">学习进度不足60%的单元</div>
                           <div className="flex flex-wrap gap-2">
                             {student.weakChapters.map((ch) => (
                               <div key={ch.chapter} className="flex items-center gap-1.5 rounded-md border border-red-300/15 bg-red-300/[0.08] px-2 py-1">
@@ -2688,7 +2692,8 @@ export function HyperTeacherPage(): JSX.Element {
             </div>
             {Object.keys(selectedStudent.chapterMastery ?? {}).length > 0 && (
               <div className="border-t border-white/[0.06] p-4">
-                <div className="mb-2 text-xs font-semibold text-slate-400">章节掌握度</div>
+                <div className="mb-1 text-xs font-semibold text-slate-400">单元学习进度</div>
+                <p className="mb-3 text-xs leading-5 text-slate-500">按已保存的学习进度显示；100%表示进度完成，知识掌握情况仍需结合测验与教师评价判断。</p>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {Object.entries(selectedStudent.chapterMastery ?? {}).map(([ch, progress]) => (
                     <div key={ch} className="rounded-md border border-white/[0.06] bg-black/20 px-3 py-2">
@@ -3204,11 +3209,14 @@ export function HyperTeacherPage(): JSX.Element {
                   我的任务 → 课前实验任务 → {selectedAssignExperiment?.title ?? assignExpId}
                 </div>
                 <div>
-                  <span className="text-slate-500">完成条件：</span>
+                  <span className="text-slate-500">运行记录条件：</span>
                   {assignExpId === 'exp02'
-                    ? '无故障执行至少 20 条指令并覆盖规定的五种数据寻址方式，再点击“完成实验”；以服务端保存结果为准。'
-                    : '程序无故障运行至正常结束后点击“完成实验”；以服务端保存结果为准。'}
+                    ? '代码需包含规定的五种数据寻址形式，并无故障执行至少 20 条指令，停止后点击“保存运行记录”；代码包含这些形式不代表已执行或掌握全部形式。'
+                    : assignExpId === 'proj04'
+                      ? `无故障运行至少 ${PROJ04_MIN_OBSERVATION_STEPS} 条指令并观察完整 temp/humi 遥测帧，停止运行，确认草稿与五项里程碑自检均已保存，再点击“保存运行记录”。`
+                      : '无故障运行当前代码，满足所选实验的对应输出观测条件后停止，再点击“保存运行记录”；持续循环程序无需运行至结束。'}
                 </div>
+                <p className="text-slate-400">以服务端保存回执为准；记录表示本轮运行满足观测条件，学习目标与实物性能需另行评价。</p>
                 <div>
                   <span className="text-slate-500">教师回查：</span>
                   推送回查 → 本教师布置的实验任务

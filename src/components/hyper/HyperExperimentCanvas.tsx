@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   Activity, AlertTriangle, ArrowDown, ArrowUp, Camera, Car, Cpu, Keyboard,
   Lightbulb, Maximize2, Radio, TerminalSquare, Thermometer, Waypoints, Zap,
@@ -386,8 +386,9 @@ function BuzzerDisplay({ buzzer, pinLabel }: {
           {active ? `${frequency} Hz` : '静音'}
         </span>
         <span className="font-mono text-[11px] text-slate-400">
-          {pinLabel} 方波驱动{active ? ' · 发声中' : ''}
+          {pinLabel} 方波驱动{active ? ' · 方波有效' : ''}
         </span>
+        <span className="max-w-[250px] text-center text-[10px] leading-4 text-slate-500">当前显示模型估算频率与方波状态，未播放声音；音调和节拍需结合实物验证。</span>
       </div>
     </div>
   );
@@ -405,11 +406,11 @@ function KeyStrip({ keys, state, onSetPortBit, onPulsePortBit }: {
   onSetPortBit?: (port: PortName, bit: number, level: boolean) => void;
   onPulsePortBit?: (port: PortName, bit: number) => void;
 }) {
-  const interactive = !!onSetPortBit;
+  const interactive = !!state && !state.terminated && !!onSetPortBit;
   const hasMomentary = keys.some(k => k.momentary);
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         {keys.map(k => {
           const pressed = ((portValue(state, k.port) >> k.bit) & 1) === 0;
           const momentary = !!k.momentary && !!onPulsePortBit;
@@ -417,12 +418,25 @@ function KeyStrip({ keys, state, onSetPortBit, onPulsePortBit }: {
             <button
               key={`${k.port}.${k.bit}`}
               type="button"
-              disabled={!interactive}
+              disabled={!interactive || (!!k.momentary && !onPulsePortBit)}
               onClick={momentary ? () => onPulsePortBit?.(k.port, k.bit) : undefined}
               onPointerDown={momentary ? undefined : () => onSetPortBit?.(k.port, k.bit, false)}
               onPointerUp={momentary ? undefined : () => onSetPortBit?.(k.port, k.bit, true)}
               onPointerLeave={momentary ? undefined : () => { if (pressed) onSetPortBit?.(k.port, k.bit, true); }}
               onPointerCancel={momentary ? undefined : () => onSetPortBit?.(k.port, k.bit, true)}
+              onKeyDown={momentary ? undefined : (event): void => {
+                if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) {
+                  event.preventDefault();
+                  onSetPortBit?.(k.port, k.bit, false);
+                }
+              }}
+              onKeyUp={momentary ? undefined : (event): void => {
+                if (event.key === ' ' || event.key === 'Enter') {
+                  event.preventDefault();
+                  onSetPortBit?.(k.port, k.bit, true);
+                }
+              }}
+              onBlur={momentary ? undefined : (): void => onSetPortBit?.(k.port, k.bit, true)}
               className={cn(
                 'flex min-w-[52px] select-none flex-col items-center gap-0.5 rounded-lg border px-2.5 py-2 transition-all',
                 pressed
@@ -461,12 +475,12 @@ function KeysPanel({ state, cfg, onSetPortBit, onPulsePortBit }: {
     <div className="flex flex-col items-center gap-5">
       <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
         <Keyboard className="h-3.5 w-3.5 text-cyan-300" />
-        矩阵键盘 · 列线电平
+        四路独立按键 · 低电平输入
       </div>
       {cfg.keys && <KeyStrip keys={cfg.keys} state={state} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />}
       {keyPort && keyVal != null && (
         <div className="flex flex-col items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#070b0d] px-4 py-3">
-          <span className="text-[10px] text-slate-500">键值输出 {keyPort}（键值 = 行×4 + 列）</span>
+          <span className="text-[10px] text-slate-500">键值输出 {keyPort}（P3.0–P3.3 对应 0–3）</span>
           <div className="flex items-center gap-3">
             <span className="font-mono text-base font-semibold text-cyan-200">
               0x{keyVal.toString(16).toUpperCase().padStart(2, '0')}
@@ -494,7 +508,10 @@ function KeysPanel({ state, cfg, onSetPortBit, onPulsePortBit }: {
 
 // ─────────────────────────── 串口终端（exp09） ───────────────────────────
 /** 渲染 uart.transmitBuffer 真实发送内容；光标闪烁为 CSS 动画（不含数据伪造） */
-function SerialTerminal({ uart }: { uart: SimulatorState['uart'] | undefined }) {
+function SerialTerminal({ uart, onReceiveUartByte }: {
+  uart: SimulatorState['uart'] | undefined;
+  onReceiveUartByte?: (value: number) => boolean;
+}) {
   const buffer = uart?.transmitBuffer ?? '';
   const scon = uart?.SCON ?? 0;
   const mode = (scon >> 6) & 0x03;
@@ -541,16 +558,102 @@ function SerialTerminal({ uart }: { uart: SimulatorState['uart'] | undefined }) 
           已发送 {buffer.length} 字节
         </span>
       </div>
+      <SerialInput uart={uart} onReceiveUartByte={onReceiveUartByte} />
+    </div>
+  );
+}
+
+function SerialInput({ uart, onReceiveUartByte }: {
+  uart: SimulatorState['uart'] | undefined;
+  onReceiveUartByte?: (value: number) => boolean;
+}): ReactElement {
+  const [character, setCharacter] = useState('A');
+  const [message, setMessage] = useState('');
+  const ready = !!uart && (uart.SCON & 0x10) !== 0 && !uart.RI && !!onReceiveUartByte;
+  const valid = /^[\x20-\x7e]$/.test(character);
+  useEffect(() => { if (!uart) { setCharacter('A'); setMessage(''); } }, [uart]);
+  return (
+    <form className="space-y-1.5 rounded-lg border border-white/[0.08] p-2" onSubmit={event => {
+      event.preventDefault();
+      if (!ready || !valid || !onReceiveUartByte) return;
+      setMessage(onReceiveUartByte(character.charCodeAt(0))
+        ? `已输入 ${character}，继续执行后观察回显。`
+        : '当前中断仍在处理，请继续执行后再试。');
+    }}>
+      <div className="flex items-center gap-2">
+        <input aria-label="串口接收字符（一个可打印 ASCII 字符）" value={character}
+          disabled={!ready} maxLength={1} onChange={event => { setCharacter(event.target.value); setMessage(''); }}
+          className="h-11 min-w-0 flex-1 rounded border border-white/15 bg-[#070b0d] px-2 font-mono text-sm text-cyan-100 disabled:opacity-40" />
+        <button type="submit" disabled={!ready || !valid}
+          className="min-h-11 rounded border border-cyan-300/30 px-3 text-xs text-cyan-100 disabled:opacity-40">输入并回显</button>
+      </div>
+      <p className="text-[10px] leading-4 text-slate-400">模拟接收一个可打印 ASCII 字符（编码 32–126）；由原程序处理后发送，非真实串口连接。</p>
+      {(!ready || message || !valid) && <p role="status" className="text-[10px] leading-4 text-amber-200">
+        {message || (!valid ? '请输入一个英文字母、数字或英文标点。' : uart?.RI ? '当前接收字符待程序处理，请继续运行或单步。' : '先运行或单步完成串口初始化，再输入字符。')}
+      </p>}
+    </form>
+  );
+}
+
+function CarInputs({ state, onReceiveUartByte, onSetPortBit, onPulsePortBit }: {
+  state: SimulatorState | null;
+  onReceiveUartByte?: (value: number) => boolean;
+  onSetPortBit?: (port: PortName, bit: number, level: boolean) => void;
+  onPulsePortBit?: (port: PortName, bit: number) => void;
+}): ReactElement {
+  const [message, setMessage] = useState('');
+  useEffect(() => { if (!state) setMessage(''); }, [state]);
+  const ready = !!state && (state.uart.SCON & 0x10) !== 0 && state.interrupts.EA && state.interrupts.ES;
+  const mode = ready ? state.ram[0x30] : null;
+  const buttonClass = 'min-h-11 rounded border border-white/15 px-2 py-1 text-[11px] text-cyan-100 disabled:opacity-40 hover:enabled:border-cyan-300/50';
+  const send = (command: string): void => {
+    if (!ready || !onReceiveUartByte) return;
+    setMessage(onReceiveUartByte(command.charCodeAt(0))
+      ? `已输入 ${command}，由程序处理后更新状态。`
+      : '当前中断仍在处理，请继续执行后再试。');
+  };
+  return (
+    <div className="w-full max-w-[420px] space-y-2 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.03] p-2.5">
+      <div className="text-xs text-slate-200">模拟小车输入 · 当前模式：{mode === 0 ? '遥控' : mode === 1 ? '避障' : mode === 2 ? '循迹' : '待初始化'}</div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[['0', '遥控'], ['1', '避障'], ['2', '循迹']].map(([command, label]) => (
+          <button key={command} type="button" className={buttonClass} disabled={!ready || !onReceiveUartByte || state?.uart.RI}
+            aria-pressed={mode === Number(command)} onClick={() => send(command)}>{command} · {label}模式</button>
+        ))}
+      </div>
+      <div className="grid grid-cols-5 gap-1">
+        {[['F', '前进'], ['B', '后退'], ['L', '左转'], ['R', '右转'], ['S', '停止']].map(([command, label]) => (
+          <button key={command} type="button" className={buttonClass} disabled={!ready || mode !== 0 || !onReceiveUartByte || state?.uart.RI}
+            onClick={() => send(command)}>{command}<br />{label}</button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {[['左', 2], ['右', 3]].map(([label, bit]) => (
+          <button key={label} type="button" className={buttonClass} disabled={!ready || mode !== 1 || !onPulsePortBit}
+            onClick={() => onPulsePortBit?.('P3', Number(bit))}>{label}侧障碍 · P3.{bit}</button>
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {[['左黑线', 6], ['中黑线', 5], ['右黑线', 3], ['无黑线', 7]].map(([label, value]) => (
+          <button key={label} type="button" className={buttonClass} disabled={!ready || mode !== 2 || !onSetPortBit}
+            aria-pressed={ready && (state.portValues.P1 & 7) === value}
+            onClick={() => { for (let bit = 0; bit < 3; bit++) onSetPortBit?.('P1', bit, ((Number(value) >> bit) & 1) === 1); }}>{label}</button>
+        ))}
+      </div>
+      <p className="text-[10px] leading-4 text-slate-400">先运行，再选择模式与输入；仅模拟串口字节和红外电平，真实蓝牙、车速与循迹稳定性需实物验证。中断按指令推进，不表示实际响应时间。</p>
+      {message && <p role="status" className="text-[10px] leading-4 text-amber-200">{message}</p>}
     </div>
   );
 }
 
 // ─────────────────────────── 位状态面板（proj02/03/04） ───────────────────────────
 /** 通用位面板：每一项都来自实验配置里与代码注释核对过的端口位声明 */
-function BitPanel({ state, cfg, active }: {
+function BitPanel({ state, cfg, active, editableAdcInput = false, onSetPortBit }: {
   state: SimulatorState | null;
   cfg: PeripheralConfig;
   active: boolean;
+  editableAdcInput?: boolean;
+  onSetPortBit?: (port: PortName, bit: number, level: boolean) => void;
 }) {
   const entries = cfg.bitMap ?? [];
   const isOn = (e: BitMapEntry) => {
@@ -633,20 +736,50 @@ function BitPanel({ state, cfg, active }: {
 
       {(cfg.buses ?? []).map(bus => {
         const val = portValue(state, bus.port);
+        const isAdcInput = editableAdcInput && bus.port === 'P0';
         return (
-          <div key={bus.port} className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
-            <span className="text-[11px] text-slate-400">{bus.label}</span>
-            <span className="ml-auto font-mono text-[11px] text-cyan-200">
-              {bus.port} = 0x{val.toString(16).toUpperCase().padStart(2, '0')}
-            </span>
-            <div className="flex gap-0.5">
-              {Array.from({ length: 8 }, (_, i) => 7 - i).map(bit => (
-                <span
-                  key={bit}
-                  className={cn('h-2 w-2 rounded-sm', ((val >> bit) & 1) ? 'bg-cyan-300/80' : 'bg-[#1c2b31]')}
-                />
-              ))}
+          <div key={bus.port} className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-slate-400">{isAdcInput ? 'P0 模拟 ADC 输入' : bus.label}</span>
+              <span className="ml-auto font-mono text-[11px] text-cyan-200">
+                {bus.port} = 0x{val.toString(16).toUpperCase().padStart(2, '0')}
+              </span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 8 }, (_, i) => 7 - i).map(bit => (
+                  <span
+                    key={bit}
+                    className={cn('h-2 w-2 rounded-sm', ((val >> bit) & 1) ? 'bg-cyan-300/80' : 'bg-[#1c2b31]')}
+                  />
+                ))}
+              </div>
             </div>
+            {isAdcInput && (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    aria-label="P0 模拟 ADC 输入（0–255）"
+                    aria-describedby="proj02-adc-input-help"
+                    min={0}
+                    max={255}
+                    step={1}
+                    value={val}
+                    disabled={!state || !onSetPortBit}
+                    onChange={event => {
+                      const value = event.currentTarget.valueAsNumber;
+                      if (!state || !onSetPortBit || !Number.isInteger(value) || value < 0 || value > 255) return;
+                      // 同一事件内写入八位，随后执行的 MOV A,P0 读取该模拟输入字节。
+                      for (let bit = 0; bit < 8; bit++) onSetPortBit('P0', bit, ((value >> bit) & 1) === 1);
+                    }}
+                    className="h-8 min-w-0 flex-1 accent-cyan-300 disabled:opacity-40"
+                  />
+                  <output className="w-8 text-right font-mono text-[11px] text-cyan-200">{state ? val : '—'}</output>
+                </div>
+                <p id="proj02-adc-input-help" className="text-[10px] leading-4 text-slate-400">
+                  0–255 模拟数据，非真实 ADC 或光照测量。{!state ? '先运行或单步初始化，再调节输入。' : !onSetPortBit ? '当前视图仅显示端口值。' : '调节后继续执行，观察 PWM 输出变化。'}
+                </p>
+              </div>
+            )}
           </div>
         );
       })}
@@ -775,7 +908,7 @@ function WaveStrip({ history }: { history: number[][] }) {
 }
 
 // ─────────────────────────── 主组件 ───────────────────────────
-export function HyperExperimentCanvas({ simulatorState, isRunning = false, experimentId = null, onSetPortBit, onPulsePortBit }: {
+export function HyperExperimentCanvas({ simulatorState, isRunning = false, experimentId = null, inputEnabled = true, onSetPortBit: setPortBit, onPulsePortBit: pulsePortBit, onReceiveUartByte: receiveUartByte }: {
   simulatorState: SimulatorState | null;
   isRunning?: boolean;
   /** 当前加载的实验 ID：优先使用其 peripheral 声明，缺省回落端口启发式 */
@@ -784,7 +917,13 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
   onSetPortBit?: (port: PortName, bit: number, level: boolean) => void;
   /** 瞬时按键回调（固定模型时长的低电平脉冲） */
   onPulsePortBit?: (port: PortName, bit: number) => void;
+  onReceiveUartByte?: (value: number) => boolean;
+  inputEnabled?: boolean;
 }) {
+  const allowInput = inputEnabled && !!simulatorState && !simulatorState.terminated;
+  const onSetPortBit = allowInput ? setPortBit : undefined;
+  const onPulsePortBit = allowInput ? pulsePortBit : undefined;
+  const onReceiveUartByte = allowInput ? receiveUartByte : undefined;
   const [mode, setMode] = useState<'schematic' | 'real'>('schematic');
   const [zoom, setZoom] = useState(1);
   const [history, setHistory] = useState<number[][]>([]);
@@ -846,7 +985,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           />
         );
       case 'serial':
-        return <SerialTerminal uart={simulatorState?.uart} />;
+        return <SerialTerminal uart={simulatorState?.uart} onReceiveUartByte={onReceiveUartByte} />;
       case 'keys':
         return peripheralCfg
           ? <KeysPanel state={simulatorState} cfg={peripheralCfg} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />
@@ -858,6 +997,8 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
                 state={simulatorState}
                 cfg={peripheralCfg}
                 active={isRunning || (simulatorState?.pc ?? 0) > 0 || simulatorState?.terminated === true}
+                editableAdcInput={experimentId === 'proj02'}
+                onSetPortBit={onSetPortBit}
               />
             )
           : null;
@@ -875,7 +1016,14 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
     <section
       id="experiment-live-canvas"
       aria-labelledby="experiment-live-canvas-title"
-      className="order-first flex h-[360px] min-h-[360px] w-full min-w-0 flex-shrink-0 scroll-mt-3 flex-col overflow-hidden border-b border-white/[0.08] bg-[#0b1014] lg:order-none lg:h-auto lg:min-h-[420px] lg:w-[360px] lg:min-w-[360px] lg:border-b-0 lg:border-l xl:flex-[1.05]"
+      className={cn(
+        'order-first flex w-full min-w-0 flex-shrink-0 scroll-mt-3 flex-col overflow-hidden border-b border-white/[0.08] bg-[#0b1014] lg:order-none lg:h-auto lg:min-h-[420px] lg:w-[360px] lg:min-w-[360px] lg:border-b-0 lg:border-l xl:flex-[1.05]',
+        experimentId === 'proj03'
+          ? 'h-[680px] min-h-[680px]'
+          : experimentId === 'exp09'
+            ? 'h-[640px] min-h-[640px]'
+            : experimentId === 'proj02' ? 'h-[440px] min-h-[440px]' : 'h-[360px] min-h-[360px]',
+      )}
     >
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0e1317] px-3">
         <div className="flex items-center gap-2">
@@ -931,11 +1079,26 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           </div>
         ) : (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 overflow-y-auto p-4 pb-12"
+            className={cn(
+              'absolute inset-x-0 top-0 flex flex-col items-center gap-4 overflow-y-auto p-4',
+              ['proj02', 'proj03', 'exp09'].includes(experimentId ?? '') ? 'bottom-16 justify-start' : 'bottom-0 justify-center pb-12',
+            )}
             style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}
           >
+            {!inputEnabled && <p className="text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
+            {experimentId === 'proj03' && <CarInputs key={experimentId} state={simulatorState}
+              onReceiveUartByte={onReceiveUartByte} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />}
             {renderPeripheral()}
             {extraKeys}
+          </div>
+        )}
+
+        {experimentId === 'proj01' && (
+          <div className="absolute right-3 top-3 max-w-[145px] rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-2 text-center">
+            <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
+            <output aria-label="项目一数码管显示" className="block font-mono text-3xl text-cyan-200">{simulatorState ? SEGMENT_MAP[p0] ?? '—' : '—'}</output>
+            <div className="font-mono text-[10px] text-slate-400">P0 = 0x{p0.toString(16).toUpperCase().padStart(2, '0')}</div>
+            <p className="mt-1 text-[10px] leading-4 text-slate-500">8灯循环后显示0–9；可提高运行速度。</p>
           </div>
         )}
 

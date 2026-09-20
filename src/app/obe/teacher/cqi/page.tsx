@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -497,6 +498,8 @@ function DataProvenancePanel({
       </div>
     );
   }
+
+  if (!SHOW_DATA_PROVENANCE_NOTICE) return null;
 
   return (
     <div

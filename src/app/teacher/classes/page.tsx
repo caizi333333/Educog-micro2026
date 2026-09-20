@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, ChevronRight, Loader2, Plus, RefreshCw, Users } from 'lucide-react';
 import { z } from 'zod';
@@ -414,7 +415,7 @@ export default function TeacherClassesPage() {
         </div>
       )}
 
-      {dataProvenance && (
+      {SHOW_DATA_PROVENANCE_NOTICE && dataProvenance && (
         <div className={cn(
           'rounded-md border px-4 py-3 text-sm',
           dataProvenance.mode === 'REAL'

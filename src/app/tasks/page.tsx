@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { Activity, ArrowRight, BookOpen, CheckCircle2, Circle, Clock, FlaskConical, GitBranch, KeyRound, Loader2, LockKeyhole, PauseCircle, RefreshCw } from 'lucide-react';
 import { z } from 'zod';
@@ -665,7 +666,7 @@ export default function MyTasksPage(): JSX.Element {
           </div>
         )}
 
-        {data && (
+        {SHOW_DATA_PROVENANCE_NOTICE && data && (
           <div className={cn(
             'rounded-md border px-4 py-3 text-xs leading-5',
             data.dataProvenance.mode === 'REAL'

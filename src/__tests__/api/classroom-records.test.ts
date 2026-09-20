@@ -113,7 +113,7 @@ describe('Classroom and learning record APIs', () => {
       id: 'class-1',
       name: '机电2401',
       inviteCode: 'EDU2401',
-      courseName: '8051单片机原理与应用',
+      courseName: '微控制器原理及应用技术',
       semester: '2025-2026-2',
       status: 'ACTIVE',
       teacher: null,
@@ -137,7 +137,7 @@ describe('Classroom and learning record APIs', () => {
       id: 'class-1',
       name: '机电2401',
       inviteCode: 'EDU2401',
-      courseName: '8051单片机原理与应用',
+      courseName: '微控制器原理及应用技术',
       semester: '2025-2026-2',
       teacherId: 'teacher-1',
       status: 'ACTIVE',
@@ -237,7 +237,7 @@ describe('Classroom and learning record APIs', () => {
     const classGroup = {
       id: 'class-1',
       name: '机电2401',
-      courseName: '8051单片机原理与应用',
+      courseName: '微控制器原理及应用技术',
       semester: '2025-2026-2',
       status: 'ACTIVE',
     };
@@ -274,7 +274,7 @@ describe('Classroom and learning record APIs', () => {
     mockPrisma.classGroup.findUnique.mockResolvedValue({
       id: 'class-legacy',
       name: '机电2401',
-      courseName: '8051单片机原理与应用',
+      courseName: '微控制器原理及应用技术',
       semester: '2025-2026-2',
       status: 'ACTIVE',
     });

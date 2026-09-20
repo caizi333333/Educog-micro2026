@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LabScene } from '@/components/shared/LabScene';
+import { PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
 import { getAllowedRolesForPath, type ApplicationRole } from '@/lib/role-access';
 import { clearStoredAuth, storeAuth } from '@/lib/auth-storage';
 import {
@@ -124,6 +125,7 @@ export function HyperLoginPage() {
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const [formError, setFormError] = useState('');
   const [errorField, setErrorField] = useState<'account' | 'password' | 'form' | null>(null);
   const accountInputRef = useRef<HTMLInputElement>(null);
@@ -134,8 +136,13 @@ export function HyperLoginPage() {
     setRole(preferredLoginRole);
   }, [preferredLoginRole]);
 
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!ready || loading) return;
     const form = event.currentTarget as HTMLFormElement;
     const formData = new FormData(form);
     const submittedAccount = String(formData.get('emailOrUsername') ?? emailOrUsername).trim();
@@ -213,12 +220,13 @@ export function HyperLoginPage() {
   const submitLabel = role === 'student' ? '进入学习空间' : role === 'teacher' ? '进入教师工作台' : '进入管理后台';
 
   return (
-    <div className="grid min-h-[100dvh] overflow-x-hidden bg-[#070a0d] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="relative grid min-h-[100dvh] overflow-x-hidden bg-[#070a0d] pt-[69px] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
+      <PublicSiteHeader active="login" floating />
       <LabScene />
       <main className="relative flex items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
         <div className="w-full max-w-[390px]">
           <div className="mb-8">
-            <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-200">Sign in · 登录</div>
+            <div className="mb-3 font-mono text-xs uppercase tracking-[0.14em] text-cyan-200">Sign in · 登录</div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-50">欢迎回到工作台</h1>
             <p className="mt-2 text-sm text-slate-400">使用校园账号进入 8051 单片机实验平台。</p>
           </div>
@@ -238,7 +246,7 @@ export function HyperLoginPage() {
                   setErrorField(null);
                 }}
                 aria-pressed={role === key}
-                disabled={loading || (rolePolicy.allowedServerRoles
+                disabled={!ready || loading || (rolePolicy.allowedServerRoles
                   ? !rolePolicy.allowedServerRoles.includes(ROLE_TO_SERVER[key as LoginRole])
                   : false)}
                 aria-describedby={rolePolicy.message ? 'role-account-required' : undefined}
@@ -260,7 +268,7 @@ export function HyperLoginPage() {
             </p>
           )}
 
-          <form onSubmit={submit} className="space-y-4" aria-busy={loading}>
+          <form method="post" onSubmit={submit} className="space-y-4" aria-busy={!ready || loading}>
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-300">学校（当前平台）</span>
               <div className="relative">
@@ -292,7 +300,7 @@ export function HyperLoginPage() {
                     setErrorField(null);
                   }}
                   autoComplete="username"
-                  disabled={loading}
+                  disabled={!ready || loading}
                   aria-invalid={errorField === 'account'}
                   aria-describedby={formError ? 'login-error' : undefined}
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
@@ -317,7 +325,7 @@ export function HyperLoginPage() {
                   }}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  disabled={loading}
+                  disabled={!ready || loading}
                   aria-invalid={errorField === 'password'}
                   aria-describedby={formError ? 'login-error' : undefined}
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-10 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
@@ -326,7 +334,7 @@ export function HyperLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  disabled={loading}
+                  disabled={!ready || loading}
                   aria-label={showPassword ? '隐藏密码' : '显示密码'}
                   aria-pressed={showPassword}
                   className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-50"
@@ -339,7 +347,7 @@ export function HyperLoginPage() {
             <button
               type="button"
               onClick={() => setRemember((value) => !value)}
-              disabled={loading}
+              disabled={!ready || loading}
               aria-pressed={remember}
               aria-label="在此设备保持登录"
               aria-describedby="remember-device-description"
@@ -364,11 +372,11 @@ export function HyperLoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={!ready || loading}
               aria-busy={loading}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-cyan-300 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0d] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? '正在验证账号…' : submitLabel}
+              {!ready ? '正在准备登录…' : loading ? '正在验证账号…' : submitLabel}
             </button>
           </form>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-5 text-sm">

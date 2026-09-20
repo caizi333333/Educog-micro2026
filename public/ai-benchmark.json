@@ -1,45 +1,53 @@
 {
   "schemaVersion": 5,
-  "generatedAt": "2026-09-01T16:48:35.220Z",
+  "generatedAt": "2026-09-15T14:45:03.194Z",
   "codeVersion": {
-    "baseCommit": "61d422fe91156c7bd727c432dfed93f81e04721a",
+    "baseCommit": "046cd15719b383bb5371446cd74873062441db5f",
     "workspaceState": "DIRTY",
-    "runtime": "v25.3.0",
+    "runtime": "v18.18.0",
     "sourceManifest": {
       "algorithm": "sha256",
-      "digest": "c1d0af10b3fbeef36fd8cebc3e40b8951eb63ba17d3923b459ead04cddf63a28",
+      "digest": "dd31b05d068fc31223086e565b78c08961f30c2b07614acc28b7c5b379db2d47",
       "files": [
         {
           "path": "scripts/ai-benchmark.ts",
-          "sha256": "1f30a123d040d7f4f2c9f863f858a0bc7cacc3f4a8b1a11ebbe8a85cc2846168"
+          "sha256": "008e8ecf8a527be0cfb34d21115e4392c1ceb342d4bae0d16d576abaf08c8c1f"
         },
         {
           "path": "src/ai/deepseek-client.ts",
-          "sha256": "d5cdef8da673dd061494c5635797b1717d86db1a12da2c3e87c79db94e763af0"
+          "sha256": "520f7881e3d7794f44bf80d47a15f340f9cd1ad5ef478f47fe493fb555b573d5"
+        },
+        {
+          "path": "src/ai/flows/ai-study-assistant.ts",
+          "sha256": "8ef9948af0d89ddb6924d27518ab6de5271b94d69ce8e75205d8847ae3b03669"
         },
         {
           "path": "src/ai/knowledge-context.ts",
-          "sha256": "ae2ea93891fe2eafc6dfb2d455f09ccb8b16491197398efbedca13331271756c"
+          "sha256": "d39fa642e9e731dd354374ad81a551dd6fa6d8916ba5f63ec9ac1f1d30ed0822"
         },
         {
           "path": "src/ai/simple-ai-client.ts",
-          "sha256": "d040e9fe90e5fbf141e09150223e45a9068a4ceeda99ae05f4c25ae54370d660"
+          "sha256": "153489d790000c03381516d42c5f75f92fdb4aec598b6a55e837ae04430b693a"
         },
         {
           "path": "src/components/ai-assistant/ErrorDiagnostic.tsx",
-          "sha256": "3754ef2128b04de1bf03b6c3afc1fa16aea660c3c346b1d4f9cac5a57b0fb7bd"
+          "sha256": "54fe272e9e437643be61ea63199624a1956e42fe2b1a32db42eb0486e518f252"
         },
         {
           "path": "src/lib/experiment-config.ts",
-          "sha256": "87d7c9048bfdec50df92ab82a6d4da1cabc26dba72bbbe4a00e9a35a836d77b7"
+          "sha256": "1b54f78cd2be1350b397c36b2ba6a2b1f38e372fc7c4de44b750bea3a6b8c906"
         },
         {
           "path": "src/lib/knowledge-points.ts",
-          "sha256": "1cf73a817e5bbac2ffdb303335034bcbd31191b2a7ebac4eacdff9b6c9657239"
+          "sha256": "c3aff3425fad8006b080eaa106c34b968ff7a3fb9d1efadc6eb92a7bd63d1d4f"
+        },
+        {
+          "path": "src/lib/course-slides.json",
+          "sha256": "19e46780864171815dbea0c736cc6e904d9235ac164f3cce16efb1ff88ab2f4c"
         },
         {
           "path": "src/lib/quiz-data.ts",
-          "sha256": "22786a20fa5db9d1716aeeca5f9c6ca2856c07d5e238b29eae4f81dfdafcd890"
+          "sha256": "58205ac54661a8d8a10d4aa6efa3407883d492d0f5f83b68c52089140cdd0a77"
         }
       ]
     },
@@ -60,12 +68,12 @@
   "corpus": {
     "knowledgePoints": 279,
     "experiments": 13,
-    "quizQuestions": 313,
+    "quizQuestions": 509,
     "note": "知识内容为版本化课程数据；未进行模型微调。"
   },
   "retrieval": {
     "sampleSize": 50,
-    "coverage": "10章×5道正式题库题；每章优先覆盖不同知识点。",
+    "coverage": "固定2026-09-02的50道正式题库题（10个平台单元各5题），新增题目不替换基准样本。",
     "queryDesign": "查询只由去除correctAnswer字段后的正式题干、未标注正误的全部选项或待补全代码构成；ka与答案仅在检索结果产生后用于评分，不传入retrieveContext或生成提示。",
     "sourceQuestionIds": [
       225,
@@ -1110,8 +1118,8 @@
         "returnedKnowledgePointIds": [
           "2.2.3",
           "6.2",
-          "2.2",
           "6.1",
+          "2.2",
           "7.2",
           "4.4"
         ]
@@ -1378,8 +1386,8 @@
       }
     ],
     "latencyMs": {
-      "p50": 3.18,
-      "p95": 5.4
+      "p50": 1.96,
+      "p95": 3.39
     }
   },
   "staticDiagnostic": {
@@ -1404,18 +1412,18 @@
     "falsePositiveControls": 0,
     "latencyMs": {
       "p50": 0.01,
-      "p95": 0.11
+      "p95": 0.14
     }
   },
   "localFallback": {
     "sampleSize": 50,
     "triggerCondition": "固定禁用外部生成调用，直接执行生产环境同一套本地回退函数。",
     "triggerSuccessRate": 100,
-    "effectiveAnswerCoverageRate": 78,
+    "effectiveAnswerCoverageRate": 84,
     "boundaryPassRate": 100,
     "latencyMs": {
-      "p50": 0.02,
-      "p95": 4.46
+      "p50": 0.04,
+      "p95": 2.94
     },
     "caseResults": [
       {
@@ -1442,8 +1450,8 @@
       {
         "id": "quiz-230",
         "returnedAnswer": true,
-        "targetNodeCited": false,
-        "targetChapterAligned": false,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
         "boundaryPassed": true
       },
       {
@@ -1526,8 +1534,8 @@
       {
         "id": "quiz-263",
         "returnedAnswer": true,
-        "targetNodeCited": false,
-        "targetChapterAligned": false,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
         "boundaryPassed": true
       },
       {
@@ -1554,8 +1562,8 @@
       {
         "id": "quiz-275",
         "returnedAnswer": true,
-        "targetNodeCited": false,
-        "targetChapterAligned": false,
+        "targetNodeCited": true,
+        "targetChapterAligned": true,
         "boundaryPassed": true
       },
       {
@@ -1769,7 +1777,7 @@
         "boundaryPassed": true
       }
     ],
-    "note": "有效回答覆盖指非空回答同时满足目标知识点编号命中或目标章节一致；不等同于开放问答事实正确率。"
+    "note": "回退主题匹配指非空回答同时满足目标知识点编号命中或目标平台单元一致。指定禁用表述检查仅扫描虚构教学成效、无依据显著提升、声称已经微调、直接修改教学判定四类预设表述。两项均不判定答案的事实正确性、完整性或教学适用性；旧字段名保留用于兼容已有读取端。"
   },
   "generative": {
     "status": "NOT_RUN",

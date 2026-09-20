@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "dev:clean": "bash -c 'lsof -ti :3000 | xargs kill -9 2>/dev/null || true && rm -rf .next && next dev -H 0.0.0.0 -p 3000'",
-    "build": "next build",
+    "build": "bash -c 'if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:3000 -sTCP:LISTEN >/dev/null 2>&1; then echo \"构建已停止：端口 3000 正由本地开发服务使用，请先停止 npm run dev。\" >&2; exit 1; fi; exec next build'",
     "start": "next start",
     "lint": "next lint --quiet",
     "lint:fix": "next lint --fix --quiet",
@@ -27,7 +27,7 @@
     "db:seed-knowledge": "tsx scripts/seed-knowledge.ts",
     "prisma:seed-obe": "tsx prisma/seed-obe.ts",
     "obe:calculate": "tsx scripts/calculate-obe-achievements.ts",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && next build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { type KnowledgePoint } from '@/lib/knowledge-points';
+import { resolveKnowledgeResourceHref, type KnowledgePoint } from '@/lib/knowledge-points';
 import { fetchKnowledgePoints } from '@/lib/knowledge-source';
 import { canAccessStudentData } from '@/lib/classroom';
 
@@ -26,18 +26,27 @@ function mapLevelToType(level: KnowledgePoint['level']) {
 }
 
 function resourceCounts(point: KnowledgePoint) {
-  const resources = point.resources ?? [];
+  const declared = point.resources ?? [];
+  const resources = declared.filter((item) => resolveKnowledgeResourceHref(item, point.chapter) !== null);
   return {
-    videos: resources.filter((item) => item.type === 'video' || item.type === 'animation').length,
-    exercises: resources.filter((item) => item.type === 'quiz').length,
-    projects: resources.filter((item) => item.type === 'experiment').length,
-    documents: resources.filter((item) => item.type === 'document' || item.type === 'slide').length,
+    counts: {
+      videos: resources.filter((item) => item.type === 'video' || item.type === 'animation').length,
+      exercises: resources.filter((item) => item.type === 'quiz').length,
+      projects: resources.filter((item) => item.type === 'experiment').length,
+      documents: resources.filter((item) => item.type === 'document' || item.type === 'slide').length,
+    },
+    availability: {
+      declared: declared.length,
+      available: resources.length,
+      unavailable: declared.length - resources.length,
+    },
   };
 }
 
 function toKnowledgeNode(point: KnowledgePoint, all: KnowledgePoint[]) {
   const children = all.filter((p) => p.parentId === point.id);
   const learningTime = point.resources?.reduce((sum, item) => sum + (item.duration ?? 0), 0) || 30 + point.level * 15;
+  const resourceSummary = resourceCounts(point);
 
   return {
     id: point.id,
@@ -54,7 +63,8 @@ function toKnowledgeNode(point: KnowledgePoint, all: KnowledgePoint[]) {
     popularity: 0,
     popularityDataSufficient: false,
     tags: [`第${point.chapter}章`, `L${point.level}`],
-    resources: resourceCounts(point),
+    resources: resourceSummary.counts,
+    resourceAvailability: resourceSummary.availability,
     position: {
       x: 140 + ((point.chapter - 1) % 5) * 260,
       y: 100 + point.level * 130 + Math.floor((point.chapter - 1) / 5) * 520,

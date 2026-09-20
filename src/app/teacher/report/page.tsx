@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type JSX } from 'react';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -436,9 +437,11 @@ export default function TeacherReportPage(): JSX.Element {
         <div className="mb-8 border-b-2 border-slate-900 pb-6 text-center">
           <h1 className="text-xl font-bold sm:text-2xl">芯智育才平台教学质量分析报告</h1>
           <p className="mt-2 text-sm text-slate-500">桂林航天工业学院 · 微控制器原理及应用技术 · {dateStr}</p>
+          {SHOW_DATA_PROVENANCE_NOTICE && (
           <div className={`mx-auto mt-4 max-w-2xl rounded border px-4 py-3 text-left text-xs leading-5 ${reportProvenance.mode === 'REAL' ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
             <strong>{reportProvenance.label}：</strong>{reportProvenance.note}
           </div>
+          )}
           <p className="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-slate-500">
             数据截止：{formatReportDate(reportAsOf)}；范围为当前教师可管理班级的有效学生，不代表某一个单独班级。
           </p>

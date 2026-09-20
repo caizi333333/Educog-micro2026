@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
@@ -550,7 +551,7 @@ function StudentProfileView(props: CommonProfileViewProps) {
     return [...achievementEvents, ...activityEvents].slice(0, 6);
   }, [profile.recentActivity, unlocked]);
 
-  const provenanceNotice = dataProvenance ? (
+  const provenanceNotice = SHOW_DATA_PROVENANCE_NOTICE && dataProvenance ? (
     <div
       role="status"
       className={cn(

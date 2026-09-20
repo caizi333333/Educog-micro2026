@@ -1,0 +1,1922 @@
+{
+  "schemaVersion": 1,
+  "edition": "2026-08-14",
+  "extraction": {
+    "engine": "PyMuPDF 1.27.1",
+    "pdfSha256": "275baf1cb4011d0a75784122282b3ced579af2b39ef63b127173484ded2f5529",
+    "pageCount": 167,
+    "scope": "两份授课课件的原页文字；图像、电路连线及动画须打开原页核对。",
+    "notation": "按原页字形保留上标，指数记作 ^(...)；readingNotes 是独立阅读提示，不属于原课件文字。"
+  },
+  "sources": [
+    {
+      "id": "serial",
+      "title": "第6章 微控制器的串行通信技术",
+      "file": "第6章 微控制器的串行通信技术.pptx",
+      "start": 1,
+      "end": 77,
+      "sha256": "c88d00cd86f1604b8ecfd91cf34e929c19a0a28b4de6e4ea559687a5bf516fb3"
+    },
+    {
+      "id": "circuits",
+      "title": "第10章 常用外部电路控制程序的设计",
+      "file": "第10章 常用外部电路控制程序的设计.pptx",
+      "start": 78,
+      "end": 167,
+      "sha256": "7ddee8f46f8ee388e3f44cb25cd1e4e269b04487f205291c908a792ebba96fcd"
+    }
+  ],
+  "pages": [
+    {
+      "id": "serial-1",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 1,
+      "page": 1,
+      "title": "微控制器应用技术",
+      "text": "微控制器应用技术\n机电工程教研室\n王寒迎\n969101256@qq.com",
+      "href": "/resources/course/course-slides.pdf#page=1",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-2",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 2,
+      "page": 2,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口4种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n1 / 76",
+      "href": "/resources/course/course-slides.pdf#page=2",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-3",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 3,
+      "page": 3,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n导入\nn 想一想：两台单片机如何交换数据？\n手机、鼠标、U盘都在用串行通信，单片机之间也一样\nØ 8根线并行传，还是1根线逐位传？\nØ 收发双方怎样约定速度与格式？\nn 学习目标：掌握串行通信基本概念\nØ 能辨传输方式、算波特率、选接口\n2 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=3",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-4",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 4,
+      "page": 4,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.1\n数据通信\nn 通信：单片机与外部的数据交换\nØ 并行：各位同时传，至少8根线\nØ 串行：逐位顺序传，仅需2根线\n图6-1\n两种通信方式连接示意图\n3 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=4",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-5",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 5,
+      "page": 5,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.1\n数据通信\nn 并行：速度快、效率高\n老式打印机并口线又粗又短，串口线又细又长\nØ 需线多、易受干扰，宜短距\nn 串行：省线、抗干扰，宜远距离\nØ 逐位传送，速度慢、效率低\n近距离求快选并行，远距离省线选串行\n4 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=5",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-6",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 6,
+      "page": 6,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.2\n串行通信传输方式\nØ 单工：只允许固定单向传输\nØ 半双工：可双向，不能同时\nØ 全双工：可同时双向收发\n80C51为全双工串行口，实用中常取半双工\n图6-2\n串行通信的传输方式\n5 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=6",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-7",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 7,
+      "page": 7,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.3\n同步通信和异步通信\nn 异步通信：按帧传送，时钟各自独立\nØ 帧=起始0＋数据＋校验＋停止1\nØ 考点：数据低位在前，高位在后\n移位寄存器只能单向移位，先出来的天然是最低位\n图6-3\n异步通信中数据传送的格式\n6 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=7",
+      "readingNotes": [
+        {
+          "text": "本课串口以最低位先发，是该通信方式的位序约定。移位寄存器并非都只能单向移位，也有可左移、右移的器件，不能用“天然先出最低位”概括所有器件。",
+          "title": "TI SN74LS194A：左移与右移模式",
+          "url": "https://www.ti.com/product/SN74LS194A"
+        }
+      ]
+    },
+    {
+      "id": "serial-8",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 8,
+      "page": 8,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.3\n同步通信和异步通信\nn 一帧长这样：RS-232 电平轨迹（理想化）\nØ 空闲高→起始位拉低→8位数据→停止位回高\n图为RS-232 负逻辑：线上高低与TTL 相反\n示意\nRS-232 一帧电平轨迹（公有领域）\n7 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=8",
+      "readingNotes": [
+        {
+          "text": "请区分芯片侧逻辑电平与 RS-232 线路电压。RS-232 线上逻辑1（空闲、停止位）为负电压，逻辑0（起始位）为正电压；本页“空闲高、起始拉低”只适用于通常的芯片侧逻辑波形。",
+          "title": "Analog Devices：RS-232 电平定义",
+          "url": "https://www.analog.com/en/resources/technical-articles/guide-to-selecting-and-using-rs232-rs422-and-rs485-serial-data-standards.html"
+        }
+      ]
+    },
+    {
+      "id": "serial-9",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 9,
+      "page": 9,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.3\n同步通信和异步通信\nn 同步通信：连续传送数据流\nØ 同步字符＋数据＋校验字符\n同步字符1~2个，可用ASCII规定的SYNC代码16H\nØ 数据间无间隔，效率高\n速率可达56kbit/s以上，代价是必须同送同步时钟\n图6-4\n同步通信中数据传送的格式\n8 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=9",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-10",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 10,
+      "page": 10,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.3\n同步通信和异步通信\nn 异步：帧帧有起止位，开销大\nØ 收发时钟独立，硬件简单\nn 同步：数据成块连续传，效率高\nØ 需同步时钟，硬件复杂\n80C51只有方式0作同步移位用，其余三种方式都是异步\n80C51串行口属异步通信接口\n9 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=10",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-11",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 11,
+      "page": 11,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.4\n波特率（Baud Rate）\nn 波特率：每秒发送的二进制位数\nØ 单位bit/s，越高传得越快\n每位传送时间Td＝1/波特率：1700bit/s时约0.59ms，9600bit/s\n时仅104μs\nØ 必记：收发双方波特率必须相同\nASCII码7位数据＋起/校/停各1位＝10位/帧；常用50～\n19200bit/s\n算例：170字符/秒× 10位/字符= 1700bit/s\n每位传送时间Td = 1/波特率= 1/(1700 bit/s) ≈ 0.588 ms\n10 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=11",
+      "readingNotes": [
+        {
+          "text": "波特率是每秒传输的符号数，单位为 Bd；比特率是每秒传输的比特数，单位为 bit/s。本课二进制串口每个符号承载1 bit，两者数值相等，这一等价关系不能推广到每符号承载多位的调制方式。",
+          "title": "Keysight：Bits Versus Symbols",
+          "url": "https://helpfiles.keysight.com/scopes/FlexDCA-PG/Content/Topics/Quick-Start/theory_bits_vs_symbols.htm"
+        }
+      ]
+    },
+    {
+      "id": "serial-12",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 12,
+      "page": 12,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\nn RS-232C：应用较广的标准串行接口\nØ 负逻辑：1为-15～-3V，0为+3～+15V\nØ 注意：与TTL不兼容，须电平转换\n图6-5\nRS-232C接口\n11 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=12",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-13",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 13,
+      "page": 13,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\n表6-1\nRS-232C标准接口主要引脚功能\n插针序号\n信号名称\n功能\n信号方向\n1\nPGND\n保护接地\n2（3）\nTXD\n发送数据（串行输出）\nDTE→DCE\n3（2）\nRXD\n接收数据（串行输入）\nDTE←DCE\n4（7）\nRTS\n请求发送\nDTE→DCE\n5（8）\nCTS\n允许发送\nDTE←DCE\n6（6）\nDSR\nDCE就绪（数据建立就绪）\nDTE←DCE\n7（5）\nSGND\n信号接地\n20（4）\nDTR\nDTE就绪（数据终端准备就绪）\nDTE→DCE\n12 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=13",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-14",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 14,
+      "page": 14,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\nn 抓三根线：TXD、RXD、SGND\nØ 其余都是握手/控制线，最简通信用不上\nØ 易错：2、3 必须交叉相接，否则收不到\n示意\nDB9 引脚与最简三线连接\n实物\nDE-9 母头（与左图公头对插）\n13 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=14",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-15",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 15,
+      "page": 15,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\nn RS-422A：平衡驱动，差分接收\nØ 两对差分线，全双工\nØ 最高10Mbit/s，最远1200m\n图6-6\nTTL电平与RS-422A电平转换电路\n14 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=15",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-16",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 16,
+      "page": 16,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\nn RS-485：RS-422A的半双工变型\nØ 一对差分线，最多32台设备\nØ 1200m、1Mbit/s，工业多机常用\n图6-7\nRS-485接口点对点通信电路图\n15 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=16",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-17",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 17,
+      "page": 17,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n6.1.5\n3种标准串行通信接口\n表6-2\nRS-232C、RS-422A和RS-485接口性能比较表\n性能\nRS-232C\nRS-422A\nRS-485\n功能\n双向，全双工\n双向，全双工\n双向，半双工\n传输方式\n单端\n差分\n差分\n逻辑0电平\n+3～+15V\n+2～+6V\n+1.5～+6V\n逻辑1电平\n-15～-3V\n-6～-2V\n-6～-1.5V\n最大速率\n20kbit/s\n10Mbit/s\n1Mbit/s\n最大传输距离\n30m\n1200m\n1200m\n组态方式\n点对点\n1台驱动器，10台接收\n器\n32台驱动器，32台接收器\n抗干扰能力\n弱\n强\n强\n传输介质\n扁平或多芯电缆\n两对双绞线\n一对双绞线\n16 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=17",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-18",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 18,
+      "page": 18,
+      "title": "串行通信的基本概念",
+      "text": "6.1\n串行通信的基本概念\n现代对照：今天怎么用串口\nn 一句话：变的只是电平转换\n那一段\nØ 不变的：帧格式、波特率、\nSCON 全套照用\n示意\n串口链路今昔对照（自制）\n实物\nCH340G（CC0）\n17 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=18",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-19",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 19,
+      "page": 19,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【练习】6.1节学完，当堂检验：\n①串行通信与并行通信各有何优缺点？各适用什么场合？\n②帧格式为1个起始位、7个数据位、1个奇偶校验位、1个\n停止位，每分钟传送1800个字符，求波特率。\n思路提示（先自己想一分钟）\n①从“线数、距离、抗干扰、速度”四个维度分别对比，再各配一个场合\n②先把“每分钟字符数”换算成每秒字符数；一帧几位？把起始、数据、校\n验、停止都数上\n18 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=19",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-20",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 20,
+      "page": 20,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口4种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n19 / 76",
+      "href": "/resources/course/course-slides.pdf#page=20",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-21",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 21,
+      "page": 21,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n串行口的内部结构\nn 组成：收发控制器、缓冲器、控制门\nØ TXD（P3.1）发，RXD（P3.0）收\nØ T1溢出率经分频作移位脉冲\n图6-8\n串行口的内部结构\n20 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=21",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-22",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 22,
+      "page": 22,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n串行数据缓冲器SBUF\nn 双缓冲：发送、接收物理独立\nØ 共用符号SBUF与地址99H\nØ 考点：发送只写，接收只读\nØ 写入：MOV SBUF,A（发送）\nØ 读出：MOV A,SBUF（接收）\n由读、写指令区分对象，使用不混乱\n21 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=22",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-23",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 23,
+      "page": 23,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n串行口控制寄存器SCON（一）\nD7\nD6\nD5\nD4\nD3\nD2\nD1\nD0\nSCON\nSM0\nSM1\nSM2\nREN\nTB8\nRB8\nTI\nRI\n9FH\n9EH\n9DH\n9CH\n9BH\n9AH\n99H\n98H\n字节地址98H，可位寻址\nn SM0、SM1：工作方式选择位\nØ 00＝方式0，移位寄存器，fosc/12\nØ 01＝方式1，8位UART，可变\nØ 10＝方式2，9位UART，fosc/64或/32\nØ 11＝方式3，9位UART，可变\n22 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=23",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-24",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 24,
+      "page": 24,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n串行口控制寄存器SCON（二）\nD7\nD6\nD5\nD4\nD3\nD2\nD1\nD0\nSCON\nSM0\nSM1\nSM2\nREN\nTB8\nRB8\nTI\nRI\n9FH\n9EH\n9DH\n9CH\n9BH\n9AH\n99H\n98H\n字节地址98H，可位寻址\nn SM2：多机通信控制位\nn REN：允许接收，软件置1/清0\nn TB8：发送的第9位（方式2/3）\nn RB8：接收的第9位（方式2/3）\nØ 考点：第9位作校验或地址标志\n23 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=24",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-25",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 25,
+      "page": 25,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n串行口控制寄存器SCON（三）\nn TI：一帧发送完毕，硬件置1\nn RI：一帧接收结束，硬件置1\nØ 易错：TI、RI必须软件清零\nØ 收发共用同一中断向量\nØ 中断内查询区分TI、RI\n示意\nTI/RI 标志位收发流程（硬件置1、软件清0）\n24 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=25",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-26",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 26,
+      "page": 26,
+      "title": "串行口结构及其寄存器",
+      "text": "6.2\n串行口结构及其寄存器\n特殊功能寄存器PCON\nD7\nD6\nD5\nD4\nD3\nD2\nD1\nD0\nPCON\nSMOD\n—\n—\n—\nGF1\nGF0\nPD\nIDL\n字节地址87H，不可位寻址\nn SMOD：串行波特率倍增位\nØ SMOD=1，波特率加倍\nØ 其余各位与串行口无关\nØ MOV PCON,#80H 置SMOD=1\nØ 注意：不可位寻址，按字节操作\n25 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=26",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-27",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 27,
+      "page": 27,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【练习】想让串行口工作在方式1并允许接收，\nSCON应写入多少？\nA. 40H\nB. 50H\nC. 70H\nD. 80H\n思路提示（先自己想一分钟）\n先按顺序写出SCON 八位：SM0 SM1 SM2 REN TB8 RB8 TI RI\n方式1→SM0SM1 取几？允许接收→REN 取几？其余填0 再合成\n26 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=27",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-28",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 28,
+      "page": 28,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口4种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n27 / 76",
+      "href": "/resources/course/course-slides.pdf#page=28",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-29",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 29,
+      "page": 29,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.1\n方式0\nn 设定：SM0 SM1=00，移位寄存器方式\nØ 常用于扩展并行I/O口\nn 引脚：数据走RXD，TXD出移位脉冲\nØ 发送、接收均低位在前\nØ 注意：方式0下SM2必须置0\n波特率固定为fosc/12，不受SMOD影响\n28 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=29",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-30",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 30,
+      "page": 30,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.1\n方式0\nn 启动：写SBUF即启动发送\nØ RXD串行输出，低位在前\nØ 考点：TI置1后须软件清零\n图6-11\n方式0的发送时序\n29 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=30",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-31",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 31,
+      "page": 31,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.1\n方式0\nn 启动：置RI=0、REN=1\nØ RXD采样输入，低位在前\nØ 考点：收满8位RI置1，软件清零\n图6-13\n方式0的接收时序\n30 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=31",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-32",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 32,
+      "page": 32,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.2\n方式1\nn 设定：SM0 SM1=01，8位UART\nØ 一帧10位：起始＋8数据＋停止\nØ 波特率可变，由T1溢出率决定\n图6-15\n方式1的帧格式\n31 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=32",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-33",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 33,
+      "page": 33,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.2\n方式1\nn 启动：写SBUF即启动发送\nØ 硬件自动加起始位和停止位\nØ 考点：停止位开始时TI置1\n图6-16\n方式1的发送时序\n32 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=33",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-34",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 34,
+      "page": 34,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.2\n方式1\nn 启动：REN=1，等起始位负跳变\nØ 10位逐位移入移位寄存器\nØ 条件：RI=0且停止位1（或SM2=0）\n图6-17\n方式1的接收时序（原图末位数据框印作D4，应为D7）\n33 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=34",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-35",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 35,
+      "page": 35,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.2\n方式1\nn 机制一：16倍波特率高速采样（每位16次）\n位检测采样频率= 16 × 波特率\nn 机制二：位中央3取2表决，滤除毛刺\n示意\n16 倍采样与3 取2 表决\n34 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=35",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-36",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 36,
+      "page": 36,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.3\n方式2和方式3\nn 设定：SM0 SM1=10或11，9位UART\nØ 一帧11位：多出第9位D8\nØ 方式2波特率固定，方式3可变\n图6-18\n方式2和方式3的帧格式\n35 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=36",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-37",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 37,
+      "page": 37,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.3\n方式2和方式3\nn 流程：先装TB8，再写SBUF\nØ 第9位发送TB8的值\nØ 用途：TB8作校验位或地址标志\n图6-19\n方式2和方式3的发送时序\n36 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=37",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-38",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 38,
+      "page": 38,
+      "title": "串行口工作方式",
+      "text": "6.3\n串行口工作方式\n6.3.3\n方式2和方式3\nn 双条件：RI=0，且SM2=0或D8=1\nØ 满足：装SBUF、D8入RB8、置RI\nØ 不满足：整帧丢弃，不置RI\n图6-20\n方式2和方式3的接收时序（原图第9位印作TB8，接收侧应为RB8）\n37 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=38",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-39",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 39,
+      "page": 39,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【练习】关于串行口的4种工作方式，下列说法错\n误的是？\nA. 方式0常用于扩展并行I/O口\nB. 方式1一帧信息共10位\nC. 方式2的波特率由T1溢出率决定\nD. 方式2和方式3可用于多机通信\n思路提示（先自己想一分钟）\n哪两种方式的波特率是固定档位、哪两种由T1 溢出率决定？\n38 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=39",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-40",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 40,
+      "page": 40,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口\n4\n种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n39 / 76",
+      "href": "/resources/course/course-slides.pdf#page=40",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-41",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 41,
+      "page": 41,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n4种方式波特率概览\nn 固定：方式0与方式2\nØ 方式0=fosc/12，与SMOD无关\nØ 方式2=fosc/64或fosc/32\nn 可变：方式1、3由T1溢出率定\nØ 铁则：收发双方波特率必须一致\nfosc=6MHz 时的两档固定波特率\n方式0：fosc/12 ＝0.5Mbit/s（与SMOD无关）\n方式2：SMOD=0 → 93.75k；SMOD=1 → 187.5kbit/s\n40 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=41",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-42",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 42,
+      "page": 42,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n方式0和方式2的波特率\nn 方式0：固定，不受SMOD影响\nn 方式2：仅两档，由SMOD选择\n方式0波特率= fosc/12\n方式2波特率= (2^(SMOD)/64) × fosc\nØ 方式2在6MHz：93.75kbit/s或187.5kbit/s\nØ 注意：SMOD=1即波特率加倍\n41 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=42",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-43",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 43,
+      "page": 43,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n方式1和方式3的波特率\nn 方式1、3：由T1溢出率与SMOD共同定\n方式1、3波特率= (2^(SMOD)/32) × T1溢出率\nT1方式1：溢出率= (fosc/12)/(2^(16) - 初值)\nT1方式2：溢出率= (fosc/12)/(2^(8) - X)\nØ X为TH1/TL1的重装初值\nØ 注意：实用一律取T1方式2\n42 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=43",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-44",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 44,
+      "page": 44,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n波特率能差多少？\nn 口诀：容差= 半个位/ 帧长\nØ 方式1（10位帧）约±4.2%\n示意\n波特率容差是怎么算出来的（自制）\n实测一位宽106.0μs（Haji akhundov）\n43 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=44",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-45",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 45,
+      "page": 45,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\nT1为何选用方式2\nn 优势：方式2自动重装初值\nØ TL1计数，TH1存重装值\nØ 免软件重装，无定时误差\nn 约束：初值X必须为整数\nØ 考点：故晶振常选11.0592MHz\n为何偏偏选11.0592MHz？（9600bit/s 反算）\n12MHz 求9600：取X=253 → 实际10417bit/s，误差+8.5%\n11.0592MHz 求9600：X=253=FDH，误差0\n44 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=45",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-46",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 46,
+      "page": 46,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n算例：2400bit/s初值计算\nn 已知：fosc=11.0592MHz，SMOD=0\nØ T1方式2，求2400bit/s初值\n2400 = (2^(0)/32) × (fosc/12)/(2^(8) - X)\n2^(8) - X = (11.0592×10^(6)/12)/(32×2400) = 12\nX = 256 - 12 = 244 = F4H\nØ （TH1）=（TL1）= F4H\nØ 验证：与表6-4查表结果一致\n45 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=46",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-47",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 47,
+      "page": 47,
+      "title": "串行口4种工作方式波特率设置",
+      "text": "6.4\n串行口4种工作方式波特率设置\n常用波特率与初值\n表6-4\n使用定时器T1产生的常用波特率（节选）\n波特率/(bit/s)\nfosc/MHz\nSMOD\nTH1初值\n19200\n11.0592\n1\nFDH\n9600\n11.0592\n0\nFDH\n4800\n11.0592\n0\nFAH\n2400\n11.0592\n0\nF4H\n1200\n11.0592\n0\nE8H\nØ 均取T1方式2，C/T=0\nØ 注意：同为FDH，SMOD定9600或19200\n46 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=47",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-48",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 48,
+      "page": 48,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n串行口初始化五步（可背诵）\nn 五步：定方式→算初值→开T1→配SCON→定\nSMOD\nØ ①TMOD=20H ②TH1=TL1=初值\nØ ③SETB TR1 ④SCON定方式与REN\nØ 易漏：⑤SMOD按需置位(PCON不可位寻址)\n实参速查：9600bit/s @ 11.0592MHz\nMOV TMOD,#20H → MOV TH1,#0FDH → MOV TL1,#0FDH\nSETB TR1 → MOV SCON,#50H（方式1、REN=1）；SMOD=0\n47 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=48",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-49",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 49,
+      "page": 49,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【练习】某系统晶振为11.0592MHz，串行口工作\n于方式1，SMOD=0，要求波特率9600bit/s，用T1\n方式2作波特率发生器，重装初值TH1应取多少？\nA. E8H\nB. F4H\nC. FAH\nD. FDH\n48 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=49",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-50",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 50,
+      "page": 50,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口4种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n49 / 76",
+      "href": "/resources/course/course-slides.pdf#page=50",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-51",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 51,
+      "page": 51,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.1\n串行口方式0的应用\nn 任务：读8位开关量入累加器A\nØ CD4014并入串出，扩展输入口\n图6-21\n串行口方式0扩展8位并行输入\n50 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=51",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-52",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 52,
+      "page": 52,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.1\n串行口方式0的应用\n例6-1\n读入8位开关量（方式0＋CD4014）\nSTART: SETB P1.0      ；P/S=1，并行置入数据\nCLR  P1.0      ；P/S=0，开始串行移位\nMOV  SCON,#10H ；方式0，REN=1启动接收\nWAIT:  JNB  RI,WAIT   ；查询RI，等待收满8位\nCLR  RI        ；8位数输入完，清RI\nMOV  A,SBUF    ；取数据存入A中\nRET            ；子程序返回\nØ 考点：REN=1即启动一次接收\nØ RI置1表示8位收齐，软件清零\n51 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=52",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-53",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 53,
+      "page": 53,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.1\n串行口方式0的应用\nn 任务：8个LED轮流点亮\nØ 74LS164串入并出，中断方式发送\n图6-22\n串行口方式0扩展8位并行输出\n52 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=53",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-54",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 54,
+      "page": 54,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.1\n串行口方式0的应用\n例6-2\n流水灯（方式0＋74LS164，中断方式）\nORG   0023H     ；串行口中断入口\nLJMP  LL        ；转串行口中断服务程序\nORG   3000H     ；主程序起始地址\nMOV   SCON,#00H ；串行口方式0初始化\nMOV   A,#80H    ；最左边一位LED先亮\nCLR   P1.0      ；关闭并行输出\nMOV   SBUF,A    ；开始串行输出\nLOOP:  SJMP  $         ；等待中断\nLL:    SETB  P1.0      ；启动并行输出\nACALL DELAY     ；显示延时一段时间\nCLR   TI        ；清发送中断标志\nRR    A         ；准备右边一位显示\nCLR   P1.0      ；关闭并行输出\nMOV   SBUF,A    ；再一次串行输出\nRETI            ；中断返回\n53 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=54",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-55",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 55,
+      "page": 55,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.2\n串行口方式1的应用\nn 任务：甲机发送，乙机接收\nØ 方式1，波特率1200bit/s\nØ TXD、RXD交叉相连，共地\n图6-23\n双机通信连接图\n54 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=55",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-56",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 56,
+      "page": 56,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.2\n串行口方式1的应用\nn 数据：40H～49H共10个ASCII码\nØ 发送端在D7位补成奇校验\nØ 乙机校验后存50H～59H\nØ 出错处理：该单元写FFH\nn 控制字：甲机SCON=40H，乙机70H\n示意\nSCON 控制字逐位推导（甲机40H / 乙机70H）\n55 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=56",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-57",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 57,
+      "page": 57,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.2\n串行口方式1的应用\n例6-3\n甲机发送程序（方式1，查询TI）\nA_MAIN: MOV  SCON,#40H     ；方式1串行发送\nMOV  TMOD,#20H     ；定时器T1方式2\nMOV  TL1,#0E8H     ；定时器T1初值\nMOV  TH1,#0E8H     ；重装T1初值\nCLR  ES            ；禁止串行中断\nSETB TR1           ；启动T1\nMOV  R0,#40H       ；发送数据首地址\nA_LL1:  MOV  A,@R0         ；读取数据\nMOV  C,P           ；偶校验标志P送Cy\nCPL  C             ；取反，得奇校验位\nMOV  ACC.7,C       ；校验位放入D7\nMOV  SBUF,A        ；启动发送\nA_LL2:  JBC  TI,A_LL3      ；发完一帧转A_LL3\nSJMP A_LL2         ；未发完，等待\nA_LL3:  INC  R0            ；指向下一个数据\nCJNE R0,#4AH,A_LL1 ；未发完转A_LL1\nØ 初始化T1定波特率\nØ 取数补奇再发送\nØ JBC查TI并清零\nØ 考点：补奇三步\n56 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=57",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-58",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 58,
+      "page": 58,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.2\n串行口方式1的应用\n例6-3\n乙机接收程序（方式1，查询RI）\nB_MAIN: MOV  SCON,#70H     ；方式1串行接收\n；——T1初始化5行同甲机，略——\nMOV  R0,#50H       ；接收数据首地址\nB_LL1:  JBC  RI,B_LL2      ；收到一帧转B_LL2\nSJMP B_LL1         ；未收到，等待\nB_LL2:  MOV  A,SBUF        ；接收数据送A\nMOV  C,P           ；检测奇校验位\nCPL  C             ；正确则Cy=0\nJC   ERROR         ；出错转ERROR\nANL  A,#7FH        ；去掉校验位D7\nMOV  @R0,A         ；存入R0所指单元\nB_LL3:  INC  R0            ；指向下一个单元\nCJNE R0,#5AH,B_LL1 ；未收完转B_LL1\nSJMP $             ；接收完毕\nERROR:  MOV  @R0,#0FFH     ；出错单元写FFH\nSJMP B_LL3         ；继续收下一个\nØ 查RI收满一帧\nØ 奇校验：CPL后\nCy=1即错\nØ ANL去掉校验位\n57 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=58",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-59",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 59,
+      "page": 59,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n拓展：Keil C 里怎么写（对照例6-3）\n同一件事的C51 写法——实验课就是这么写的\n#include <reg51.h>          // SCON/SBUF/TI 与汇编同名\nvoid uart_init(void) {\nTMOD = 0x20;            // 对应MOV TMOD,#20H\nTH1 = 0xFD;  TL1 = 0xFD;  // 9600bit/s@11.0592MHz\nTR1 = 1;  SCON = 0x50;  // 方式1、REN=1\n}\nvoid send(unsigned char c) {\nSBUF = c;               // 对应MOV SBUF,A\nwhile (!TI);  TI = 0;   // 对应JBC TI（查询＋清零）\n}\nØ 寄存器名与汇编完全同名（reg51.h 里定义）\nØ 定位：实验课用C，笔试以教材汇编为准\n58 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=59",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-60",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 60,
+      "page": 60,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n拓展：把例6-3 升级成完整协议\nn 例6-3 缺两样：联络确认与数据校验\nØ 对方不在线就发，数据丢了也不知道\n真实工程的双机通信都要握手和校验，流程见下图\n示意\n带握手与校验的双机通信协议（自制）\n59 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=60",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-61",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 61,
+      "page": 61,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.2\n串行口方式1的应用\nn 小结：双机通信设计四步\nØ 定帧格式与波特率\nØ 算T1初值，两机一致\nØ 定SCON控制字\nØ 易错：收发编程，TI/RI须软件清零\n章末习题9与本例同型，课后自己写一遍\n60 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=61",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-62",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 62,
+      "page": 62,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.3\n串行口方式2和方式3的应用\nn 任务：40H～5FH共32个数发送\nØ 考点：TB8作奇偶位，波特率375kbit/s\n图6-24\n数据发送程序流程图\n61 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=62",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-63",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 63,
+      "page": 63,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.3\n串行口方式2和方式3的应用\n例6-4\n方式2发送（查询方式）\nT2MAIN: MOV  SCON,#80H ；串行口设定为方式2\nMOV  PCON,#80H ；SMOD=1\nMOV  R0,#40H   ；R0←数据块首地址\nMOV  R7,#20H   ；R7←数据块长度32\nT2_LP:   MOV  A,@R0     ；A←取数据\nMOV  C,P       ；奇偶标志位送Cy\nMOV  TB8,C     ；奇偶标志送TB8\nMOV  SBUF,A    ；数据送SBUF，启动发送\nT2_LL:   JNB  TI,T2_LL   ；判发送中断标志\nCLR  TI        ；发完一帧，复位TI\nINC  R0        ；指向下一个发送数据\nDJNZ R7,T2_LP   ；数据块未完，转T2_LP\nRET            ；子程序返回\n62 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=63",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-64",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 64,
+      "page": 64,
+      "title": "串行口的编程和应用",
+      "text": "6.5\n串行口的编程和应用\n6.5.3\n串行口方式2和方式3的应用\n例6-4\n方式2发送（中断方式，初始化同查询略）\nSETB ES           ；主程序：允许串行中断\nSETB EA           ；CPU开放总中断\nMOV  A,@R0        ；取第一个数据\nMOV  C,PSW.0      ；奇偶标志送Cy\nMOV  TB8,C        ；奇偶标志送TB8\nMOV  SBUF,A       ；发送第一个数据\nSJMP $            ；等待发送中断\nT2_SI:    CLR  TI           ；中断服务：清TI\nINC  R0           ；修改数据地址\nMOV  A,@R0        ；取下一个数据\nMOV  C,PSW.0      ；奇偶标志送Cy\nMOV  TB8,C        ；奇偶标志送TB8\nMOV  SBUF,A       ；发送数据\nDJNZ R7,END_RETI  ；未发完转END_RETI\nCLR  ES           ；发完，禁止串行中断\nEND_RETI: RETI              ；中断返回\n63 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=64",
+      "readingNotes": [
+        {
+          "text": "按前页 R0=40H、R7=20H 初始化，本页先发1字节，中断内又先发后减计数，实际访问40H—60H并发送33字节。发送32字节时，中断应先清TI，再执行 DJNZ R7,SEND_NEXT；归零则 CLR ES 并 RETI；SEND_NEXT 分支才 INC R0、读取并设置TB8、写SBUF，再 RETI。这样共访问40H—5FH。此修正用于本例仅发送、接收关闭的场景；同时收发还须分别处理RI和TI，并保护被中断程序使用的寄存器。",
+          "title": "对照前页初始化与本页发送顺序",
+          "url": "/resources/course/course-slides.pdf#page=63"
+        }
+      ]
+    },
+    {
+      "id": "serial-65",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 65,
+      "page": 65,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n拓展：51 和电脑通信\nn 最实用的一种：对端换成电脑\nØ 硬件：USB 转串口（回看现代对照页）\nØ 程序与例6-3 完全同套路\n电脑端不用编程——串口助手就能收发、看波特率对不对\n课后实做（去年课件6.3.3 的协议）\n1200bit/s、方式1：TH1=TL1=E8H、SCON=50H\nPC 发联络字E1H → 51 应答后回传数据块\n64 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=65",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-66",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 66,
+      "page": 66,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【练习】仿照例6-3设计：把甲机片内RAM 30H～\n3FH的数据块经串行口送到乙机40H～4FH，用方\n式1。甲机的SCON控制字应设为？\nA. 40H\nB. 50H\nC. 70H\nD. 90H\n65 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=66",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-67",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 67,
+      "page": 67,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n6.1\n串行通信的基本概念\n6.2\n串行口结构及其寄存器\n6.3\n串行口工作方式\n6.4\n串行口4种工作方式波特率设置\n6.5\n串行口的编程和应用\n6.6\n串行口多机通信原理\n66 / 76",
+      "href": "/resources/course/course-slides.pdf#page=67",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-68",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 68,
+      "page": 68,
+      "title": "串行口多机通信原理",
+      "text": "6.6\n串行口多机通信原理\n主从式多机通信系统\nn 系统结构：一台主机，多台从机\nØ 从机之间不能直接通信\nØ 考点：仅方式2、3适合多机通信\n图6-25\n主从式多机通信系统连接示意图\n67 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=68",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-69",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 69,
+      "page": 69,
+      "title": "串行口多机通信原理",
+      "text": "6.6\n串行口多机通信原理\nSM2 与第9位的识别机制\nn 发送端：TB8 标志帧类型\nØ TB8=1 地址帧，TB8=0 数据帧\nn 接收端：SM2 决定是否响应\nØ SM2=1 只收地址帧（RB8=1）\nØ 考点：SM2=0 不分帧类全部接收\n示意\nSM2 × RB8 接收决策矩阵\n68 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=69",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-70",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 70,
+      "page": 70,
+      "title": "串行口多机通信原理",
+      "text": "6.6\n串行口多机通信原理\n多机通信协议约定\nn 命令字：00H 令从机收，01H 令从机发\nn 从机地址：00H～FEH，最多255台\nØ 注意：FFH 是广播复位命令\nn 联络流程：寻址→回址→命令→回状态\n示意\n主从联络握手时序（4 步双向核对）\n69 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=70",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-71",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 71,
+      "page": 71,
+      "title": "串行口多机通信原理",
+      "text": "6.6\n串行口多机通信原理\n多机通信的一般过程\nØ ①全体从机置SM2=1\nØ ②主机发地址帧（TB8=1）\nØ ③地址相符的从机置SM2=0\nØ ④主机发数据帧（TB8=0）通信\nØ ⑤⑥通信毕从机回SM2=1，主机另呼从机\n一轮呼叫服务一台从机，周而复始\n70 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=71",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-72",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 72,
+      "page": 72,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n练习\n【课堂问答】一条总线挂1台主机、多台从机，主\n机如何做到“只与2号从机通信”？请分步说全过程。\n思路提示（先自己想一分钟）\n抓住两个开关就行：从机的SM2、主机发送时的TB8\n按“先点名→ 再说话→ 说完挂断”的顺序讲，每一步都说清SM2 和TB8\n各是几\n71 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=72",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-73",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 73,
+      "page": 73,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n本章小结\nn 概念：串行通信、波特率、三种接口\nn 结构：SBUF 双缓冲，共址99H\nn 方式：SM0、SM1 选四种方式\nn 波特率：由T1 溢出率与SMOD 定\nn 应用：双机通信与多机通信\n72 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=73",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-74",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 74,
+      "page": 74,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n本章核心数字一览\nn 一句话串起来：选方式→定波特率→配控制\n字→收发\nØ SM0SM1选方式→T1溢出率定波特率\nØ SCON配控制字→查TI/RI收发一帧\n本章核心数字一览\n工作方式：4种（SM0/SM1编码00/01/10/11）\nSBUF字节地址：99H（收/发共用一址）\n标准波特率首选晶振：11.0592MHz\n多机通信可用方式：仅方式2、3\n73 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=74",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-75",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 75,
+      "page": 75,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n四种工作方式对照\n串行口4种工作方式对照表\n项目\n方式0\n方式1\n方式2\n方式3\nSM0\nSM1\n0 0\n0 1\n1 0\n1 1\n功能\n同步移位寄存器\n8位UART\n9位UART\n9位UART\n帧长\n8位（无起停）\n10位\n11位\n11位\n第9位\n无\n无\nTB8/RB8\nTB8/RB8\n波特率\nfosc/12 固定\nT1溢出率/n 可变\nfosc/64或/32 固定\nT1溢出率/n 可变\n用途\n扩展I/O口\n双机通信\n多机/9位通信\n多机/9位通信\nØ 方式2与3仅波特率来源不同\n74 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=75",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-76",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 76,
+      "page": 76,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n习题\n作\n业：\nu习题4、6（概念简答）\nu习题7、11（计算）\nu习题9（设计编程）\n做题提示\n习题7：先把1800 字符/分化成每秒；一帧几位自己数\n习题11：可查表6-4，但别忘了同时写出TMOD 与SCON 控制字\n习题9：套例6-3 的程序框架，只改数据块的地址范围\n75 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=76",
+      "readingNotes": []
+    },
+    {
+      "id": "serial-77",
+      "deckId": "serial",
+      "deckTitle": "第6章 微控制器的串行通信技术",
+      "sourcePage": 77,
+      "page": 77,
+      "title": "微控制器的串行通信技术",
+      "text": "第6章\n微控制器的串行通信技术\n图片与动画来源\nn 外部素材：均来自Wikimedia Commons，许\n可如下\nØ 其余示意图、动画为本课件自制\nØ 教材原图版权归教材出版方，仅课堂教学使用\n素材许可清单\nUART 帧格式图\nCC0\nRS-232 电平轨迹示意\n公有领域\nDE-9 母头实物\nPublic domain (PD-self)\nCH340G 芯片特写\nCC0\nRS-232 实测截屏\nCC BY-SA 3.0\nHaji akhundov\n76 / 76\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=77",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-78",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 1,
+      "page": 78,
+      "title": "微控制器应用技术",
+      "text": "微控制器应用技术\n机电工程教研室\n王寒迎\n969101256@qq.com",
+      "href": "/resources/course/course-slides.pdf#page=78",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-79",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 2,
+      "page": 79,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n10.1\n开关量输出接口技术\n10.2\n电机控制接口技术\n10.3\n步进电机控制接口技术\n1 / 89",
+      "href": "/resources/course/course-slides.pdf#page=79",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-80",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 3,
+      "page": 80,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n导入\nn 想一想：单片机怎样开动电机？\nØ TTL电平小，驱动不了大设备\nØ 强电干扰会不会烧毁系统？\nn 学习目标：掌握三类控制接口\nØ 开关量输出、直流电机、步进电机\n导入案例：电炉温度调节的两条路\n调煤气阀门→模拟量控制（需D/A转换器）\n调电源通断时间→开关量控制（继电器/可控硅即可）\n2 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=80",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-81",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 4,
+      "page": 81,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n开关量控制概述\nn 开关量控制：控制设备通断时间\nØ 例：电炉通断调温、电磁铁吸合\nØ TTL电平小，带不动外设开关\nØ 通断瞬间干扰强，可损坏系统\n这两条贯穿整个10.1节：六类接口都在解决它们\n接口设计两大核心：信号放大＋电气隔离\n3 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=81",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-82",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 5,
+      "page": 82,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.1\n光电隔离技术\nn 光耦：电—光—电转换\nØ 发光二极管＋光敏三极管\nØ 前后级无电气联系，隔干扰\n图10-1\n光电隔离器原理电路\nDIP-4 光耦剖面（TubeTimeUS，CC\nBY-SA 4.0）\n4 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=82",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-83",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 6,
+      "page": 83,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.1\n光电隔离技术\nn 隔离电压：与封装形式有关\nØ 塑料双列直插约2500V\nØ 陶瓷封装5000～10000V\nn 输入电流：一般10mA左右\nØ TTL带不动，须加7406/7407\n5 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=83",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-84",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 7,
+      "page": 84,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.1\n光电隔离技术\nØ 图10-2：两端电源单独供电\nØ 图10-3：共用电源，干扰串入\n光耦输入、输出两端必须独立供电\n图10-2\n正确的隔离\n图10-3\n不正确的隔离\n6 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=84",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-85",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 8,
+      "page": 85,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.2\n继电器输出接口技术\nn 继电器：线圈通电，触点动作\nØ 低压线圈控制220V触点\nØ 接口再加光耦与9013驱动\n图10-4\n继电器接口电路\n7 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=85",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-86",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 9,
+      "page": 86,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.2\n继电器输出接口技术\nn 断电瞬间：线圈生感应电压\nØ 极性上负下正，叠加在VCC上\nØ 危险：超过反压，晶体管T损坏\nn 续流二极管D：给感应电流放电\n示意\n续流二极管保护原理\n8 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=86",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-87",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 10,
+      "page": 87,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.2\n继电器输出接口技术\nn 看动作：同一只继电器，只差一只二极管\nØ 左：带续流二极管；右：不带\n断电瞬间线圈电流没处走，只能从晶体管击穿\n带续流二极管（Cloullin，CC BY-SA 4.0）\n不带续流二极管（同左作者/许可）\n9 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=87",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-88",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 11,
+      "page": 88,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.2\n继电器输出接口技术\nn 继电器选型：考虑三个要素\nØ ①额定工作电压或电流\nØ ②接点负荷：能承受的负载\n按被驱动设备的工作电压类型与工作电流选\nØ ③接点的数量和种类\nØ 另看封装、环境、吸合释放时间\n10 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=88",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-89",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 12,
+      "page": 89,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.3\n固态继电器输出接口技术\nn 固态继电器SSR：无触点开关\nØ 晶体管、可控硅代替触点\nØ 与光电隔离器融为一体\n图10-5\n直流固态继电器原理图\n11 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=89",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-90",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 13,
+      "page": 90,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.3\n固态继电器输出接口技术\nn 应用：三相步进电机控制\nØ 每相由一个直流SSR控制\nØ P1.0～P1.2接A、B、C三相\n图10-6\n步进电机控制原理图\n12 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=90",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-91",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 14,
+      "page": 91,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.3\n固态继电器输出接口技术\nn 交流SSR：双向可控硅作开关\nØ 过零型：电压近零才导通\nØ 断开须待负载电流降为零\n图10-7\n交流过零型固态继电器原理图\n图10-8\n交流固态继电器输出波形图\n13 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=91",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-92",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 15,
+      "page": 92,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.3\n固态继电器输出接口技术\nn 实例：控制交流电机正反转\nØ P1.0低→SSR1#通→A相正转\nØ P1.0高→SSR2#通→B相反转\n图10-9\n用交流固态继电器控制交流电机原理图\n14 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=92",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-93",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 16,
+      "page": 93,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.3\n固态继电器输出接口技术\nn 浪涌吸收回路：RP与CP组成\nØ RP阻值一般100Ω左右\nØ CP电容值取0.1μF\nn 压敏电阻RM：作过电压保护\nØ 取值：电源有效值的1.6～1.9倍\n压敏电阻RM取值算例（220V市电）\n取值范围＝220V×（1.6～1.9）＝352～418V\n工程选标称390V或430V压敏电阻\n15 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=93",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-94",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 17,
+      "page": 94,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.4\n大功率场效应管开关接口技术\nn 场效应管：压控型开关元件\nØ G栅极、D漏极、S源极\nØ G为高电平，D—S间导通\n图10-10\n场效应管符号\n16 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=94",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-95",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 18,
+      "page": 95,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.4\n大功率场效应管开关接口技术\nn 控制链：P1.0高→7406反相→光耦导通\nØ R1输出高电平→IRF640导通，A相通电\nØ 警示：本身无隔离，须加4N25/TIL113\n图10-11\n场效应管驱动的步进电机控制电路\n17 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=95",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-96",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 19,
+      "page": 96,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn 可控硅：大功率器件，又称晶闸管\nØ 正向电流可达千安，耐压数千伏\nØ 三个引脚：A阳极、K阴极、G控制极\n图10-12\n可控硅结构（原图b上管印作P1N2P2，应为P1N1P2）\n18 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=96",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-97",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 20,
+      "page": 97,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nØ 导通条件：阳极高于阴极＋触发电流\nØ 导通后Ig降为零仍保持导通\nØ 关断条件：阳极电流小于维持电流\n图10-13\n可控硅输出特性\n19 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=97",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-98",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 21,
+      "page": 98,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn TRIAC：两个单向可控硅反向连接\nØ G加正（负）脉冲即正（反）向导通\nØ 无反向耐压问题，宜作交流开关\n图10-14\n双向可控硅的符号、结构及伏安特性\n20 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=98",
+      "readingNotes": [
+        {
+          "text": "双向晶闸管的触发条件由主端电压与门极电流极性的组合决定，不能只凭门极脉冲正负判断主电流方向。可用触发象限及门极电流要求须按具体器件数据手册确定。",
+          "title": "ST AN4363：触发象限与器件选择",
+          "url": "https://www.st.com/resource/en/application_note/an4363-how-to-select-the-triac-acs-or-acst-that-fits-your-application-stmicroelectronics.pdf"
+        }
+      ]
+    },
+    {
+      "id": "circuits-99",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 22,
+      "page": 99,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn 接口要求：与微机相接须加光电隔离\nØ 必记：触发脉冲＞4V，宽度＞20μs\n脉冲要够宽，好让主回路电流爬过闩锁电流再撤门极\nØ 单片机接口线产生触发脉冲\nn 同步触发：触发与交流电压同步\n过零点只作时基，延时Ta 再触发才能连续调功\nØ 常用检测交流电过零点实现\n21 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=99",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-100",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 23,
+      "page": 100,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn 实例：电炉温度控制系统\nØ 单片机＋光耦＋双向可控硅\nØ 控制电炉丝的通电加热\n图10-15\n可控硅加热炉控制系统电路原理图\n22 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=100",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-101",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 24,
+      "page": 101,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn 要求：每半个交流周期触发一次\nØ 过零检测→反相作同步基准→入8031中断\nØ T0计移相Ta→经光耦触发可控硅\n示意\n过零同步触发时序（移相Ta 决定导通时段）\n23 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=101",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-102",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 25,
+      "page": 102,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.5\n可控硅接口技术\nn 别混：过零“导通”和过零“同步”是两回事\nØ 过零导通：只在过零点开通，调功靠数周波\nØ 关键：过零型器件做不了移相调功\n示意\n过零导通与过零同步移相对照（自制）\n24 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=102",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-103",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 26,
+      "page": 103,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.6\n电磁阀接口技术\nn 电磁阀：电磁力控制开闭的阀门\nØ 通电铁芯吸合阀开，断电复位关\nØ 术语：“位”＝滑阀位置，“通”＝流体通路\n图10-16\n电磁阀结构原理图\n25 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=103",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-104",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 27,
+      "page": 104,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1.6\n电磁阀接口技术\nn 驱动：MOC3041 触发双向可控硅KS\nØ 边界：过零型只做通/断，不能拿来调功\n电磁阀只需开关，正合适；调温调速得换随机相位型\n图10-17\n交流电磁阀接口电路\n26 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=104",
+      "readingNotes": [
+        {
+          "text": "过零型固态继电器不能实现半周内的移相调功，但可对适合的加热负载采用整周波通断来调节平均功率，并用于温度控制。因此，“不能调功”及“调温必须换随机相位型”都不是通用结论。实际应用还须匹配负载与开关器件。",
+          "title": "onsemi AN-3004：过零比例温度控制",
+          "url": "https://www.onsemi.com/download/application-notes/pdf/an-3004.pdf"
+        }
+      ]
+    },
+    {
+      "id": "circuits-105",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 28,
+      "page": 105,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n补充：报警输出接口简介\nn 报警形式：声、光及声光结合\nØ 光报警：LED指示灯亮或闪烁\nØ 声报警：蜂鸣器、扬声器\nn 驱动要点：仍是放大＋隔离两件事\nØ 蜂鸣器经三极管驱动，勿直驱\n报警输出＝本节开关量接口的典型应用\n27 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=105",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-106",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 29,
+      "page": 106,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n补充：简单报警程序骨架\n断续声＋闪灯——节奏全在延时参数\nALARM:  SETB  P1.0        ; 蜂鸣器响（经三极管驱动）\nCPL   P1.1        ; LED 翻转→ 闪烁\nACALL DELAY       ; 响t 毫秒\nCLR   P1.0        ; 停\nACALL DELAY       ; 停t 毫秒→ 断续声\nJB    F0,ALARM    ; 报警标志未清则继续\nRET\nØ 硬件即10.1 的驱动电路，程序只管节奏\nØ 考点：报警的解除条件要由程序判断（F0标志）\n28 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=106",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-107",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 30,
+      "page": 107,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n补充：越限报警\nn 判断逻辑：采样值与上下限比较\nØ 超上限或低于下限即置报警标志\n比较用CJNE 加进位判断，51 没有比较大小指令\n示意\n越限报警判断流程（自制）\n29 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=107",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-108",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 31,
+      "page": 108,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n练习\n【练习】10.1节学完，当堂检验：开关量系统常设\n光电隔离器，下列说法错误的是（\n）\nA. 将两系统间完全断开，防CPU受强电冲击\nB. 两系统经光电效应连成系统，实现控制\nC. 信号到位被控电路接通，否则切断，起开关作用\nD. 起耦合、隔离和开关作用\n思路提示（先自己想一分钟）\n盯住“完全断开”四个字——真完全断开了，控制信号还怎么传过去？\n30 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=108",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-109",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 32,
+      "page": 109,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n练习\n【练习】小功率直流电机控制，下列做法正确的是\n（\n）\nA. 改变定子通电极性改变转向\nB. 改变转子通电极性改变转向\nC. 定子通交流电周期换向\nD. 转子通交流电周期换向\n思路提示（先自己想一分钟）\n直流电机的电枢绕组长在定子还是转子上？改哪一边的通电极性才换向\n31 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=109",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-110",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 33,
+      "page": 110,
+      "title": "开关量输出接口技术",
+      "text": "10.1\n开关量输出接口技术\n10.1节小结\n开关量输出接口技术小结（六类接口一览）\n接口技术\n典型器件\n隔离情况\n特点与场合\n光电隔离器\n4N25、TIL113\n自身即隔离\n电-光-电转换，电源独立\n继电器\n9013＋继电器J\n有一定隔离，常加光\n耦\n有触点，可直接接220V市\n电\n固态继电器\n直流SSR/交流SSR\n内含光耦\n无触点、无火花，工作可靠\n大功率场效应管\nIRF640\n无隔离，须外加光耦\n输入阻抗高，开关快\n可控硅\nSCR、TRIAC\n无隔离，须外加光耦\n大功率，正向电流可达千安\n电磁阀\nMOC3041＋TRIAC\n光耦隔离\n控制流体通断\nØ 共性：信号放大＋电气隔离\n32 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=110",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-111",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 34,
+      "page": 111,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n10.1\n开关量输出接口技术\n10.2\n电机控制接口技术\n10.3\n步进电机控制接口技术\n33 / 89",
+      "href": "/resources/course/course-slides.pdf#page=111",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-112",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 35,
+      "page": 112,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.1\n小功率直流电机调速原理\nn 结构：定子磁极＋转子电枢\nØ 转速由电枢电压Ua决定\nØ 改变Ua极性即改变转向\nn 调速：调电枢电压平均值\n占空比调速算例（式10-1：Vd=Vmax·D）\n设全通电最高速Vmax=5000r/min\n目标平均速度Vd=200r/min\n占空比D=Vd/Vmax=200/5000=0.04\n即一个周期内约4%时间通电、96%断电\n34 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=112",
+      "readingNotes": [
+        {
+          "text": "本页把转速与占空比成正比作为简化教学模型：假设电源恒定、忽略电阻压降及摩擦等影响，并采用理想稳态近似。PWM首先改变平均电枢电压，实际转速还受负载、电机参数及驱动方式影响。按4%占空比求得200 r/min仅是该简化模型的计算结果，不能作为实物必达转速。",
+          "title": "maxon：转速、负载与反电动势的关系",
+          "url": "https://support.maxongroup.com/hc/en-us/articles/360013761160-Motor-data-and-simulation"
+        }
+      ]
+    },
+    {
+      "id": "circuits-113",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 36,
+      "page": 113,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.1\n小功率直流电机调速原理\nn PWM调速：调占空比控速\nØ 通电升速，断电降速\nØ 按规律调占空比即调速\n图10-18\n脉冲宽度调速系统原理图\n实物\n直流电机（Kreuzschnabel，\nCC BY-SA 3.0）\n动画\nPWM 占空比→转速\n35 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=113",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-114",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 37,
+      "page": 114,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.1\n小功率直流电机调速原理\nn 平均速度：由占空比D决定\nØ t1为通电时间，T为周期\nVd = Vmax·D\n（式10-1）\nD = t1/T\n图10-19\n平均速度与占空比的关系\n36 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=114",
+      "readingNotes": [
+        {
+          "text": "本页把转速与占空比成正比作为简化教学模型：假设电源恒定、忽略电阻压降及摩擦等影响，并采用理想稳态近似。PWM首先改变平均电枢电压，实际转速还受负载、电机参数及驱动方式影响。按4%占空比求得200 r/min仅是该简化模型的计算结果，不能作为实物必达转速。",
+          "title": "maxon：转速、负载与反电动势的关系",
+          "url": "https://support.maxongroup.com/hc/en-us/articles/360013761160-Motor-data-and-simulation"
+        }
+      ]
+    },
+    {
+      "id": "circuits-115",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 38,
+      "page": 115,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.2\n开环脉冲宽度调速系统\nn 五部分：构成开环调速系统\nØ ①D设定（人工）②脉宽发生器\nØ ③驱动器④电子开关⑤电机\n图10-20\n开环脉冲宽度调速系统的原理\n37 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=115",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-116",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 39,
+      "page": 116,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.2\n开环脉冲宽度调速系统\n直流电机与微型计算机的4种接口方法（据教材归纳）\n接口方法\n成本\n主要特点\n适用场合\n光耦＋MOSFET\n较低\n隔离保护，场效应管控通断\n自行开发的微机系统\n固态继电器\n适中\n耐用可靠，耐较大电流电压\n各种应用场景\n专用接口芯片\n较高\n可靠性好，电路设计简单\n国外系统广泛采用\n专用接口板\n——\n按总线标准选板，省开发时间\nSTD/PC总线工控系统\nØ 专用接口芯片如L290、L291、L292\n38 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=116",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-117",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 40,
+      "page": 117,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.2\n开环脉冲宽度调速系统\nn SSR接法：3脚接＋5V\nØ P1.0经7406反相接4脚\nØ P1.0高→LED亮→绕组通电\n图10-21\n采用固态继电器的直流电机接口连接方法\n39 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=117",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-118",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 41,
+      "page": 118,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\nn 双向控制：4个开关定状态\nØ SW1、SW4闭合→全速正转\nØ SW2、SW3闭合→全速反转\n图10-22\n带方向控制的直流电机控制原理图\n40 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=118",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-119",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 42,
+      "page": 119,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\n表10-1\n双向控制电机工作状态真值表\nPA1\nPA0\n状态\nSW1\nSW2\nSW3\nSW4\n控制字\n1\n0\n正转\n1\n0\n0\n1\n02H\n0\n1\n反转\n0\n1\n1\n0\n01H\n1\n1\n刹车\n0\n1\n0\n1\n03H\n0\n0\n滑行\n0\n0\n0\n0\n00H\nØ 考点：正转02H、反转01H\nØ 致命错误：SW1与SW2(或SW3与SW4)同时闭合=电源短路\n41 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=119",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-120",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 43,
+      "page": 120,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\nn 看电流怎么走：红线就是\n导通回路\nØ 左：SW1、SW4 通→电流\n由左向右，正转\n示意\nH桥正转/反转的电流路径（Cyril BUTTAY，CC BY-SA 3.0）\n实物\nL293D 驱动模块（CC0，\nWikimedia Commons）\n42 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=120",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-121",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 44,
+      "page": 121,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\nn 接口：8155扩展I/O口\nØ A口出控制字\n(SW1~SW4)\nØ B口读N，C口读方向\n图10-23\n双向电机控制接口电路\n43 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=121",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-122",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 45,
+      "page": 122,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\nn 软件延时法：通电/断电靠延时实现\nn 计数法：通电单位时间计数，够数断电\nØ 两种方法均靠软件控制通断比\nØ 本节程序：采用软件延时法\nPWM调速系统组成（5部分）\n占空比D设定→ 脉冲宽度发生器→ 驱动器→ 电子开关→ 直流\n电机\nD的设定方式：开关给定／电位器经A/D转换／拨码BCD码\n44 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=122",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-123",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 46,
+      "page": 123,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\n图10-24\n双向电机控制程序流程图\n图10-24\n双向电机控制程序流程图（续）\n45 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=123",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-124",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 47,
+      "page": 124,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\n双向电机控制程序（一）\n初始化与方向判别\nORG   8000H\nSTART:  MOV   DPTR,#0FD00H ；指向8155控制口\nMOV   A,#01H       ；A口出，BC口入\nMOVX  @DPTR,A\nLOOP:   MOV   DPTR,#0FD02H ；指向B口\nMOVX  A,@DPTR      ；读给定值N\nMOV   20H,A        ；存给定值N\nCPL   A            ；取反\nINC   A            ；加1得/N\nMOV   21H,A        ；存/N\nMOV   DPTR,#0FD03H ；指向C口\nMOVX  A,@DPTR      ；读状态标志\nJB    ACC.0,INVERT ；反向转INVERT\nMOV   A,#02H       ；取正向代码\nOUTPUT: MOV   DPTR,#0FD01H ；指向A口\nMOVX  @DPTR,A      ；输出控制代码\nØ 初始化8155\nØ 读N并求/N\nØ 读方向标志\nØ 考点：02H正向\n46 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=124",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-125",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 48,
+      "page": 125,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n10.2.3\nPWM调速系统设计\n双向电机控制程序（二）\n输出控制与延时\n；接上页\nMOV   22H,20H      ；延时t1\nDELAY1: ACALL DELAY0\nDJNZ  22H,DELAY1\nMOV   A,#00H       ；输出滑行代码\nMOVX  @DPTR,A\nMOV   23H,21H      ；延时t2\nDELAY2: ACALL DELAY0\nDJNZ  23H,DELAY2\nAJMP  LOOP\nSTOP:   MOV   A,#03H       ；输出刹车代码\nMOV   DPTR,#0FD01H\nMOVX  @DPTR,A\nAJMP  LOOP\nINVERT: MOV   A,#01H       ；输出反向代码\nAJMP  OUTPUT\nØ 延时t1→滑行\nØ 延时t2→循环\nØ 勘误：红字已修正\nØ 03H刹车01H反向\nØ DELAY0延时略\n47 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=125",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-126",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 49,
+      "page": 126,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n练习\n【练习】直流电机最高转速5000r/min，通电周期\n0.1s，要求平均速度200r/min，通电、断电时间分\n别是（\n）\nA. 0.004s和0.096s\nB. 0.04s和0.06s\nC. 0.25s和75s\nD. 0.1s和0.01s\n思路提示（先自己想一分钟）\n先由式（10-1）求占空比D，再乘周期T 得通电时间，断电时间＝T−t1\n48 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=126",
+      "readingNotes": [
+        {
+          "text": "本页把转速与占空比成正比作为简化教学模型：假设电源恒定、忽略电阻压降及摩擦等影响，并采用理想稳态近似。PWM首先改变平均电枢电压，实际转速还受负载、电机参数及驱动方式影响。按4%占空比求得200 r/min仅是该简化模型的计算结果，不能作为实物必达转速。",
+          "title": "maxon：转速、负载与反电动势的关系",
+          "url": "https://support.maxongroup.com/hc/en-us/articles/360013761160-Motor-data-and-simulation"
+        }
+      ]
+    },
+    {
+      "id": "circuits-127",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 50,
+      "page": 127,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n练习\n【练习】图10-23 电路中，8155 的A 口输出01H\n时电机处于哪种工作状态？要让它刹车，又该输出\n什么控制字？\n思路提示（先自己想一分钟）\n把01H 拆成PA1PA0 两位，再对照表10-1 查是哪种状态\n刹车＝绕组被短路，回想是哪两个开关闭合\n49 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=127",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-128",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 51,
+      "page": 128,
+      "title": "电机控制接口技术",
+      "text": "10.2\n电机控制接口技术\n小结\nn 调速原理：PWM调占空比\nØ 式（10-1）Vd＝Vmax·D\nn 双向控制：4开关定状态\nØ 考点：四个控制字要记牢\nØ 接口用8155，软件延时调速\n10.2核心：双向控制四状态速查\n02H正转/ 01H反转/ 03H刹车/ 00H滑行\n同侧两开关同时闭合＝电源直通短路，绝不可出现\n50 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=128",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-129",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 52,
+      "page": 129,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n10.1\n开关量输出接口技术\n10.2\n电机控制接口技术\n10.3\n步进电机控制接口技术\n51 / 89",
+      "href": "/resources/course/course-slides.pdf#page=129",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-130",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 53,
+      "page": 130,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.1\n步进电机的工作原理\nn 结构：定子6磁极，两极一相共三相\nØ 每个磁极上有5个小齿\nØ 转子40齿，相邻齿夹角9°\n图10-25\n步进电机原理图\n实物\n28BYJ-48 步进电机（Kushagra\nKeshari，CC BY-SA 4.0）\n52 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=130",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-131",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 54,
+      "page": 131,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.1\n步进电机的工作原理\nØ A相通电，0号齿对准A相中心\nØ B相偏120°，120°/9°非整数\nØ 13号齿差3°，换B相通电即转3°\n错齿是促使步进电机旋转的根本原因\n图10-25\n步进电机原理图\n动画\n错齿→换相→转子转3°(自制)\n53 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=131",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-132",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 55,
+      "page": 132,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.1\n步进电机的工作原理\nn 为什么错齿就有力：磁通\n总走磁阻最小的路\nØ 转子被拉向“齿对齐”的位置\n示意\n静转矩随错齿角的变化（自制）\n动画\n磁力线绕最短磁路（\nCarmelo 1955，CC BY-SA 4.0，\nWikimedia Commons）\n54 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=132",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-133",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 56,
+      "page": 133,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.1\n步进电机的工作原理\nn 齿距角：每个通电周期转过的角度\nn 步距角：每步（每拍）转过的角度\n齿距角= 360°/Z\n（式10-2）\n步距角= 360°/(Z·N)\n（式10-3）\nØ Z：转子齿数；N：工作拍数\nØ 必记：拍数越多，步距角越小\n55 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=133",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-134",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 57,
+      "page": 134,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.1\n步进电机的工作原理\nn 算例：代入式10-2、式10-3练一遍\n教材算例：Z=30、N=4，步距角= 360°/(30×4) = 3°\n本章电机Z=40：齿距角= 360°/40 = 9°\n单三拍N=3：步距角= 360°/(40×3) = 3°\n三相六拍N=6：步距角= 360°/(40×6) = 1.5°\n56 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=134",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-135",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 58,
+      "page": 135,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\nn 三部分：步进控制器＋功放＋电机\nØ 控制器：脉冲转为环形脉冲\nØ 功放：放大脉冲驱动电机\n传统步进控制器线路复杂、成本高\n图10-26\n步进电机控制系统的组成\n57 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=135",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-136",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 59,
+      "page": 136,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\nn 软件化：单片机替代步进控制器\nØ 并行二进制码转串行脉冲\nØ 并实现正反转方向控制\n知初始位置＋步数×步距角，即知最终位置\n图10-27\n用单片机控制步进电机系统原理图\n58 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=136",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-137",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 60,
+      "page": 137,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\nn 四要素：周期、高度、通断时间\nØ 高度由电平定，TTL为0～5V\nØ 通断时间由软件延时控制\n图10-28\n周期性的脉冲序列\n59 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=137",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-138",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 61,
+      "page": 138,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\n表10-2\n三相单三拍\n步序\nP1.2(C相)\nP1.1(B相)\nP1.0(A相)\n工作状态\n控制模型\n1\n0\n0\n1\nA\n01H\n2\n0\n1\n0\nB\n02H\n3\n1\n0\n0\nC\n04H\nn 通电顺序：正转A→B→C→A\nØ 反转A→C→B→A\nØ 每拍单相通电，每步转3°\n60 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=138",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-139",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 62,
+      "page": 139,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\n表10-3\n三相双三拍\n步序\nP1.2(C相)\nP1.1(B相)\nP1.0(A相)\n工作状态\n控制模型\n1\n0\n1\n1\nAB\n03H\n2\n1\n1\n0\nBC\n06H\n3\n1\n0\n1\nCA\n05H\nn 通电顺序：正转AB→BC→CA→AB\nØ 反转AB→CA→BC→AB\nØ 每拍两相同时通电\n61 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=139",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-140",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 63,
+      "page": 140,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\n表10-4\n三相六拍\n步序\nP1.2(C相)\nP1.1(B相)\nP1.0(A相)\n工作状态\n控制模型\n1\n0\n0\n1\nA\n01H\n2\n0\n1\n1\nAB\n03H\n3\n0\n1\n0\nB\n02H\n4\n1\n1\n0\nBC\n06H\n5\n1\n0\n0\nC\n04H\n6\n1\n0\n1\nCA\n05H\nn 通电顺序：A→AB→B→BC→C→CA→A\nØ 单、双相交替通电，每步1.5°\n62 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=140",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-141",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 64,
+      "page": 141,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.2\n步进电机控制系统的原理\nn 三种方式：单三拍、双三\n拍、六拍\nØ 单、双三拍每步转3°\nØ 三相六拍每步1.5°，精度高\n双三拍每拍也通两相却仍是3°——减\n半靠单双交替\nØ 同样脉冲周期，六拍速率低\nn 反转：通电顺序取反即可\n方向控制＝按选定方式的顺序发送脉冲序列\n动画\n三相单三拍A→B→C\n63 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=141",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-142",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 65,
+      "page": 142,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nn 组成：74LS04反相＋达林\n顿驱动\nØ 注意：A相通电条件是P1.0=0\n图10-29\n步进电机与单片机接口电路之一\n实物\nULN2003 驱动板（Kushagra\nKeshari，CC BY-SA 4.0，Wikimedia\nCommons）\n64 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=142",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-143",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 66,
+      "page": 143,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nn 区别：单片机与驱动器间加光耦\nØ P1.0=1→光耦截止→达林顿通\nØ 注意：A相通电条件是P1.0=1\n图10-30\n步进电机与单片机接口电路之二\n65 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=143",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-144",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 67,
+      "page": 144,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nØ 无光耦（图10-29）：P1.0=0通电\nØ 有光耦（图10-30）：P1.0=1通电\n两图控制极性相反，控制模型不能照搬！\n图10-29\n步进电机与单片机接口电路之一\n图10-30\n步进电机与单片机接口电路之二\n66 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=144",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-145",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 68,
+      "page": 145,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n拓展：实验8 的四线双极型步进电机\nn 实验室那台：四线双极型\nØ 换相要反转绕组电流\n驱动要用两个H 桥（10.2 学过）\n示意\n四线双极步进＝两个H 桥（自制）\n实物\nA4988 驱动模块（Kushagra\nKeshari，CC BY-SA 4.0）\n67 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=145",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-146",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 69,
+      "page": 146,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nn 程序任务：判方向、发模型、计步数\nØ 20H的D0位：1正转，0反转\nØ 每输出一拍，延时并减步数\n图10-31\n三相双三拍步进电机控制程序流程图\n图10-31\n三相双三拍步进电机控制程序流\n程图（续）\n68 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=146",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-147",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 70,
+      "page": 147,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\n程序BJDJ1（一）\n双三拍·正向段\nORG   0100H\nBJDJ1:  MOV   A,#N        ；步进电机步数N→A\nJNB   00H,LOOP2   ；反向，转LOOP2\nLOOP1:  MOV   P1,#03H     ；正向，输出第一拍AB\nACALL DELAY       ；延时\nDEC   A           ；步数减1\nJZ    DONE        ；A=0，转DONE\nMOV   P1,#06H     ；输出第二拍BC\nACALL DELAY       ；延时\nDEC   A\nJZ    DONE        ；A=0，转DONE\nMOV   P1,#05H     ；输出第三拍CA\nACALL DELAY       ；延时\nDEC   A\nJNZ   LOOP1       ；A≠0，转LOOP1\nAJMP  DONE        ；A=0，转DONE\nØ 考点：位00H即\n20H的D0位\nØ 正向拍序\nAB→BC→CA\nØ 控制模型\n03H→06H→05H\nØ 每拍延时后减步数\n69 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=147",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-148",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 71,
+      "page": 148,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\n程序BJDJ1（二）\n双三拍·反向段\n；接上页（程序BJDJ1续）\nLOOP2:  MOV   P1,#03H     ；反向，输出第一拍AB\nACALL DELAY       ；延时\nDEC   A           ；步数减1\nJZ    DONE        ；A=0，转DONE\nMOV   P1,#05H     ；输出第二拍CA\nACALL DELAY       ；延时\nDEC   A\nJZ    DONE        ；A=0，转DONE\nMOV   P1,#06H     ；输出第三拍BC\nACALL DELAY       ；延时\nDEC   A\nJNZ   LOOP2       ；A≠0，转LOOP2\nDONE:   RET               ；走完N步，返回\nDELAY:  ……见10.3.4 延时子程序页（833μs）\nØ 易错：反向即拍序\n逆转\nØ 反向拍序\nAB→CA→BC\nØ 控制模型\n03H→05H→06H\nØ 任一拍A=0即止\n70 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=148",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-149",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 72,
+      "page": 149,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nn 循环法：模型存表，指针逐个取\nØ 反转时偏移量加7查反向表\n图10-32\n三相六拍步进电机控制程序流程图\n71 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=149",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-150",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 73,
+      "page": 150,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\n程序BJDJ2（一）\n三相六拍·查表主循环\nCOUNT   EQU   30H                ；步数常数\nORG   8100H\nBJDJ2:  MOV   R2,#COUNT     ；步进电机的步数\nLOOP0:  MOV   R3,#00H       ；表内偏移量清零\nMOV   DPTR,#PTABLE  ；送控制模型指针\nJNB   00H,LOOP2     ；反转，转LOOP2\nLOOP1:  MOV   A,R3          ；取控制模型\nMOVC  A,@A+DPTR     ；查表得控制模型\nJZ    LOOP0         ；为00H转LOOP0\nMOV   P1,A          ；输出控制模型\nACALL DELAY         ；延时\nINC   R3            ；控制步数加1\nDJNZ  R2,LOOP1      ；未走完继续\nRET\nn 查表法：模型按\n序存PTABLE表\nØ 考点：MOVC\nA,@A+DPTR查表\nØ R2计步数，R3作\n偏移\nØ 读到00H回表头\n72 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=150",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-151",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 74,
+      "page": 151,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\n程序BJDJ2（二）\n反向偏移与控制模型表\n；接上页（程序BJDJ2续）\nLOOP2:  MOV   A,R3               ；求反向控制模型的偏移量\nADD   A,#07H             ；加7，指向反向表\nMOV   R3,A\nAJMP  LOOP1              ；转LOOP1查表输出\nDELAY:  ……见10.3.4 延时子程序页（833μs）\nPTABLE  DB    01H,03H,02H,06H,04H,05H,00H ；正向控制模型\nDB    01H,05H,04H,06H,02H,03H,00H ；反向控制模型\nØ 考点：反向表紧随其后，偏移加7\nØ 表尾00H为一周期结束标志\n73 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=151",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-152",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 75,
+      "page": 152,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n拓展：Keil C 里怎么写（对照BJDJ2）\n三相六拍查表输出的C51 写法\n#include <reg51.h>\nunsigned char code PT[6] = {0x01,0x03,0x02,0x06,0x04,0x05};\nvoid step(unsigned int n) {          // 走n 步\nunsigned int i;\nfor (i = 0; i < n; i++) {\nP1 = PT[i % 6];              // 查表输出控制模型\ndelay_us(833);               // 10.3.4 算出的间隔\n}\n}\nØ code 关键字把表放进程序存储器（同DB）\nØ 反转：把下标改成(5 - i % 6) 即可\n74 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=152",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-153",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 76,
+      "page": 153,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.3\n步进电机与微型计算机的接口及程序设计\nn 立即数法：模型逐条写进指令\nØ 直观简单，节拍多程序长\n三相六拍若用立即数法，正反两路要写12段输出\nn 循环查表法：模型存表逐个取\nØ 程序短，省存储单元\n节拍越多，循环查表法优势越明显\n75 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=153",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-154",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 77,
+      "page": 154,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.4\n步进电机步数及速度的确定方法\nn 例题：10圈电位计，量程0～10V\nØ 要求电压从2V调到2.1V\nØ 10V:3600°=0.1V:X，X=36°\nn 求步数：N=行程角÷步距角\nØ 三拍3°、12步；六拍1.5°、24步\n改变控制方式可提高精度，但同样脉冲周期下速率降低\n76 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=154",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-155",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 78,
+      "page": 155,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.4\n步进电机步数及速度的确定方法\nn 速度控制：改变通电脉冲时间间隔\nØ 即改变程序中的延时时间\n例：三相六拍方式，要求2s内转10圈\n每圈步数= 360°/1.5° = 240步\n每步延时= 2s/(10×240) ≈ 833μs\nØ 考点：每输出一拍，延时833μs\n77 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=155",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-156",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 79,
+      "page": 156,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.4\n步进电机步数及速度的确定方法\n把833μs 写成延时子程序（fosc=12MHz，1个机器周期=1μs）\nDELAY:  MOV   R7,#02H      ; 1周期\n外层循环2 次\nD1:     MOV   R6,#0CEH     ; 1周期\n内层206 次（0CEH=206）\nD2:     DJNZ  R6,D2        ; 2周期×206 = 412μs  ← 主要耗时\nDJNZ  R7,D1        ; 2周期\nRET                ; 2周期\nn 算账：1 + 2×(1+412+2) + 2 = 833μs\n通式T1=(目标μs−9)/4；本例T1=(833−9)/4=206\nØ 注意：调用它的ACALL 还要2μs，实际间隔835μs\n78 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=156",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-157",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 80,
+      "page": 157,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.5\n步进电机的变速控制\nn 想更快？恒速快跑受两大限制\nØ 启动频率有上限；频率越高转矩越小\nØ 警示：速度过高会失步\n示意\n矩频特性曲线（启动频率越高，转矩越小）\n79 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=157",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-158",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 81,
+      "page": 158,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.5\n步进电机的变速控制\nn 五阶段：启动→加速→恒速→减速→停机\nØ 启停速度须低于响应频率fs\n图10-33\n变速控制中频率与步长之间的关系\n80 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=158",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-159",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 82,
+      "page": 159,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n10.3.5\n步进电机的变速控制\nn 方法一：改变控制方式变速\n脉冲间隔不变，六拍1.5°/步→三拍3°/步，转速翻倍\nØ 启停用六拍，中途换三拍\nn 方法二：均匀改变脉冲间隔\nØ 加速减间隔，减速加间隔\nn 方法三：定时器中断变速\n定时中断发脉冲，CPU无须等待，效率精度最高\n81 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=159",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-160",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 83,
+      "page": 160,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n练习\n【练习】10.3节学完，当堂检验：\n①四相步进电机转子40齿，单四拍通电，每次转几度？\nA. 9°\nB. 2.25°\nC. 3°\nD. 0°\n②按A→AB→B→BC→C→CA→A通电是哪种方式？反序\n通电电机怎样转？\n思路提示（先自己想一分钟）\n①步距角= 360°/(Z·N)，N 是工作拍数不是相数；只除以Z 得到的是齿距\n角\n②数一数一个循环里有几拍、每拍通几相；反序通电意味着磁场往哪个方\n向走\n82 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=160",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-161",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 84,
+      "page": 161,
+      "title": "步进电机控制接口技术",
+      "text": "10.3\n步进电机控制接口技术\n小结\nØ 错齿是步进电机旋转的根因\nØ 步距角=360°/(Z·N)\n这条公式和三种通电顺序是本节考试重点\nØ 通电方式：单三拍、双三拍、六拍\nØ 程序两法：立即数与循环查表\nØ 变速五阶段，防失步\n83 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=161",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-162",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 85,
+      "page": 162,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n本章小结\nn 主线一：开关量输出接口\nØ 两大核心：信号放大＋电气隔离\nn 主线二：电机控制接口——PWM调速\nn 主线三：步进电机接口——顺序通电\nØ 必会：步距角计算与三种通电顺序\n三类接口是51单片机应用系统必不可少的组成部分\n84 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=162",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-163",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 86,
+      "page": 163,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n习题选讲\n【习题选讲】选择题13：给某三相步进电机以单三\n拍方式顺时针通电6次，再以双三拍方式逆时针通\n电6次，电机的终点（\n）。\nA. 回到原点\nB. 顺时针转过4.5°\nC. 逆时针转过4.5°\nD. 无法预测\n85 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=163",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-164",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 87,
+      "page": 164,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n习题配图导读（一）\nn 习题18：数据采集系统（图10-34）\nn 习题20：电机控制系统（图10-35）\n图10-34\n数据采集系统接口电路\n图10-35\n某电机控制系统\n86 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=164",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-165",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 88,
+      "page": 165,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n习题配图导读（二）\nn 习题22：步进电机接口（图10-36）\nn 习题24★必做：三相步进电机（图10-38）\n图10-36\n某步进电机控制系统接口电路\n图10-38\n某三相步进电机控制电路\n87 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=165",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-166",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 89,
+      "page": 166,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n作业布置\n作\n业：\nu问答题3、6（光电隔离器／PWM原理）\nu选择题8～17（10道全做）\nu练习题21、24（通电顺序图＋综合设计）\n做题提示\n选择题11：Vd = Vmax·D，先求占空比D 再往下算\n练习24：光耦作用回看10.1.1，通电顺序回看表10-2～10-4，第(4)问先画\n流程图\n88 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=166",
+      "readingNotes": []
+    },
+    {
+      "id": "circuits-167",
+      "deckId": "circuits",
+      "deckTitle": "第10章 常用外部电路控制程序的设计",
+      "sourcePage": 90,
+      "page": 167,
+      "title": "常用外部电路控制程序的设计",
+      "text": "第10章\n常用外部电路控制程序的设计\n图片与动画来源\nn 外部素材：均来自Wikimedia Commons，完\n整台账见CREDITS.json\nØ 其余示意图、动画为本课件自制\nØ 教材原图版权归教材出版方，仅课堂教学使用\n素材许可清单\n小功率直流电机照\nCC BY-SA 3.0\nKreuzschnabel\n28BYJ-48 步进电机照\nCC BY-SA 4.0\nKushagra Keshari\n继电器动画×2\nCC BY-SA 4.0\nCloullin\n反应式步进动画\nCC BY-SA 4.0\nCarmelo 1955\n其余（H桥图/驱动板照等）见各页图题署名\n89 / 89\n◂目录",
+      "href": "/resources/course/course-slides.pdf#page=167",
+      "readingNotes": []
+    }
+  ]
+}

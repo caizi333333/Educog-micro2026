@@ -78,7 +78,6 @@ describe('CertificatePage persisted-record boundary', () => {
     expect(screen.getByText(/当前学生账号没有服务端已颁发的证书记录/)).toBeInTheDocument();
     expect(screen.queryByText(/兹确认/)).not.toBeInTheDocument();
     expect(screen.queryByText(/表现优异/)).not.toBeInTheDocument();
-    expect(screen.getByText('演示数据：')).toBeInTheDocument();
   });
 
   it.each([
@@ -114,7 +113,6 @@ describe('CertificatePage persisted-record boundary', () => {
     expect(screen.getByText(persistedCertificate.criteria)).toBeInTheDocument();
     expect(screen.getByText('2025年7月1日')).toBeInTheDocument();
     expect(screen.getByText('87.2')).toBeInTheDocument();
-    expect(screen.getByText('演示数据：')).toBeInTheDocument();
   });
 
   it('shows a retryable error without generating a certificate, then renders the confirmed response', async () => {

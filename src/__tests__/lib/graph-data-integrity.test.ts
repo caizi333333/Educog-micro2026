@@ -10,6 +10,8 @@ import {
   knowledgePoints,
   LEGACY_GRAPH_NODE_TARGETS,
   resolveKnowledgeResourceHref,
+  COURSE_SLIDE_LINKS,
+  COURSE_GUIDE_LINKS,
 } from '@/lib/knowledge-points';
 import { getModuleIdForChapter } from '@/lib/lesson-tasks';
 import {
@@ -17,7 +19,9 @@ import {
   getProblemRemediationPlan,
   problemGraph,
 } from '@/lib/problem-graph';
-import { COURSE_CHAPTER_SCHEDULE, COURSE_KA_COUNT_BY_CHAPTER } from '@/lib/course-curriculum';
+import { COURSE_CHAPTER_SCHEDULE, COURSE_KA_COUNT_BY_CHAPTER, COURSE_SYLLABUS_TOPICS, COURSE_UNIT_ALIGNMENT } from '@/lib/course-curriculum';
+import { getTeachingContent } from '@/lib/teaching-content';
+import { createExperimentObservation, collectExperimentObservation, validateExperimentObservation, type ExperimentObservationEvidence } from '@/lib/experiment-config';
 
 const isHierarchicallyRelated = (left: string, right: string): boolean => (
   left === right || left.startsWith(`${right}.`) || right.startsWith(`${left}.`)
@@ -27,6 +31,125 @@ describe('three graph data integrity', () => {
   const knowledgeById = new Map(knowledgePoints.map((point) => [point.id, point]));
   const problemIds = new Set(problemGraph.map((node) => node.id));
   const ideologicalById = new Map(ideologicalNodes.map((node) => [node.id, node]));
+
+  it('preserves source chapter numbering and separates extension units from the syllabus', () => {
+    expect(COURSE_SYLLABUS_TOPICS.map((topic) => topic.chapterNumber)).toEqual([1, 2, 3, 4, 5, 6, 8, 9, 10, 11]);
+    expect(COURSE_SYLLABUS_TOPICS.reduce((sum, topic) => sum + topic.theoryHours, 0)).toBe(48);
+    expect(COURSE_SYLLABUS_TOPICS.find((topic) => topic.chapterNumber === 6)?.platformUnits).toEqual([7]);
+    expect(COURSE_SYLLABUS_TOPICS.find((topic) => topic.chapterNumber === 10)?.platformUnits).toEqual([8]);
+    expect(COURSE_UNIT_ALIGNMENT[4]).toContain('拓展');
+    expect(COURSE_UNIT_ALIGNMENT[10]).toContain('拓展');
+  });
+
+  it('links source slide pages by topic without substituting unrelated decks for missing material', () => {
+    COURSE_SLIDE_LINKS.forEach((link) => {
+      const resource = knowledgeById.get(link.pointId)?.resources?.find((candidate) => candidate.refId === link.refId);
+      expect(resource?.url).toBe(`/resources/course/course-slides.pdf#page=${link.page}`);
+      expect(Number.isInteger(link.page) && link.page >= 1 && link.page <= 167).toBe(true);
+      expect(knowledgeById.get(link.pointId)?.chapter).toBe(link.page <= 77 ? 7 : 8);
+    });
+    expect(knowledgeById.get('7.2.3')?.resources?.[0]?.url).toContain('#page=45');
+    expect(knowledgeById.get('8.5.2')?.resources?.some((resource) => resource.url?.endsWith('#page=145'))).toBe(true);
+    expect(knowledgeById.get('8.1')?.resources?.find((resource) => resource.type === 'slide')?.url).toBeUndefined();
+    expect(knowledgeById.get('7.4.3')?.resources).toBeUndefined();
+  });
+
+  it('opens only the implemented interactive demonstrations', () => {
+    const stackResource = knowledgeById.get('3.5')?.resources?.find((resource) => resource.refId === 'anim-jump-stack');
+    expect(resolveKnowledgeResourceHref(stackResource!, 3)).toBe('/simulation?experiment=exp05&view=guide&animation=stack-pushpop');
+    expect(getTeachingContent('exp05')?.animations?.map((animation) => animation.id)).toContain('stack-pushpop');
+    expect(resolveKnowledgeResourceHref({ type: 'animation', title: '中断流程', refId: 'anim-interrupt-flow' }, 5)).toBe('/simulation?experiment=exp06&view=guide&animation=interrupt-flow');
+    expect(resolveKnowledgeResourceHref({ type: 'animation', title: '帧格式', refId: 'anim-uart-timing' }, 7)).toBe('/simulation?experiment=exp09&view=guide&animation=uart-frame');
+    expect(resolveKnowledgeResourceHref({ type: 'animation', title: '未实现', refId: 'anim-comm-protocols' }, 7)).toBeNull();
+  });
+
+  it('attaches real web guides without relabelling them as slides or implemented animations', () => {
+    for (const link of COURSE_GUIDE_LINKS) {
+      expect(getTeachingContent(link.experimentId)?.theory.length).toBeGreaterThan(0);
+      for (const pointId of link.pointIds) {
+        const resource = knowledgeById.get(pointId)?.resources?.find((candidate) => candidate.refId === link.refId);
+        expect(resource?.type).toBe('document');
+        expect(resource?.title).not.toMatch(/课件|PPT|动画/);
+        expect(resolveKnowledgeResourceHref(resource!)).toBe(`/simulation?experiment=${link.experimentId}&view=guide`);
+      }
+    }
+    expect(knowledgeById.get('8.3')?.resources?.find((resource) => resource.refId === 'ch08-ppt-s3')?.title).toContain('不含DAC');
+    expect(knowledgeById.get('1.1')?.resources?.find((resource) => resource.refId === 'ch01-ppt-s1')?.url).toBeUndefined();
+    expect(knowledgeById.get('10.3')?.resources?.find((resource) => resource.refId === 'ch10-ppt-s3')?.url).toBeUndefined();
+  });
+
+  it('keeps the classic 8051 interrupt register separate from the 8052 extension', () => {
+    for (const id of ['exp03', 'exp06']) {
+      const ie = getTeachingContent(id)?.registerReference.find((register) => register.name === 'IE');
+      expect(ie?.bits).toEqual(['EA', '—', '—', 'ES', 'ET1', 'EX1', 'ET0', 'EX0']);
+    }
+  });
+
+  it('keeps source timing and input conditions aligned with the revised car and UART examples', () => {
+    const uart = getTeachingContent('exp09')!.theory.find((section) => section.title === 'SCON 寄存器与收发控制')!.content;
+    expect(uart).toContain('方式1在停止位开始时置1');
+    expect(uart).toContain('不复现逐位物理发送时序');
+    const car = getTeachingContent('proj03')!;
+    expect(car.stepByStep.find((step) => step.step.includes('配置外部中断'))?.detail).toContain('IT0=IT1=1');
+    expect(car.registerReference.find((register) => register.name === 'IP')?.bits).not.toContain('PT2');
+    expect(car.commonMistakes.find((item) => item.mistake === '中断服务中长时间延时')?.explanation).toContain(String(1 + 250 * (1 + 250 * 2 + 2) + 2));
+    expect(getTeachingContent('exp08')!.stepByStep[0]?.detail).toContain('正反转共用');
+    expect(getTeachingContent('proj01')!.stepByStep[3]?.detail).toContain('约1.006s');
+  });
+
+  it.each([
+    ['1.4', 'ch01-ppt-s4', 'proj01', ['AT89C51 芯片引脚功能', '最小系统电路']],
+    ['2.3', 'ch02-ppt-s3', 'exp01', ['8051 并行 I/O 口结构', 'LED 驱动原理']],
+    ['3.1', 'ch03-ppt-s1', 'exp02', ['8051 寻址方式']],
+    ['6.1', 'ch06-ppt-s1', 'exp03', ['8051 定时器/计数器原理', '定时初值计算']],
+    ['6.3', 'ch06-ppt-s3', 'exp06', ['双定时器协同工作']],
+    ['8.1', 'ch08-ppt-s1', 'exp04', ['七段数码管原理', '动态扫描技术']],
+    ['8.2', 'ch08-ppt-s2', 'exp05', ['四路独立按键与同键确认', '消抖延时的条件与寄存器保护', '实物拓展：4×4矩阵键盘']],
+    ['8.4', 'ch08-ppt-s4', 'proj04', ['DS18B20 单总线温度传感器', '单总线通信时序详解']],
+  ] as const)('labels the %s webpage as a document and verifies its actual guide topics', (pointId, refId, experimentId, topics) => {
+    const resource = knowledgeById.get(pointId)?.resources?.find((item) => item.refId === refId);
+    expect(resource?.type).toBe('document');
+    expect(resource?.title).not.toMatch(/课件|PPT|动画/);
+    expect(resolveKnowledgeResourceHref(resource!)).toBe(`/simulation?experiment=${experimentId}&view=guide`);
+    const guide = getTeachingContent(experimentId);
+    topics.forEach((title) => {
+      expect(guide?.theory.find((section) => section.title === title)?.content.trim()).toBeTruthy();
+    });
+    if (pointId === '8.4') {
+      expect(resource?.title).toContain('模拟输入');
+      expect(guide?.projectBrief?.simulationBoundary).toContain('模拟温湿度输入');
+    }
+  });
+
+  it('keeps the original report exercise and built-in project template explicit', () => {
+    const report = knowledgeById.get('5.3')?.resources?.find((resource) => resource.refId === 'ch05-ppt-s3');
+    expect(report?.type).toBe('document');
+    expect(report?.title).toContain('课程实验报告第9—10页');
+    expect(resolveKnowledgeResourceHref(report!)).toBe('/resources/course/microcontroller-lab-report-1-8.pdf#page=9');
+    const workflow = knowledgeById.get('9.1')?.resources?.find((resource) => resource.refId === 'doc-dev-workflow');
+    expect(workflow?.type).toBe('document');
+    expect(workflow?.title).toContain('内置模板');
+    expect(resolveKnowledgeResourceHref(workflow!)).toBe('/simulation?experiment=proj04&view=guide');
+    const brief = getTeachingContent('proj04')?.projectBrief;
+    expect(brief?.evidenceStatus).toContain('暂无真实学生成果材料');
+    expect(brief?.milestones.map((milestone) => milestone.id)).toEqual(['requirements', 'interfaces', 'implementation', 'integration', 'review']);
+  });
+
+  it('reuses verified report exercises and the existing interrupt animation without inventing resources', () => {
+    const branch = knowledgeById.get('3.5')?.resources?.find((resource) => resource.refId === 'course-lab-carry-branch');
+    const bit = knowledgeById.get('3.6')?.resources?.find((resource) => resource.refId === 'course-lab-carry-branch');
+    expect(branch).toEqual(bit);
+    expect(branch?.type).toBe('document');
+    expect(resolveKnowledgeResourceHref(branch!)).toBe('/resources/course/microcontroller-lab-report-1-8.pdf#page=3');
+    const c51 = knowledgeById.get('4.2')?.resources?.find((resource) => resource.refId === 'course-lab-c51-basics');
+    expect(c51?.type).toBe('document');
+    expect(resolveKnowledgeResourceHref(c51!)).toBe('/resources/course/microcontroller-lab-report-1-8.pdf#page=11');
+    expect(knowledgeById.get('4.2')?.description).toContain('应读作unsigned char');
+    const interrupt = knowledgeById.get('5.4')?.resources?.find((resource) => resource.type === 'animation');
+    expect(interrupt?.refId).toBe('anim-interrupt-flow');
+    expect(resolveKnowledgeResourceHref(interrupt!)).toBe('/simulation?experiment=exp06&view=guide&animation=interrupt-flow');
+    expect(getTeachingContent('exp06')?.animations?.map((animation) => animation.id)).toContain('interrupt-flow');
+  });
 
   it('derives every seeded chapter from the formal 10-chapter and 17-week curriculum', () => {
     const roots = getPointsByLevel(1).sort((left, right) => left.chapter - right.chapter);
@@ -345,5 +468,61 @@ describe('three graph data integrity', () => {
       '/knowledge-graph?chapter=6&node=6.1',
       '/quiz?chapter=6',
     ]);
+  });
+});
+
+
+describe('experiment run observation contract', () => {
+  const readyObservation = (): ExperimentObservationEvidence => ({
+    ...createExperimentObservation(), steps: 1000,
+    portValues: {
+      P0: [0, 1, 0x3f, 0x06],
+      P1: [0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f, 0x10, 0x30, 0x20, 0x60],
+      P2: [0xe0, 0xd0, 0xb0, 0x70, 0x71, 0x75], P3: [0xff, 0xfe],
+    },
+    ramValues: { '20': [0xff, 0], '21': [0, 1], '30': [128], '32': [127] },
+    adcPwmPairs: [{ adc: 127, duty: 128 }],
+    timerOverflows: { T0: 2, T1: 2 }, uartText: 'HELLO WORLD!', buzzerFrequencyHz: 440,
+  });
+
+  it.each(['exp01', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'proj01', 'proj02', 'proj03'])(
+    '%s requires corresponding output, rather than execution count alone', (id) => {
+      expect(validateExperimentObservation(id, readyObservation()).ok).toBe(true);
+      expect(validateExperimentObservation(id, { ...createExperimentObservation(), steps: 10000000 }).ok).toBe(false);
+      expect(validateExperimentObservation(id, { ...readyObservation(), steps: 1 }).ok).toBe(false);
+    },
+  );
+
+  it('rejects malformed bytes and does not count duplicate LED patterns as eight outputs', () => {
+    const observation = readyObservation();
+    expect(validateExperimentObservation('exp01', { ...observation, portValues: { ...observation.portValues, P1: [256] } }).ok).toBe(false);
+    expect(validateExperimentObservation('exp01', { ...observation, portValues: { ...observation.portValues, P1: Array(8).fill(0xfe) } }).ok).toBe(false);
+    expect(validateExperimentObservation('exp02', observation).ok).toBe(false);
+    expect(validateExperimentObservation('proj04', observation).ok).toBe(false);
+  });
+
+  it('requires same-sample ADC/PWM values and excludes static boundary duty values', () => {
+    const observation = readyObservation();
+    for (const adcPwmPairs of [[], [{ adc: 127, duty: 127 }], [{ adc: 255, duty: 0 }], [{ adc: 0, duty: 255 }]]) {
+      expect(validateExperimentObservation('proj02', { ...observation, adcPwmPairs }).ok).toBe(false);
+    }
+    expect(validateExperimentObservation('proj02', { ...observation, portValues: { ...observation.portValues, P2: [0] } }).ok).toBe(false);
+  });
+
+  it('collects only executed states, adds actual instruction totals, and keeps paired samples intact', () => {
+    const ram = new Uint8Array(128); ram[0x32] = 127; ram[0x30] = 128;
+    const state = { portValues: { P0: 127, P1: 254, P2: 1, P3: 255 }, ram, timers: { overflowCount0: 2, overflowCount1: 0 }, uart: { transmitBuffer: 'HELLO WORLD!' }, buzzer: { frequency: 440 } };
+    const empty = createExperimentObservation();
+    expect(collectExperimentObservation(empty, state, 0)).toBe(empty);
+    let observation = collectExperimentObservation(empty, state, 257);
+    expect(observation.steps).toBe(257);
+    expect(observation.portValues.P1).toEqual([254]);
+    expect(observation.adcPwmPairs).toEqual([{ adc: 127, duty: 128 }]);
+    ram[0x32] = 255; ram[0x30] = 0;
+    observation = collectExperimentObservation(observation, state, 17);
+    expect(observation.steps).toBe(274);
+    expect(observation.adcPwmPairs).toEqual([{ adc: 127, duty: 128 }, { adc: 255, duty: 0 }]);
+    expect(observation.timerOverflows.T0).toBe(2);
+    expect(observation.portValues.P1).toEqual([254]);
   });
 });

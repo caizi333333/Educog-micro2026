@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { calculateQuizPoints } from '@/lib/points-system';
 import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
 import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
-import { getComprehensiveQuestions, quizQuestions } from '@/lib/quiz-data';
+import { getComprehensiveQuestions, quizQuestions, toPublicQuestion, type QuestionSource } from '@/lib/quiz-data';
 import { createHash } from 'node:crypto';
 import { getDataProvenance } from '@/lib/env';
 import {
@@ -32,6 +32,7 @@ const optionalTrimmedString = (maxLength = 128) => z.preprocess((value) => {
 const numberLikeSchema = z.union([z.number(), z.string()]);
 
 const quizSubmitSchema = z.object({
+  expectedUserId: z.string().trim().min(1).max(128),
   quizId: optionalTrimmedString(128),
   score: numberLikeSchema,
   totalQuestions: numberLikeSchema.nullish(),
@@ -46,6 +47,7 @@ const quizSubmitSchema = z.object({
   topicId: optionalTrimmedString(64),
   attemptId: optionalTrimmedString(128),
   pathId: optionalTrimmedString(128),
+  questionOrderIds: z.array(z.number().int().positive()).min(1).max(2_000).optional(),
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,6 +103,7 @@ function duplicateAttemptResponse(
   attempt: StoredQuizAttempt,
   quizId: string,
   expectedFingerprint: string,
+  ownerId: string,
 ): NextResponse {
   let stored: Record<string, unknown> = {};
   try {
@@ -125,6 +128,7 @@ function duplicateAttemptResponse(
     : null;
   return NextResponse.json({
     success: true,
+    ownerId,
     dataProvenance: getDataProvenance(),
     asOf: new Date().toISOString(),
     sampleSize: { questions: attempt.totalQuestions, answered: attempt.totalQuestions },
@@ -144,6 +148,7 @@ function duplicateAttemptResponse(
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  let recoverableOwnerId: string | null = null;
   let recoverableAttemptId: string | null = null;
   let recoverableQuizId: string | null = null;
   let recoverableSubmissionFingerprint: string | null = null;
@@ -164,6 +169,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!parsedData.success) {
       return NextResponse.json({ error: '测评提交参数格式无效' }, { status: 400 });
     }
+    if (parsedData.data.expectedUserId !== payload.userId) {
+      return NextResponse.json({ error: '登录账号已变化，请刷新身份后再提交', code: 'ACCOUNT_CHANGED' }, { status: 409 });
+    }
+    recoverableOwnerId = payload.userId;
     const {
       quizId,
       score,
@@ -250,7 +259,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (answerKeys.length > 2_000 || JSON.stringify(normalizedAnswers).length > 200_000) {
       return NextResponse.json({ error: '答题记录超出限制' }, { status: 400 });
     }
-    const questionResults: Record<string, { correct: boolean; correctAnswer: string }> = {};
+    const questionResults: Record<string, {
+      correct: boolean; correctAnswer: string; explanation?: string;
+      source?: QuestionSource;
+    }> = {};
 
     // 专项测评由服务端按固定题集重新判分，客户端分数仅作展示，不参与落盘。
     if (resolvedQuizId === ADDRESSING_QUIZ_ID) {
@@ -271,7 +283,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         const bucket = perKA[question.ka]!;
         bucket.total += 1;
         const correct = normalizeAnswer(normalizedAnswers[String(question.id)]) === normalizeAnswer(question.correctAnswer);
-        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer };
+        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, source: question.source };
         if (correct) {
           bucket.correct += 1;
           correctCount += 1;
@@ -305,7 +317,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         const bucket = perKA[question.ka]!;
         bucket.total += 1;
         const correct = normalizeAnswer(normalizedAnswers[String(question.id)]) === normalizeAnswer(question.correctAnswer);
-        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer };
+        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, source: question.source };
         if (correct) {
           bucket.correct += 1;
           correctCount += 1;
@@ -350,7 +362,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         const bucket = perKA[question.ka]!;
         bucket.total += 1;
         const correct = normalizeAnswer(normalizedAnswers[String(question.id)]) === normalizeAnswer(question.correctAnswer);
-        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer };
+        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, source: question.source };
         if (correct) {
           bucket.correct += 1;
           correctCount += 1;
@@ -365,6 +377,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       resolvedScoresByKA = perKA;
       resolvedWeakAreas = Object.entries(perKA).filter(([, value]) => value.score < 70).map(([key]) => key).slice(0, 100);
     }
+
+    const submittedQuestionIds = Object.keys(questionResults).map(Number);
+    const questionOrderIds = parsedData.data.questionOrderIds;
+    if (questionOrderIds && (questionOrderIds.length !== submittedQuestionIds.length
+      || new Set(questionOrderIds).size !== submittedQuestionIds.length
+      || questionOrderIds.some((id) => !submittedQuestionIds.includes(id)))) {
+      return NextResponse.json({ error: '题序必须与本次正式题集一致且不能重复' }, { status: 400 });
+    }
+    const questionSnapshots = quizQuestions.filter((question) => submittedQuestionIds.includes(question.id)).map(toPublicQuestion);
 
     const submissionFingerprint = createSubmissionFingerprint({
       quizId: resolvedQuizId,
@@ -393,7 +414,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       select: { id: true, score: true, totalQuestions: true, correctAnswers: true, answers: true },
     }) : null;
-    if (existingAttempt) return duplicateAttemptResponse(existingAttempt, resolvedQuizId, submissionFingerprint);
+    if (existingAttempt) return duplicateAttemptResponse(existingAttempt, resolvedQuizId, submissionFingerprint, payload.userId);
 
     // 旧客户端没有尝试编号时保留短窗口保护。
     if (!attemptKey) {
@@ -447,7 +468,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       const attemptPayload = {
-        answers: normalizedAnswers,
+        answers: Object.fromEntries(submittedQuestionIds.map((id) => [String(id), normalizedAnswers[String(id)]])),
         moduleId,
         chapterId,
         topicId,
@@ -462,6 +483,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         weakAreas: resolvedWeakAreas,
         scoresByKA: resolvedScoresByKA,
         questionResults,
+        questionOrderIds,
+        questionSnapshots,
       };
       const attempt = await tx.quizAttempt.create({
         data: {
@@ -620,9 +643,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
+      ownerId: payload.userId,
       dataProvenance: getDataProvenance(),
       asOf: new Date().toISOString(),
-      sampleSize: { questions: numTotal, answered: Object.keys(normalizedAnswers).length },
+      sampleSize: { questions: numTotal, answered: submittedQuestionIds.length },
       attemptId: transactionResult.attempt.id,
       quizId: resolvedQuizId,
       score: numScore,
@@ -641,14 +665,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (error instanceof QuizTaskContextError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
-    if (recoverableAttemptId && recoverableQuizId && recoverableSubmissionFingerprint && isUniqueConstraintError(error)) {
+    if (recoverableOwnerId && recoverableAttemptId && recoverableQuizId && recoverableSubmissionFingerprint && isUniqueConstraintError(error)) {
       try {
         const existingAttempt = await prisma.quizAttempt.findUnique({
           where: { id: recoverableAttemptId },
           select: { id: true, score: true, totalQuestions: true, correctAnswers: true, answers: true },
         });
         if (existingAttempt) {
-          return duplicateAttemptResponse(existingAttempt, recoverableQuizId, recoverableSubmissionFingerprint);
+          return duplicateAttemptResponse(existingAttempt, recoverableQuizId, recoverableSubmissionFingerprint, recoverableOwnerId);
         }
       } catch (recoveryError) {
         console.error('恢复并发测评回执失败:', recoveryError);

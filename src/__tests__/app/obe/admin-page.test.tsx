@@ -161,8 +161,6 @@ describe('OBE admin page data-source states', () => {
     expect(await screen.findByText('50%')).toBeInTheDocument();
     expect(screen.getAllByText('75%').length).toBeGreaterThan(0);
     expect(screen.queryByText('7500%')).not.toBeInTheDocument();
-    expect(screen.getByText('演示数据 · DEMO')).toBeInTheDocument();
-    expect(screen.getByText(/仅用于验证汇总流程与界面/)).toBeInTheDocument();
   });
 
   it('keeps a successful empty summary visible when the class source fails', async () => {

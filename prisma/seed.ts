@@ -254,7 +254,7 @@ async function main() {
       data: {
         name: '机电2401',
         inviteCode: 'EDU2401',
-        courseName: '8051单片机原理与应用',
+        courseName: '微控制器原理及应用技术',
         semester: '2025-2026-1',
         teacherId: teacher.id,
         status: 'ACTIVE',
@@ -264,7 +264,7 @@ async function main() {
       data: {
         name: '机电2402',
         inviteCode: 'EDU2402',
-        courseName: '8051单片机原理与应用',
+        courseName: '微控制器原理及应用技术',
         semester: '2025-2026-1',
         teacherId: teacher.id,
         status: 'ACTIVE',

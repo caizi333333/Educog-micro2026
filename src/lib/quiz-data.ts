@@ -1,5 +1,42 @@
 
-export type MultipleChoiceQuestion = {
+export type QuestionSource = {
+  kind?: 'slide';
+  title: string;
+  page: number; // 合并课件 PDF 的物理页码，从 1 开始
+  url: string;
+} | {
+  kind: 'guide';
+  title: string;
+  experimentId: string;
+  section: string; // 现有网页指导中的准确章节标题
+  url: string;
+  page?: never;
+};
+
+/** Accept only the two implemented, local teaching-source routes. */
+export function isQuestionSource(value: unknown): value is QuestionSource {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const source = value as Record<string, unknown>;
+  if (typeof source.title !== 'string' || !source.title.trim()) return false;
+  if (source.kind === 'guide') {
+    return typeof source.experimentId === 'string'
+      && /^(exp0[1-9]|proj0[1-4])$/.test(source.experimentId)
+      && typeof source.section === 'string' && Boolean(source.section.trim())
+      && source.page === undefined
+      && source.url === `/simulation?experiment=${source.experimentId}&view=guide`;
+  }
+  return (source.kind === undefined || source.kind === 'slide')
+    && typeof source.page === 'number' && Number.isInteger(source.page)
+    && source.page >= 1 && source.page <= 167
+    && source.url === `/resources/course/course-slides.pdf#page=${source.page}`;
+}
+
+type QuestionSupplement = {
+  explanation?: string;
+  source?: QuestionSource;
+};
+
+export type MultipleChoiceQuestion = QuestionSupplement & {
   id: number;
   type: 'multiple-choice';
   questionText: string;
@@ -9,7 +46,7 @@ export type MultipleChoiceQuestion = {
   chapter: number;
 };
 
-export type CodeCompletionQuestion = {
+export type CodeCompletionQuestion = QuestionSupplement & {
   id: number;
   type: 'code-completion';
   questionText: string;
@@ -21,11 +58,13 @@ export type CodeCompletionQuestion = {
 
 export type Question = MultipleChoiceQuestion | CodeCompletionQuestion;
 export type PublicQuestion =
-  | Omit<MultipleChoiceQuestion, 'correctAnswer'>
-  | Omit<CodeCompletionQuestion, 'correctAnswer'>;
+  | Omit<MultipleChoiceQuestion, 'correctAnswer' | 'explanation'>
+  | Omit<CodeCompletionQuestion, 'correctAnswer' | 'explanation'>;
 
 export function toPublicQuestion(question: Question): PublicQuestion {
-  const { correctAnswer: _correctAnswer, ...publicQuestion } = question;
+  const { correctAnswer: _correctAnswer, explanation: _explanation, ...publicQuestion } = question;
+  void _correctAnswer;
+  void _explanation;
   return publicQuestion;
 }
 
@@ -392,11 +431,12 @@ ___
   {
     id: 38,
     type: 'multiple-choice',
-    questionText: '对P1口执行“读-修改-写”操作时，可能会引发什么问题？',
-    options: ['端口被烧毁', '引脚状态被意外锁存', '系统复位', '程序跑飞'],
-    correctAnswer: '引脚状态被意外锁存',
+    questionText: '8051执行读-修改-写指令（如 ANL P1,#0FH、CPL P1.0）时，读取的是端口的哪一部分？',
+    options: ['引脚上的外部电平', '端口锁存器的内容', '累加器A的内容', 'SBUF缓冲器'],
+    correctAnswer: '端口锁存器的内容',
     ka: '2.3',
     chapter: 2,
+    explanation: '读-修改-写指令先读端口锁存器、修改后再写回锁存器，不读引脚，可避免引脚被外部负载钳位时把错误电平写回；只有 MOV A,P1 这类读端口指令才读引脚。',
   },
   {
     id: 39,
@@ -638,11 +678,12 @@ ___`,
   {
     id: 63,
     type: 'multiple-choice',
-    questionText: '提高动态扫描的刷新频率，会如何影响显示亮度？',
-    options: ['亮度降低', '亮度增加', '亮度不变', '显示乱码'],
-    correctAnswer: '亮度增加',
+    questionText: '数码管动态扫描显示中，决定每位数码管平均亮度的主要因素是什么？',
+    options: ['刷新频率越高亮度越高', '每位点亮时间占比（占空比）与段驱动电流', '段码数值的大小', '晶振频率'],
+    correctAnswer: '每位点亮时间占比（占空比）与段驱动电流',
     ka: '8.1',
     chapter: 8,
+    explanation: '动态扫描中每位平均电流≈峰值电流×占空比(1/N)，与刷新频率无关；提高刷新频率的作用是消除闪烁，换位消隐开销增大时亮度还会略降。',
   },
   {
     id: 64,
@@ -726,10 +767,11 @@ ___`,
     id: 72,
     type: 'multiple-choice',
     questionText: '波特率的单位是什么？',
-    options: ['Hz', 'Bps', 'bps', 'B/s'],
+    options: ['Hz', 'ms', 'bps', 'B/s'],
     correctAnswer: 'bps',
     ka: '7.1',
     chapter: 7,
+    explanation: '波特率是每秒传送的二进制位数，单位 bps（位/秒）；B/s 是字节/秒，Hz 是频率单位。',
   },
   {
     id: 73,
@@ -1017,25 +1059,29 @@ MOV P1, #___  ; P1.7-P1.4控制行，P1.3-P1.0读取列`,
   {
     id: 103,
     type: 'multiple-choice',
-    questionText: '矩阵键盘扫描中，如果检测到P1口为0EEH（11101110B），表示什么？',
+    questionText: '矩阵键盘扫描中（行线接P1.7–P1.4、第1行接P1.4；列线接P1.3–P1.0、第1列接P1.0），若扫描第1行时读到P1口为0EEH（11101110B），表示什么？',
     options: ['第1行第2列按键被按下', '第1行第1列按键被按下', '第2行第2列按键被按下', '没有按键按下'],
-    correctAnswer: '第1行第2列按键被按下',
+    correctAnswer: '第1行第1列按键被按下',
     ka: '8.2',
     chapter: 8,
+    explanation: '0EEH=1110 1110B，P1.4=0 表示当前扫描的是第1行，P1.0=0 表示第1列被拉低，即第1行第1列按键按下。',
   },
   {
     id: 104,
     type: 'code-completion',
-    questionText: '补全代码，消除按键抖动的延时子程序（约10ms）。',
+    questionText: '补全代码，消除按键抖动的延时子程序（约10ms，12MHz晶振）。',
     code: `DELAY_10MS:
     MOV R6, #10    ; 外层循环
 D1: MOV R7, #___   ; 内层循环，约1ms
-D2: DJNZ R7, D2
+D2: NOP
+    NOP
+    DJNZ R7, D2    ; NOP+NOP+DJNZ 共4个机器周期=4μs
     DJNZ R6, D1
     RET`,
-    correctAnswer: '200',
+    correctAnswer: '250',
     ka: '8.2',
     chapter: 8,
+    explanation: '12MHz 下 1 机器周期=1μs，内层每轮 NOP(1)+NOP(1)+DJNZ(2)=4μs，250×4μs=1ms，外层10次约10ms。',
   },
   {
     id: 105,
@@ -1051,7 +1097,7 @@ D2: DJNZ R7, D2
     type: 'code-completion',
     questionText: '补全代码，等待按键释放的检测循环。',
     code: `WAIT_RELEASE:
-    MOV P1, #0F0H    ; 所有行输出低电平
+    MOV P1, #0FH     ; 行线(P1.7-P1.4)全输出低电平，列线(P1.3-P1.0)置1准备读入
     MOV A, P1        ; 读取按键状态
     ANL A, #0FH      ; 只保留列信息
     CJNE A, #___, WAIT_RELEASE  ; 等待所有按键释放
@@ -1059,6 +1105,7 @@ D2: DJNZ R7, D2
     correctAnswer: '0FH',
     ka: '8.2',
     chapter: 8,
+    explanation: '准双向口读引脚前须先写1；列线全为1即 0FH 表示无键按下，按键释放后退出循环。',
   },
   {
     id: 107,
@@ -1125,15 +1172,17 @@ CLR P2.3`,
     id: 112,
     type: 'code-completion',
     questionText: '补全代码，等待ADC转换完成的检测循环。',
-    code: `WAIT_ADC:
-    JNB P2.4, WAIT_ADC  ; 等待EOC变高
-    MOV P0, #___        ; 输出使能信号
+    code: `; P0: 接ADC0809的OE（高电平有效）
+WAIT_ADC:
+    JNB P2.4, WAIT_ADC  ; 等待EOC变高（转换结束）
+    MOV P0, #___        ; OE=1，允许输出
     MOV A, P1           ; 读取转换结果
-    MOV P0, #0FFH       ; 禁止输出
+    MOV P0, #00H        ; OE=0，输出高阻
     RET`,
-    correctAnswer: '00H',
+    correctAnswer: '0FFH',
     ka: '8.3',
     chapter: 8,
+    explanation: 'ADC0809 的 OE 为高电平有效：OE=1 时输出锁存器数据送到 D0–D7，读完后拉低 OE 使数据线回到高阻。',
   },
   {
     id: 113,
@@ -1250,12 +1299,13 @@ MOV PSW, #___   ; RS1=1, RS0=0`,
   {
     id: 123,
     type: 'code-completion',
-    questionText: '补全代码，直接操作位地址22H的第3位（对应字节地址24H的bit3）。',
+    questionText: '补全代码，用位操作指令将内部RAM字节地址24H单元的bit3置1（提示：位地址=(24H−20H)×8+3）。',
     code: `; 设置24H单元的bit3为1
 SETB ___`,
     correctAnswer: '23H',
     ka: '3.6',
     chapter: 3,
+    explanation: '位寻址区 20H–2FH 每字节8个位地址，字节24H 对应位地址20H–27H，bit3 即 23H。',
   },
 
   // === I/O端口 (补充题) ===
@@ -1274,9 +1324,10 @@ MOV P1, #___`,
     type: 'multiple-choice',
     questionText: 'P0口作为地址/数据复用总线时，需要外接什么器件？',
     options: ['上拉电阻', '锁存器', '缓冲器', '锁存器和上拉电阻'],
-    correctAnswer: '锁存器和上拉电阻',
+    correctAnswer: '锁存器',
     ka: '2.6',
     chapter: 2,
+    explanation: 'P0 作地址/数据复用总线时输出级为推挽，不需外接上拉电阻，只需地址锁存器（如74LS373）在 ALE 下降沿锁存低8位地址；作通用 I/O 时因漏极开路才需上拉。',
   },
 
   // === 指令系统 (补充代码题) ===
@@ -1382,8 +1433,7 @@ CHECK_PASSWORD:
     MOV R2, #4       ; 比较4位
 LOOP:
     MOV A, @R0
-    ___              ; 比较当前位
-    JNZ WRONG        ; 不相等跳转
+    ___              ; 比较当前位，不相等则跳转WRONG
     INC R0
     INC R1
     DJNZ R2, LOOP
@@ -1395,6 +1445,7 @@ WRONG:
     correctAnswer: 'CJNE A, @R1, WRONG',
     ka: '8.2',
     chapter: 8,
+    explanation: 'CJNE A,@R1,rel 直接比较并在不相等时转移，无需再用 JNZ；若用 XRL A,@R1 做比较则相等时A=0，才配 JNZ。',
   },
   {
     id: 134,
@@ -1466,10 +1517,11 @@ ___          ; 执行乘法
     type: 'code-completion',
     questionText: '补全代码，将累加器A的内容压入堆栈。',
     code: `; 保存A寄存器到堆栈
-___  A`,
+___  ACC`,
     correctAnswer: 'PUSH',
     ka: '3.2',
     chapter: 3,
+    explanation: 'PUSH direct 只接受直接地址，累加器作直接地址须写 ACC（地址E0H），PUSH A 不是合法写法。',
   },
   {
     id: 140,
@@ -1763,11 +1815,12 @@ MOV P0, #___H   ; 7段数码管段码`,
     id: 169,
     type: 'code-completion',
     questionText: '补全代码，实现8位数码管全部熄灭。',
-    code: `; 熄灭所有数码管
+    code: `; 熄灭所有数码管（共阴极，位选低电平有效，与第4位选通0F7H的约定一致）
 MOV P2, #___H   ; 位选全部关闭`,
-    correctAnswer: '00',
+    correctAnswer: 'FF',
     ka: '8.1',
     chapter: 8,
+    explanation: '共阴极数码管位选低电平有效，全部置1即全部熄灭；若经反相驱动则极性相反，题目已注明直接驱动。',
   },
   {
     id: 170,
@@ -1813,12 +1866,16 @@ MOV P1, #___H   ; 第一行输出低电平，其他行高电平`,
     type: 'code-completion',
     questionText: '补全代码，检测矩阵键盘是否有按键按下。',
     code: `; 检测是否有按键按下
-MOV P1, #0F0H   ; 行线输出0，列线输入
+MOV P1, #0F0H   ; 行线(P1.3-P1.0)输出0，列线(P1.7-P1.4)置1输入
 MOV A, P1
-___  A, #0F0H   ; 检查列线状态`,
+___  A, #0F0H, KEY_DOWN   ; 列线不全为1则有键按下
+; 无键按下
+RET
+KEY_DOWN:`,
     correctAnswer: 'CJNE',
     ka: '8.2',
     chapter: 8,
+    explanation: 'CJNE A,#data,rel 为三操作数指令，A≠0F0H 说明有列线被拉低，即有键按下。',
   },
   {
     id: 175,
@@ -1867,11 +1924,12 @@ CLR TI`,
     id: 179,
     type: 'code-completion',
     questionText: '补全代码，设置串口工作在模式3。',
-    code: `; 串口模式3设置
-MOV SCON, #___H   ; SM0=1, SM1=1`,
+    code: `; 串口模式3设置（多机通信从机，允许接收）
+MOV SCON, #___H   ; SM0=1, SM1=1, SM2=1, REN=1，其余位为0`,
     correctAnswer: 'F0',
     ka: '7.2',
     chapter: 7,
+    explanation: 'SCON 位序 SM0 SM1 SM2 REN TB8 RB8 TI RI，1111 0000B=F0H。',
   },
   {
     id: 180,
@@ -2078,13 +2136,14 @@ TASK_SWITCH:
 PUSH ACC
 PUSH PSW
 ; 保存当前任务状态
-___  CURRENT_TASK  ; 调用任务调度器
+___  SCHEDULER     ; 长调用任务调度器
 POP PSW
 POP ACC
 RET`,
-    correctAnswer: 'CALL',
+    correctAnswer: 'LCALL',
     ka: '9.1.4',
     chapter: 9,
+    explanation: '8051 子程序调用只有 ACALL（2KB页内）和 LCALL（64KB全程），CALL 不是指令集中的指令。',
   },
   {
     id: 199,
@@ -2099,20 +2158,24 @@ RET`,
     id: 200,
     type: 'code-completion',
     questionText: '补全代码，实现系统自检功能。',
-    code: `; 系统自检
+    code: `; 系统自检（约定：各测试子程序通过时 SETB C，失败时 CLR C）
 SELF_TEST:
-CALL RAM_TEST     ; RAM测试
-CALL ROM_TEST     ; ROM测试
-CALL IO_TEST      ; I/O测试
-___  TEST_OK      ; 所有测试通过
-MOV A, #0FFH      ; 测试失败标志
+LCALL RAM_TEST     ; RAM测试
+JNC TEST_FAIL
+LCALL ROM_TEST     ; ROM测试
+JNC TEST_FAIL
+LCALL IO_TEST      ; I/O测试
+___  TEST_OK       ; C=1 说明最后一项也通过
+TEST_FAIL:
+MOV A, #0FFH       ; 测试失败标志
 RET
 TEST_OK:
-MOV A, #00H       ; 测试成功标志
+MOV A, #00H        ; 测试成功标志
 RET`,
     correctAnswer: 'JC',
     ka: '9.3.5',
     chapter: 9,
+    explanation: '按约定子程序通过时 C=1，JC rel 在 CY=1 时转移到 TEST_OK。',
   },
 
   // ---- CH7 串行通信 (扩充) ----------------------------------------------
@@ -3151,6 +3214,3817 @@ RET`,
     correctAnswer: '内部中断',
     ka: '5.1.2',
     chapter: 5,
+  },
+
+  // 基于第6章、第10章课件编写的补充练习；页码指向合并PDF物理页。
+  {
+    id: 314,
+    type: "multiple-choice",
+    questionText: "只统计从甲设备到乙设备的数据线，不计地线与控制线。一次传送8位数据时，8位并行传输与逐位串行传输分别至少使用几根数据线？",
+    options: ["1根、8根", "8根、1根", "8根、8根", "1根、1根"],
+    correctAnswer: "8根、1根",
+    ka: "7.1.1",
+    chapter: 7,
+    explanation: "8位并行传输让8位同时占用8根数据线；单方向串行传输让各位依次复用1根数据线。这里的数据线数量不包括信号地和握手线。",
+    source: {
+      title: "第6章 串行口（课件第4页）",
+      page: 4,
+      url: "/resources/course/course-slides.pdf#page=4",
+    },
+  },
+  {
+    id: 315,
+    type: "multiple-choice",
+    questionText: "假设每根数据线传送一位均需2 μs，忽略帧头、校验和握手开销。传送同一字节，单线串行与8位并行分别需要多久？",
+    options: ["2 μs、2 μs", "16 μs、16 μs", "2 μs、16 μs", "16 μs、2 μs"],
+    correctAnswer: "16 μs、2 μs",
+    ka: "7.1.1",
+    chapter: 7,
+    explanation: "一字节为8位，串行依次发送需8×2=16 μs；8位并行同时发送只需一个2 μs时段。结论只适用于题设的相同单线速率与无额外开销条件。",
+    source: {
+      title: "第6章 串行口（课件第4页）",
+      page: 4,
+      url: "/resources/course/course-slides.pdf#page=4",
+    },
+  },
+  {
+    id: 316,
+    type: "multiple-choice",
+    questionText: "某采集节点的数据量很小，但需要减少设备之间的电缆芯数。仅从串行与并行的数据线组织方式比较，串行传输的哪项特点直接符合需求？",
+    options: ["多位数据依次复用数据线", "每个数据位占用一根独立数据线", "不需要任何信号参考地", "在所有实现中都比并行传输更快"],
+    correctAnswer: "多位数据依次复用数据线",
+    ka: "7.1.1",
+    chapter: 7,
+    explanation: "串行传输让不同位依次使用数据线，因此通常可减少数据线数量。它并不自动免除参考地，也不能据此断言任何串行接口都更快。",
+    source: {
+      title: "第6章 串行口（课件第5页）",
+      page: 5,
+      url: "/resources/course/course-slides.pdf#page=5",
+    },
+  },
+  {
+    id: 317,
+    type: "multiple-choice",
+    questionText: "两个设备使用各自的时钟，按“起始位—数据位—停止位”逐帧传输字符。这最符合哪种通信方式？",
+    options: ["8位并行通信", "同步字符块传输", "异步串行通信", "仅能单向传输的通信"],
+    correctAnswer: "异步串行通信",
+    ka: "7.1.2",
+    chapter: 7,
+    explanation: "课件中的异步串行通信由双方独立计时，并通过字符帧中的起始位识别接收起点；是否可双向通信是另一个分类维度。",
+    source: {
+      title: "第6章 串行口（课件第7页）",
+      page: 7,
+      url: "/resources/course/course-slides.pdf#page=7",
+    },
+  },
+  {
+    id: 318,
+    type: "multiple-choice",
+    questionText: "按课件给出的同步字符块格式，一批字符连续发送时，哪种组织方式符合该格式？",
+    options: ["每个字符前后都必须附加独立的起始位和停止位", "同步字符后连续安排数据字符及校验字符", "仅发送数据，接收端不需要任何同步信息", "相邻两个数据字符之间必须空闲一个字符时间"],
+    correctAnswer: "同步字符后连续安排数据字符及校验字符",
+    ka: "7.1.2",
+    chapter: 7,
+    explanation: "该页以同步字符开头，随后连续传送数据和校验字符。它与每个字符均采用起始位、停止位的异步帧不同。",
+    source: {
+      title: "第6章 串行口（课件第9页）",
+      page: 9,
+      url: "/resources/course/course-slides.pdf#page=9",
+    },
+  },
+  {
+    id: 319,
+    type: "multiple-choice",
+    questionText: "异步串口的两帧之间存在不定长空闲。接收下一帧时，哪一事件用于确定本帧开始，而无需把上一帧后的空闲时长预先约定为固定值？",
+    options: ["检测新的起始位", "等待固定数量的空闲字符", "等待每一位都附带的同步字符", "根据上一帧数据值直接推算"],
+    correctAnswer: "检测新的起始位",
+    ka: "7.1.2",
+    chapter: 7,
+    explanation: "异步帧包含起始位。接收端识别新帧的起始位后，按已约定的波特率采样本帧；空闲间隔不必固定，但双方仍须约定波特率和帧格式。",
+    source: {
+      title: "第6章 串行口（课件第7页）",
+      page: 7,
+      url: "/resources/course/course-slides.pdf#page=7",
+    },
+  },
+  {
+    id: 320,
+    type: "multiple-choice",
+    questionText: "二进制异步串口每个字符含1位起始位、8位数据和1位停止位。若连续发送1920个字符/秒，且无帧间空闲，所需波特率是多少？",
+    options: ["15360 Baud", "1920 Baud", "38400 Baud", "19200 Baud"],
+    correctAnswer: "19200 Baud",
+    ka: "7.1.3",
+    chapter: 7,
+    explanation: "每字符共10位，1920×10=19200 bit/s。题设为每个码元携带1位的二进制串口，因此码元速率为19200 Baud。",
+    source: {
+      title: "第6章 串行口（课件第11页）",
+      page: 11,
+      url: "/resources/course/course-slides.pdf#page=11",
+    },
+  },
+  {
+    id: 321,
+    type: "multiple-choice",
+    questionText: "二进制串口每个码元携带1位，以4800 Baud发送时，一个数据位的持续时间约为多少？",
+    options: ["20.83 μs", "208.33 μs", "4800 μs", "2.083 ms"],
+    correctAnswer: "208.33 μs",
+    ka: "7.1.3",
+    chapter: 7,
+    explanation: "位时间为1/4800 s≈0.00020833 s，即208.33 μs。题设的一位一码元条件使波特率与比特率数值相同。",
+    source: {
+      title: "第6章 串行口（课件第11页）",
+      page: 11,
+      url: "/resources/course/course-slides.pdf#page=11",
+    },
+  },
+  {
+    id: 322,
+    type: "multiple-choice",
+    questionText: "二进制串口采用9600 Baud和8N1格式，即8位数据、无校验、1位停止位，另有1位起始位。连续发送240字节且无帧间空闲，线路传输时间是多少？",
+    options: ["0.20 s", "2.50 s", "0.25 s", "0.025 s"],
+    correctAnswer: "0.25 s",
+    ka: "7.1.3",
+    chapter: 7,
+    explanation: "每字节占10个位时间，总共240×10=2400位；2400/9600=0.25 s。结果不包括软件准备时间或额外协议开销。",
+    source: {
+      title: "第6章 串行口（课件第11页）",
+      page: 11,
+      url: "/resources/course/course-slides.pdf#page=11",
+    },
+  },
+  {
+    id: 323,
+    type: "multiple-choice",
+    questionText: "按8051异步串口低位先发的规则，发送96H时，仅观察8个数据位，线路上的先后顺序是？",
+    options: ["0、1、1、0、1、0、0、1", "1、0、0、1、0、1、1、0", "0、1、0、1、1、0、0、1", "1、0、1、0、0、1、1、0"],
+    correctAnswer: "0、1、1、0、1、0、0、1",
+    ka: "7.1.4",
+    chapter: 7,
+    explanation: "96H写成D7到D0为10010110；按D0到D7发送得到0、1、1、0、1、0、0、1。题目不包含起始位和停止位。",
+    source: {
+      title: "第6章 串行口（课件第7页）",
+      page: 7,
+      url: "/resources/course/course-slides.pdf#page=7",
+    },
+  },
+  {
+    id: 324,
+    type: "multiple-choice",
+    questionText: "8051串口方式1发送8位数据，帧中还有1位起始位和1位停止位。若所有数据位均为有效载荷且无帧间空闲，有效数据位占总传输位数的比例是多少？",
+    options: ["100%", "87.5%", "72.7%", "80%"],
+    correctAnswer: "80%",
+    ka: "7.1.4",
+    chapter: 7,
+    explanation: "方式1一帧共10位，其中8位为题设有效数据，比例为8/10=80%。额外的上层协议字段会进一步改变实际应用的有效载荷比例。",
+    source: {
+      title: "第6章 串行口（课件第32页）",
+      page: 32,
+      url: "/resources/course/course-slides.pdf#page=32",
+    },
+  },
+  {
+    id: 325,
+    type: "multiple-choice",
+    questionText: "课件用串口方式1发送7位ASCII码，并由软件把奇校验位写入ACC.7。此时一个完整串口帧包含多少位？",
+    options: ["9位", "10位", "11位", "12位"],
+    correctAnswer: "10位",
+    ka: "7.1.4",
+    chapter: 7,
+    explanation: "方式1的数据字段固定为8位：其中7位放ASCII码，D7放软件生成的校验位；再加起始位和停止位，共1+8+1=10位。校验位没有额外增加在方式1帧之外。",
+    source: {
+      title: "第6章 串行口（课件第56页）",
+      page: 56,
+      url: "/resources/course/course-slides.pdf#page=56",
+    },
+  },
+  {
+    id: 326,
+    type: "multiple-choice",
+    questionText: "单向广播装置只允许主机向显示终端发送内容，终端没有向主机发送数据的通道。按传输方向分类，这属于？",
+    options: ["全双工", "半双工", "单工", "同步"],
+    correctAnswer: "单工",
+    ka: "7.1.5",
+    chapter: 7,
+    explanation: "单工通信只允许固定方向的数据传送。同步与异步描述同步方式，不是单向或双向的分类。",
+    source: {
+      title: "第6章 串行口（课件第6页）",
+      page: 6,
+      url: "/resources/course/course-slides.pdf#page=6",
+    },
+  },
+  {
+    id: 327,
+    type: "multiple-choice",
+    questionText: "两台设备共用一条传输通道，双方均能发送，但必须轮流占用通道，不能同时发送。这属于？",
+    options: ["半双工", "单工", "全双工", "仅接收模式"],
+    correctAnswer: "半双工",
+    ka: "7.1.5",
+    chapter: 7,
+    explanation: "半双工允许双向传输，但两个方向不能同时进行。题设的轮流占用通道正是这一限制。",
+    source: {
+      title: "第6章 串行口（课件第6页）",
+      page: 6,
+      url: "/resources/course/course-slides.pdf#page=6",
+    },
+  },
+  {
+    id: 328,
+    type: "multiple-choice",
+    questionText: "两个串行终端使用各自的发送和接收通道，甲向乙发送时，乙也能同时向甲发送。这属于？",
+    options: ["单工", "半双工", "单向广播", "全双工"],
+    correctAnswer: "全双工",
+    ka: "7.1.5",
+    chapter: 7,
+    explanation: "全双工允许两个方向同时传送数据；能双向但必须轮流传输才是半双工。",
+    source: {
+      title: "第6章 串行口（课件第6页）",
+      page: 6,
+      url: "/resources/course/course-slides.pdf#page=6",
+    },
+  },
+  {
+    id: 329,
+    type: "multiple-choice",
+    questionText: "标准8051执行MOV SCON,#90H后，SM0、SM1和REN分别为1、0、1。串口处于什么状态？",
+    options: ["方式1，允许接收", "方式2，允许接收", "方式3，禁止接收", "方式0，禁止接收"],
+    correctAnswer: "方式2，允许接收",
+    ka: "7.2.1",
+    chapter: 7,
+    explanation: "90H=10010000B，SM0/SM1=10选择方式2，D4即REN=1允许接收。能否实际接收到一帧还取决于波特率、输入信号及接收标志状态。",
+    source: {
+      title: "第6章 串行口（课件第23页）",
+      page: 23,
+      url: "/resources/course/course-slides.pdf#page=23",
+    },
+  },
+  {
+    id: 330,
+    type: "multiple-choice",
+    questionText: "已正确配置串口方式和波特率，但SCON中的REN仍为0。若要允许串口接收，应修改哪个控制位？",
+    options: ["将TI置1", "将TB8置1", "将REN置1", "将RI置1"],
+    correctAnswer: "将REN置1",
+    ka: "7.2.1",
+    chapter: 7,
+    explanation: "REN是允许接收位，置1才允许串行接收。TI和RI是收发标志，TB8为方式2、3发送的第9位数据，不能替代REN。",
+    source: {
+      title: "第6章 串行口（课件第24页）",
+      page: 24,
+      url: "/resources/course/course-slides.pdf#page=24",
+    },
+  },
+  {
+    id: 331,
+    type: "multiple-choice",
+    questionText: "需要读取SCON后仅保留TI、RI两个标志位，其他位清零。应对读出的字节与哪个立即数进行按位与？",
+    options: ["03H", "30H", "C0H", "0CH"],
+    correctAnswer: "03H",
+    ka: "7.2.1",
+    chapter: 7,
+    explanation: "TI位于D1、RI位于D0，掩码为00000011B，即03H。本题是对读出的副本进行掩码，不要求改写SCON。",
+    source: {
+      title: "第6章 串行口（课件第23页）",
+      page: 23,
+      url: "/resources/course/course-slides.pdf#page=23",
+    },
+  },
+  {
+    id: 332,
+    type: "multiple-choice",
+    questionText: "程序执行MOV SBUF,A后，又执行MOV A,SBUF。后一条指令读取的对象是？",
+    options: ["刚写入的发送缓冲器", "SCON控制寄存器", "发送移位寄存器的最高位", "接收缓冲器"],
+    correctAnswer: "接收缓冲器",
+    ka: "7.2.2",
+    chapter: 7,
+    explanation: "SBUF的收发缓冲器物理独立、共用符号和字节地址。写SBUF访问发送缓冲器，读SBUF访问接收缓冲器，因此不能把后一条指令当作读取刚写入的发送数据。",
+    source: {
+      title: "第6章 串行口（课件第22页）",
+      page: 22,
+      url: "/resources/course/course-slides.pdf#page=22",
+    },
+  },
+  {
+    id: 333,
+    type: "multiple-choice",
+    questionText: "8051的发送缓冲器与接收缓冲器使用同一SBUF地址，CPU如何区分访问哪一个？",
+    options: ["用DPTR最高位区分", "由读指令或写指令区分", "每次先改变SBUF地址", "只能通过SMOD区分"],
+    correctAnswer: "由读指令或写指令区分",
+    ka: "7.2.2",
+    chapter: 7,
+    explanation: "SBUF的写访问送往发送缓冲器，读访问来自接收缓冲器。两个物理缓冲器共享地址，由访问方向区分。",
+    source: {
+      title: "第6章 串行口（课件第22页）",
+      page: 22,
+      url: "/resources/course/course-slides.pdf#page=22",
+    },
+  },
+  {
+    id: 334,
+    type: "multiple-choice",
+    questionText: "调试8051时，要检查SBUF的字节地址。应在特殊功能寄存器区查看哪个地址？",
+    options: ["98H", "87H", "99H", "89H"],
+    correctAnswer: "99H",
+    ka: "7.2.2",
+    chapter: 7,
+    explanation: "SBUF的字节地址为99H。98H是SCON，87H是PCON；不要把SCON中TI位的位地址99H与SBUF的字节地址含义混淆。",
+    source: {
+      title: "第6章 串行口（课件第22页）",
+      page: 22,
+      url: "/resources/course/course-slides.pdf#page=22",
+    },
+  },
+  {
+    id: 335,
+    type: "multiple-choice",
+    questionText: "每机器周期含12个晶振周期的8051使用11.0592 MHz晶振，串口方式1、SMOD=0，T1作定时器并采用方式2。若目标为4800 Baud，TH1应装入什么值？",
+    options: ["FAH", "FDH", "F4H", "E8H"],
+    correctAnswer: "FAH",
+    ka: "7.2.3",
+    chapter: 7,
+    explanation: "波特率=fosc/[384×(256−TH1)]。256−TH1=11059200/(384×4800)=6，所以TH1=250=FAH；初始化时TL1也应装入相同初值。",
+    source: {
+      title: "第6章 串行口（课件第43页）",
+      page: 43,
+      url: "/resources/course/course-slides.pdf#page=43",
+    },
+  },
+  {
+    id: 336,
+    type: "multiple-choice",
+    questionText: "每机器周期含12个晶振周期的8051在11.0592 MHz晶振下，用T1方式2、TH1=FDH产生串口方式1波特率。原SMOD=0时为9600 Baud，仅将SMOD改为1后是多少？",
+    options: ["4800 Baud", "9600 Baud", "38400 Baud", "19200 Baud"],
+    correctAnswer: "19200 Baud",
+    ka: "7.2.3",
+    chapter: 7,
+    explanation: "在方式1且T1溢出率不变时，SMOD从0变1使波特率乘2，9600×2=19200 Baud。",
+    source: {
+      title: "第6章 串行口（课件第26页）",
+      page: 26,
+      url: "/resources/course/course-slides.pdf#page=26",
+    },
+  },
+  {
+    id: 337,
+    type: "multiple-choice",
+    questionText: "每机器周期含12个晶振周期的8051误把晶振换为12 MHz，仍用串口方式1、SMOD=0，T1以内部时钟采用定时方式2且TH1=FDH。相对目标9600 Baud，实际波特率和相对误差约为？",
+    options: ["9600 Baud，0%", "10416.67 Baud，+8.51%", "10416.67 Baud，−8.51%", "9216 Baud，−4.00%"],
+    correctAnswer: "10416.67 Baud，+8.51%",
+    ka: "7.2.3",
+    chapter: 7,
+    explanation: "256−FDH=3，实际值=12000000/(384×3)≈10416.67 Baud。相对误差=(10416.67−9600)/9600×100%≈+8.51%，不能把该配置视为12 MHz下的精确9600 Baud。",
+    source: {
+      title: "第6章 串行口（课件第45页）",
+      page: 45,
+      url: "/resources/course/course-slides.pdf#page=45",
+    },
+  },
+  {
+    id: 338,
+    type: "multiple-choice",
+    questionText: "每机器周期含12个晶振周期的8051串口方式0使用6 MHz振荡时钟。按方式0的时钟关系，其移位速率是多少？",
+    options: ["93750 bit/s", "187500 bit/s", "500000 bit/s", "6000000 bit/s"],
+    correctAnswer: "500000 bit/s",
+    ka: "7.2.4",
+    chapter: 7,
+    explanation: "方式0的移位速率为fosc/12，6000000/12=500000 bit/s；它不由T1重装值决定，也不受SMOD影响。",
+    source: {
+      title: "第6章 串行口（课件第29页）",
+      page: 29,
+      url: "/resources/course/course-slides.pdf#page=29",
+    },
+  },
+  {
+    id: 339,
+    type: "multiple-choice",
+    questionText: "8051串口方式2需要发送8位数据和TB8中的附加数据位。一帧连同起始位、停止位共多少位？",
+    options: ["11位", "8位", "9位", "10位"],
+    correctAnswer: "11位",
+    ka: "7.2.4",
+    chapter: 7,
+    explanation: "方式2采用9位数据字段，即D0—D7及TB8，再加1位起始位、1位停止位，共11位。",
+    source: {
+      title: "第6章 串行口（课件第36页）",
+      page: 36,
+      url: "/resources/course/course-slides.pdf#page=36",
+    },
+  },
+  {
+    id: 340,
+    type: "multiple-choice",
+    questionText: "某应用要求保留第9位数据，同时用定时器T1调整串口波特率。应选择8051串口的哪种方式？",
+    options: ["方式0", "方式1", "方式2", "方式3"],
+    correctAnswer: "方式3",
+    ka: "7.2.4",
+    chapter: 7,
+    explanation: "方式2和方式3都提供9位数据；方式2由振荡频率及SMOD决定固定波特率，方式3可由T1提供可调波特率。",
+    source: {
+      title: "第6章 串行口（课件第23页）",
+      page: 23,
+      url: "/resources/course/course-slides.pdf#page=23",
+    },
+  },
+  {
+    id: 341,
+    type: "multiple-choice",
+    questionText: "T1用方式2为串口提供波特率。希望启动后的第一次计数与后续自动重装周期一致，初始化时应如何设置TH1、TL1？",
+    options: ["只给TH1赋重装值，TL1任意", "TH1和TL1都装入计算得到的重装值", "只给TL1赋值，TH1清零", "TH1、TL1必须分别装入高低两个字节"],
+    correctAnswer: "TH1和TL1都装入计算得到的重装值",
+    ka: "7.3.1",
+    chapter: 7,
+    explanation: "方式2中TL1负责计数，溢出后由TH1重装。初始TL1若与TH1相同，第一周期与后续周期一致；它不是16位高低字节拼接的方式1。",
+    source: {
+      title: "第6章 串行口（课件第48页）",
+      page: 48,
+      url: "/resources/course/course-slides.pdf#page=48",
+    },
+  },
+  {
+    id: 342,
+    type: "multiple-choice",
+    questionText: "已设置TMOD、TH1、TL1、SCON和SMOD，但为串口提供时钟的T1尚未运行。应执行哪项操作启动T1？",
+    options: ["SETB TI", "SETB RI", "SETB TR1", "SETB TF1"],
+    correctAnswer: "SETB TR1",
+    ka: "7.3.1",
+    chapter: 7,
+    explanation: "TR1是T1运行控制位，SETB TR1启动计数。TI、RI是串口标志；软件置TF1并不等于启动定时器。",
+    source: {
+      title: "第6章 串行口（课件第48页）",
+      page: 48,
+      url: "/resources/course/course-slides.pdf#page=48",
+    },
+  },
+  {
+    id: 343,
+    type: "multiple-choice",
+    questionText: "初始化串口时，需要清除PCON的SMOD位并保持其余7位原值。考虑PCON不可位寻址，应使用哪条指令？",
+    options: ["ANL PCON,#7FH", "CLR PCON.7", "MOV PCON,#00H", "ORL PCON,#80H"],
+    correctAnswer: "ANL PCON,#7FH",
+    ka: "7.3.1",
+    chapter: 7,
+    explanation: "SMOD位于PCON的D7。按字节与7FH可仅清D7并保留其余位；PCON不能用位寻址清位，直接写00H会同时改动其他位。",
+    source: {
+      title: "第6章 串行口（课件第26页）",
+      page: 26,
+      url: "/resources/course/course-slides.pdf#page=26",
+    },
+  },
+  {
+    id: 344,
+    type: "multiple-choice",
+    questionText: "查询发送程序执行MOV SBUF,A之后，使用JBC TI,NEXT配合循环等待。TI为1时，JBC TI,NEXT会执行什么操作？",
+    options: ["仅跳转，TI保持1", "清除RI后跳转", "只清除TI，不跳转", "清除TI并跳转到NEXT"],
+    correctAnswer: "清除TI并跳转到NEXT",
+    ka: "7.3.2",
+    chapter: 7,
+    explanation: "JBC是位为1则转移并清位的指令。该发送例程用它在检测到TI后同时清除TI，再处理后续字节，避免旧标志影响下一次查询。",
+    source: {
+      title: "第6章 串行口（课件第57页）",
+      page: 57,
+      url: "/resources/course/course-slides.pdf#page=57",
+    },
+  },
+  {
+    id: 345,
+    type: "multiple-choice",
+    questionText: "用C51查询方式逐字节发送：SBUF=data; while(!TI); 随后还需执行哪一步，才能避免下一次查询误用旧标志？",
+    options: ["RI=1;", "TI=0;", "REN=0;", "SMOD=1;"],
+    correctAnswer: "TI=0;",
+    ka: "7.3.2",
+    chapter: 7,
+    explanation: "TI由硬件置位，必须由软件清零。若保留TI=1，下一次while(!TI)将直接结束，不能正确等待新的发送标志。",
+    source: {
+      title: "第6章 串行口（课件第59页）",
+      page: 59,
+      url: "/resources/course/course-slides.pdf#page=59",
+    },
+  },
+  {
+    id: 346,
+    type: "multiple-choice",
+    questionText: "示波器观察8051串口方式1发送时序。TI置1发生在本帧的哪个时刻？",
+    options: ["起始位开始时", "D0发送开始时", "停止位开始时", "停止位完全结束之后"],
+    correctAnswer: "停止位开始时",
+    ka: "7.3.2",
+    chapter: 7,
+    explanation: "课件方式1发送时序将TI置位时刻标在停止位开始处。因此检测到TI不能用于断言停止位已全部发送完毕，例如控制外部半双工驱动器方向时还需考虑剩余停止位时间。",
+    source: {
+      title: "第6章 串行口（课件第33页）",
+      page: 33,
+      url: "/resources/course/course-slides.pdf#page=33",
+    },
+  },
+  {
+    id: 347,
+    type: "multiple-choice",
+    questionText: "查询到RI=1后，要把收到的字节存入R0指向的内部RAM单元。哪组数据传送指令方向正确？",
+    options: ["MOV A,SBUF；MOV @R0,A", "MOV A,@R0；MOV SBUF,A", "MOV SBUF,R0；MOV A,@R0", "MOV R0,SBUF；MOV A,R0"],
+    correctAnswer: "MOV A,SBUF；MOV @R0,A",
+    ka: "7.3.3",
+    chapter: 7,
+    explanation: "读SBUF取得接收缓冲器中的字节，再通过MOV @R0,A写入内部RAM。标志RI还应由软件清零；课件例程使用JBC RI在转入读取分支时清零。",
+    source: {
+      title: "第6章 串行口（课件第58页）",
+      page: 58,
+      url: "/resources/course/course-slides.pdf#page=58",
+    },
+  },
+  {
+    id: 348,
+    type: "multiple-choice",
+    questionText: "串口方式1已接收一个字节并令RI=1。软件读走SBUF后一直不清RI，即使REN仍为1，也不能满足下一帧写入接收缓冲器的哪项条件？",
+    options: ["SMOD必须为1", "TR1必须为0", "TI必须为1", "RI必须为0"],
+    correctAnswer: "RI必须为0",
+    ka: "7.3.3",
+    chapter: 7,
+    explanation: "方式1把新帧交给接收缓冲器的条件包含RI=0。读SBUF不会自动清RI，程序需要软件清零，以免后续帧无法被正常接收。",
+    source: {
+      title: "第6章 串行口（课件第34页）",
+      page: 34,
+      url: "/resources/course/course-slides.pdf#page=34",
+    },
+  },
+  {
+    id: 349,
+    type: "multiple-choice",
+    questionText: "8051串口方式1接收时，REN=1、RI=0、SM2=1，但采样到的停止位为0。按课件给出的接收条件，该帧会怎样？",
+    options: ["照常写入SBUF并置RI=1", "不满足接收条件，不置RI为1", "自动改为方式0接收", "自动把SMOD清零后重收"],
+    correctAnswer: "不满足接收条件，不置RI为1",
+    ka: "7.3.3",
+    chapter: 7,
+    explanation: "方式1要求RI=0，并且停止位为1或SM2=0。题设SM2=1且停止位为0，不满足后一条件，接收数据不会据此更新SBUF并置RI。",
+    source: {
+      title: "第6章 串行口（课件第34页）",
+      page: 34,
+      url: "/resources/course/course-slides.pdf#page=34",
+    },
+  },
+  {
+    id: 350,
+    type: "multiple-choice",
+    questionText: "标准8051的串口中断入口应在程序存储器哪个地址放置入口指令？",
+    options: ["0003H", "000BH", "0023H", "001BH"],
+    correctAnswer: "0023H",
+    ka: "7.3.4",
+    chapter: 7,
+    explanation: "课件串口中断例程在ORG 0023H处放置跳转指令。TI和RI共用这个串口中断向量，进入服务程序后再区分来源。",
+    source: {
+      title: "第6章 串行口（课件第54页）",
+      page: 54,
+      url: "/resources/course/course-slides.pdf#page=54",
+    },
+  },
+  {
+    id: 351,
+    type: "multiple-choice",
+    questionText: "已经完成串口与T1配置。要允许CPU响应串口中断，还必须同时满足哪两个中断允许位为1？",
+    options: ["ES和EA", "ET1和EA", "EX0和ES", "TR1和TI"],
+    correctAnswer: "ES和EA",
+    ka: "7.3.4",
+    chapter: 7,
+    explanation: "ES允许串口中断，EA为总中断允许。T1用于产生波特率时，不需要以ET1作为串口中断的使能条件。",
+    source: {
+      title: "第6章 串行口（课件第64页）",
+      page: 64,
+      url: "/resources/course/course-slides.pdf#page=64",
+    },
+  },
+  {
+    id: 352,
+    type: "multiple-choice",
+    questionText: "进入串口中断服务程序时，发现TI=1且RI=1。为在本次服务中处理两个已发生的事件，哪种写法合理？",
+    options: ["只检查TI，认为它会自动清RI", "只检查RI，返回时硬件会自动清TI", "把两个标志都当作同一个接收事件", "分别检查TI和RI，处理对应事件并软件清除各自标志"],
+    correctAnswer: "分别检查TI和RI，处理对应事件并软件清除各自标志",
+    ka: "7.3.4",
+    chapter: 7,
+    explanation: "收发共用中断向量，但TI与RI表示不同事件，且都需要软件清零。若要求本次服务处理两者，应分别判断，避免互斥分支使其中一个事件被忽略。",
+    source: {
+      title: "第6章 串行口（课件第25页）",
+      page: 25,
+      url: "/resources/course/course-slides.pdf#page=25",
+    },
+  },
+  {
+    id: 353,
+    type: "multiple-choice",
+    questionText: "测得RS-232接收线上相对信号地的电压为−8 V。按课件的数据电平约定，它表示哪个逻辑值？",
+    options: ["逻辑0", "逻辑1", "电压处于未定义区间", "可直接作为8051的0 V输入"],
+    correctAnswer: "逻辑1",
+    ka: "7.4.1",
+    chapter: 7,
+    explanation: "RS-232数据采用负逻辑：−15 V至−3 V表示逻辑1，+3 V至+15 V表示逻辑0。−8 V在逻辑1的有效区间内，且不是8051可直接接受的TTL电平。",
+    source: {
+      title: "第6章 串行口（课件第12页）",
+      page: 12,
+      url: "/resources/course/course-slides.pdf#page=12",
+    },
+  },
+  {
+    id: 354,
+    type: "multiple-choice",
+    questionText: "把8051的TTL串口接到真正的RS-232接口时，除交叉连接收发方向，还需要什么接口处理？",
+    options: ["只交换TXD和RXD即可", "只把波特率提高一倍", "使用RS-232电平转换电路", "把8051输入脚直接接到负电压"],
+    correctAnswer: "使用RS-232电平转换电路",
+    ka: "7.4.1",
+    chapter: 7,
+    explanation: "8051侧与RS-232侧的电压范围、逻辑极性不同，应使用合适的电平转换电路。仅交换收发线不能解决电气标准不兼容。",
+    source: {
+      title: "第6章 串行口（课件第12页）",
+      page: 12,
+      url: "/resources/course/course-slides.pdf#page=12",
+    },
+  },
+  {
+    id: 355,
+    type: "multiple-choice",
+    questionText: "两台设备采用最简三线方式进行双向串口连接，且各自的接口电平均已匹配。按信号方向，应怎样连接？",
+    options: ["甲TXD接乙RXD，甲RXD接乙TXD，并连接信号地", "两端TXD相连、两端RXD相连，不接地", "两端TXD相连，RXD均悬空", "只连接两端信号地即可传输"],
+    correctAnswer: "甲TXD接乙RXD，甲RXD接乙TXD，并连接信号地",
+    ka: "7.4.1",
+    chapter: 7,
+    explanation: "发送端TXD应接对方的接收端RXD，另一方向同理，并提供信号参考地。题设已排除电平不匹配问题；具体连接器针号还需核对设备定义。",
+    source: {
+      title: "第6章 串行口（课件第14页）",
+      page: 14,
+      url: "/resources/course/course-slides.pdf#page=14",
+    },
+  },
+  {
+    id: 356,
+    type: "multiple-choice",
+    questionText: "在课件的一对差分线RS-485半双工总线上，主机请求后从机再应答。为什么需要安排发送时段？",
+    options: ["因为只能永久固定一端发送", "因为发送一次后必须重新上电", "因为每个字节必须走不同线对", "因为双方共用线对，不能同时驱动发送"],
+    correctAnswer: "因为双方共用线对，不能同时驱动发送",
+    ka: "7.4.2",
+    chapter: 7,
+    explanation: "这一RS-485连接采用一对差分线进行半双工传输，需要协调各设备的发送使能和占用时段，避免多个发送器同时驱动总线。",
+    source: {
+      title: "第6章 串行口（课件第16页）",
+      page: 16,
+      url: "/resources/course/course-slides.pdf#page=16",
+    },
+  },
+  {
+    id: 357,
+    type: "multiple-choice",
+    questionText: "比较课件中的标准RS-232与RS-485连接形式，多个采集节点共用总线时，哪项是RS-485更契合该拓扑的特征？",
+    options: ["单端传输且仅支持点对点", "采用差分传输，可组织多点总线", "无需任何设备寻址或发送协调", "无论线长和负载如何，速率都不受限制"],
+    correctAnswer: "采用差分传输，可组织多点总线",
+    ka: "7.4.2",
+    chapter: 7,
+    explanation: "课件比较了RS-232的单端点对点连接与RS-485的差分多点连接。多点总线仍需上层协议协调，设备数、距离和速率也受具体电气条件限制。",
+    source: {
+      title: "第6章 串行口（课件第17页）",
+      page: 17,
+      url: "/resources/course/course-slides.pdf#page=17",
+    },
+  },
+  {
+    id: 358,
+    type: "multiple-choice",
+    questionText: "用两根线之间的电压差理解RS-485差分传输。若某时刻V1−V2=2 V，两根线上同时叠加相同的+0.4 V干扰，理想情况下新的电压差是多少？",
+    options: ["2.8 V", "2.4 V", "2.0 V", "1.6 V"],
+    correctAnswer: "2.0 V",
+    ka: "7.4.2",
+    chapter: 7,
+    explanation: "两线电压同增0.4 V，差值为(V1+0.4)−(V2+0.4)=V1−V2=2 V。这只说明理想同幅共模干扰在差分量中抵消；实际接收器仍有共模范围与不平衡限制。",
+    source: {
+      title: "第6章 串行口（课件第16页）",
+      page: 16,
+      url: "/resources/course/course-slides.pdf#page=16",
+    },
+  },
+  {
+    id: 359,
+    type: "multiple-choice",
+    questionText: "按课件图10-22的开关编号，SW1与SW4闭合时电机正转。若其他开关均断开，要反转应闭合哪一对？",
+    options: ["SW2与SW3", "SW1与SW2", "SW3与SW4", "SW2与SW4"],
+    correctAnswer: "SW2与SW3",
+    ka: "8.5.1",
+    chapter: 8,
+    explanation: "图10-22以对角开关组控制电机两端的电压方向：SW1、SW4为正转，SW2、SW3为反转。本题只采用该H桥编号，不对应某一L298N模块的引脚编号。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第41页）",
+      page: 118,
+      url: "/resources/course/course-slides.pdf#page=118",
+    },
+  },
+  {
+    id: 360,
+    type: "multiple-choice",
+    questionText: "按课件H桥的开关编号，哪种误操作会使同一桥臂上下开关同时导通，造成电源短路？",
+    options: ["仅SW1与SW4同时闭合", "仅SW2与SW3同时闭合", "四个开关全部断开", "SW1与SW2同时闭合"],
+    correctAnswer: "SW1与SW2同时闭合",
+    ka: "8.5.1",
+    chapter: 8,
+    explanation: "课件明确指出SW1与SW2或SW3与SW4同时闭合会形成同一桥臂直通。对角导通用于驱动电机，全部断开对应滑行状态。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第42页）",
+      page: 119,
+      url: "/resources/course/course-slides.pdf#page=119",
+    },
+  },
+  {
+    id: 361,
+    type: "multiple-choice",
+    questionText: "直流电机的脉宽调制（PWM）控制信号周期为2 ms，每周期有效导通时间为0.6 ms。其占空比是多少？",
+    options: ["3%", "30%", "60%", "70%"],
+    correctAnswer: "30%",
+    ka: "8.5.1",
+    chapter: 8,
+    explanation: "占空比=有效导通时间/周期=0.6/2=0.30，即30%。占空比可改变电机端的平均施加电压，但不能据此直接断言实际转速恰为满速的30%。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第36页）",
+      page: 113,
+      url: "/resources/course/course-slides.pdf#page=113",
+    },
+  },
+  {
+    id: 362,
+    type: "multiple-choice",
+    questionText: "按课件给出的反应式步进电机公式，转子齿数Z=40，采用六拍工作方式N=6。每拍的步距角为多少？",
+    options: ["9°", "3°", "1.5°", "0.15°"],
+    correctAnswer: "1.5°",
+    ka: "8.5.2",
+    chapter: 8,
+    explanation: "步距角=360°/(Z×N)=360°/(40×6)=1.5°。这里采用课件指定的电机结构与工作拍数，不把该公式直接套到含减速器的其他型号。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第56页）",
+      page: 133,
+      url: "/resources/course/course-slides.pdf#page=133",
+    },
+  },
+  {
+    id: 363,
+    type: "multiple-choice",
+    questionText: "三相步进电机按A→B→C→A循环通电时正转。保持相同工作方式和步进频率，要反转应采用哪种顺序？",
+    options: ["A→C→B→A", "A→B→C→A，但只提高频率", "A→A→A→A", "A、B、C三相一直同时通电"],
+    correctAnswer: "A→C→B→A",
+    ka: "8.5.2",
+    chapter: 8,
+    explanation: "逆转相序即可改变旋转方向：A→C→B→A。仅改变频率并未改变相序，持续给同一相或全部相通电也不等同于连续反向步进。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第61页）",
+      page: 138,
+      url: "/resources/course/course-slides.pdf#page=138",
+    },
+  },
+  {
+    id: 364,
+    type: "multiple-choice",
+    questionText: "课件拓展中的四线双极型步进电机需要改变两个绕组内的电流方向。与这一要求匹配的驱动结构是？",
+    options: ["只用一个单向开关控制全部绕组", "把四根线直接接到8051端口", "只需单向灌电流阵列即可完成电流反向", "每个绕组配置一个H桥，共两个H桥"],
+    correctAnswer: "每个绕组配置一个H桥，共两个H桥",
+    ka: "8.5.2",
+    chapter: 8,
+    explanation: "四线双极型电机的两个绕组都需要电流反向，因此课件采用两个H桥。这不能与带公共端、可用单向开关换相的单极型电机驱动混用。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第68页）",
+      page: 145,
+      url: "/resources/course/course-slides.pdf#page=145",
+    },
+  },
+  {
+    id: 365,
+    type: "multiple-choice",
+    questionText: "在课件采用三极管驱动的蜂鸣器报警接口中，单片机I/O承担的主要职责是什么？",
+    options: ["直接承担蜂鸣器的全部负载电流", "向驱动级提供控制信号", "代替蜂鸣器把电能转换为声音", "通过改变晶振连接来接通报警"],
+    correctAnswer: "向驱动级提供控制信号",
+    ka: "8.6.1",
+    chapter: 8,
+    explanation: "I/O输出控制信号，三极管驱动级根据该信号通断蜂鸣器的负载支路。控制端负责发出指令，驱动级承担负载驱动，不能把两者承担的电流混为一谈。",
+    source: {
+      title: "第10章 常用外部电路控制程序的设计（课件第28页）",
+      page: 105,
+      url: "/resources/course/course-slides.pdf#page=105",
+    },
+  },
+
+  // 现有实验网页指导补充题；每题保留具体正文标题，既有题号和专项试卷不变。
+  {
+    "id": 366,
+    "type": "multiple-choice",
+    "questionText": "在项目1给出的40引脚DIP封装AT89C51图中，电源与地分别接哪两个引脚？",
+    "options": [
+      "20脚VCC、40脚GND",
+      "9脚VCC、31脚GND",
+      "40脚VCC、20脚GND",
+      "18脚VCC、19脚GND"
+    ],
+    "correctAnswer": "40脚VCC、20脚GND",
+    "ka": "1.4.1",
+    "chapter": 1,
+    "explanation": "本题限定项目1所示40引脚DIP封装。图中40脚标为VCC、20脚标为GND，不能将其他封装的脚号直接套用。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 367,
+    "type": "multiple-choice",
+    "questionText": "项目1把P3.0和P3.1分别标为RXD和TXD，这说明什么？",
+    "options": [
+      "P3.0和P3.1只能作为电源引脚",
+      "P3.0和P3.1分别是晶振的两个引脚",
+      "P3口只有地址总线功能",
+      "这两个端口引脚兼有串口接收与发送功能"
+    ],
+    "correctAnswer": "这两个端口引脚兼有串口接收与发送功能",
+    "ka": "1.4.1",
+    "chapter": 1,
+    "explanation": "RXD表示串行接收，TXD表示串行发送。引脚图把这两个第二功能与P3.0、P3.1并列标出，连接外设前应核对复用用途。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 368,
+    "type": "multiple-choice",
+    "questionText": "连接AT89C51外部地址锁存器时，项目1引脚图中哪个信号用于地址锁存？",
+    "options": [
+      "ALE",
+      "RST",
+      "TXD",
+      "GND"
+    ],
+    "correctAnswer": "ALE",
+    "ka": "1.4.1",
+    "chapter": 1,
+    "explanation": "项目1把ALE标为地址锁存信号；RST是复位输入，TXD为串行发送，GND是参考地，各信号不能互相替代。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 369,
+    "type": "multiple-choice",
+    "questionText": "项目1的最小系统示例把晶振连接在哪里？",
+    "options": [
+      "P1.0与P1.1之间",
+      "XTAL1与XTAL2之间",
+      "RXD与TXD之间",
+      "ALE与PSEN之间"
+    ],
+    "correctAnswer": "XTAL1与XTAL2之间",
+    "ka": "1.4.3",
+    "chapter": 1,
+    "explanation": "指导中的晶振电路接在XTAL1和XTAL2之间，用于提供时钟；P1和串口引脚在该示例中不是晶振连接端。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 370,
+    "type": "multiple-choice",
+    "questionText": "按项目1示例，RST节点用于哪项功能？",
+    "options": [
+      "存放流水灯段码",
+      "持续输出串口数据",
+      "上电或手动触发复位",
+      "替代程序存储器"
+    ],
+    "correctAnswer": "上电或手动触发复位",
+    "ka": "1.4.3",
+    "chapter": 1,
+    "explanation": "项目1列出RST上的上电复位电路及可选手动按钮。复位电路负责使控制器进入规定初始状态，不承担程序存储。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 371,
+    "type": "multiple-choice",
+    "questionText": "复用项目1的12MHz晶振示例到另一款兼容芯片时，哪个做法合理？",
+    "options": [
+      "所有兼容芯片都必须使用30pF电容",
+      "忽略目标芯片的时钟要求",
+      "用任意I/O引脚代替XTAL引脚",
+      "依据目标芯片手册重新核对晶振与负载电容"
+    ],
+    "correctAnswer": "依据目标芯片手册重新核对晶振与负载电容",
+    "ka": "1.4.3",
+    "chapter": 1,
+    "explanation": "指导中的12MHz和30pF属于该示例电路取值，不能据此推断所有兼容芯片的推荐参数相同；实际连接须结合目标器件要求。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 372,
+    "type": "multiple-choice",
+    "questionText": "项目1在片内程序地址范围使用AT89C51内部Flash时，EA引脚应如何连接？",
+    "options": [
+      "接VCC",
+      "接GND",
+      "接蜂鸣器输出",
+      "接收发数据线"
+    ],
+    "correctAnswer": "接VCC",
+    "ka": "1.4.4",
+    "chapter": 1,
+    "explanation": "项目1用EA接VCC选择片内程序存储器。本题限定片内程序地址范围；EA接地则要求从外部程序存储器取指。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 373,
+    "type": "multiple-choice",
+    "questionText": "项目1中EA接GND时，程序应从哪里取得？",
+    "options": [
+      "内部数据RAM",
+      "外部程序存储器",
+      "串口接收缓冲器",
+      "端口P1锁存器"
+    ],
+    "correctAnswer": "外部程序存储器",
+    "ka": "1.4.4",
+    "chapter": 1,
+    "explanation": "指导把EA接GND对应到外部ROM。程序存储器和数据RAM的用途不同，不能把选择程序来源理解为选择数据缓冲器。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 374,
+    "type": "multiple-choice",
+    "questionText": "项目1列出的最小系统四部分中，哪一组完整对应指导内容？",
+    "options": [
+      "数码管、蜂鸣器、蓝牙和电机",
+      "LCD、键盘、ADC和DAC",
+      "电源、晶振、复位和EA连接",
+      "串口、网口、USB和无线模块"
+    ],
+    "correctAnswer": "电源、晶振、复位和EA连接",
+    "ka": "1.4.4",
+    "chapter": 1,
+    "explanation": "指导按电源、晶振、复位及EA连接组织最小系统；显示、传感器和电机是应用外设，不是该示例列出的四个基础部分。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "最小系统电路",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 375,
+    "type": "multiple-choice",
+    "questionText": "经典8051的P0口作普通数字输出、需要获得稳定高电平时，应注意什么？",
+    "options": [
+      "P0内部上拉始终与P1完全相同",
+      "P0不能输出低电平",
+      "把P0所有引脚短接到地即可",
+      "开漏结构需要按电路配置外接上拉电阻"
+    ],
+    "correctAnswer": "开漏结构需要按电路配置外接上拉电阻",
+    "ka": "2.3.1",
+    "chapter": 2,
+    "explanation": "实验1说明P0为开漏输出。作为普通I/O使用时，高电平能力依赖相应上拉电路，不能套用P1内部上拉的描述。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 376,
+    "type": "multiple-choice",
+    "questionText": "在外部存储器总线功能下，P0口复用承担什么？",
+    "options": [
+      "低8位地址与8位数据",
+      "仅高8位地址",
+      "仅复位信号",
+      "仅串口时钟"
+    ],
+    "correctAnswer": "低8位地址与8位数据",
+    "ka": "2.3.1",
+    "chapter": 2,
+    "explanation": "实验1把P0说明为低8位地址和数据的复用端口。P2才承担高8位地址，区分两者才能理解地址锁存的用途。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 377,
+    "type": "multiple-choice",
+    "questionText": "有人把AT89C51手册中的P0整口26mA限值当作每个引脚可用电流，判断是否正确？",
+    "options": [
+      "正确，8个引脚均可同时灌入26mA",
+      "不正确，整口上限不能当成单引脚额定驱动能力",
+      "正确，而且无需限流电阻",
+      "只要程序运行就不必检查电流"
+    ],
+    "correctAnswer": "不正确，整口上限不能当成单引脚额定驱动能力",
+    "ka": "2.3.1",
+    "chapter": 2,
+    "explanation": "实验1明确26mA为P0整口灌电流上限，并要求按手册测试条件校核；单脚能力、整口总电流和低电平电压保证是不同约束。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 378,
+    "type": "multiple-choice",
+    "questionText": "实验1中P1被描述为哪种端口？",
+    "options": [
+      "没有上拉的纯模拟输入口",
+      "专用高压电机功率端口",
+      "带内部上拉的准双向口",
+      "只能发送串行数据的端口"
+    ],
+    "correctAnswer": "带内部上拉的准双向口",
+    "ka": "2.3.2",
+    "chapter": 2,
+    "explanation": "实验1的P1说明包含准双向结构和内部上拉。它仍受数字I/O电气规格约束，不能直接视为电机功率输出端。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 379,
+    "type": "multiple-choice",
+    "questionText": "按实验1的经典8051复位说明，P1端口锁存器的初始值是什么？",
+    "options": [
+      "00H",
+      "55H",
+      "80H",
+      "FFH"
+    ],
+    "correctAnswer": "FFH",
+    "ka": "2.3.2",
+    "chapter": 2,
+    "explanation": "指导说明P1复位后默认各位为高，即8位全1，十六进制为FFH。锁存器初态与外部负载下实测引脚电压还应区分。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 380,
+    "type": "multiple-choice",
+    "questionText": "仅控制P1.0而希望保持P1其他位的锁存状态，哪类操作更合适？",
+    "options": [
+      "对P1.0执行位操作",
+      "每次给P1写入00H",
+      "每次给P1写入FFH",
+      "只修改串口SBUF"
+    ],
+    "correctAnswer": "对P1.0执行位操作",
+    "ka": "2.3.2",
+    "chapter": 2,
+    "explanation": "实验1说明P1可逐位操作。位操作可选择目标位，整字节写00H或FFH会同时改变多个位，SBUF则不控制P1.0。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 381,
+    "type": "multiple-choice",
+    "questionText": "外部存储器扩展使用16位地址时，P2负责哪一部分？",
+    "options": [
+      "低8位地址和数据复用",
+      "高8位地址",
+      "串口帧中的停止位",
+      "中断向量中的全部指令"
+    ],
+    "correctAnswer": "高8位地址",
+    "ka": "2.3.3",
+    "chapter": 2,
+    "explanation": "实验1把P2的第二功能说明为地址总线高8位；低8位地址与数据复用由P0承担，不能交换这两组端口用途。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 382,
+    "type": "multiple-choice",
+    "questionText": "项目使用外部存储器高位地址后，又将同一组P2引脚直接作为独立LED控制口，有什么问题？",
+    "options": [
+      "P2会自动提供两套互不影响的引脚",
+      "只要LED数量少就绝无冲突",
+      "存在引脚功能冲突，需要重新分配接口",
+      "修改LED颜色即可解决总线冲突"
+    ],
+    "correctAnswer": "存在引脚功能冲突，需要重新分配接口",
+    "ka": "2.3.3",
+    "chapter": 2,
+    "explanation": "P2普通I/O与高8位地址功能使用同一组物理引脚。对同一时段的不同用途必须安排接口，不能认为复用等于并行独立使用。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 383,
+    "type": "multiple-choice",
+    "questionText": "比较实验1中的P0与P2结构，哪项符合指导？",
+    "options": [
+      "P0与P2都没有第二功能",
+      "P0承担高8位地址而P2承担低8位数据",
+      "P2是专用模拟输入端口",
+      "P0为开漏口，P2为准双向口"
+    ],
+    "correctAnswer": "P0为开漏口，P2为准双向口",
+    "ka": "2.3.3",
+    "chapter": 2,
+    "explanation": "指导分别给出P0开漏结构与P2准双向结构，并列出各自总线功能；结构差异会影响普通I/O电路的连接方法。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "8051 并行 I/O 口结构",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 384,
+    "type": "multiple-choice",
+    "questionText": "按项目1引脚图，外部中断0信号INT0对应哪个端口位？",
+    "options": [
+      "P3.2",
+      "P3.0",
+      "P1.2",
+      "P2.0"
+    ],
+    "correctAnswer": "P3.2",
+    "ka": "2.3.4",
+    "chapter": 2,
+    "explanation": "项目1将INT0与P3.2标在同一引脚位置；P3.0的第二功能是RXD。连接外部中断按键前必须核对该映射。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 385,
+    "type": "multiple-choice",
+    "questionText": "按项目1引脚图，计数器T1的外部输入对应哪个端口位？",
+    "options": [
+      "P3.1",
+      "P3.5",
+      "P2.5",
+      "P1.5"
+    ],
+    "correctAnswer": "P3.5",
+    "ka": "2.3.4",
+    "chapter": 2,
+    "explanation": "引脚图中T0对应P3.4、T1对应P3.5。它们是外部计数输入，不应与定时器软件编号或普通端口序号混淆。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 386,
+    "type": "multiple-choice",
+    "questionText": "项目1将P3.6和P3.7分别标为WR和RD，这两个第二功能用于什么？",
+    "options": [
+      "晶振输入和输出",
+      "芯片电源与地",
+      "外部数据存储器的写与读控制",
+      "数码管段码的个位和十位"
+    ],
+    "correctAnswer": "外部数据存储器的写与读控制",
+    "ka": "2.3.4",
+    "chapter": 2,
+    "explanation": "引脚图给出WR和RD控制信号，分别承担外部数据存储器写、读选通；这与P3.0、P3.1的串口功能不同。",
+    "source": {
+      "kind": "guide",
+      "title": "项目1网页指导",
+      "experimentId": "proj01",
+      "section": "AT89C51 芯片引脚功能",
+      "url": "/simulation?experiment=proj01&view=guide"
+    }
+  },
+  {
+    "id": 387,
+    "type": "multiple-choice",
+    "questionText": "实验1采用LED阳极接VCC、阴极经电阻接P1的灌电流接法，P1.x为何值时LED点亮？",
+    "options": [
+      "1",
+      "只有交替写入0和1才可能亮",
+      "与端口电平无关",
+      "0"
+    ],
+    "correctAnswer": "0",
+    "ka": "2.3.5",
+    "chapter": 2,
+    "explanation": "该接法在P1.x输出低电平时形成从VCC经LED和电阻流入端口的电流路径，因此实验1的LED控制为低有效。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "LED 驱动原理",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 388,
+    "type": "multiple-choice",
+    "questionText": "按实验1示例，VCC=5V、LED压降2V、忽略VOL、目标电流不超过1.5mA时，限流电阻至少应为多少？",
+    "options": [
+      "2kΩ",
+      "200Ω",
+      "20Ω",
+      "20kΩ才是最小值"
+    ],
+    "correctAnswer": "2kΩ",
+    "ka": "2.3.5",
+    "chapter": 2,
+    "explanation": "按R≥(5−2)/0.0015计算得2000Ω。这里采用题设示例条件，实物还须核对供电、LED压降、电阻公差和端口总电流。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "LED 驱动原理",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 389,
+    "type": "multiple-choice",
+    "questionText": "希望把实验1LED电流增大到端口规格不能保证的范围，正确的下一步是什么？",
+    "options": [
+      "仅把延时循环写得更长",
+      "采用外置驱动器并校核器件与总电流",
+      "去掉限流电阻",
+      "把软件运行速度调快即可提高额定电流"
+    ],
+    "correctAnswer": "采用外置驱动器并校核器件与总电流",
+    "ka": "2.3.5",
+    "chapter": 2,
+    "explanation": "实验1要求较大负载电流使用外置驱动器。程序延时或仿真速度不会改变芯片的电气额定能力，也不能替代限流措施。",
+    "source": {
+      "kind": "guide",
+      "title": "实验1网页指导",
+      "experimentId": "exp01",
+      "section": "LED 驱动原理",
+      "url": "/simulation?experiment=exp01&view=guide"
+    }
+  },
+  {
+    "id": 390,
+    "type": "multiple-choice",
+    "questionText": "若内部RAM[55H]=A6H，执行MOV A,#55H后A是什么？",
+    "options": [
+      "A6H",
+      "00H",
+      "55H",
+      "由RAM[55H]决定"
+    ],
+    "correctAnswer": "55H",
+    "ka": "3.1.1",
+    "chapter": 3,
+    "explanation": "#表示立即数，操作数55H包含在指令中；本条指令不读取55H地址的RAM，因此不会取得其中的A6H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 391,
+    "type": "multiple-choice",
+    "questionText": "若RAM[30H]=72H，执行MOV A,30H后A是什么？",
+    "options": [
+      "30H",
+      "00H",
+      "直接地址不能用于MOV",
+      "72H"
+    ],
+    "correctAnswer": "72H",
+    "ka": "3.1.2",
+    "chapter": 3,
+    "explanation": "指令没有#号，30H是内部RAM直接地址。MOV把该地址中的72H送入A，不能把地址值误当作操作数。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 392,
+    "type": "multiple-choice",
+    "questionText": "当前寄存器组R3=28H，执行MOV A,R3时使用哪个数据？",
+    "options": [
+      "当前寄存器组R3中的28H",
+      "RAM[28H]中的内容",
+      "立即数03H",
+      "程序存储器地址0003H中的内容"
+    ],
+    "correctAnswer": "当前寄存器组R3中的28H",
+    "ka": "3.1.3",
+    "chapter": 3,
+    "explanation": "寄存器寻址直接使用指定工作寄存器的内容；本例读当前组R3，不把28H再次解释为间接地址。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 393,
+    "type": "multiple-choice",
+    "questionText": "R0=40H且RAM[40H]=9AH，执行MOV A,@R0后A是什么？",
+    "options": [
+      "40H",
+      "9AH",
+      "00H",
+      "R0的编号0"
+    ],
+    "correctAnswer": "9AH",
+    "ka": "3.1.4",
+    "chapter": 3,
+    "explanation": "@R0表示把R0作为地址指针，先取得地址40H，再读取该RAM单元中的9AH，和MOV A,R0的结果不同。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 394,
+    "type": "multiple-choice",
+    "questionText": "DPTR=1200H且A=03H时，MOVC A,@A+DPTR读取哪个程序存储器地址？",
+    "options": [
+      "0003H",
+      "1200H",
+      "1203H",
+      "内部RAM的03H"
+    ],
+    "correctAnswer": "1203H",
+    "ka": "3.1.5",
+    "chapter": 3,
+    "explanation": "变址寻址将表基址DPTR与A中的偏移相加，1200H+03H=1203H；MOVC读取代码空间，不能换成内部RAM访问。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 395,
+    "type": "multiple-choice",
+    "questionText": "SJMP指令位于0100H，指令长度2字节，相对偏移为+5时目标地址是什么？",
+    "options": [
+      "0105H",
+      "0102H",
+      "0005H",
+      "0107H"
+    ],
+    "correctAnswer": "0107H",
+    "ka": "3.1.6",
+    "chapter": 3,
+    "explanation": "实验2给出PC←PC+2+偏移。相对位移以这条两字节指令之后的0102H为基准，加5后到0107H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 396,
+    "type": "multiple-choice",
+    "questionText": "执行SETB P1.0，目标对象是什么？",
+    "options": [
+      "P1端口的第0位",
+      "整个P1端口的全部8位",
+      "内部RAM地址01H的整个字节",
+      "程序计数器的第0位"
+    ],
+    "correctAnswer": "P1端口的第0位",
+    "ka": "3.1.7",
+    "chapter": 3,
+    "explanation": "位寻址把P1.0作为单个位目标，SETB将该位置1；这不同于给整个端口写入一个字节。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "8051 寻址方式",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 397,
+    "type": "multiple-choice",
+    "questionText": "执行MOV 30H,#6CH时，数据流向是什么？",
+    "options": [
+      "把30H写入RAM[6CH]",
+      "把立即数6CH写入内部RAM的30H单元",
+      "把A写入代码地址306CH",
+      "把RAM[30H]写入A"
+    ],
+    "correctAnswer": "把立即数6CH写入内部RAM的30H单元",
+    "ka": "3.2.1",
+    "chapter": 3,
+    "explanation": "MOV的第一个操作数为目的，第二个为源。本题30H是直接目的地址，#6CH为立即数，因此写入RAM[30H]。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "数据传送指令详解",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 398,
+    "type": "multiple-choice",
+    "questionText": "MOV A,#01H与MOV A,#03H执行后，奇偶标志P分别是多少？",
+    "options": [
+      "先0，后1",
+      "两次都保持旧P",
+      "先1，后0",
+      "两次都为1"
+    ],
+    "correctAnswer": "先1，后0",
+    "ka": "3.2.1",
+    "chapter": 3,
+    "explanation": "指导说明硬件按A中1的数量更新奇偶标志：01H含一个1，03H含两个1，因此P依次为1和0。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "数据传送指令详解",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 399,
+    "type": "multiple-choice",
+    "questionText": "把“所有MOV指令都不改变PSW”作为规则是否正确？",
+    "options": [
+      "正确，包括直接写PSW的MOV",
+      "正确，因为MOV不会访问任何寄存器",
+      "只要使用立即数就绝不改变P",
+      "不正确，写A可改变P，MOV C,bit可改变CY"
+    ],
+    "correctAnswer": "不正确，写A可改变P，MOV C,bit可改变CY",
+    "ka": "3.2.1",
+    "chapter": 3,
+    "explanation": "指导明确普通传送不按算术结果更新CY、AC、OV，但A的奇偶性会影响P，且MOV C,bit或直接写PSW可改变状态位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "数据传送指令详解",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 400,
+    "type": "multiple-choice",
+    "questionText": "TAB定义为DB 3FH,06H,5BH，DPTR指向TAB且A=02H，MOVC A,@A+DPTR后A是什么？",
+    "options": [
+      "5BH",
+      "3FH",
+      "06H",
+      "02H"
+    ],
+    "correctAnswer": "5BH",
+    "ka": "3.2.3",
+    "chapter": 3,
+    "explanation": "查表索引从0开始：0对应3FH、1对应06H、2对应5BH。MOVC用基址加索引读取代码空间，并以表值替换A。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "MOVC 查表指令",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 401,
+    "type": "multiple-choice",
+    "questionText": "实验4用DB定义数码管段码表，MOVC从哪个空间读取这张表？",
+    "options": [
+      "外部数据RAM空间",
+      "程序存储器空间",
+      "P0端口引脚",
+      "串口接收缓冲器"
+    ],
+    "correctAnswer": "程序存储器空间",
+    "ka": "3.2.3",
+    "chapter": 3,
+    "explanation": "指导明确DB在代码空间定义常数表，MOVC读取程序存储器；内部MOV和外部数据MOVX不能代替这条查表指令。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "MOVC 查表指令",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 402,
+    "type": "multiple-choice",
+    "questionText": "连续查表时为什么不能把上一次MOVC执行后的A直接当作下一个索引？",
+    "options": [
+      "MOVC会永久清零DPTR",
+      "MOVC会自动停止程序",
+      "A已被替换为表中数据，需重新设置所需索引",
+      "A始终保持原索引，不需要处理"
+    ],
+    "correctAnswer": "A已被替换为表中数据，需重新设置所需索引",
+    "ka": "3.2.3",
+    "chapter": 3,
+    "explanation": "MOVC的结果写回A，原索引不再保留。下一次访问应依据需要重新装入索引，避免把段码误当成偏移。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "MOVC 查表指令",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 403,
+    "type": "multiple-choice",
+    "questionText": "实验5延时入口先保存R6再保存R7，返回前应按什么顺序恢复？",
+    "options": [
+      "先恢复R6，再恢复R7",
+      "只恢复R6",
+      "恢复顺序与保存顺序完全无关",
+      "先恢复R7，再恢复R6"
+    ],
+    "correctAnswer": "先恢复R7，再恢复R6",
+    "ka": "3.2.4",
+    "chapter": 3,
+    "explanation": "堆栈按后进先出工作。指导要求入口保存、出口按相反顺序恢复，因此最后压入的R7必须先弹出。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "消抖延时的条件与寄存器保护",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 404,
+    "type": "multiple-choice",
+    "questionText": "实验5把SP初始化为2FH，首个压栈字节从哪里开始存放？",
+    "options": [
+      "30H",
+      "2FH",
+      "20H",
+      "00H"
+    ],
+    "correctAnswer": "30H",
+    "ka": "3.2.4",
+    "chapter": 3,
+    "explanation": "8051压栈时先增加SP再存数据。SP设为2FH后首个字节进入30H，从而避开该程序20H—22H的变量区域。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "消抖延时的条件与寄存器保护",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 405,
+    "type": "multiple-choice",
+    "questionText": "实验5延时程序使用寄存器组0，PUSH 06H保存的是什么？",
+    "options": [
+      "无论当前组如何都自动选择当前R6",
+      "组0的R6对应的直接地址单元",
+      "立即数06H",
+      "第6条程序指令"
+    ],
+    "correctAnswer": "组0的R6对应的直接地址单元",
+    "ka": "3.2.4",
+    "chapter": 3,
+    "explanation": "PUSH采用直接地址，06H是寄存器组0中R6的地址。程序明确选择组0后，这条指令才与保存所用R6的目标一致。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "消抖延时的条件与寄存器保护",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 406,
+    "type": "multiple-choice",
+    "questionText": "多字节无符号加法在低字节ADD之后，高字节为什么使用ADDC？",
+    "options": [
+      "自动跳过高字节",
+      "把高字节移到外部RAM",
+      "把低字节产生的进位加入高字节运算",
+      "将二进制数自动转成ASCII"
+    ],
+    "correctAnswer": "把低字节产生的进位加入高字节运算",
+    "ka": "3.3.1",
+    "chapter": 3,
+    "explanation": "ADDC执行带进位加法，将CY纳入当前字节计算。因此低字节进位才能继续传到高字节，形成多字节加法。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 407,
+    "type": "multiple-choice",
+    "questionText": "A=FFH，执行ADD A,#01H后，8位结果A及CY是什么？",
+    "options": [
+      "A=00H，CY=0",
+      "A=FFH，CY=1",
+      "A=01H，CY=0",
+      "A=00H，CY=1"
+    ],
+    "correctAnswer": "A=00H，CY=1",
+    "ka": "3.3.1",
+    "chapter": 3,
+    "explanation": "FFH+01H=100H，低8位保存在A中为00H，超出的第9位形成CY=1；不能只看A而漏掉进位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 408,
+    "type": "multiple-choice",
+    "questionText": "高字节运算前A=12H、CY=1，执行ADDC A,#20H后A是什么？",
+    "options": [
+      "33H",
+      "32H",
+      "21H",
+      "13H"
+    ],
+    "correctAnswer": "33H",
+    "ka": "3.3.1",
+    "chapter": 3,
+    "explanation": "带进位加法计算12H+20H+1=33H。若改用ADD将得到32H，丢失来自前一字节的进位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 409,
+    "type": "multiple-choice",
+    "questionText": "要用SUBB完成不含前次借位的单字节减法，开始前通常应做什么？",
+    "options": [
+      "SETB C",
+      "CLR C",
+      "CLR A",
+      "只增加SP"
+    ],
+    "correctAnswer": "CLR C",
+    "ka": "3.3.2",
+    "chapter": 3,
+    "explanation": "SUBB计算A减源操作数再减CY。单字节独立减法需先清除旧CY，避免把前次借位带入当前运算。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 410,
+    "type": "multiple-choice",
+    "questionText": "A=10H、CY=1，执行SUBB A,#03H后的A是什么？",
+    "options": [
+      "0DH",
+      "0EH",
+      "0CH",
+      "13H"
+    ],
+    "correctAnswer": "0CH",
+    "ka": "3.3.2",
+    "chapter": 3,
+    "explanation": "SUBB会计入入口CY，本例计算10H−03H−1=0CH；0DH是忽略借位时的结果。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 411,
+    "type": "multiple-choice",
+    "questionText": "先CLR C，A=20H，再执行SUBB A,#30H，结果和借位如何？",
+    "options": [
+      "A=10H，CY=0",
+      "A=F0H，CY=0",
+      "A=00H，CY=1",
+      "A=F0H，CY=1"
+    ],
+    "correctAnswer": "A=F0H，CY=1",
+    "ka": "3.3.2",
+    "chapter": 3,
+    "explanation": "20H−30H为−16，8位结果按模256保存为F0H。无符号数不够减，借位标志CY因此置1。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 412,
+    "type": "multiple-choice",
+    "questionText": "MUL AB完成乘法后，16位积的低字节和高字节分别存在哪里？",
+    "options": [
+      "低字节在A，高字节在B",
+      "低字节在B，高字节在A",
+      "全部存入DPTR",
+      "只保留A中的低4位"
+    ],
+    "correctAnswer": "低字节在A，高字节在B",
+    "ka": "3.3.3",
+    "chapter": 3,
+    "explanation": "指导说明MUL AB用两个8位无符号操作数相乘，低字节返回A、高字节返回B，读取完整乘积时要同时检查两者。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 413,
+    "type": "multiple-choice",
+    "questionText": "A=20H、B=10H，执行MUL AB后A与B是什么？",
+    "options": [
+      "A=02H，B=00H",
+      "A=00H，B=02H",
+      "A=30H，B=00H",
+      "A=10H，B=20H"
+    ],
+    "correctAnswer": "A=00H，B=02H",
+    "ka": "3.3.3",
+    "chapter": 3,
+    "explanation": "20H×10H=0200H，即32×16=512。低字节00H放A，高字节02H放B，而不是按加法得到30H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 414,
+    "type": "multiple-choice",
+    "questionText": "按实验2说明，MUL AB的无符号乘积大于255时，OV表示什么？",
+    "options": [
+      "发生有符号加法借位",
+      "电源电压超限",
+      "乘积超出单个8位字节，OV=1",
+      "定时器T0已经溢出"
+    ],
+    "correctAnswer": "乘积超出单个8位字节，OV=1",
+    "ka": "3.3.3",
+    "chapter": 3,
+    "explanation": "MUL的OV在乘积不能仅由A的8位容纳时置1，完整积仍在B:A中；它不表示定时器或电源状态。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 415,
+    "type": "multiple-choice",
+    "questionText": "DIV AB执行合法的无符号除法后，商和余数分别放在哪里？",
+    "options": [
+      "商在B，余数在A",
+      "都放入CY",
+      "都放入DPTR",
+      "商在A，余数在B"
+    ],
+    "correctAnswer": "商在A，余数在B",
+    "ka": "3.3.4",
+    "chapter": 3,
+    "explanation": "实验2明确DIV AB以A为被除数、B为除数，结果商回到A、余数回到B，后续显示应据此读取。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 416,
+    "type": "multiple-choice",
+    "questionText": "A=29、B=10，执行DIV AB后A和B的十进制值分别是什么？",
+    "options": [
+      "A=2，B=9",
+      "A=9，B=2",
+      "A=19，B=0",
+      "A=3，B=1"
+    ],
+    "correctAnswer": "A=2，B=9",
+    "ka": "3.3.4",
+    "chapter": 3,
+    "explanation": "29除以10得到商2、余数9，因此A=2、B=9。这种分解可用于把两位十进制数分成十位和个位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 417,
+    "type": "multiple-choice",
+    "questionText": "在用DIV AB把小时23拆成十位和个位时，B应先装入哪个十进制数？",
+    "options": [
+      "2",
+      "10",
+      "16",
+      "23"
+    ],
+    "correctAnswer": "10",
+    "ka": "3.3.4",
+    "chapter": 3,
+    "explanation": "按十进制位数分解应除以10。商是十位、余数是个位，若除以16得到的是十六进制半字节分解。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 418,
+    "type": "multiple-choice",
+    "questionText": "DA A十进制调整应配合哪类运算使用？",
+    "options": [
+      "任意SUBB减法后均可套用",
+      "MOVC读取字符串后",
+      "压缩BCD数的ADD或ADDC加法",
+      "定时器溢出后无需检查A"
+    ],
+    "correctAnswer": "压缩BCD数的ADD或ADDC加法",
+    "ka": "3.3.5",
+    "chapter": 3,
+    "explanation": "实验2把DA A限定在ADD或ADDC之后，用于把BCD加法的二进制结果调整为合法十进制数字，不能当作通用数制转换。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 419,
+    "type": "multiple-choice",
+    "questionText": "压缩BCD数09H与01H相加后执行DA A，A应是什么？",
+    "options": [
+      "0AH",
+      "01H",
+      "90H",
+      "10H"
+    ],
+    "correctAnswer": "10H",
+    "ka": "3.3.5",
+    "chapter": 3,
+    "explanation": "09H+01H先得到0AH，低半字节超出BCD数字0—9，十进制调整补6后得到10H，表示十进制10。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 420,
+    "type": "multiple-choice",
+    "questionText": "实验2中压缩BCD数87H和95H相加并调整后A=82H、CY=1，完整十进制结果是什么？",
+    "options": [
+      "182",
+      "82",
+      "130",
+      "282"
+    ],
+    "correctAnswer": "182",
+    "ka": "3.3.5",
+    "chapter": 3,
+    "explanation": "调整后的82H表示低两位十进制82，CY提供百位进位1，合起来是182；不能把82H直接按普通十六进制解释。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "算术运算与标志位（第二段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 421,
+    "type": "multiple-choice",
+    "questionText": "要保留A的低4位并清除高4位，应使用哪条指令？",
+    "options": [
+      "ORL A,#0FH",
+      "ANL A,#0FH",
+      "XRL A,#0FH",
+      "ANL A,#F0H"
+    ],
+    "correctAnswer": "ANL A,#0FH",
+    "ka": "3.4.1",
+    "chapter": 3,
+    "explanation": "与掩码0FH相与时，低4位与1相与保留，高4位与0相与清除；F0H会反过来保留高4位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 422,
+    "type": "multiple-choice",
+    "questionText": "A=A5H，执行ANL A,#3CH后A是什么？",
+    "options": [
+      "BDH",
+      "99H",
+      "24H",
+      "3CH"
+    ],
+    "correctAnswer": "24H",
+    "ka": "3.4.1",
+    "chapter": 3,
+    "explanation": "A5H为10100101B，3CH为00111100B；逐位与只保留两数同时为1的位，结果00100100B即24H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 423,
+    "type": "multiple-choice",
+    "questionText": "对A执行ANL A,#00H后结果是什么？",
+    "options": [
+      "保持原值",
+      "FFH",
+      "只清除最低位",
+      "00H"
+    ],
+    "correctAnswer": "00H",
+    "ka": "3.4.1",
+    "chapter": 3,
+    "explanation": "任意位与0相与都得到0，因此全零掩码会清除整个A，而不是仅清除最低位或保留原数据。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 424,
+    "type": "multiple-choice",
+    "questionText": "希望将A的第3位置1、其余位保持，应选择什么？",
+    "options": [
+      "ORL A,#08H",
+      "ANL A,#08H",
+      "XRL A,#08H",
+      "MOV A,#08H"
+    ],
+    "correctAnswer": "ORL A,#08H",
+    "ka": "3.4.2",
+    "chapter": 3,
+    "explanation": "或运算遇1置1、遇0保留原位。08H只有第3位为1，因而可实现指定位置1而保留其余位。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 425,
+    "type": "multiple-choice",
+    "questionText": "A=40H，执行ORL A,#05H后A是什么？",
+    "options": [
+      "00H",
+      "45H",
+      "05H",
+      "35H"
+    ],
+    "correctAnswer": "45H",
+    "ka": "3.4.2",
+    "chapter": 3,
+    "explanation": "40H与05H没有重叠的置1位，逐位或后同时保留第6位、第2位和第0位，结果为45H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 426,
+    "type": "multiple-choice",
+    "questionText": "对同一个字节连续两次执行ORL A,#08H，第3位如何变化？",
+    "options": [
+      "每次都翻转",
+      "第二次清0",
+      "第一次置1，第二次仍为1",
+      "第一次不变而第二次清0"
+    ],
+    "correctAnswer": "第一次置1，第二次仍为1",
+    "ka": "3.4.2",
+    "chapter": 3,
+    "explanation": "ORL用于置位而非翻转；某位一旦与1做或运算就保持1，重复相同置位操作不会把它清零。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 427,
+    "type": "multiple-choice",
+    "questionText": "A=5AH，执行XRL A,#FFH后A是什么？",
+    "options": [
+      "5AH",
+      "FFH",
+      "00H",
+      "A5H"
+    ],
+    "correctAnswer": "A5H",
+    "ka": "3.4.3",
+    "chapter": 3,
+    "explanation": "每一位与1异或都会翻转，因此FFH掩码翻转A的全部8位；5AH的按位反值为A5H。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 428,
+    "type": "multiple-choice",
+    "questionText": "某段程序连续两次执行XRL A,#08H，最终A与初值有什么关系？",
+    "options": [
+      "恢复为初值",
+      "恒为08H",
+      "恒为00H",
+      "第3位永久置1"
+    ],
+    "correctAnswer": "恢复为初值",
+    "ka": "3.4.3",
+    "chapter": 3,
+    "explanation": "同一掩码对同一位连续异或两次会先翻转再翻回，其余位均不变，因此整个A恢复初值。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 429,
+    "type": "multiple-choice",
+    "questionText": "比较两个字节是否完全相同时，它们逐位异或得到00H说明什么？",
+    "options": [
+      "两个字节一定互补",
+      "两个字节各位都相同",
+      "两个字节都必须为00H",
+      "只说明最高位相同"
+    ],
+    "correctAnswer": "两个字节各位都相同",
+    "ka": "3.4.3",
+    "chapter": 3,
+    "explanation": "异或在输入位相同时为0、不同为1。8位结果全0意味着全部对应位相同，不要求原字节本身为0。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 430,
+    "type": "multiple-choice",
+    "questionText": "A=0FH，执行CPL A后的结果是什么？",
+    "options": [
+      "10H",
+      "00H",
+      "F0H",
+      "0EH"
+    ],
+    "correctAnswer": "F0H",
+    "ka": "3.4.4",
+    "chapter": 3,
+    "explanation": "CPL A逐位取反：低4位从1变0，高4位从0变1，所以0FH变成F0H；这不是加1或减1。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 431,
+    "type": "multiple-choice",
+    "questionText": "CPL A与CLR A的作用有什么区别？",
+    "options": [
+      "二者对所有输入结果都相同",
+      "CPL把A恒置FFH",
+      "CLR只翻转最高位",
+      "CPL逐位翻转，CLR把A全部清0"
+    ],
+    "correctAnswer": "CPL逐位翻转，CLR把A全部清0",
+    "ka": "3.4.4",
+    "chapter": 3,
+    "explanation": "取反结果取决于原位状态，清零则不依赖原值。只有特定输入下结果可能相同，不能把这两类操作互换。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 432,
+    "type": "multiple-choice",
+    "questionText": "A=81H，连续执行两次CPL A，最终A是什么？",
+    "options": [
+      "81H",
+      "7EH",
+      "00H",
+      "FFH"
+    ],
+    "correctAnswer": "81H",
+    "ka": "3.4.4",
+    "chapter": 3,
+    "explanation": "每一位经过两次取反恢复原值，所以81H先变为7EH，再变回81H；连续取反不等于清零。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 433,
+    "type": "multiple-choice",
+    "questionText": "A=80H，执行不带进位的RL A后A是什么？",
+    "options": [
+      "00H",
+      "01H",
+      "40H",
+      "FFH"
+    ],
+    "correctAnswer": "01H",
+    "ka": "3.4.5",
+    "chapter": 3,
+    "explanation": "RL是8位循环左移，原bit7移回bit0，因此80H变为01H，而不是把移出的位直接丢弃。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 434,
+    "type": "multiple-choice",
+    "questionText": "A=80H且CY=0，执行RLC A后A和CY是什么？",
+    "options": [
+      "A=01H，CY=0",
+      "A=40H，CY=0",
+      "A=00H，CY=1",
+      "A=80H，CY=1"
+    ],
+    "correctAnswer": "A=00H，CY=1",
+    "ka": "3.4.5",
+    "chapter": 3,
+    "explanation": "RLC把CY纳入9位循环：原bit7进入CY，旧CY进入bit0；本例旧CY为0，因此A为00H而新CY为1。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 435,
+    "type": "multiple-choice",
+    "questionText": "A=01H，执行RR A后A是什么？",
+    "options": [
+      "00H",
+      "02H",
+      "81H",
+      "80H"
+    ],
+    "correctAnswer": "80H",
+    "ka": "3.4.5",
+    "chapter": 3,
+    "explanation": "RR是8位循环右移，原bit0绕回bit7，其余位右移，因此01H变成80H，不能误认为逻辑右移后为0。",
+    "source": {
+      "kind": "guide",
+      "title": "实验2网页指导",
+      "experimentId": "exp02",
+      "section": "逻辑运算与移位（第三段）",
+      "url": "/simulation?experiment=exp02&view=guide"
+    }
+  },
+  {
+    "id": 436,
+    "type": "multiple-choice",
+    "questionText": "仅允许T0溢出中断时，除ET0外还必须使能哪个总开关？",
+    "options": [
+      "EA",
+      "RI",
+      "SMOD",
+      "TR1"
+    ],
+    "correctAnswer": "EA",
+    "ka": "5.2.2",
+    "chapter": 5,
+    "explanation": "IE中的EA控制全局中断允许，ET0控制T0这一中断源；只设置分开关而总开关关闭时，仍不能正常响应T0中断。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 437,
+    "type": "multiple-choice",
+    "questionText": "经典8051中，将EA清0而保留ET0=1，T0中断允许状态如何？",
+    "options": [
+      "ET0可绕过EA强制响应",
+      "总开关关闭，不能仅凭ET0=1响应中断",
+      "只影响串口而不影响T0",
+      "自动切换成高优先级"
+    ],
+    "correctAnswer": "总开关关闭，不能仅凭ET0=1响应中断",
+    "ka": "5.2.2",
+    "chapter": 5,
+    "explanation": "指导把EA定义为总开关、ET0定义为源使能。总开关关闭会禁止中断响应，源使能不会提升优先级或绕过全局控制。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 438,
+    "type": "multiple-choice",
+    "questionText": "经典8051的IE.5应如何理解？",
+    "options": [
+      "所有8051上都是ET2",
+      "串口接收标志RI",
+      "保留位，不能按8052的ET2使用",
+      "定时器运行位TR0"
+    ],
+    "correctAnswer": "保留位，不能按8052的ET2使用",
+    "ka": "5.2.2",
+    "chapter": 5,
+    "explanation": "本课程限定经典8051的五中断源结构，IE.5为保留位。ET2来自含T2的8052等扩展型号，不能把型号差异混入本题。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 439,
+    "type": "multiple-choice",
+    "questionText": "经典8051的T0溢出中断入口地址是什么？",
+    "options": [
+      "0003H",
+      "001BH",
+      "0023H",
+      "000BH"
+    ],
+    "correctAnswer": "000BH",
+    "ka": "5.2.4",
+    "chapter": 5,
+    "explanation": "实验3中断表将T0溢出列在000BH；0003H为INT0、001BH为T1、0023H为串口，应按源与入口一一对应。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 440,
+    "type": "multiple-choice",
+    "questionText": "串口中断服务程序的入口跳转应放在经典8051哪个中断向量地址？",
+    "options": [
+      "0023H",
+      "0013H",
+      "000BH",
+      "0000H"
+    ],
+    "correctAnswer": "0023H",
+    "ka": "5.2.4",
+    "chapter": 5,
+    "explanation": "指导中的UART中断向量是0023H，0013H为INT1、000BH为T0；复位入口0000H不是串口中断向量。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 441,
+    "type": "multiple-choice",
+    "questionText": "把T1服务入口误放到000BH而不是001BH，会造成什么对应错误？",
+    "options": [
+      "两个向量会自动交换",
+      "T0向量指向了T1服务代码，T1向量未正确安排",
+      "T1时钟频率自动加倍",
+      "只是代码字体不同，不影响中断对应"
+    ],
+    "correctAnswer": "T0向量指向了T1服务代码，T1向量未正确安排",
+    "ka": "5.2.4",
+    "chapter": 5,
+    "explanation": "中断硬件按源进入固定向量地址，不会识别程序员给服务代码取的名字；错误的地址布局会把请求与处理函数错配。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "中断系统",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 442,
+    "type": "multiple-choice",
+    "questionText": "经典12T内核在12MHz晶振下，定时模式每次计数的理想间隔是多少？",
+    "options": [
+      "12μs",
+      "1ms",
+      "1μs",
+      "0.1s"
+    ],
+    "correctAnswer": "1μs",
+    "ka": "6.1.1",
+    "chapter": 6,
+    "explanation": "实验3按每机器周期12个晶振周期计算，12/12MHz=1μs。该结论限定经典12T内核，不可直接套用1T型号。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 443,
+    "type": "multiple-choice",
+    "questionText": "经典8051选择计数模式时，T0/T1的计数事件来自哪里？",
+    "options": [
+      "每次读取SBUF",
+      "每次执行MOVC",
+      "显示页面刷新一次",
+      "相应外部引脚的有效下降沿"
+    ],
+    "correctAnswer": "相应外部引脚的有效下降沿",
+    "ka": "6.1.1",
+    "chapter": 6,
+    "explanation": "指导区分内部定时与外部计数：计数模式依据T0或T1引脚的外部下降沿，不能把浏览器刷新当成硬件事件。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 444,
+    "type": "multiple-choice",
+    "questionText": "在经典8051的TMOD中，C/T=0与C/T=1分别选择什么？",
+    "options": [
+      "内部定时与外部计数",
+      "串口发送与串口接收",
+      "中断开启与中断关闭",
+      "高优先级与低优先级"
+    ],
+    "correctAnswer": "内部定时与外部计数",
+    "ka": "6.1.1",
+    "chapter": 6,
+    "explanation": "C/T选择计时来源，0表示按内部机器周期定时，1表示外部事件计数；中断允许和优先级分别由其他寄存器控制。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 445,
+    "type": "multiple-choice",
+    "questionText": "经典8051的TMOD低4位控制哪个定时器？",
+    "options": [
+      "T1",
+      "T0",
+      "串口SBUF",
+      "程序计数器PC"
+    ],
+    "correctAnswer": "T0",
+    "ka": "6.1.2",
+    "chapter": 6,
+    "explanation": "指导将TMOD分为两个半字节：高4位控制T1，低4位控制T0，配置其中一个时应避免无意覆盖另一个。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 446,
+    "type": "multiple-choice",
+    "questionText": "已知T1占用TMOD高4位，希望只将T0设为模式1、GATE=0、C/T=0，如何处理TMOD？",
+    "options": [
+      "无条件写入00H",
+      "无条件把高4位清0",
+      "保留高4位，低4位改为0001B",
+      "只设置串口RI位"
+    ],
+    "correctAnswer": "保留高4位，低4位改为0001B",
+    "ka": "6.1.2",
+    "chapter": 6,
+    "explanation": "T0配置在低4位，模式1对应M1M0=01；保留高4位可避免破坏T1用途，这比不加判断地重写整个寄存器稳妥。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 447,
+    "type": "multiple-choice",
+    "questionText": "在TMOD中GATE=1时，定时器运行除TR控制外还受什么条件约束？",
+    "options": [
+      "A中数据是否为0",
+      "PC是否处于0000H",
+      "LED颜色是否改变",
+      "对应INT引脚电平条件"
+    ],
+    "correctAnswer": "对应INT引脚电平条件",
+    "ka": "6.1.2",
+    "chapter": 6,
+    "explanation": "实验3将GATE=1定义为TR与对应INT输入共同控制；它不是通过累加器或程序地址决定是否计数。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "8051 定时器/计数器原理",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 448,
+    "type": "multiple-choice",
+    "questionText": "经典12T、12MHz、T0模式1理想定时1ms，初值应为多少？",
+    "options": [
+      "FC18H",
+      "03E8H",
+      "FFFFH",
+      "FE0CH"
+    ],
+    "correctAnswer": "FC18H",
+    "ka": "6.1.4",
+    "chapter": 6,
+    "explanation": "1ms对应1000次计数，16位初值为65536−1000=64536=FC18H。该计算未包含软件重装和中断延迟。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 449,
+    "type": "multiple-choice",
+    "questionText": "经典12T、12MHz、模式1初值为D8F0H时，理想溢出间隔是多少？",
+    "options": [
+      "20ms",
+      "10ms",
+      "50ms",
+      "100ms"
+    ],
+    "correctAnswer": "10ms",
+    "ka": "6.1.4",
+    "chapter": 6,
+    "explanation": "D8F0H=55536，距65536有10000次计数；每次1μs，所以理想间隔10ms，不包含软件开销。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 450,
+    "type": "multiple-choice",
+    "questionText": "算出16位初值B1E0H后，TH0与TL0应分别装入什么？",
+    "options": [
+      "TH0=E0H，TL0=B1H",
+      "TH0=B1H，TL0=B1H",
+      "TH0=B1H，TL0=E0H",
+      "TH0=00H，TL0=E0H"
+    ],
+    "correctAnswer": "TH0=B1H，TL0=E0H",
+    "ka": "6.1.4",
+    "chapter": 6,
+    "explanation": "TH0保存高字节B1H，TL0保存低字节E0H。颠倒高低字节会改变计数起点，使实际间隔与预期不同。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 451,
+    "type": "multiple-choice",
+    "questionText": "模式1的16位定时器从0000H开始到溢出，一共需要多少次计数？",
+    "options": [
+      "65535次",
+      "256次",
+      "8192次",
+      "65536次"
+    ],
+    "correctAnswer": "65536次",
+    "ka": "6.2.2",
+    "chapter": 6,
+    "explanation": "16位状态共有2的16次方即65536个。由0000H计到FFFFH后下一次回到0000H产生溢出，不能少计一次。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 452,
+    "type": "multiple-choice",
+    "questionText": "经典12T、12MHz的模式1要单次定时100ms，只写一组16位初值是否足够？",
+    "options": [
+      "不足，100000次计数超出65536，需要分段累计等办法",
+      "足够，只要把初值写成负数",
+      "足够，16位可以容纳100000个不同计数值",
+      "改写SBUF即可延长定时器位数"
+    ],
+    "correctAnswer": "不足，100000次计数超出65536，需要分段累计等办法",
+    "ka": "6.2.2",
+    "chapter": 6,
+    "explanation": "在题设条件下100ms需100000次计数，超过单个16位计数周期。应采用软件分段等方案，不能把超范围值强装入寄存器。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 453,
+    "type": "multiple-choice",
+    "questionText": "模式1溢出后要重复得到按同一非零初值计算的周期，通常需要做什么？",
+    "options": [
+      "硬件必然从原非零初值自动重装",
+      "按方案重新装入TH和TL，并计入软件开销",
+      "只改串口波特率",
+      "关闭EA后所有定时误差自动消失"
+    ],
+    "correctAnswer": "按方案重新装入TH和TL，并计入软件开销",
+    "ka": "6.2.2",
+    "chapter": 6,
+    "explanation": "模式1不提供模式2那样的自动重装；重复定时通常需软件重新装入初值，实际周期还要考虑中断响应和重装耗时。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 454,
+    "type": "multiple-choice",
+    "questionText": "模式2的“8位自动重装”主要解决什么问题？",
+    "options": [
+      "把定时器扩展成32位",
+      "把所有中断自动变为高优先级",
+      "溢出后由硬件装回预置值以重复计数",
+      "自动把二进制转成十进制"
+    ],
+    "correctAnswer": "溢出后由硬件装回预置值以重复计数",
+    "ka": "6.2.3",
+    "chapter": 6,
+    "explanation": "模式2在8位计数溢出后自动重装，使周期性短定时无需每次软件写回相同初值；它不改变中断优先级或数制。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 455,
+    "type": "multiple-choice",
+    "questionText": "经典12T、12MHz下，模式2理想定时200μs，重装初值是多少？",
+    "options": [
+      "C8H",
+      "FFH",
+      "00H",
+      "38H"
+    ],
+    "correctAnswer": "38H",
+    "ka": "6.2.3",
+    "chapter": 6,
+    "explanation": "模式2每周期有256个计数状态，题设1μs一次，初值256−200=56=38H。C8H是200本身，不是所需初值。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 456,
+    "type": "multiple-choice",
+    "questionText": "经典12T、12MHz下，模式2单次计数周期最大约是多少？",
+    "options": [
+      "256μs",
+      "65536μs",
+      "256ms",
+      "12s"
+    ],
+    "correctAnswer": "256μs",
+    "ka": "6.2.3",
+    "chapter": 6,
+    "explanation": "8位计数最大256次，题设每次1μs，所以最大周期256μs。65536次是模式1的16位计数范围。",
+    "source": {
+      "kind": "guide",
+      "title": "实验3网页指导",
+      "experimentId": "exp03",
+      "section": "定时初值计算",
+      "url": "/simulation?experiment=exp03&view=guide"
+    }
+  },
+  {
+    "id": 457,
+    "type": "multiple-choice",
+    "questionText": "用定时器每次溢出翻转一次引脚，要生成1kHz对称方波，理想翻转间隔应为多少？",
+    "options": [
+      "1ms",
+      "500μs",
+      "2ms",
+      "250μs"
+    ],
+    "correctAnswer": "500μs",
+    "ka": "6.3.2",
+    "chapter": 6,
+    "explanation": "翻转一次只完成半个周期，1kHz周期为1ms，因此每500μs翻转一次。把整周期当翻转间隔会使频率减半。",
+    "source": {
+      "kind": "guide",
+      "title": "实验7网页指导",
+      "experimentId": "exp07",
+      "section": "音频频率与音调",
+      "url": "/simulation?experiment=exp07&view=guide"
+    }
+  },
+  {
+    "id": 458,
+    "type": "multiple-choice",
+    "questionText": "把方波引脚的翻转间隔从1ms改为2ms，输出频率如何变化？",
+    "options": [
+      "由1kHz升为2kHz",
+      "保持500Hz",
+      "由500Hz降为250Hz",
+      "由250Hz升为500Hz"
+    ],
+    "correctAnswer": "由500Hz降为250Hz",
+    "ka": "6.3.2",
+    "chapter": 6,
+    "explanation": "对称方波周期是两次翻转间隔之和。2×1ms对应500Hz，2×2ms对应250Hz，间隔加倍使频率减半。",
+    "source": {
+      "kind": "guide",
+      "title": "实验7网页指导",
+      "experimentId": "exp07",
+      "section": "音频频率与音调",
+      "url": "/simulation?experiment=exp07&view=guide"
+    }
+  },
+  {
+    "id": 459,
+    "type": "multiple-choice",
+    "questionText": "实验7把无源蜂鸣器的驱动方波频率加倍，按所述音阶关系属于什么变化？",
+    "options": [
+      "降低一个八度",
+      "只改变发声时长而音调不变",
+      "自动变成休止符",
+      "提高一个八度"
+    ],
+    "correctAnswer": "提高一个八度",
+    "ka": "6.3.2",
+    "chapter": 6,
+    "explanation": "实验7给出高音为频率乘2、低音为频率除2；频率决定音调，发声持续多久则由节拍控制。",
+    "source": {
+      "kind": "guide",
+      "title": "实验7网页指导",
+      "experimentId": "exp07",
+      "section": "音频频率与音调",
+      "url": "/simulation?experiment=exp07&view=guide"
+    }
+  },
+  {
+    "id": 460,
+    "type": "multiple-choice",
+    "questionText": "周期4ms、每周期高电平1ms的PWM，占空比是多少？",
+    "options": [
+      "25%",
+      "75%",
+      "4%",
+      "400%"
+    ],
+    "correctAnswer": "25%",
+    "ka": "6.3.3",
+    "chapter": 6,
+    "explanation": "占空比定义为高电平时间除以完整周期，1ms/4ms=0.25，即25%；低电平所占的75%不是本题定义的占空比。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "PWM 脉宽调制原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 461,
+    "type": "multiple-choice",
+    "questionText": "理想0—5V方波占空比为40%，按项目2的平均电压公式，平均值是多少？",
+    "options": [
+      "5V",
+      "2V",
+      "3V",
+      "0.4V"
+    ],
+    "correctAnswer": "2V",
+    "ka": "6.3.3",
+    "chapter": 6,
+    "explanation": "按理想平均电压Vavg=Vcc×占空比，5×0.4=2V；该算例不等同于实物LED亮度或电机转速的线性保证。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "PWM 脉宽调制原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 462,
+    "type": "multiple-choice",
+    "questionText": "项目2以1ms中断、256个计数档位演示PWM，一个完整周期及频率约是多少？",
+    "options": [
+      "1ms、1kHz",
+      "256μs、3.91kHz",
+      "256ms、3.91Hz",
+      "16ms、62.5Hz"
+    ],
+    "correctAnswer": "256ms、3.91Hz",
+    "ka": "6.3.3",
+    "chapter": 6,
+    "explanation": "256个1ms时间片构成256ms周期，频率约为1000/256=3.91Hz。指导明确该低频用于观察，会闪烁，不能直接当实物照明设计。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "PWM 脉宽调制原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 463,
+    "type": "multiple-choice",
+    "questionText": "实验6用50ms基础中断合成1s，需要累计多少次？",
+    "options": [
+      "2次",
+      "10次",
+      "50次",
+      "20次"
+    ],
+    "correctAnswer": "20次",
+    "ka": "6.3.5",
+    "chapter": 6,
+    "explanation": "1s=1000ms，1000/50=20，因此累计20次基础中断得到名义1s；实际计时还需考虑重装等软件开销。",
+    "source": {
+      "kind": "guide",
+      "title": "实验6网页指导",
+      "experimentId": "exp06",
+      "section": "双定时器协同工作",
+      "url": "/simulation?experiment=exp06&view=guide"
+    }
+  },
+  {
+    "id": 464,
+    "type": "multiple-choice",
+    "questionText": "若50ms软件计数器从0开始，每次先加1，却在等于19时认作1s，会出现什么？",
+    "options": [
+      "只累计950ms，少一个50ms周期",
+      "准确累计1000ms",
+      "累计1050ms",
+      "无法发生任何中断"
+    ],
+    "correctAnswer": "只累计950ms，少一个50ms周期",
+    "ka": "6.3.5",
+    "chapter": 6,
+    "explanation": "先加1再判断等于19意味着经历19次中断，即19×50=950ms。计数起点与判断顺序必须一致，不能只看终值名称。",
+    "source": {
+      "kind": "guide",
+      "title": "实验6网页指导",
+      "experimentId": "exp06",
+      "section": "双定时器协同工作",
+      "url": "/simulation?experiment=exp06&view=guide"
+    }
+  },
+  {
+    "id": 465,
+    "type": "multiple-choice",
+    "questionText": "基础50ms定时每次存在同向0.1ms额外开销，累计20次且未补偿时，名义1s约多出多少时间？",
+    "options": [
+      "0.1ms",
+      "2ms",
+      "20ms",
+      "200ms"
+    ],
+    "correctAnswer": "2ms",
+    "ka": "6.3.5",
+    "chapter": 6,
+    "explanation": "同向误差会随累计次数相加，20×0.1ms=2ms。软件累计增加可计时范围，但不会自动消除每段周期误差。",
+    "source": {
+      "kind": "guide",
+      "title": "实验6网页指导",
+      "experimentId": "exp06",
+      "section": "双定时器协同工作",
+      "url": "/simulation?experiment=exp06&view=guide"
+    }
+  },
+  {
+    "id": 466,
+    "type": "multiple-choice",
+    "questionText": "按实验4的共阴段码表，数字1需要点亮哪些段？",
+    "options": [
+      "a和d",
+      "f和g",
+      "b和c",
+      "全部七段"
+    ],
+    "correctAnswer": "b和c",
+    "ka": "8.1.1",
+    "chapter": 8,
+    "explanation": "实验4用a—g标注七段结构，数字1的段码06H对应b、c两段点亮；段码含义还依赖该表约定的位序。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "七段数码管原理",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 467,
+    "type": "multiple-choice",
+    "questionText": "采用实验4相同段位顺序且dp关闭，共阴数字0段码3FH逐位取反后，共阳段码是多少？",
+    "options": [
+      "3FH",
+      "7FH",
+      "00H",
+      "C0H"
+    ],
+    "correctAnswer": "C0H",
+    "ka": "8.1.1",
+    "chapter": 8,
+    "explanation": "共阴高电平点亮，共阳在相同位序下低电平点亮；3FH按8位取反为C0H，其中dp位也保持关闭。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "七段数码管原理",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 468,
+    "type": "multiple-choice",
+    "questionText": "把共阴数码管表直接用于同位序的共阳数码管，主要需修正什么？",
+    "options": [
+      "段输出的有效电平极性",
+      "数字的十进制值",
+      "程序使用的所有RAM地址",
+      "只修改屏幕字体"
+    ],
+    "correctAnswer": "段输出的有效电平极性",
+    "ka": "8.1.1",
+    "chapter": 8,
+    "explanation": "共阴与共阳的差别在公共端和点亮电平极性；相同段位映射下需反转相应段驱动极性，不能只改显示样式。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "七段数码管原理",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 469,
+    "type": "multiple-choice",
+    "questionText": "四位数码管每位显示2ms，忽略切换开销，一轮扫描时间与刷新率分别是多少？",
+    "options": [
+      "2ms、500Hz",
+      "8ms、125Hz",
+      "4ms、250Hz",
+      "16ms、62.5Hz"
+    ],
+    "correctAnswer": "8ms、125Hz",
+    "ka": "8.1.2",
+    "chapter": 8,
+    "explanation": "一轮要依次经过四位，4×2ms=8ms，刷新率1/0.008=125Hz；不能把单个位显示时间当成整屏周期。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "动态扫描技术",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 470,
+    "type": "multiple-choice",
+    "questionText": "实验4在换段码前先关闭所有位选，主要目的是什么？",
+    "options": [
+      "把程序存储器清空",
+      "改变晶振频率",
+      "减少切换时错误段码造成的重影",
+      "提高LED允许最大电流"
+    ],
+    "correctAnswer": "减少切换时错误段码造成的重影",
+    "ka": "8.1.2",
+    "chapter": 8,
+    "explanation": "消隐使所有显示位先关闭，再更新段码并打开新位，避免旧位在段码切换期间显示新位数据形成重影。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "动态扫描技术",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 471,
+    "type": "multiple-choice",
+    "questionText": "动态扫描时只维持某一位的位选而不再轮换，会怎样？",
+    "options": [
+      "四位仍自动独立刷新",
+      "硬件自动把数值复制到全部位",
+      "只影响串口波特率",
+      "其余位无法按预定轮流刷新"
+    ],
+    "correctAnswer": "其余位无法按预定轮流刷新",
+    "ka": "8.1.2",
+    "chapter": 8,
+    "explanation": "动态显示依靠程序轮流输出每位段码并选择对应显示位。停止轮换会破坏其他位的刷新，不存在自动保持整屏的机制。",
+    "source": {
+      "kind": "guide",
+      "title": "实验4网页指导",
+      "experimentId": "exp04",
+      "section": "动态扫描技术",
+      "url": "/simulation?experiment=exp04&view=guide"
+    }
+  },
+  {
+    "id": 472,
+    "type": "multiple-choice",
+    "questionText": "在项目2的LCD1602阅读指导中，RS=0与RS=1分别表示什么？",
+    "options": [
+      "指令与字符数据",
+      "读与写",
+      "第一行与第二行",
+      "开电源与断电源"
+    ],
+    "correctAnswer": "指令与字符数据",
+    "ka": "8.1.3",
+    "chapter": 8,
+    "explanation": "指导把RS定义为寄存器选择：0选择指令、1选择数据；读写方向由RW控制，不能将这两个控制信号混淆。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "LCD1602 液晶显示原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 473,
+    "type": "multiple-choice",
+    "questionText": "按项目2的LCD1602地址表，设置第二行起始显示位置用哪个指令？",
+    "options": [
+      "80H",
+      "C0H",
+      "01H",
+      "38H"
+    ],
+    "correctAnswer": "C0H",
+    "ka": "8.1.3",
+    "chapter": 8,
+    "explanation": "第二行显示RAM起始地址为40H，置DDRAM地址指令带80H标志，因此为C0H。80H对应第一行起始位置。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "LCD1602 液晶显示原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 474,
+    "type": "multiple-choice",
+    "questionText": "按LCD1602指导，清屏指令01H与字符数据应如何区分发送？",
+    "options": [
+      "两者均必须RS=1",
+      "两者均通过修改晶振发送",
+      "清屏时RS=0，字符数据时RS=1",
+      "用P3.2电平直接替代指令内容"
+    ],
+    "correctAnswer": "清屏时RS=0，字符数据时RS=1",
+    "ka": "8.1.3",
+    "chapter": 8,
+    "explanation": "同样的总线字节在指令与数据寄存器中的意义不同。清屏是控制指令、字符是显示数据，应以RS选择正确目标；此处是接口阅读题。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "LCD1602 液晶显示原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 475,
+    "type": "multiple-choice",
+    "questionText": "实验5读取P3低4位为1101B时，对应哪个独立按键？",
+    "options": [
+      "键0",
+      "键2",
+      "全部松开",
+      "键1"
+    ],
+    "correctAnswer": "键1",
+    "ka": "8.2.1",
+    "chapter": 8,
+    "explanation": "实验5按位低有效，1101B仅bit1为0，因此对应键1；1111B才表示四路均松开。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "四路独立按键与同键确认",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 476,
+    "type": "multiple-choice",
+    "questionText": "实验5中第一次读到键0、延时后读到键1，应如何处理候选？",
+    "options": [
+      "拒绝本次候选，等待稳定松开后再检测",
+      "把两次读数视为同一有效键",
+      "自动累计两次按键",
+      "将第二次读数强行改成键0"
+    ],
+    "correctAnswer": "拒绝本次候选，等待稳定松开后再检测",
+    "ka": "8.2.1",
+    "chapter": 8,
+    "explanation": "指导要求两次采样为同一单键，换键不满足确认条件。拒绝后还需等待稳定全松开，避免候选状态串入下一次操作。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "四路独立按键与同键确认",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 477,
+    "type": "multiple-choice",
+    "questionText": "实验5读到0011B，即两路输入同时为低，应如何解释？",
+    "options": [
+      "一定是键0",
+      "同时多键，不作为有效单键",
+      "一定是全部松开",
+      "自动完成16键矩阵扫描"
+    ],
+    "correctAnswer": "同时多键，不作为有效单键",
+    "ka": "8.2.1",
+    "chapter": 8,
+    "explanation": "当前程序只接受四种单低位组合，0011B含两位低电平，因此属于多键组合。它不等于矩阵键盘的某个独立键码。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "四路独立按键与同键确认",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 478,
+    "type": "multiple-choice",
+    "questionText": "4×4矩阵键盘按4行4列接线，共有多少个按键交点、占用多少条行列线？",
+    "options": [
+      "8个交点、16条线",
+      "4个交点、4条线",
+      "16个交点、8条线",
+      "16个交点、16条线"
+    ],
+    "correctAnswer": "16个交点、8条线",
+    "ka": "8.2.2",
+    "chapter": 8,
+    "explanation": "四行与四列两两形成4×4=16个交点，行列信号总数4+4=8；这正是矩阵接法节省端口线的原因。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "实物拓展：4×4矩阵键盘",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 479,
+    "type": "multiple-choice",
+    "questionText": "按指导以0起算行列编号，键值=行号×4+列号，第2行第3列的键值是多少？",
+    "options": [
+      "23",
+      "10",
+      "6",
+      "11"
+    ],
+    "correctAnswer": "11",
+    "ka": "8.2.2",
+    "chapter": 8,
+    "explanation": "采用题设零起算编码，2×4+3=11。若行列用1起算则必须先转换，不能把两种编号规则混用。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "实物拓展：4×4矩阵键盘",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 480,
+    "type": "multiple-choice",
+    "questionText": "用当前实验5的四个独立按钮，能否证明16键矩阵扫描接线已经验证？",
+    "options": [
+      "不能，当前输入没有行列交点联动模型",
+      "能，四个按钮代表所有16个交点",
+      "能，只需把按钮名字改成矩阵键",
+      "能，任何低电平都能证明矩阵扫描正确"
+    ],
+    "correctAnswer": "不能，当前输入没有行列交点联动模型",
+    "ka": "8.2.2",
+    "chapter": 8,
+    "explanation": "指导明确当前按钮仅向P3注入独立电平，没有P1行线与交点连通模型。矩阵阅读与当前仿真可验证的范围必须区分。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "实物拓展：4×4矩阵键盘",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 481,
+    "type": "multiple-choice",
+    "questionText": "实验5同键确认后仍等待松开，并再次延时检查全高，主要避免什么？",
+    "options": [
+      "所有中断永远关闭",
+      "一次持续按住或释放抖动被多次计数",
+      "串口波特率改变",
+      "寄存器组自动增加"
+    ],
+    "correctAnswer": "一次持续按住或释放抖动被多次计数",
+    "ka": "8.2.3",
+    "chapter": 8,
+    "explanation": "确认按下后再检查稳定释放，可把一次按压过程与下一次检测分开；仅重复读取按住电平会把同一次动作计成多次。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "四路独立按键与同键确认",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 482,
+    "type": "multiple-choice",
+    "questionText": "实验5的延时按12MHz、12T计算约20.313ms，是否可用可调速仿真画面的墙钟时间直接验证？",
+    "options": [
+      "可以，任何运行速度都等于实物时间",
+      "可以，只要浏览器窗口足够大",
+      "不能，当前仿真按指令推进且速度可调",
+      "可以，用截图文件大小换算时间"
+    ],
+    "correctAnswer": "不能，当前仿真按指令推进且速度可调",
+    "ka": "8.2.3",
+    "chapter": 8,
+    "explanation": "指导区分指令周期计算与仿真墙钟时间。可调速执行改变屏幕上的耗时，不能据此验证实物消抖延时。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "消抖延时的条件与寄存器保护",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 483,
+    "type": "multiple-choice",
+    "questionText": "两次采样得到相同按键值，能否据此断定实物触点在两次采样之间完全没有抖动？",
+    "options": [
+      "能，两个采样已覆盖连续波形",
+      "能，延时名称含20ms就足够",
+      "能，不需要任何实际测量",
+      "不能，只能确认两个采样时刻的状态相同"
+    ],
+    "correctAnswer": "不能，只能确认两个采样时刻的状态相同",
+    "ka": "8.2.3",
+    "chapter": 8,
+    "explanation": "离散的两次相同读数不包含两次采样之间的完整波形。指导要求实物测量触点抖动并据此调整消抖间隔。",
+    "source": {
+      "kind": "guide",
+      "title": "实验5网页指导",
+      "experimentId": "exp05",
+      "section": "消抖延时的条件与寄存器保护",
+      "url": "/simulation?experiment=exp05&view=guide"
+    }
+  },
+  {
+    "id": 484,
+    "type": "multiple-choice",
+    "questionText": "按项目2指导，ADC0809用哪种转换结构处理模拟量？",
+    "options": [
+      "8位逐次逼近转换",
+      "仅用串口停止位计数",
+      "16位浮点乘法转换",
+      "液晶字符编码转换"
+    ],
+    "correctAnswer": "8位逐次逼近转换",
+    "ka": "8.3.1",
+    "chapter": 8,
+    "explanation": "指导将ADC0809说明为8位逐次逼近型模数转换器，并列出比较器、DAC和寄存器组成，不能把它当成其他外设。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 485,
+    "type": "multiple-choice",
+    "questionText": "ADC0809的START上升沿与下降沿在指导中分别承担什么？",
+    "options": [
+      "上升沿读数据，下降沿选通LCD",
+      "上升沿复位逐次逼近寄存器，下降沿开始转换",
+      "两条边沿都只改变UART波特率",
+      "下降沿复位、上升沿固定表示转换完成"
+    ],
+    "correctAnswer": "上升沿复位逐次逼近寄存器，下降沿开始转换",
+    "ka": "8.3.1",
+    "chapter": 8,
+    "explanation": "项目2按器件时序区分START两条边沿的职责，启动与转换完成是不同事件；完成状态由EOC配合时序判断。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 486,
+    "type": "multiple-choice",
+    "questionText": "启动ADC0809后立即看到EOC为高，是否足以证明刚启动的这次转换已完成？",
+    "options": [
+      "足够，EOC没有任何启动延迟",
+      "足够，只要OE一直为1",
+      "不足，应确认进入忙状态后再等待完成，并设超时",
+      "足够，输入通道号就是转换完成标志"
+    ],
+    "correctAnswer": "不足，应确认进入忙状态后再等待完成，并设超时",
+    "ka": "8.3.1",
+    "chapter": 8,
+    "explanation": "指导说明EOC不会立即变低，开始时高电平可能属于前一状态。应识别本次忙到完成的过程并设置超时，避免读旧数据。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 487,
+    "type": "multiple-choice",
+    "questionText": "ADC0809为8位、参考范围0—5V，按指导q=范围/256计算，量化步长约是多少？",
+    "options": [
+      "5mV",
+      "256mV",
+      "0.01953μV",
+      "19.53mV"
+    ],
+    "correctAnswer": "19.53mV",
+    "ka": "8.3.4",
+    "chapter": 8,
+    "explanation": "量化步长为5V/256=0.01953125V，约19.53mV。本题采用指导中的256级定义，不以255作步长分母。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 488,
+    "type": "multiple-choice",
+    "questionText": "8位ADC的输出码有效范围是什么？",
+    "options": [
+      "0—255",
+      "0—256",
+      "1—256",
+      "0—65535"
+    ],
+    "correctAnswer": "0—255",
+    "ka": "8.3.4",
+    "chapter": 8,
+    "explanation": "8位只能表示256种整数状态，从0起算的最大码为255；即使输入达到参考上端，也不能输出不存在的256码。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 489,
+    "type": "multiple-choice",
+    "questionText": "ADC0809在给定时钟条件下典型转换时间100μs，能否直接把它当作所有系统的固定采样周期？",
+    "options": [
+      "能，任何时钟都固定100μs",
+      "不能，需考虑时钟、转换条件、控制开销与输入稳定性",
+      "能，界面每次刷新就是一次100μs采样",
+      "能，通道数越多转换时间自动归零"
+    ],
+    "correctAnswer": "不能，需考虑时钟、转换条件、控制开销与输入稳定性",
+    "ka": "8.3.4",
+    "chapter": 8,
+    "explanation": "指导把100μs限定为指定时钟下的典型转换时间，不是通用软件等待值；实际采样周期还包含控制与读数开销。",
+    "source": {
+      "kind": "guide",
+      "title": "项目2网页指导",
+      "experimentId": "proj02",
+      "section": "ADC0809 模数转换原理",
+      "url": "/simulation?experiment=proj02&view=guide"
+    }
+  },
+  {
+    "id": 490,
+    "type": "multiple-choice",
+    "questionText": "按项目4的12位DS18B20温度格式，原始值0191H对应多少摄氏度？",
+    "options": [
+      "401°C",
+      "19.1°C",
+      "25.0625°C",
+      "1.91°C"
+    ],
+    "correctAnswer": "25.0625°C",
+    "ka": "8.4.1",
+    "chapter": 8,
+    "explanation": "0191H=401，12位配置的单位为0.0625°C，因此401×0.0625=25.0625°C；不能直接把原始整数当摄氏度。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "DS18B20 单总线温度传感器",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+  {
+    "id": 491,
+    "type": "multiple-choice",
+    "questionText": "12位DS18B20读到FF5EH，按16位符号扩展补码应得到什么温度？",
+    "options": [
+      "4085.875°C",
+      "10.125°C",
+      "−162°C",
+      "−10.125°C"
+    ],
+    "correctAnswer": "−10.125°C",
+    "ka": "8.4.1",
+    "chapter": 8,
+    "explanation": "FF5EH按无符号为65374，先减65536得−162，再乘0.0625得到−10.125°C。必须先正确解释符号，不能直接乘无符号值。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "DS18B20 单总线温度传感器",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+  {
+    "id": 492,
+    "type": "multiple-choice",
+    "questionText": "多个DS18B20同挂一根总线读取某一个器件时，应怎样选择ROM命令策略？",
+    "options": [
+      "按目标地址选择器件，不能把单器件读ROM命令直接套用",
+      "所有器件都用33H同时返回即可无冲突",
+      "只改变温度单位就能区分器件",
+      "不用器件地址，每次结果必然属于同一只"
+    ],
+    "correctAnswer": "按目标地址选择器件，不能把单器件读ROM命令直接套用",
+    "ka": "8.4.1",
+    "chapter": 8,
+    "explanation": "指导明确33H读ROM只用于单器件，总线上多器件读取须选择目标地址；否则多个响应可能冲突，无法可靠归属温度数据。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "DS18B20 单总线温度传感器",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+  {
+    "id": 493,
+    "type": "multiple-choice",
+    "questionText": "按实验7的蜂鸣器类型说明，只通断直流电源即可按固有频率发声的是哪一种？",
+    "options": [
+      "无源蜂鸣器一定如此",
+      "有源蜂鸣器",
+      "任何七段数码管",
+      "仅LCD1602"
+    ],
+    "correctAnswer": "有源蜂鸣器",
+    "ka": "8.6.1",
+    "chapter": 8,
+    "explanation": "有源蜂鸣器内置振荡，外部只需控制通断；无源蜂鸣器要由外部方波驱动。两者都还需按负载要求选择驱动级。",
+    "source": {
+      "kind": "guide",
+      "title": "实验7网页指导",
+      "experimentId": "exp07",
+      "section": "音频频率与音调",
+      "url": "/simulation?experiment=exp07&view=guide"
+    }
+  },
+  {
+    "id": 494,
+    "type": "multiple-choice",
+    "questionText": "希望用蜂鸣器输出不同音高，按实验7应优先采用哪种方式？",
+    "options": [
+      "仅对有源蜂鸣器延长直流通电时间",
+      "修改显示页面字体",
+      "以不同频率方波驱动无源蜂鸣器",
+      "只改变段码表地址"
+    ],
+    "correctAnswer": "以不同频率方波驱动无源蜂鸣器",
+    "ka": "8.6.1",
+    "chapter": 8,
+    "explanation": "实验7说明无源蜂鸣器的驱动频率决定音调，持续时间控制节拍；延长有源蜂鸣器通电一般不能据此获得任意音高。",
+    "source": {
+      "kind": "guide",
+      "title": "实验7网页指导",
+      "experimentId": "exp07",
+      "section": "音频频率与音调",
+      "url": "/simulation?experiment=exp07&view=guide"
+    }
+  },
+  {
+    "id": 495,
+    "type": "multiple-choice",
+    "questionText": "在项目4的I2C扩展阅读中，SDA与SCL分别承担什么？",
+    "options": [
+      "电源与地",
+      "串口发送与接收两条独立数据线",
+      "高8位地址与低8位地址",
+      "双向数据与时钟"
+    ],
+    "correctAnswer": "双向数据与时钟",
+    "ka": "7.4.4",
+    "chapter": 7,
+    "explanation": "指导把SDA作为双向数据线、SCL作为时钟线；它与UART的TXD/RXD两条异步数据线不同。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "扩展参考｜AT24C02 I2C EEPROM 存储",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+  {
+    "id": 496,
+    "type": "multiple-choice",
+    "questionText": "按项目4地址示例，AT24C02的A2=A1=A0=0时，写控制字节和读控制字节分别是什么？",
+    "options": [
+      "A0H与A1H",
+      "50H与51H",
+      "00H与01H",
+      "A1H与A0H"
+    ],
+    "correctAnswer": "A0H与A1H",
+    "ka": "7.4.4",
+    "chapter": 7,
+    "explanation": "指导给出8位控制字节1010 A2 A1 A0 R/W；地址脚全0时写为A0H、读为A1H，勿与7位器件地址50H混用。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "扩展参考｜AT24C02 I2C EEPROM 存储",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+  {
+    "id": 497,
+    "type": "multiple-choice",
+    "questionText": "项目4列出AT24C02读写时序，是否意味着当前仿真已完成EEPROM持久存储验证？",
+    "options": [
+      "是，只要页面出现芯片名称",
+      "不是，该节为独立扩展阅读，不计入当前完成判定",
+      "是，UART上报就等同EEPROM写入",
+      "是，不需要断电保持或读回检查"
+    ],
+    "correctAnswer": "不是，该节为独立扩展阅读，不计入当前完成判定",
+    "ka": "7.4.4",
+    "chapter": 7,
+    "explanation": "该节明确属于扩展参考。掌握总线时序与实际完成器件读写、断电保持验证不同，不能把阅读材料当成已运行结果。",
+    "source": {
+      "kind": "guide",
+      "title": "项目4网页指导",
+      "experimentId": "proj04",
+      "section": "扩展参考｜AT24C02 I2C EEPROM 存储",
+      "url": "/simulation?experiment=proj04&view=guide"
+    }
+  },
+
+
+  // 主题级整合题：考查同一主题下各知识单元之间的辨析与联系，直接挂在二级主题上。
+  {
+    "id": 498,
+    "type": "multiple-choice",
+    "questionText": "下列四条指令中，操作数直接包含在指令内部、不需要再访问存储器的是哪一条？",
+    "options": ["MOV A, #30H", "MOV A, 30H", "MOV A, @R0", "MOVC A, @A+DPTR"],
+    "correctAnswer": "MOV A, #30H",
+    "ka": "3.1",
+    "chapter": 3,
+    "explanation": "立即寻址的操作数写在指令里（#30H 就是数据本身）；后三条分别是直接寻址、寄存器间接寻址和变址寻址，都要再去存储器取数。"
+  },
+  {
+    "id": 499,
+    "type": "multiple-choice",
+    "questionText": "指令 `MOV A, 30H` 与 `MOV A, #30H` 的本质区别是什么？",
+    "options": ["前者取片内RAM 30H单元的内容，后者取常数30H", "两条完全等价，写法不同而已", "前者取常数30H，后者取30H单元的内容", "前者访问片外RAM，后者访问片内RAM"],
+    "correctAnswer": "前者取片内RAM 30H单元的内容，后者取常数30H",
+    "ka": "3.1",
+    "chapter": 3,
+    "explanation": "一个井号之差就改变了寻址方式：不带#是直接寻址，给的是地址；带#是立即寻址，给的是数据本身。"
+  },
+  {
+    "id": 500,
+    "type": "multiple-choice",
+    "questionText": "访问片外数据存储器时，89C51 只能采用下列哪一类寻址方式？",
+    "options": ["寄存器间接寻址", "直接寻址", "立即寻址", "位寻址"],
+    "correctAnswer": "寄存器间接寻址",
+    "ka": "3.1",
+    "chapter": 3,
+    "explanation": "片外RAM只能用 MOVX 配合 @DPTR 或 @Ri 访问，属于寄存器间接寻址；直接寻址只能访问片内RAM与SFR。"
+  },
+  {
+    "id": 501,
+    "type": "multiple-choice",
+    "questionText": "89C51 响应中断时，硬件自动完成的动作是什么？",
+    "options": ["把断点地址（PC）压入堆栈，并转向中断入口地址", "把PC和PSW一起压入堆栈", "把累加器A和工作寄存器全部压栈", "清除堆栈指针SP后再跳转"],
+    "correctAnswer": "把断点地址（PC）压入堆栈，并转向中断入口地址",
+    "ka": "5.1",
+    "chapter": 5,
+    "explanation": "89C51 中断响应只由硬件压入断点PC；PSW、累加器等现场需要在中断服务程序里用PUSH自行保护。"
+  },
+  {
+    "id": 502,
+    "type": "multiple-choice",
+    "questionText": "在默认优先级下，89C51 五个中断源的响应顺序由高到低是？",
+    "options": ["外部中断0、定时器0、外部中断1、定时器1、串行口", "串行口、定时器1、外部中断1、定时器0、外部中断0", "定时器0、定时器1、外部中断0、外部中断1、串行口", "五个中断源优先级完全相同，按申请先后响应"],
+    "correctAnswer": "外部中断0、定时器0、外部中断1、定时器1、串行口",
+    "ka": "5.1",
+    "chapter": 5,
+    "explanation": "这是89C51固定的自然优先级次序；IP寄存器只能把某个中断源提到高优先级组，组内次序仍按此顺序。"
+  },
+  {
+    "id": 503,
+    "type": "multiple-choice",
+    "questionText": "中断与子程序调用最本质的区别在于什么？",
+    "options": ["中断由随机事件触发，调用由程序预先安排", "中断不需要返回指令，调用需要", "中断不能嵌套，调用可以嵌套", "中断只能由软件发起，调用只能由硬件发起"],
+    "correctAnswer": "中断由随机事件触发，调用由程序预先安排",
+    "ka": "5.1",
+    "chapter": 5,
+    "explanation": "两者都保护断点并返回，区别在于发生时机：中断请求何时到来不由程序决定，子程序调用的位置是写死在程序里的。"
+  },
+  {
+    "id": 504,
+    "type": "multiple-choice",
+    "questionText": "单步执行在排查程序错误时的主要作用是什么？",
+    "options": ["逐条观察寄存器与存储单元的变化，定位出错指令", "加快程序运行速度", "自动改正语法错误", "替代编译器完成查错"],
+    "correctAnswer": "逐条观察寄存器与存储单元的变化，定位出错指令",
+    "ka": "9.3",
+    "chapter": 9,
+    "explanation": "单步把看不见的内部过程变成可观察的：每执行一条指令就核对一次A、PSW、指针和目标单元，与预期不符处即是出错点。"
+  },
+  {
+    "id": 505,
+    "type": "multiple-choice",
+    "questionText": "程序运行中出现“跑飞”，下列哪一项是常见原因？",
+    "options": ["栈指针未初始化，堆栈区与数据区重叠被覆盖", "把注释写得太长", "使用了过多的立即寻址指令", "程序中定义了过多标号"],
+    "correctAnswer": "栈指针未初始化，堆栈区与数据区重叠被覆盖",
+    "ka": "9.3",
+    "chapter": 9,
+    "explanation": "复位后SP默认指向07H，若不重设而又使用30H起的数据区，压栈会覆盖数据或返回地址，程序即跳向不可预期的位置。"
+  },
+  {
+    "id": 506,
+    "type": "multiple-choice",
+    "questionText": "在仿真环境中设置断点的目的是什么？",
+    "options": ["让程序运行到指定位置暂停，检查此刻的现场", "永久删除该行代码", "强制跳过该段程序", "把该行指令改为空操作"],
+    "correctAnswer": "让程序运行到指定位置暂停，检查此刻的现场",
+    "ka": "9.3",
+    "chapter": 9,
+    "explanation": "断点用于把长程序切成可核对的片段：运行到断点停下后再看寄存器和内存，比从头单步效率高得多。"
+  },
+  {
+    "id": 507,
+    "type": "multiple-choice",
+    "questionText": "AI 助手给出“这段程序没有错误”的结论后，应当以什么作为正确性的最终依据？",
+    "options": ["编译、仿真、测试记录与教师评价", "AI回答的措辞是否肯定", "AI响应的速度", "同学之间的口头确认"],
+    "correctAnswer": "编译、仿真、测试记录与教师评价",
+    "ka": "10.5",
+    "chapter": 10,
+    "explanation": "AI输出属于辅助意见，不构成判定。程序是否正确要由可复现的编译与运行结果、以及教师评价来确认。"
+  },
+  {
+    "id": 508,
+    "type": "multiple-choice",
+    "questionText": "在课程作业中使用 AI 辅助后，符合学术诚信的做法是什么？",
+    "options": ["保留个人推理与核验记录，并说明AI辅助的范围", "直接提交AI输出，不作说明", "隐去AI参与的事实以免影响评分", "把AI输出改几个字后当作原创"],
+    "correctAnswer": "保留个人推理与核验记录，并说明AI辅助的范围",
+    "ka": "10.5",
+    "chapter": 10,
+    "explanation": "如实说明辅助范围、保留可核验的推理与验证过程，是区分辅助与代做的关键，也是课程对学术诚信的基本要求。"
+  },
+  {
+    "id": 509,
+    "type": "multiple-choice",
+    "questionText": "向 AI 助手提问时，下列哪类信息不应当提交？",
+    "options": ["账号口令、密钥与未授权的学生身份数据", "课本上的公开例题", "自己编写的实验代码片段", "公开的器件数据手册参数"],
+    "correctAnswer": "账号口令、密钥与未授权的学生身份数据",
+    "ka": "10.5",
+    "chapter": 10,
+    "explanation": "涉及身份、凭据和未授权数据的内容一旦提交给外部服务即不可撤回，属于隐私与数据安全红线。"
   },
 ];
 

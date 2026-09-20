@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
   ChevronDown, BookOpen, Cpu, ListChecks, Zap, AlertTriangle,
   Lightbulb, Globe, CircuitBoard, HelpCircle, GraduationCap, Clock, MapPin,
-  Flag, Gauge, Star, Target, Loader2, CheckCircle2, ImageOff, MonitorPlay,
+  Flag, Gauge, Target, Loader2, CheckCircle2, MonitorPlay,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTeachingContent } from '@/lib/teaching-content';
@@ -29,24 +29,6 @@ interface Props {
   projectCompletionError?: string | null;
   projectCompletionBlockedReason?: string | null;
   onProjectMilestoneChange?: (milestoneId: Proj04MilestoneId, confirmed: boolean) => Promise<void>;
-}
-
-// 星级评分（速度/灵活性量化）
-function StarRating({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-[9px] text-[#6c7086]">{label}</span>
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Star
-            key={n}
-            className="w-2.5 h-2.5"
-            style={{ color: n <= value ? color : '#313244', fill: n <= value ? color : 'transparent' }}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 // Collapsible section wrapper
@@ -93,6 +75,28 @@ export default function ExperimentGuide({
   onProjectMilestoneChange,
 }: Props) {
   const [quizStatus, setQuizStatus] = useState<'PENDING' | 'PASSED' | 'SKIPPED'>('PENDING');
+  const [requestedAnimationId, setRequestedAnimationId] = useState<string | null>(null);
+  const experimentId = experiment?.id;
+
+  useEffect(() => {
+    if (!experimentId) {
+      setRequestedAnimationId(null);
+      return;
+    }
+    const requested = new URLSearchParams(window.location.search).get('animation');
+    const available = getTeachingContent(experimentId).animations ?? [];
+    setRequestedAnimationId(requested && available.some((item) => item.id === requested) ? requested : null);
+  }, [experimentId]);
+
+  useEffect(() => {
+    if (!requestedAnimationId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`teaching-animation-${requestedAnimationId}`);
+      target?.scrollIntoView({ block: 'center', behavior: 'auto' });
+      target?.focus({ preventScroll: true });
+    });
+    return (): void => window.cancelAnimationFrame(frame);
+  }, [experimentId, requestedAnimationId]);
 
   if (!experiment) {
     return (
@@ -166,15 +170,15 @@ export default function ExperimentGuide({
           <div className="mx-3 mb-2 rounded-lg bg-gradient-to-r from-[#89b4fa]/10 to-[#cba6f7]/10 border border-[#89b4fa]/20 p-2.5">
             <div className="flex items-center gap-1.5 mb-2">
               <GraduationCap className="w-3.5 h-3.5 text-[#89b4fa]" />
-              <span className="text-[10px] font-bold text-[#cdd6f4]">课程大纲定位</span>
-              <span className="text-[9px] text-[#585b70] ml-auto">微控制器应用技术 · 3学分/48学时</span>
+              <span className="text-[10px] font-bold text-[#cdd6f4]">课程主题对照</span>
+              <span className="text-[9px] text-[#585b70] ml-auto">4学分 · 64学时（理论48＋实践16）</span>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3 h-3 text-[#f9e2af] flex-shrink-0" />
                 <span className="text-[10px] text-[#a6adc8]">
                   <span className="text-[#f9e2af] font-semibold">{tc.syllabusMapping.week}</span>
-                  {' · '}{tc.syllabusMapping.hours > 0 ? `${tc.syllabusMapping.hours}学时` : '学时待核实'}
+                  {' · '}{tc.syllabusMapping.hoursLabel}{tc.syllabusMapping.hours > 0 ? ` ${tc.syllabusMapping.hours}学时` : ''}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -185,6 +189,8 @@ export default function ExperimentGuide({
             <div className="mt-1.5 text-[9px] text-[#a6adc8] leading-relaxed">
               <span className="text-[#89b4fa]">📖</span> {tc.syllabusMapping.textbookRef}
             </div>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-[#bac2de]">{tc.syllabusMapping.sourceNote}</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#bac2de]">{tc.syllabusMapping.courseObjectives}</p>
             {tc.syllabusMapping.knowledgeMap && (
               <div className="mt-1 text-[9px] text-[#6c7086]">
                 <span className="text-[#cba6f7]">🗺️</span> {tc.syllabusMapping.knowledgeMap}
@@ -432,7 +438,7 @@ export default function ExperimentGuide({
           </Section>
         )}
 
-        {/* ── 寻址方式星级对比（教学锚点） ── */}
+        {/* ── 寻址方式的对象与访问范围 ── */}
         {tc.addressingComparison && tc.addressingComparison.length > 0 && (
           <Section title="寻址方式对比" icon={Gauge} accent="amber">
             <div className="space-y-1.5">
@@ -442,15 +448,11 @@ export default function ExperimentGuide({
                     <span className="text-[10px] font-bold text-[#f9e2af]">{m.name}</span>
                     <code className="text-[9px] font-mono text-[#a6e3a1]">{m.example}</code>
                   </div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <StarRating label="速度" value={m.speed} color="#89dceb" />
-                    <StarRating label="灵活" value={m.flexibility} color="#cba6f7" />
-                  </div>
                   <p className="text-[9px] leading-relaxed text-[#6c7086]">{m.note}</p>
                 </div>
               ))}
               <p className="pt-1 text-[9px] italic leading-relaxed text-[#585b70]">
-                ★ 越多越强 · 速度与灵活性常此消彼长——没有最好的寻址方式，只有最合适的。
+                选择依据是操作数、地址形成方法与访问范围；执行时间需查具体指令和芯片时序。
               </p>
             </div>
           </Section>
@@ -458,10 +460,10 @@ export default function ExperimentGuide({
 
         {/* ── 动画演示 ── */}
         {tc.animations && tc.animations.length > 0 && (
-          <Section title="动画演示" icon={Zap} accent="cyan">
+          <Section key={`animations-${experiment.id}-${requestedAnimationId ?? 'default'}`} title="动画演示" icon={Zap} accent="cyan" defaultOpen>
             <div className="space-y-3">
-              {tc.animations.map((anim, i) => (
-                <div key={i}>
+              {tc.animations.map((anim) => (
+                <div key={anim.id} id={`teaching-animation-${anim.id}`} tabIndex={-1} role="region" aria-label={anim.title} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
                   <div className="text-[10px] font-semibold text-[#89dceb] mb-1.5">{anim.title}</div>
                   <AnimationRenderer animationId={anim.id} />
                 </div>
@@ -487,7 +489,7 @@ export default function ExperimentGuide({
         )}
 
         {/* ── 实验图示与素材状态 ── */}
-        <Section title="实验图示与素材状态" icon={CircuitBoard} accent="cyan">
+        <Section title="接线图与操作视频" icon={CircuitBoard} accent="cyan">
           <div className="space-y-3">
             {visualAssets.length > 0 ? visualAssets.map((asset) => (
               <figure key={asset.id} className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
@@ -507,23 +509,16 @@ export default function ExperimentGuide({
                   <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
                 </figcaption>
               </figure>
-            )) : (
-              <div className="rounded-md border border-dashed border-slate-400/25 bg-slate-300/[0.04] p-3" role="note">
-                <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300">
-                  <ImageOff className="h-3.5 w-3.5" aria-hidden="true" />
-                  本实验的接线图尚未发布
-                </div>
-                <p className="mt-1 text-[9px] leading-5 text-slate-500">素材缺失期间保留明确占位，不使用生成图或示意图冒充实物证据。</p>
-              </div>
-            )}
+            )) : null}
 
+            {false && (
             <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-3" role="note">
               <div className="flex flex-wrap items-center gap-2">
                 <MonitorPlay className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" />
                 <span className="text-[10px] font-semibold text-amber-100">实物操作录屏</span>
                 <span className="rounded border border-amber-200/20 bg-amber-200/[0.06] px-1.5 py-0.5 text-[8px] text-amber-200">素材待补充</span>
               </div>
-              <p className="mt-1 text-[9px] leading-5 text-amber-100/65">当前未发布实物实验录屏；动态仿真只用于展示程序与外设状态，不替代真实学生操作证据。</p>
+              <p className="mt-1 text-[9px] leading-5 text-amber-100/65">实物操作视频待补充。可先观察动态仿真中的程序执行与外设状态，再按实验指导书开展实物操作。</p>
               <a
                 href="#experiment-live-canvas"
                 className="mt-2 inline-flex min-h-11 items-center rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-3 py-2 text-[10px] font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
@@ -531,6 +526,7 @@ export default function ExperimentGuide({
                 先查看当前动态仿真
               </a>
             </div>
+            )}
           </div>
         </Section>
 

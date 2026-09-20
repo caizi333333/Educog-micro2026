@@ -2,9 +2,87 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDataProvenance } from '@/lib/env';
+import { isQuestionSource, quizQuestions, toPublicQuestion, type PublicQuestion, type QuestionSource } from '@/lib/quiz-data';
+import { knowledgePoints } from '@/lib/knowledge-points';
+import { getTeachingContent } from '@/lib/teaching-content';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+type QuestionResult = {
+  correct: boolean;
+  correctAnswer: string;
+  explanation?: string;
+  source?: QuestionSource;
+};
+
+function sourceOf(value: unknown): QuestionSource | undefined {
+  if (!isQuestionSource(value)) return undefined;
+  if (value.kind === 'guide') {
+    return { kind: 'guide', title: value.title, experimentId: value.experimentId, section: value.section, url: value.url };
+  }
+  return { title: value.title, page: value.page, url: value.url };
+}
+
+type ReceiptReview = {
+  order: 'recorded' | 'unavailable';
+  questions: Array<{
+    id: number;
+    question: PublicQuestion | null;
+    questionSource: 'snapshot' | 'current-bank' | 'unavailable';
+    selectedAnswer: string | null;
+    supplement?: { explanation: string; source: QuestionSource };
+  }>;
+};
+
+function publicSnapshotOf(value: unknown): PublicQuestion | null {
+  if (!isRecord(value) || !Number.isSafeInteger(value.id) || Number(value.id) < 1
+    || typeof value.questionText !== 'string' || typeof value.ka !== 'string'
+    || !Number.isSafeInteger(value.chapter)) return null;
+  const base = { id: Number(value.id), questionText: value.questionText, ka: value.ka, chapter: Number(value.chapter) };
+  if (value.type === 'multiple-choice' && Array.isArray(value.options) && value.options.every((option) => typeof option === 'string')) {
+    return { ...base, type: 'multiple-choice', options: value.options };
+  }
+  if (value.type === 'code-completion' && typeof value.code === 'string') return { ...base, type: 'code-completion', code: value.code };
+  return null;
+}
+
+function reviewOf(parsed: Record<string, unknown>, results: Record<string, QuestionResult>): ReceiptReview {
+  // Some older rows stored only a flat selection map. Never infer their selections or grades.
+  const selections = isRecord(parsed.answers) ? parsed.answers : parsed;
+  const ids = [...new Set([...Object.keys(results), ...Object.keys(selections)]
+    .filter((key) => /^[1-9]\d*$/.test(key) && Number.isSafeInteger(Number(key))).map(Number))].sort((a, b) => a - b);
+  const recorded = Array.isArray(parsed.questionOrderIds) ? parsed.questionOrderIds : [];
+  const validOrder = recorded.length === ids.length && ids.length > 0
+    && new Set(recorded).size === ids.length && recorded.every((id) => typeof id === 'number' && ids.includes(id));
+  const orderedIds = validOrder ? recorded as number[] : ids;
+  const snapshots = new Map((Array.isArray(parsed.questionSnapshots) ? parsed.questionSnapshots : [])
+    .map(publicSnapshotOf).filter((question): question is PublicQuestion => question !== null).map((question) => [question.id, question]));
+  return {
+    order: validOrder ? 'recorded' : 'unavailable',
+    questions: orderedIds.map((id) => {
+      const snapshot = snapshots.get(id);
+      const current = quizQuestions.find((question) => question.id === id);
+      const originalResult = results[String(id)];
+      const point = current ? knowledgePoints.find((item) => item.id === current.ka) : undefined;
+      const guide = getTeachingContent('exp02');
+      const addressing = current && /^3\.1\.[1-7]$/.test(current.ka)
+        && originalResult?.correctAnswer === current.correctAnswer && !originalResult.explanation
+        ? guide.addressingComparison?.find((mode) => point?.name.startsWith(mode.name)) : undefined;
+      return {
+        id,
+        question: snapshot ?? (current ? toPublicQuestion(current) : null),
+        questionSource: snapshot ? 'snapshot' : current ? 'current-bank' : 'unavailable',
+        selectedAnswer: typeof selections[String(id)] === 'string' ? selections[String(id)] as string : null,
+        ...(addressing ? { supplement: {
+          explanation: `${addressing.name}：${addressing.note} 示例：${addressing.example}。`,
+          source: { kind: 'guide' as const, title: '实验2网页指导', experimentId: 'exp02',
+            section: '8051 寻址方式', url: '/simulation?experiment=exp02&view=guide' },
+        } } : {}),
+      };
+    }),
+  };
 }
 
 function receiptContextOf(answers: string): {
@@ -12,12 +90,13 @@ function receiptContextOf(answers: string): {
   pathId: string | null;
   weakAreas: string[];
   scoresByKA: Record<string, { correct: number; total: number; score: number }>;
-  questionResults: Record<string, { correct: boolean; correctAnswer: string }>;
+  questionResults: Record<string, QuestionResult>;
+  review: ReceiptReview;
 } {
   try {
     const parsed: unknown = JSON.parse(answers);
     if (!isRecord(parsed)) {
-      return { assessmentMode: 'initial', pathId: null, weakAreas: [], scoresByKA: {}, questionResults: {} };
+      return { assessmentMode: 'initial', pathId: null, weakAreas: [], scoresByKA: {}, questionResults: {}, review: { order: 'unavailable', questions: [] } };
     }
     const scoresByKA = isRecord(parsed.scoresByKA)
       ? Object.fromEntries(Object.entries(parsed.scoresByKA).flatMap(([key, value]) => {
@@ -31,11 +110,16 @@ function receiptContextOf(answers: string): {
         }))
       : {};
     const questionResults = isRecord(parsed.questionResults)
-      ? Object.fromEntries(Object.entries(parsed.questionResults).flatMap(([key, value]) => (
-          isRecord(value) && typeof value.correct === 'boolean' && typeof value.correctAnswer === 'string'
-            ? [[key, { correct: value.correct, correctAnswer: value.correctAnswer }]]
-            : []
-        )))
+      ? Object.fromEntries(Object.entries(parsed.questionResults).flatMap(([key, value]) => {
+          if (!isRecord(value) || typeof value.correct !== 'boolean' || typeof value.correctAnswer !== 'string') return [];
+          const source = sourceOf(value.source);
+          return [[key, {
+            correct: value.correct,
+            correctAnswer: value.correctAnswer,
+            ...(typeof value.explanation === 'string' ? { explanation: value.explanation } : {}),
+            ...(source ? { source } : {}),
+          }]];
+        }))
       : {};
     return {
       assessmentMode: parsed.assessmentMode === 'retest' ? 'retest' : 'initial',
@@ -45,9 +129,10 @@ function receiptContextOf(answers: string): {
         : [],
       scoresByKA,
       questionResults,
+      review: reviewOf(parsed, questionResults),
     };
   } catch {
-    return { assessmentMode: 'initial', pathId: null, weakAreas: [], scoresByKA: {}, questionResults: {} };
+    return { assessmentMode: 'initial', pathId: null, weakAreas: [], scoresByKA: {}, questionResults: {}, review: { order: 'unavailable', questions: [] } };
   }
 }
 
@@ -65,7 +150,15 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: '无效的令牌' }, { status: 401 });
     }
 
-    const attemptId = new URL(request.url).searchParams.get('attemptId')?.trim() ?? '';
+    const searchParams = new URL(request.url).searchParams;
+    const attemptId = searchParams.get('attemptId')?.trim() ?? '';
+    const expectedUserId = searchParams.get('expectedUserId')?.trim();
+    if ((attemptId && !expectedUserId) || (expectedUserId !== undefined && (!expectedUserId || expectedUserId.length > 128))) {
+      return NextResponse.json({ error: '请提供当前页面的登录账号', code: 'INVALID_INPUT' }, { status: 400 });
+    }
+    if (expectedUserId !== undefined && expectedUserId !== payload.userId) {
+      return NextResponse.json({ error: '登录账号已变化，请刷新身份后再核对回执', code: 'ACCOUNT_CHANGED' }, { status: 409 });
+    }
     if (attemptId && !/^[A-Za-z0-9_-]{1,128}$/.test(attemptId)) {
       return NextResponse.json({ error: '测评回执编号格式无效' }, { status: 400 });
     }
@@ -93,10 +186,17 @@ export async function GET(request: Request): Promise<NextResponse> {
       const context = receiptContextOf(attempt.answers);
       return NextResponse.json({
         success: true,
+        ownerId: payload.userId,
         dataProvenance: getDataProvenance(),
         asOf: asOf.toISOString(),
-        sampleSize: { returnedAttempts: 1, totalAttempts: 1 },
+        sampleSize: {
+          questions: attempt.totalQuestions,
+          ...(context.review.questions.length === attempt.totalQuestions && context.review.questions.every((item) => item.selectedAnswer !== null)
+            ? { answered: context.review.questions.filter((item) => item.selectedAnswer!.trim()).length } : {}),
+          returnedAttempts: 1, totalAttempts: 1,
+        },
         receipt: {
+          ownerId: payload.userId,
           attemptId: attempt.id,
           quizId: attempt.quizId,
           score: attempt.score,
@@ -110,6 +210,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           weakAreas: context.weakAreas,
           scoresByKA: context.scoresByKA,
           questionResults: context.questionResults,
+          review: context.review,
         },
       }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
@@ -164,6 +265,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
+      ownerId: payload.userId,
       dataProvenance: getDataProvenance(),
       asOf: asOf.toISOString(),
       sampleSize: { returnedAttempts: quizHistory.length, totalAttempts: stats.totalAttempts },

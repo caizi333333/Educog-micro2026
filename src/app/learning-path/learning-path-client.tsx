@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useEffect, useMemo, useState, type ComponentType, type JSX, type ReactNode } from 'react';
 import { z } from 'zod';
 import { getStoredAccessToken } from '@/lib/auth-storage';
@@ -937,7 +938,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       )}
 
       <div className="px-4 pt-5 md:px-6">
-        {progressEvidenceStatus === 'ready' && dataProvenance && dataAsOf && progressRecordCount !== null ? (
+        {SHOW_DATA_PROVENANCE_NOTICE && (progressEvidenceStatus === 'ready' && dataProvenance && dataAsOf && progressRecordCount !== null ? (
           <div
             role="note"
             className={cn(
@@ -949,12 +950,6 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
           >
             <div className="text-sm font-semibold">{dataProvenance.label}</div>
             <p className="mt-1 text-xs leading-5 opacity-80">{dataProvenance.note}</p>
-            <p className="mt-1 font-mono text-[10px] leading-5 opacity-70">
-              截止 {new Date(dataAsOf).toLocaleString('zh-CN', { hour12: false })}
-              {' · '}学习进度 n={progressRecordCount}
-              {' · '}薄弱点来源：{recoverySourceLabel}
-              {' · '}0 表示服务端确认零记录，N/A 表示暂无可核验记录
-            </p>
           </div>
         ) : progressEvidenceStatus === 'error' ? (
           <div role="alert" className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-amber-50">
@@ -963,9 +958,9 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
           </div>
         ) : (
           <div role="status" className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-xs text-cyan-50/75">
-            正在核验数据身份、截止时间和学习记录样本量…
+            正在核验最近测评与学习记录…
           </div>
-        )}
+        ))}
       </div>
 
       {dataStatus === 'checking' ? (

@@ -25,6 +25,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   lastTrace,
 }) => {
   const getDiag = () => {
+    if (!error && result && simulatorState && !simulatorState.terminated) {
+      return { type: 'info' as const, title: '已停止', desc: '已手动停止，可复核本轮执行记录或继续单步。' };
+    }
     if (!error && result) {
       return { type: 'success' as const, title: '执行成功', desc: '程序已正常执行完成。' };
     }
@@ -109,7 +112,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] px-0.5">
               <span className="text-[#6c7086] uppercase tracking-wider font-bold">执行进度</span>
-              <span className="font-mono text-[#a6adc8]">{Math.round(progress)}%</span>
+              <span className="font-mono text-[#a6adc8]">{simulatorState.terminated ? `${Math.round(progress)}%` : '运行中'}</span>
             </div>
             <div className="h-1 bg-[#313244] rounded-full overflow-hidden">
               <div

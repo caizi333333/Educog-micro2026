@@ -91,11 +91,13 @@ function safeWorkspaceState(): 'CLEAN' | 'DIRTY' | 'UNKNOWN' {
 const benchmarkSourcePaths = [
   'scripts/ai-benchmark.ts',
   'src/ai/deepseek-client.ts',
+  'src/ai/flows/ai-study-assistant.ts',
   'src/ai/knowledge-context.ts',
   'src/ai/simple-ai-client.ts',
   'src/components/ai-assistant/ErrorDiagnostic.tsx',
   'src/lib/experiment-config.ts',
   'src/lib/knowledge-points.ts',
+  'src/lib/course-slides.json',
   'src/lib/quiz-data.ts',
 ] as const;
 
@@ -118,35 +120,27 @@ async function buildSourceManifest(): Promise<{
   return { algorithm: 'sha256', digest, files };
 }
 
+// Freeze the existing 2026-09-02 corpus so adding course questions cannot
+// silently replace cases and make before/after results incomparable.
+const BASELINE_RETRIEVAL_QUESTION_IDS = [
+  225, 227, 228, 230, 253, 1, 2, 3, 41, 75, 4, 13, 23, 24, 33,
+  263, 266, 269, 272, 275, 6, 8, 56, 161, 238, 5, 134, 158, 291, 9,
+  14, 28, 72, 193, 70, 7, 61, 65, 185, 248, 132, 188, 190, 191, 199,
+  213, 218, 220, 223, 299,
+] as const;
+
 function buildRetrievalCases(): RetrievalCase[] {
   const pointById = new Map(knowledgePoints.map((point) => [point.id, point]));
   const result: RetrievalCase[] = [];
 
   for (let chapter = 1; chapter <= 10; chapter += 1) {
-    const candidates = quizQuestions.filter((question) => (
-      question.chapter === chapter && pointById.has(question.ka)
-    ));
-    const selected: typeof candidates = [];
-    const selectedQuestionIds = new Set<number>();
-    const selectedKnowledgeIds = new Set<string>();
-
-    // 先覆盖不同知识点，再用同章正式题补足到5题。
-    for (const question of candidates) {
-      if (selectedKnowledgeIds.has(question.ka)) continue;
-      selected.push(question);
-      selectedQuestionIds.add(question.id);
-      selectedKnowledgeIds.add(question.ka);
-      if (selected.length === 5) break;
-    }
-    for (const question of candidates) {
-      if (selected.length === 5) break;
-      if (selectedQuestionIds.has(question.id)) continue;
-      selected.push(question);
-      selectedQuestionIds.add(question.id);
-    }
-    if (selected.length !== 5) {
-      throw new Error(`第${chapter}章可用正式题不足5道；当前为${selected.length}道`);
-    }
+    const selected = BASELINE_RETRIEVAL_QUESTION_IDS.slice((chapter - 1) * 5, chapter * 5).map((id) => {
+      const question = quizQuestions.find((item) => item.id === id);
+      if (!question || question.chapter !== chapter || !pointById.has(question.ka)) {
+        throw new Error(`固定基准题 ${id} 不存在或课程归属已变化，需明确更新基准版本`);
+      }
+      return question;
+    });
 
     for (const question of selected) {
       const point = pointById.get(question.ka)!;
@@ -368,7 +362,7 @@ function evaluateLocalFallback(retrievalCases: RetrievalCase[]) {
     boundaryPassRate: percentage(boundaryPass, retrievalCases.length),
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
     caseResults,
-    note: '有效回答覆盖指非空回答同时满足目标知识点编号命中或目标章节一致；不等同于开放问答事实正确率。',
+    note: '回退主题匹配指非空回答同时满足目标知识点编号命中或目标平台单元一致。指定禁用表述检查仅扫描虚构教学成效、无依据显著提升、声称已经微调、直接修改教学判定四类预设表述。两项均不判定答案的事实正确性、完整性或教学适用性；旧字段名保留用于兼容已有读取端。',
   };
 }
 
@@ -484,7 +478,7 @@ async function main() {
     },
     retrieval: {
       sampleSize: retrievalCases.length,
-      coverage: '10章×5道正式题库题；每章优先覆盖不同知识点。',
+      coverage: '固定2026-09-02的50道正式题库题（10个平台单元各5题），新增题目不替换基准样本。',
       queryDesign: '查询只由去除correctAnswer字段后的正式题干、未标注正误的全部选项或待补全代码构成；ka与答案仅在检索结果产生后用于评分，不传入retrieveContext或生成提示。',
       sourceQuestionIds: retrievalCases.map((item) => item.sourceQuestionId),
       caseManifest: retrievalCases.map((item) => ({

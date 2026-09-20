@@ -4,6 +4,7 @@
 import { SimpleAiClient } from '@/ai/simple-ai-client';
 import { DeepSeekClient } from '@/ai/deepseek-client';
 import { retrieveContext } from '@/ai/knowledge-context';
+import { Simulator } from '@/lib/simulator';
 
 // Mock the DeepSeekClient
 jest.mock('@/ai/deepseek-client');
@@ -92,7 +93,7 @@ describe('SimpleAiClient', () => {
 
       const result = await client.chat('测试问题');
 
-      expect(result.answer).toBe('抱歉，我无法提供答案。');
+      expect(result.answer).toContain('建议您查阅');
       expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
     });
 
@@ -110,7 +111,7 @@ describe('SimpleAiClient', () => {
 
       const result = await client.chat('测试问题');
 
-      expect(result.answer).toBe('抱歉，我无法提供答案。');
+      expect(result.answer).toContain('建议您查阅');
       expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
     });
 
@@ -124,7 +125,7 @@ describe('SimpleAiClient', () => {
 
       const result = await client.chat('测试问题');
 
-      expect(result.answer).toBe('抱歉，我无法提供答案。');
+      expect(result.answer).toContain('建议您查阅');
       expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
     });
 
@@ -135,7 +136,18 @@ describe('SimpleAiClient', () => {
 
       expect(result.answer).toContain('关于8051定时器');
       expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
-      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '第 6 章：定时器/计数器' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '平台单元 6：定时器/计数器' }]);
+    });
+
+    it('uses a complete local explanation when the generated response is truncated', async () => {
+      mockDeepSeekClient.chat.mockResolvedValueOnce({
+        ...mockDeepSeekResponse,
+        choices: [{ index: 0, message: { role: 'assistant', content: '配置定时器后只需' }, finish_reason: 'length' }],
+      });
+      const result = await client.chat('什么是定时器？');
+      expect(result).toMatchObject({ source: 'fallback', mode: 'fallback' });
+      expect(result.answer).toContain('关于8051定时器');
+      expect(result.answer).not.toContain('配置定时器后只需');
     });
 
     it('should handle network errors and return fallback response', async () => {
@@ -144,7 +156,7 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('中断系统如何工作？');
 
       expect(result.answer).toContain('关于8051中断系统');
-      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '第 5 章：中断系统' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '平台单元 5：中断系统' }]);
     });
   });
 
@@ -153,8 +165,60 @@ describe('SimpleAiClient', () => {
       const result = client.getLocalFallbackResponse('寻址方式有什么区别？', '## 课程知识库检索结果');
 
       expect(result.answer).toContain('7 种寻址方式');
-      expect(result.relevantChapters).toEqual([{ chapter: '3', title: '第 3 章：指令系统' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '3', title: '平台单元 3：指令系统' }]);
       expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+    });
+
+    it('distinguishes an immediate constant from the data stored at a direct RAM address', () => {
+      const result = client.getLocalFallbackResponse('MOV A,#30H与MOV A,30H的寻址方式有什么区别？');
+      const simulator = new Simulator('MOV 30H,#55H\nMOV A,#30H\nMOV A,30H\nEND');
+      simulator.step();
+      expect(simulator.state.ram[0x30]).toBe(0x55);
+      simulator.step();
+      expect(simulator.state.registers.A).toBe(0x30);
+      simulator.step();
+      expect(simulator.state.registers.A).toBe(0x55);
+
+      expect(result.answer).toContain('MOV A,#30H 后 A=30H');
+      expect(result.answer).toContain('MOV A,30H 后 A=55H');
+      expect(result.answer).toContain('两条MOV都把数据送入A');
+      expect(result.answer).not.toMatch(/一个取数据、一个取地址|最快|很快|最灵活|星级/);
+      expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+    });
+
+    it('keeps serial communication distinct from port keywords and states the baud-rate assumptions', () => {
+      const result = client.getLocalFallbackResponse('How does UART communication work?');
+
+      expect(result.answer).toContain('关于8051串行通信');
+      expect(result.answer).toContain('经典12T内核');
+      expect(result.answer).toContain('PCON.SMOD=0');
+      expect(result.answer).toContain('TH1=TL1=0FDH');
+      expect(result.answer).toContain('晶振11.0592MHz');
+      expect(11_059_200 / (12 * 32 * (256 - 0xfd))).toBe(9600);
+      expect(result.answer).toContain('平台单元7');
+      expect(result.answer).toContain('教学大纲与授课课件第6章');
+      expect(result.relevantChapters).toEqual([{ chapter: '7', title: '平台单元 7：串行通信' }]);
+      expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+    });
+
+    it.each(['I/O 如何读取输入？', 'P3.2端口如何读取？'])('recognizes a port question without overgeneralizing its electrical behavior: %s', (question) => {
+      const result = client.getLocalFallbackResponse(question);
+
+      expect(result.answer).toContain('经典8051');
+      expect(result.answer).toContain('P0：用作通用输出时为开漏输出');
+      expect(result.answer).toContain('向端口锁存器写1，供读取外部输入');
+      expect(result.relevantChapters).toEqual([{ chapter: '2', title: '平台单元 2：硬件结构' }]);
+    });
+
+    it('limits the LED explanation to the course wiring and calls platform locations units', () => {
+      const led = client.getLocalFallbackResponse('流水灯为何输出0时点亮？');
+      const timer = client.getLocalFallbackResponse('定时器方式3是什么？');
+
+      expect(led.answer).toContain('按课程实验的低电平点亮接线');
+      expect(led.answer).toContain('其他接线须先确认有效电平');
+      expect(timer.answer).toContain('T1的使用会受到限制');
+      expect(timer.answer).toContain('平台单元6');
+      expect(timer.answer).toContain('教学大纲第5章');
     });
 
     it('should return timer-related fallback for timer questions', async () => {
@@ -164,7 +228,7 @@ describe('SimpleAiClient', () => {
 
       expect(result.answer).toContain('关于8051定时器');
       expect(result.answer).toContain('8051内置2个16位定时器/计数器');
-      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '第 6 章：定时器/计数器' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '平台单元 6：定时器/计数器' }]);
       expect(result.relevantVideos).toEqual([]);
     });
 
@@ -174,7 +238,7 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('How does timer work?');
 
       expect(result.answer).toContain('关于8051定时器');
-      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '第 6 章：定时器/计数器' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '平台单元 6：定时器/计数器' }]);
     });
 
     it('should return interrupt-related fallback for interrupt questions', async () => {
@@ -184,7 +248,7 @@ describe('SimpleAiClient', () => {
 
       expect(result.answer).toContain('关于8051中断系统');
       expect(result.answer).toContain('8051有5个中断源');
-      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '第 5 章：中断系统' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '平台单元 5：中断系统' }]);
       expect(result.relevantVideos).toEqual([]);
     });
 
@@ -194,7 +258,7 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('What is interrupt system?');
 
       expect(result.answer).toContain('关于8051中断系统');
-      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '第 5 章：中断系统' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '5', title: '平台单元 5：中断系统' }]);
     });
 
     it('should return generic fallback for unknown questions', async () => {
@@ -203,7 +267,7 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('随机问题');
 
       expect(result.answer).toContain('感谢您的提问');
-      expect(result.answer).toContain('建议您查阅相关章节内容');
+      expect(result.answer).toContain('建议您查阅相关平台单元内容');
       expect(result.relevantChapters).toEqual([]);
       expect(result.relevantVideos).toEqual([]);
     });
@@ -233,7 +297,7 @@ describe('SimpleAiClient', () => {
       const result = await client.chat('TIMER配置问题');
 
       expect(result.answer).toContain('关于8051定时器');
-      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '第 6 章：定时器/计数器' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '平台单元 6：定时器/计数器' }]);
     });
 
     it('should handle questions with multiple keywords', async () => {
@@ -243,20 +307,21 @@ describe('SimpleAiClient', () => {
 
       // Should match the first keyword found (定时器)
       expect(result.answer).toContain('关于8051定时器');
-      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '第 6 章：定时器/计数器' }]);
+      expect(result.relevantChapters).toEqual([{ chapter: '6', title: '平台单元 6：定时器/计数器' }]);
     });
   });
 
   describe('error handling', () => {
-    it('should log errors to console', async () => {
+    it('logs a status category without exposing private provider error text', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const testError = new Error('Test error');
+      const testError = new Error('private student work and secret prompt');
       
       mockDeepSeekClient.chat.mockRejectedValueOnce(testError);
 
       await client.chat('测试问题');
 
-      expect(consoleSpy).toHaveBeenCalledWith('SimpleAiClient error:', testError);
+      expect(consoleSpy).toHaveBeenCalledWith('SimpleAiClient unavailable:', 'request_failed');
+      expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain('private student work');
       
       consoleSpy.mockRestore();
     });
