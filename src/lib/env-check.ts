@@ -17,7 +17,8 @@ const envSchema = z.object({
   
   // AI 服务配置
   GOOGLE_GENAI_API_KEY: z.string().optional(),
-  DEEPSEEK_API_KEY: z.string().optional(),
+  ZHIPU_API_KEY: z.string().optional(),
+  ZHIPU_MODEL: z.string().optional(),
   
   // 应用配置
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

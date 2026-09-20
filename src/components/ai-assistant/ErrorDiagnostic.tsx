@@ -379,7 +379,7 @@ const ErrorDiagnostic: React.FC = () => {
     toast.success(results.length > 0 ? `检查完成，发现 ${results.length} 个问题` : '检查完成，未发现语法问题');
   };
 
-  // DeepSeek 叠加解释：走既有 /api/ai/chat 通道，失败不影响静态结果
+  // 智谱 GLM 叠加解释：走既有 /api/ai/chat 通道，失败不影响静态结果
   const explainWithAI = async (): Promise<void> => {
     const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
     if (!token) {
@@ -596,7 +596,7 @@ D2: DJNZ R6, D2
         )
       )}
 
-      {/* AI 解释（DeepSeek 叠加，可选） */}
+      {/* AI 解释（智谱 GLM 叠加，可选） */}
       {aiExplanation && (
         <Card>
           <CardHeader>

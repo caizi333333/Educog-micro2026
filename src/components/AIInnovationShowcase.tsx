@@ -20,7 +20,7 @@ export default function AIInnovationShowcase(): React.JSX.Element {
           <div>
             <h1 id="legacy-ai-showcase-title" className="text-sm font-semibold">AI 能力以固定运行记录为准</h1>
             <p className="mt-1 text-xs leading-5 text-amber-100/80">
-              当前实现包括课程内容检索、DeepSeek 可选解释、本地回退和 8051 静态诊断；未进行模型微调。
+              当前实现包括课程内容检索、智谱 GLM 可选解释、本地回退和 8051 静态诊断；未进行模型微调。
               生成式基准未运行时明确显示“未运行”，不以推测值或行业对比代替实测。
             </p>
           </div>

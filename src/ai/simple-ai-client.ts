@@ -1,7 +1,7 @@
 /**
  * 简化的AI客户端，避免复杂的依赖问题
  */
-import { DeepSeekClient } from './deepseek-client';
+import { ZhipuClient, resolveZhipuModel } from './model-client';
 import { chaptersFromContext, retrieveContext } from './knowledge-context';
 
 export const AI_ANSWER_MODES = ['generated', 'retrieved', 'fallback'] as const;
@@ -30,11 +30,11 @@ export interface ChatHistoryMessage {
 }
 
 export class SimpleAiClient {
-  private deepseekClient: DeepSeekClient;
+  private modelClient: ZhipuClient;
   
   constructor() {
-    this.deepseekClient = new DeepSeekClient(
-      process.env.DEEPSEEK_API_KEY ?? ''
+    this.modelClient = new ZhipuClient(
+      process.env.ZHIPU_API_KEY ?? ''
     );
   }
   
@@ -61,7 +61,7 @@ export class SimpleAiClient {
         { role: 'user' as const, content: question }
       ];
 
-      const response = await this.deepseekClient.chat(messages);
+      const response = await this.modelClient.chat(messages, resolveZhipuModel());
       const responseContent = response.choices[0]?.message?.content;
       const answer = responseContent?.trim();
 
@@ -78,7 +78,7 @@ export class SimpleAiClient {
       // Only record a bounded status category; provider/network error text can
       // contain the teacher's prompt or student work.
       const message = error instanceof Error ? error.message : '';
-      const status = message.match(/^DeepSeek API error: (\d{3})$/)?.[1];
+      const status = message.match(/^Zhipu API error: (\d{3})$/)?.[1];
       console.error('SimpleAiClient unavailable:', status ? `HTTP ${status}` : 'request_failed');
       return this.getLocalFallbackResponse(question, courseContext);
     }

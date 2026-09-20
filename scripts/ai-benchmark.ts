@@ -5,7 +5,7 @@
  *       40 个错误代码样例与 8 个正确对照样例。
  * 输出：JSON，包含样本量、口径、Recall@3、MRR、诊断 Precision/Recall/F1、
  *       行号定位准确率和延迟分位数。生成式评测仅在显式传入
- *       --with-deepseek 且已有密钥可用时执行。
+ *       --with-zhipu 且已有密钥可用时执行。
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -15,7 +15,7 @@ import { knowledgePoints } from '@/lib/knowledge-points';
 import { experiments } from '@/lib/experiment-config';
 import { quizQuestions, toPublicQuestion, type PublicQuestion } from '@/lib/quiz-data';
 import { formatContextForPrompt, retrieveContext } from '@/ai/knowledge-context';
-import { DeepSeekClient } from '@/ai/deepseek-client';
+import { ZhipuClient, resolveZhipuModel } from '@/ai/model-client';
 import { SimpleAiClient } from '@/ai/simple-ai-client';
 import { looksLikeCCode, runStaticCheck, type DiagnosticResult } from '@/components/ai-assistant/ErrorDiagnostic';
 
@@ -37,7 +37,7 @@ type DiagnosticCase = {
 };
 
 const argv = process.argv.slice(2);
-const withDeepSeek = argv.includes('--with-deepseek');
+const withZhipu = argv.includes('--with-zhipu');
 const outIndex = argv.indexOf('--out');
 const outputPath = resolve(outIndex >= 0 && argv[outIndex + 1]
   ? argv[outIndex + 1]!
@@ -90,7 +90,7 @@ function safeWorkspaceState(): 'CLEAN' | 'DIRTY' | 'UNKNOWN' {
 
 const benchmarkSourcePaths = [
   'scripts/ai-benchmark.ts',
-  'src/ai/deepseek-client.ts',
+  'src/ai/model-client.ts',
   'src/ai/flows/ai-study-assistant.ts',
   'src/ai/knowledge-context.ts',
   'src/ai/simple-ai-client.ts',
@@ -257,18 +257,18 @@ function diagnosticCategory(result: DiagnosticResult): DiagnosticCategory | null
 }
 
 async function evaluateGenerative(retrievalCases: RetrievalCase[]) {
-  const apiKey = process.env.DEEPSEEK_API_KEY?.trim() ?? '';
-  if (!withDeepSeek) {
-    return { status: 'NOT_RUN', reason: '未传入 --with-deepseek；按计划不消耗外部额度。' };
+  const apiKey = process.env.ZHIPU_API_KEY?.trim() ?? '';
+  if (!withZhipu) {
+    return { status: 'NOT_RUN', reason: '未传入 --with-zhipu；按计划不调用外部生成服务。' };
   }
-  if (!apiKey) return { status: 'NOT_AVAILABLE', reason: 'DEEPSEEK_API_KEY 未配置。' };
+  if (!apiKey) return { status: 'NOT_AVAILABLE', reason: 'ZHIPU_API_KEY 未配置。' };
 
-  const client = new DeepSeekClient(apiKey);
+  const client = new ZhipuClient(apiKey);
   const latencies: number[] = [];
   let requiredFactPass = 0;
   let groundedCitationPass = 0;
   let forbiddenClaimCount = 0;
-  let model = 'deepseek-chat';
+  let model = resolveZhipuModel();
   const forbidden = /(?:保证(?:完全|百分之百)|真实教学成效已|显著提升了|模型已经微调)/;
 
   for (const item of retrievalCases) {
@@ -282,7 +282,7 @@ async function evaluateGenerative(retrievalCases: RetrievalCase[]) {
           content: '你是8051课程助教。仅依据给定课程内容回答，引用时使用 [#id]；不能编造教学成效、实测数据或模型训练情况。',
         },
         { role: 'user', content: `${formatContextForPrompt(context)}\n\n问题：${item.question}` },
-      ]);
+      ], model);
     } catch (error) {
       const rawReason = error instanceof Error ? error.message : '';
       const publicReason = /402|insufficient balance/i.test(rawReason)
@@ -513,7 +513,7 @@ async function main() {
     generative: await evaluateGenerative(retrievalCases),
     interpretation: {
       retrieval: '反映固定正式题库问题对目标知识点的检索命中，不等同于开放问答正确率。',
-      staticDiagnostic: '结果来自确定性规则检查，不归因于DeepSeek。',
+      staticDiagnostic: '结果来自确定性规则检查，不归因于外部生成式模型。',
       localFallback: '强制禁用外部生成后执行生产同源回退；有效覆盖只表示节点或章节对齐，不等同于开放问答正确率。',
       generative: '只有状态为COMPLETED时才允许发布对应数值。',
     },

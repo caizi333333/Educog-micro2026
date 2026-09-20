@@ -8,8 +8,10 @@ import { getCourseSlidePage } from '@/ai/knowledge-context';
 import { aiStudyAssistant } from '@/ai/flows/ai-study-assistant';
 
 const mockPrepModelChat = jest.fn();
-jest.mock('@/ai/deepseek-client', () => ({
-  DeepSeekClient: jest.fn().mockImplementation(() => ({ chat: mockPrepModelChat })),
+jest.mock('@/ai/model-client', () => ({
+  ZhipuClient: jest.fn().mockImplementation(() => ({ chat: mockPrepModelChat })),
+  ZHIPU_PROVIDER_NAME: '智谱AI',
+  resolveZhipuModel: jest.fn(() => 'glm-4.5-flash'),
 }));
 jest.mock('@/ai/knowledge-context', () => ({ getCourseSlidePage: jest.fn() }));
 jest.mock('@/ai/flows/ai-study-assistant', () => ({ aiStudyAssistant: jest.fn() }));
@@ -345,7 +347,7 @@ describe('/api/teacher/dashboard', () => {
 describe('/api/ai/chat 教师备课', () => {
   const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
   const mockGetSlide = getCourseSlidePage as jest.MockedFunction<typeof getCourseSlidePage>;
-  const savedKey = process.env.DEEPSEEK_API_KEY;
+  const savedKey = process.env.ZHIPU_API_KEY;
   const generationRequestId = '10000000-0000-4000-8000-000000000001';
   const saveRequestId = '10000000-0000-4000-8000-000000000002';
   const nextSaveRequestId = '10000000-0000-4000-8000-000000000003';
@@ -373,7 +375,7 @@ describe('/api/ai/chat 教师备课', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     records = new Map();
-    process.env.DEEPSEEK_API_KEY = 'test-only-key';
+    process.env.ZHIPU_API_KEY = 'test-only-key';
     setUser('teacher-1');
     mockPrepModelChat.mockReset().mockResolvedValue(modelResult);
     mockGetSlide.mockReset().mockImplementation((page) => ({
@@ -406,8 +408,8 @@ describe('/api/ai/chat 教师备课', () => {
   });
 
   afterAll(() => {
-    if (savedKey === undefined) delete process.env.DEEPSEEK_API_KEY;
-    else process.env.DEEPSEEK_API_KEY = savedKey;
+    if (savedKey === undefined) delete process.env.ZHIPU_API_KEY;
+    else process.env.ZHIPU_API_KEY = savedKey;
   });
 
   it('无有效会话或学生身份均无法生成、保存或读取教师草稿', async () => {
@@ -492,7 +494,7 @@ describe('/api/ai/chat 教师备课', () => {
   });
 
   it('没有模型时明确返回unavailable，仍可手写保存且不能伪造生成来源', async () => {
-    delete process.env.DEEPSEEK_API_KEY;
+    delete process.env.ZHIPU_API_KEY;
     const generated = await postAiChat(request(base));
     expect(await generated.json()).toMatchObject({ data: { mode: 'unavailable', generationId: null, content: '' } });
     const saved = await postAiChat(request({

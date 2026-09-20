@@ -41,7 +41,7 @@
     <rect x="360" y="165" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
     <text x="450" y="193" text-anchor="middle" class="body">课程内容检索与提示约束</text>
     <rect x="360" y="223" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
-    <text x="450" y="242" text-anchor="middle" class="body">DeepSeek可选生成</text>
+    <text x="450" y="242" text-anchor="middle" class="body">智谱 GLM 可选生成</text>
     <text x="450" y="260" text-anchor="middle" class="small">失败时进入本地回退</text>
     <rect x="360" y="281" width="180" height="46" rx="1" fill="#fff" stroke="#7fb9b2"/>
     <text x="450" y="309" text-anchor="middle" class="body">8051确定性静态诊断</text>

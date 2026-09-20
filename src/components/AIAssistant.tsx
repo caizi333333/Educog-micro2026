@@ -557,7 +557,7 @@ const AIAssistant: React.FC = memo(() => {
         <div className="grid gap-px bg-white/[0.06] sm:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: Database, title: '课程内容检索', text: '对正式知识点和实验资源做关键词召回，回答附节点编号。' },
-            { icon: Brain, title: 'DeepSeek 解释', text: '仅在密钥可用时生成解释；失败后进入本地回退。' },
+            { icon: Brain, title: '智谱 GLM 解释', text: '仅在密钥可用时生成解释；失败后进入本地回退。' },
             { icon: Wrench, title: '8051 静态诊断', text: '规则检查助记符、操作数、标号和伪指令，结果不依赖大模型。' },
             { icon: ShieldCheck, title: '教学判定隔离', text: 'AI不直接修改测验得分、实验完成状态或教师评价。' },
           ].map(({ icon: Icon, title, text }) => (
@@ -595,14 +595,14 @@ const AIAssistant: React.FC = memo(() => {
               {generativeCompleted
                 ? `n=${generativeReport.sampleSize ?? 0}｜依据引用 ${generativeReport.groundedCitationRate ?? 0}%｜禁用陈述 ${generativeReport.forbiddenClaimRate ?? 0}%｜p95 ${generativeReport.latencyMs?.p95 ?? '—'}ms`
                 : generativeNotRun
-                  ? 'DeepSeek固定基准尚未运行，生成式回答质量未评定'
-                  : `DeepSeek固定基准｜${generativeReport.reason ?? '未形成可发布运行记录'}`}
+                  ? '生成式模型固定基准尚未运行，生成式回答质量未评定'
+                  : `生成式模型固定基准｜${generativeReport.reason ?? '未形成可发布运行记录'}`}
             </p>
           </div>
         </div>
         <div className="border-t border-white/[0.06] px-4 py-2 text-[11px] leading-4 text-slate-400">
-          <p>注：回退主题匹配只检查非空回答是否引用目标知识点，或标注相同平台单元；指定禁用表述检查只扫描预设的四类表述。二者都不判断答案是否正确、完整或适合教学。检索题来自正式题库，不额外写入目标节点名称；静态诊断指标不归因于DeepSeek。</p>
-          <p className="mt-1">延迟口径：检索、静态诊断和本地回退的 p95 是固定基准函数的本机运行耗时，不是页面端到端延迟或 DeepSeek 响应时间。</p>
+          <p>注：回退主题匹配只检查非空回答是否引用目标知识点，或标注相同平台单元；指定禁用表述检查只扫描预设的四类表述。二者都不判断答案是否正确、完整或适合教学。检索题来自正式题库，不额外写入目标节点名称；静态诊断指标不归因于外部生成式模型。</p>
+          <p className="mt-1">延迟口径：检索、静态诊断和本地回退的 p95 是固定基准函数的本机运行耗时，不是页面端到端延迟或外部模型响应时间。</p>
           <p className="mt-1 font-mono text-slate-500">RUN {benchmarkDate} · SCHEMA v{benchmarkReport.schemaVersion} · SOURCE {benchmarkSourceDigest} · Recall@3=前3位命中数/n · F1=2PR/(P+R)</p>
         </div>
         </section>

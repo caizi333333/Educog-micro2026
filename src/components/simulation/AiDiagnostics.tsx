@@ -17,13 +17,13 @@ interface Chapter {
   title: string;
 }
 
-// AI 返回的通用兜底话术（DeepSeek 无响应时），识别后不展示，避免"AI 不干活"
+// AI 返回的通用兜底话术（外部模型无响应时），识别后不展示，避免"AI 不干活"
 function isFallbackAnswer(a: string): boolean {
   return /感谢您的提问|暂时无法|建议您查阅相关章节内容，或通过仿真实验/.test(a);
 }
 
 // 仿真页内嵌的代码诊断：本地静态语法检查打底（始终可用、能定位到行），
-// AI 深度分析（/api/ai/chat · DeepSeek）作为叠加，共同构成实验流程内的智能辅助。
+// AI 深度分析（/api/ai/chat · 智谱 GLM）作为叠加，共同构成实验流程内的智能辅助。
 export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
   const [loading, setLoading] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);

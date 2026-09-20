@@ -427,7 +427,7 @@ const IntelligentQA: React.FC = memo(() => {
     }
   ], []);
 
-  // 真实 AI 回答：先调 /api/ai/chat（DeepSeek + RAG），失败再回落到下方
+  // 真实 AI 回答：先调 /api/ai/chat（智谱 GLM + RAG），失败再回落到下方
   // 本地课程知识库模板，避免页面在网络/key 异常时白屏。
   const generateAIResponse = useCallback(async (
     question: string,

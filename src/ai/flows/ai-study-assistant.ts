@@ -72,10 +72,10 @@ function assertMatchingProvenance(source: unknown, mode: unknown): asserts sourc
   }
 }
 
-// 使用 DeepSeek 替代 Genkit prompt
-// DeepSeekClient is now handled within SimpleAiClient
+// 使用 智谱 GLM 替代 Genkit prompt
+// 智谱 GLMClient is now handled within SimpleAiClient
 
-// 新的助手流程，直接使用 DeepSeek
+// 新的助手流程，直接使用 智谱 GLM
 async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStudyAssistantOutput> {
   try {
     const { question: userMessage } = input;
@@ -90,7 +90,7 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
     };
     const courseContext = formatContextForPrompt(ctx);
 
-    // 把最近几轮对话转成 DeepSeek 消息格式，支持多轮追问
+    // 把最近几轮对话转成 智谱 GLM 消息格式，支持多轮追问
     const history = (input.history ?? []).slice(-6).map((h) => ({
       role: h.role === 'model' ? ('assistant' as const) : ('user' as const),
       content: h.content.map((c) => c.text).join('\n'),

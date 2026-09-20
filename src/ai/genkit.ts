@@ -1,26 +1,23 @@
 /**
- * @fileoverview Legacy DeepSeek generation helper.
+ * @fileoverview 智谱生成辅助函数。
  *
  * The application AI routes use SimpleAiClient directly. This helper is kept
  * for compatibility with local callers and deliberately has no embedded key.
  */
-import { DeepSeekClient, type DeepSeekResponse } from './deepseek-client';
+import { ZhipuClient, resolveZhipuModel, type ModelResponse } from './model-client';
 
-export async function generateWithDeepSeek(
+export async function generateWithZhipu(
   prompt: string,
-  model: 'chat' | 'coder' = 'chat'
-): Promise<{ text: string; usage: DeepSeekResponse['usage'] }> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+): Promise<{ text: string; usage: ModelResponse['usage'] }> {
+  const apiKey = process.env.ZHIPU_API_KEY;
   if (!apiKey) {
-    throw new Error('DEEPSEEK_API_KEY is not configured');
+    throw new Error('ZHIPU_API_KEY is not configured');
   }
 
-  const client = new DeepSeekClient(apiKey);
-  const modelName = model === 'coder' ? 'deepseek-coder' : 'deepseek-chat';
-  
+  const client = new ZhipuClient(apiKey);
   const response = await client.chat([
     { role: 'user', content: prompt }
-  ], modelName);
+  ], resolveZhipuModel());
   
   return {
     text: response.choices[0]?.message?.content ?? '',

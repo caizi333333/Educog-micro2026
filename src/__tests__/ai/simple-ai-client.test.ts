@@ -2,57 +2,58 @@
  * @jest-environment node
  */
 import { SimpleAiClient } from '@/ai/simple-ai-client';
-import { DeepSeekClient } from '@/ai/deepseek-client';
+import { ZhipuClient, resolveZhipuModel } from '@/ai/model-client';
 import { retrieveContext } from '@/ai/knowledge-context';
 import { Simulator } from '@/lib/simulator';
 
-// Mock the DeepSeekClient
-jest.mock('@/ai/deepseek-client');
+// Mock the ZhipuClient
+jest.mock('@/ai/model-client');
 
 describe('SimpleAiClient', () => {
   let client: SimpleAiClient;
-  let mockDeepSeekClient: jest.Mocked<DeepSeekClient>;
+  let mockZhipuClient: jest.Mocked<ZhipuClient>;
 
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks();
     
-    // Create mock DeepSeekClient instance
-    mockDeepSeekClient = {
+    // Create mock ZhipuClient instance
+    mockZhipuClient = {
       chat: jest.fn(),
       generateText: jest.fn()
     } as any;
     
-    // Mock the DeepSeekClient constructor
-    (DeepSeekClient as jest.MockedClass<typeof DeepSeekClient>).mockImplementation(() => mockDeepSeekClient);
+    // Mock the ZhipuClient constructor
+    (ZhipuClient as jest.MockedClass<typeof ZhipuClient>).mockImplementation(() => mockZhipuClient);
+    (resolveZhipuModel as jest.MockedFunction<typeof resolveZhipuModel>).mockReturnValue('glm-4.5-flash');
     
     client = new SimpleAiClient();
   });
 
   describe('constructor', () => {
-    it('should create instance with DeepSeekClient', () => {
+    it('should create instance with ZhipuClient', () => {
       expect(client).toBeInstanceOf(SimpleAiClient);
-      expect(DeepSeekClient).toHaveBeenCalledWith(process.env.DEEPSEEK_API_KEY || '');
+      expect(ZhipuClient).toHaveBeenCalledWith(process.env.ZHIPU_API_KEY || '');
     });
 
     it('should use environment API key or fallback', () => {
-      const originalEnv = process.env.DEEPSEEK_API_KEY;
-      process.env.DEEPSEEK_API_KEY = 'test-env-key';
+      const originalEnv = process.env.ZHIPU_API_KEY;
+      process.env.ZHIPU_API_KEY = 'test-env-key';
       
       new SimpleAiClient();
       
-      expect(DeepSeekClient).toHaveBeenCalledWith('test-env-key');
+      expect(ZhipuClient).toHaveBeenCalledWith('test-env-key');
       
-      process.env.DEEPSEEK_API_KEY = originalEnv;
+      process.env.ZHIPU_API_KEY = originalEnv;
     });
   });
 
   describe('chat', () => {
-    const mockDeepSeekResponse = {
+    const mockZhipuResponse = {
       id: 'test-id',
       object: 'chat.completion',
       created: 1234567890,
-      model: 'deepseek-chat',
+      model: 'glm-4.5-flash',
       choices: [{
         index: 0,
         message: { role: 'assistant' as const, content: '这是一个关于8051微控制器的回答' },
@@ -61,14 +62,14 @@ describe('SimpleAiClient', () => {
     };
 
     it('should make successful chat request', async () => {
-      mockDeepSeekClient.chat.mockResolvedValueOnce(mockDeepSeekResponse);
+      mockZhipuClient.chat.mockResolvedValueOnce(mockZhipuResponse);
 
       const result = await client.chat('什么是8051微控制器？');
 
-      expect(mockDeepSeekClient.chat).toHaveBeenCalledWith([
+      expect(mockZhipuClient.chat).toHaveBeenCalledWith([
         { role: 'system', content: expect.stringContaining('AI助教') },
         { role: 'user', content: '什么是8051微控制器？' }
-      ]);
+      ], 'glm-4.5-flash');
 
       expect(result).toEqual({
         answer: '这是一个关于8051微控制器的回答',
@@ -81,7 +82,7 @@ describe('SimpleAiClient', () => {
 
     it('should handle empty response content', async () => {
       const emptyResponse = {
-        ...mockDeepSeekResponse,
+        ...mockZhipuResponse,
         choices: [{
           index: 0,
           message: { role: 'assistant' as const, content: '' },
@@ -89,7 +90,7 @@ describe('SimpleAiClient', () => {
         }]
       };
       
-      mockDeepSeekClient.chat.mockResolvedValueOnce(emptyResponse);
+      mockZhipuClient.chat.mockResolvedValueOnce(emptyResponse);
 
       const result = await client.chat('测试问题');
 
@@ -99,7 +100,7 @@ describe('SimpleAiClient', () => {
 
     it('should handle undefined response content', async () => {
       const undefinedResponse = {
-        ...mockDeepSeekResponse,
+        ...mockZhipuResponse,
         choices: [{
           index: 0,
           message: { role: 'assistant' as const, content: undefined as any },
@@ -107,7 +108,7 @@ describe('SimpleAiClient', () => {
         }]
       };
       
-      mockDeepSeekClient.chat.mockResolvedValueOnce(undefinedResponse);
+      mockZhipuClient.chat.mockResolvedValueOnce(undefinedResponse);
 
       const result = await client.chat('测试问题');
 
@@ -117,11 +118,11 @@ describe('SimpleAiClient', () => {
 
     it('should handle missing choices in response', async () => {
       const noChoicesResponse = {
-        ...mockDeepSeekResponse,
+        ...mockZhipuResponse,
         choices: []
       };
       
-      mockDeepSeekClient.chat.mockResolvedValueOnce(noChoicesResponse);
+      mockZhipuClient.chat.mockResolvedValueOnce(noChoicesResponse);
 
       const result = await client.chat('测试问题');
 
@@ -130,7 +131,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle API errors and return fallback response', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('什么是定时器？');
 
@@ -140,8 +141,8 @@ describe('SimpleAiClient', () => {
     });
 
     it('uses a complete local explanation when the generated response is truncated', async () => {
-      mockDeepSeekClient.chat.mockResolvedValueOnce({
-        ...mockDeepSeekResponse,
+      mockZhipuClient.chat.mockResolvedValueOnce({
+        ...mockZhipuResponse,
         choices: [{ index: 0, message: { role: 'assistant', content: '配置定时器后只需' }, finish_reason: 'length' }],
       });
       const result = await client.chat('什么是定时器？');
@@ -151,7 +152,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle network errors and return fallback response', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('Network timeout'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('Network timeout'));
 
       const result = await client.chat('中断系统如何工作？');
 
@@ -166,7 +167,7 @@ describe('SimpleAiClient', () => {
 
       expect(result.answer).toContain('7 种寻址方式');
       expect(result.relevantChapters).toEqual([{ chapter: '3', title: '平台单元 3：指令系统' }]);
-      expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+      expect(mockZhipuClient.chat).not.toHaveBeenCalled();
     });
 
     it('distinguishes an immediate constant from the data stored at a direct RAM address', () => {
@@ -183,7 +184,7 @@ describe('SimpleAiClient', () => {
       expect(result.answer).toContain('MOV A,30H 后 A=55H');
       expect(result.answer).toContain('两条MOV都把数据送入A');
       expect(result.answer).not.toMatch(/一个取数据、一个取地址|最快|很快|最灵活|星级/);
-      expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+      expect(mockZhipuClient.chat).not.toHaveBeenCalled();
     });
 
     it('keeps serial communication distinct from port keywords and states the baud-rate assumptions', () => {
@@ -198,7 +199,7 @@ describe('SimpleAiClient', () => {
       expect(result.answer).toContain('平台单元7');
       expect(result.answer).toContain('教学大纲与授课课件第6章');
       expect(result.relevantChapters).toEqual([{ chapter: '7', title: '平台单元 7：串行通信' }]);
-      expect(mockDeepSeekClient.chat).not.toHaveBeenCalled();
+      expect(mockZhipuClient.chat).not.toHaveBeenCalled();
     });
 
     it.each(['I/O 如何读取输入？', 'P3.2端口如何读取？'])('recognizes a port question without overgeneralizing its electrical behavior: %s', (question) => {
@@ -222,7 +223,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return timer-related fallback for timer questions', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('定时器如何配置？');
 
@@ -233,7 +234,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return timer fallback for English timer questions', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('How does timer work?');
 
@@ -242,7 +243,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return interrupt-related fallback for interrupt questions', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('中断系统原理');
 
@@ -253,7 +254,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return interrupt fallback for English interrupt questions', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('What is interrupt system?');
 
@@ -262,7 +263,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return generic fallback for unknown questions', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('随机问题');
 
@@ -273,7 +274,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should return grounded course nodes when generation fails after retrieval', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat(
         '8051微控制器的基本架构是什么？',
@@ -292,7 +293,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle mixed case keywords', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('TIMER配置问题');
 
@@ -301,7 +302,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle questions with multiple keywords', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(new Error('API Error'));
+      mockZhipuClient.chat.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await client.chat('定时器中断如何处理？');
 
@@ -316,7 +317,7 @@ describe('SimpleAiClient', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const testError = new Error('private student work and secret prompt');
       
-      mockDeepSeekClient.chat.mockRejectedValueOnce(testError);
+      mockZhipuClient.chat.mockRejectedValueOnce(testError);
 
       await client.chat('测试问题');
 
@@ -327,7 +328,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle string errors', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce('String error');
+      mockZhipuClient.chat.mockRejectedValueOnce('String error');
 
       const result = await client.chat('测试问题');
 
@@ -335,7 +336,7 @@ describe('SimpleAiClient', () => {
     });
 
     it('should handle null/undefined errors', async () => {
-      mockDeepSeekClient.chat.mockRejectedValueOnce(null);
+      mockZhipuClient.chat.mockRejectedValueOnce(null);
 
       const result = await client.chat('测试问题');
 
@@ -345,11 +346,11 @@ describe('SimpleAiClient', () => {
 
   describe('system prompt', () => {
     it('should use correct system prompt for AI assistant', async () => {
-      mockDeepSeekClient.chat.mockResolvedValueOnce({
+      mockZhipuClient.chat.mockResolvedValueOnce({
         id: 'test-id',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'deepseek-chat',
+        model: 'glm-4.5-flash',
         choices: [{
           index: 0,
           message: { role: 'assistant' as const, content: '测试回答' },
@@ -359,13 +360,13 @@ describe('SimpleAiClient', () => {
 
       await client.chat('测试问题');
 
-      expect(mockDeepSeekClient.chat).toHaveBeenCalledWith([
+      expect(mockZhipuClient.chat).toHaveBeenCalledWith([
         {
           role: 'system',
           content: expect.stringContaining('AI助教')
         },
         { role: 'user', content: '测试问题' }
-      ]);
+      ], 'glm-4.5-flash');
     });
   });
 });

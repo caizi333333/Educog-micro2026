@@ -39,7 +39,7 @@
 - [experiment-system-implementation.md](./experiment-system-implementation.md) - 实验系统实现
 
 ### AI 集成
-- [google-ai-setup.md](./google-ai-setup.md) - Google AI 设置指南
+- [zhipu-ai-setup.md](./zhipu-ai-setup.md) - 智谱 AI 设置指南
 
 ## 🎯 功能特性
 

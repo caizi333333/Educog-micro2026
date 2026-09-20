@@ -113,7 +113,7 @@ const prepCatalog = (generationAvailable = true, drafts: unknown[] = []) => ({
   success: true,
   data: {
     ownerId: 'teacher-1',
-    capability: { generationAvailable, provider: 'DeepSeek', model: 'deepseek-chat', message: generationAvailable ? '可按选定课件生成备课草稿。' : '生成服务暂未配置，可阅读课件、手写并保存备课草稿。' },
+    capability: { generationAvailable, provider: '智谱AI', model: 'glm-4.5-flash', message: generationAvailable ? '可按选定课件生成备课草稿。' : '生成服务暂未配置，可阅读课件、手写并保存备课草稿。' },
     sources: [prepSource], drafts,
     limits: { instruction: 2000, submission: 6000, title: 160, content: 12000 },
   },

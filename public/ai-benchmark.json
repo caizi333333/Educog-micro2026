@@ -1,25 +1,25 @@
 {
   "schemaVersion": 5,
-  "generatedAt": "2026-09-15T14:45:03.194Z",
+  "generatedAt": "2026-09-20T04:40:09.030Z",
   "codeVersion": {
-    "baseCommit": "046cd15719b383bb5371446cd74873062441db5f",
+    "baseCommit": "29ba24a5da2222fcd6f2b2a64b9eab5838caef76",
     "workspaceState": "DIRTY",
-    "runtime": "v18.18.0",
+    "runtime": "v25.3.0",
     "sourceManifest": {
       "algorithm": "sha256",
-      "digest": "dd31b05d068fc31223086e565b78c08961f30c2b07614acc28b7c5b379db2d47",
+      "digest": "e958d520b9cb3cac43ee51c1f1a7c5f7cb0d6ddf18b3fdc2d35731a099eb278c",
       "files": [
         {
           "path": "scripts/ai-benchmark.ts",
-          "sha256": "008e8ecf8a527be0cfb34d21115e4392c1ceb342d4bae0d16d576abaf08c8c1f"
+          "sha256": "0892b5c157ac1c2987f4d5625cc0076420fed54831514922de4da3e6cdec28b3"
         },
         {
-          "path": "src/ai/deepseek-client.ts",
-          "sha256": "520f7881e3d7794f44bf80d47a15f340f9cd1ad5ef478f47fe493fb555b573d5"
+          "path": "src/ai/model-client.ts",
+          "sha256": "039d2afb35bf3639dfd30686fa6c9b413b5d4d142541266c0de97a6ce89d57eb"
         },
         {
           "path": "src/ai/flows/ai-study-assistant.ts",
-          "sha256": "8ef9948af0d89ddb6924d27518ab6de5271b94d69ce8e75205d8847ae3b03669"
+          "sha256": "fc381eb0e004733e56aa805c173147cc58cea02d3acdf5d0184e4bd393cf997b"
         },
         {
           "path": "src/ai/knowledge-context.ts",
@@ -27,11 +27,11 @@
         },
         {
           "path": "src/ai/simple-ai-client.ts",
-          "sha256": "153489d790000c03381516d42c5f75f92fdb4aec598b6a55e837ae04430b693a"
+          "sha256": "d760785a7cf0fd1e55e243ac79f72e1a370ca72eb70eb0f795748b498d967583"
         },
         {
           "path": "src/components/ai-assistant/ErrorDiagnostic.tsx",
-          "sha256": "54fe272e9e437643be61ea63199624a1956e42fe2b1a32db42eb0486e518f252"
+          "sha256": "822d432982e33eef52a68b9d08d1d7779286c81cc3d51f96dbdd19cbc45c1c6d"
         },
         {
           "path": "src/lib/experiment-config.ts",
@@ -1386,8 +1386,8 @@
       }
     ],
     "latencyMs": {
-      "p50": 1.96,
-      "p95": 3.39
+      "p50": 3.4,
+      "p95": 5.86
     }
   },
   "staticDiagnostic": {
@@ -1423,7 +1423,7 @@
     "boundaryPassRate": 100,
     "latencyMs": {
       "p50": 0.04,
-      "p95": 2.94
+      "p95": 4.67
     },
     "caseResults": [
       {
@@ -1781,11 +1781,11 @@
   },
   "generative": {
     "status": "NOT_RUN",
-    "reason": "未传入 --with-deepseek；按计划不消耗外部额度。"
+    "reason": "未传入 --with-zhipu；按计划不调用外部生成服务。"
   },
   "interpretation": {
     "retrieval": "反映固定正式题库问题对目标知识点的检索命中，不等同于开放问答正确率。",
-    "staticDiagnostic": "结果来自确定性规则检查，不归因于DeepSeek。",
+    "staticDiagnostic": "结果来自确定性规则检查，不归因于外部生成式模型。",
     "localFallback": "强制禁用外部生成后执行生产同源回退；有效覆盖只表示节点或章节对齐，不等同于开放问答正确率。",
     "generative": "只有状态为COMPLETED时才允许发布对应数值。"
   }

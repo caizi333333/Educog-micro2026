@@ -1,22 +1,27 @@
 /**
- * DeepSeek API 客户端
- * 用于与 DeepSeek API 进行通信
+ * 智谱开放平台对话客户端。
+ *
+ * 智谱的对话接口兼容 OpenAI Chat Completions。客户端只记录有界状态，
+ * 不读取或输出错误响应正文，避免外部服务回显课程问题或匿名作业内容。
  */
 import { z } from 'zod';
 
-export interface DeepSeekMessage {
+export const DEFAULT_ZHIPU_MODEL = 'glm-4.5-flash';
+export const ZHIPU_PROVIDER_NAME = '智谱AI';
+
+export interface ModelMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export interface DeepSeekResponse {
+export interface ModelResponse {
   id: string;
   object: string;
   created: number;
   model: string;
   choices: Array<{
     index: number;
-    message: DeepSeekMessage;
+    message: ModelMessage;
     finish_reason: string;
   }>;
   usage?: {
@@ -31,7 +36,7 @@ const responseMessageSchema = z.object({
   content: z.string().optional().default(''),
 });
 
-const deepSeekResponseSchema = z.object({
+const modelResponseSchema = z.object({
   id: z.string(),
   object: z.string(),
   created: z.number(),
@@ -51,29 +56,37 @@ const deepSeekResponseSchema = z.object({
   }).optional(),
 });
 
-const DEEPSEEK_REQUEST_TIMEOUT_MS = 25_000;
+const ZHIPU_REQUEST_TIMEOUT_MS = 25_000;
+const MODEL_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]{1,63}$/;
 
-export class DeepSeekClient {
-  private apiKey: string;
-  private baseUrl: string = 'https://api.deepseek.com/v1';
+export function resolveZhipuModel(value = process.env.ZHIPU_MODEL): string {
+  const model = value?.trim().toLowerCase();
+  return model && MODEL_NAME_PATTERN.test(model) ? model : DEFAULT_ZHIPU_MODEL;
+}
+
+export class ZhipuClient {
+  private readonly apiKey: string;
+  private readonly baseUrl = 'https://open.bigmodel.cn/api/paas/v4';
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey.trim();
   }
 
-  async chat(messages: DeepSeekMessage[], model: string = 'deepseek-chat'): Promise<DeepSeekResponse> {
-    if (!this.apiKey.trim()) {
-      throw new Error('DEEPSEEK_API_KEY is not configured');
+  async chat(
+    messages: ModelMessage[],
+    model: string = resolveZhipuModel(),
+  ): Promise<ModelResponse> {
+    if (!this.apiKey) {
+      throw new Error('ZHIPU_API_KEY is not configured');
     }
-
-    // 创建 AbortController 用于超时控制
+    const resolvedModel = resolveZhipuModel(model);
     const controller = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout>;
     const deadline = new Promise<never>((_resolve, reject) => {
       timeoutId = setTimeout(() => {
         controller.abort();
-        reject(new Error('DeepSeek API request timeout'));
-      }, DEEPSEEK_REQUEST_TIMEOUT_MS);
+        reject(new Error('Zhipu API request timeout'));
+      }, ZHIPU_REQUEST_TIMEOUT_MS);
     });
 
     try {
@@ -81,55 +94,46 @@ export class DeepSeekClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model,
+          model: resolvedModel,
           messages,
+          stream: false,
+          thinking: { type: 'disabled' },
           temperature: 0.7,
-          max_tokens: 1024, // 精炼回答，降低超时概率
+          max_tokens: 1024,
         }),
         signal: controller.signal,
       }), deadline]);
 
       if (!response.ok) {
-        // Provider error bodies may echo private prompts or submitted work.
-        // Status is sufficient for recovery; do not read or log those bodies.
-        throw new Error(`DeepSeek API error: ${response.status}`);
+        throw new Error(`Zhipu API error: ${response.status}`);
       }
 
       const data: unknown = await Promise.race([response.json(), deadline]);
-      const parsed = deepSeekResponseSchema.safeParse(data);
+      const parsed = modelResponseSchema.safeParse(data);
       if (!parsed.success) {
-        throw new Error('DeepSeek API returned an invalid response');
+        throw new Error('Zhipu API returned an invalid response');
       }
       return parsed.data;
     } catch (error) {
       if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
-        throw new Error('DeepSeek API request timeout');
+        throw new Error('Zhipu API request timeout');
       }
       throw error;
     } finally {
-      // Response headers may arrive long before the body has finished streaming.
       clearTimeout(timeoutId!);
     }
   }
 
   async generateText(prompt: string, systemPrompt?: string): Promise<string> {
-    const messages: DeepSeekMessage[] = [];
-    
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
-    }
-    
+    const messages: ModelMessage[] = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: prompt });
-
     const response = await this.chat(messages);
     return response.choices[0]?.message?.content ?? '';
   }
 }
 
-// 创建单例实例
-export const deepseekClient = new DeepSeekClient(
-  process.env.DEEPSEEK_API_KEY ?? ''
-);
+export const zhipuClient = new ZhipuClient(process.env.ZHIPU_API_KEY ?? '');

@@ -49,7 +49,7 @@ export default function TechHighlights(): React.JSX.Element {
       tone: 'text-sky-100 border-sky-300/20 bg-sky-300/[0.06]',
     },
     {
-      title: 'DeepSeek 生成解释',
+      title: '智谱 GLM 生成解释',
       value: generativeCompleted
         ? `${generative.automaticRequiredFactPassRate ?? 0}%`
         : '未运行',
@@ -100,7 +100,7 @@ export default function TechHighlights(): React.JSX.Element {
       </div>
 
       <footer className="border-t border-white/[0.07] px-5 py-3 font-mono text-[10px] leading-5 text-slate-500">
-        RUN {runDate} · SCHEMA v{benchmarkReport.schemaVersion} · SOURCE {sourceDigest} · p95 为本机基准函数耗时，非页面端到端或 DeepSeek 延迟 · 详细公式与样例清单见运行记录
+        RUN {runDate} · SCHEMA v{benchmarkReport.schemaVersion} · SOURCE {sourceDigest} · p95 为本机基准函数耗时，非页面端到端或外部模型延迟 · 详细公式与样例清单见运行记录
       </footer>
     </section>
   );
