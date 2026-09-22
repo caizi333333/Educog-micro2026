@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>I/O 接口｜单元 2 硬件结构（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+</style>
+<!-- 内联自 lib/kp-figs.css -->
+<style>
+/* ============================================================
+   kp-figs.css · 把已有三套图形引擎（portcell / clockreset / mcustruct）
+   的配色换成平台色系，使插图与站点同源。
+   引擎的类名一律不动，只重写外观。
+   ============================================================ */
+
+/* ---------- 通用 ---------- */
+.pc-svg,.cr-svg,.ms-svg{width:100%;height:auto;display:block}
+.pc-w,.cr-w,.ms-w{fill:none;stroke:rgba(203,213,225,.34);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.cr-thick{stroke-width:3}
+.pc-bus,.cr-bus{stroke:rgba(241,245,249,.55);stroke-width:3.4}
+.pc-rail,.cr-rail{stroke:rgba(203,213,225,.34)}
+
+.pc-box,.cr-box,.ms-box{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.pc-box-logic,.cr-chip,.ms-box.ms-cpu{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34)}
+.pc-tri,.cr-tri{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-tri-logic{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34);stroke-width:1.8}
+.pc-bubble,.cr-bubble{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-res,.cr-res{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-res-ext{stroke:rgba(252,211,77,.55);stroke-dasharray:5 4}
+.cr-xtal{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:1.8}
+.pc-dot,.cr-dot{fill:rgba(203,213,225,.5)}
+.pc-dot-node{fill:var(--c1);r:5}
+.pc-pin{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:2}
+.pc-extr .pc-w{stroke:rgba(252,211,77,.5)}
+.pc-overbar,.pc-clk{stroke:rgba(241,245,249,.6);stroke-width:1.6}
+.pc-contact{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-pivot{fill:var(--c1)}
+.cr-key{stroke:var(--c3)}
+.cr-grid,.ms-grp{stroke:rgba(255,255,255,.1)}
+.ms-grp{fill:rgba(255,255,255,.015);stroke-width:1.4;stroke-dasharray:6 5}
+.ms-grp-alu{stroke:rgba(252,211,77,.3)}.ms-grp-ctl{stroke:rgba(103,232,249,.3)}
+.ms-bus{fill:rgba(252,211,77,.08);stroke:rgba(252,211,77,.38);stroke-width:1.8}
+.ms-chip{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-notch{fill:#070a0d;stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-arrhead{fill:rgba(203,213,225,.34)}
+.ms-pinpad{fill:rgba(203,213,225,.34)}
+.ms-pinw{stroke-width:2.4}
+.ms-pin{transition:opacity .25s}.ms-pin.ms-dim{opacity:.2}
+.ms-pwr .ms-pinw,.ms-pwr .ms-pinpad{stroke:var(--slate400);fill:var(--slate400)}
+.ms-clk .ms-pinw,.ms-clk .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+.ms-ctl .ms-pinw,.ms-ctl .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io0 .ms-pinw,.ms-io0 .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io1 .ms-pinw,.ms-io1 .ms-pinpad{stroke:var(--c1);fill:var(--c1)}
+.ms-io2 .ms-pinw,.ms-io2 .ms-pinpad{stroke:var(--c4);fill:var(--c4)}
+.ms-io3 .ms-pinw,.ms-io3 .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+
+/* ---------- 场效应管：导通/截止画在器件上 ---------- */
+.pc-fet-gate{stroke:rgba(241,245,249,.62);stroke-width:2.6}
+.pc-fet-seg{stroke:rgba(203,213,225,.34);stroke-width:2.6;transition:opacity .3s}
+.pc-fet-arrow{fill:rgba(203,213,225,.34);transition:fill .3s}
+.pc-fet-chan{stroke:var(--c1);stroke-width:4.2;opacity:0;transition:opacity .28s;stroke-linecap:round}
+.pc-fet.pc-fet-on .pc-fet-chan{opacity:1}
+.pc-fet.pc-fet-on .pc-fet-seg{opacity:0}
+.pc-fet.pc-fet-on .pc-fet-arrow{fill:var(--c1)}
+
+/* ---------- 刀开关 ---------- */
+.pc-blade{stroke:var(--c1);stroke-width:3.2;stroke-linecap:round;
+  transform-box:view-box;transform-origin:536px 309px;
+  transition:transform .42s cubic-bezier(.34,1.3,.5,1)}
+
+/* ---------- 钳位标记 ---------- */
+.pc-clamp{opacity:0;transition:opacity .3s;pointer-events:none}
+.pc-clamp.pc-show{opacity:1}
+.pc-clamp-w{stroke:var(--c5);stroke-width:2.2}
+.pc-t-clamp{font-size:11px;font-weight:600;fill:var(--c5)}
+
+/* ---------- 文字 ---------- */
+.pc-t,.cr-t,.ms-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.pc-t-bus{font-size:12px;font-weight:600;letter-spacing:.24em;fill:var(--muted-fg)}
+.pc-t-cap,.cr-t-cap,.cr-t-fig,.ms-t-s{font-size:11.5px;font-weight:500;fill:var(--muted-fg)}
+.pc-t-pin,.cr-t-pin,.ms-t-b{font-size:13px;font-weight:600;fill:var(--slate100)}
+.ms-t-b{font-size:13.5px}
+.pc-t-buf{font-size:12px;font-weight:700;fill:var(--c1);letter-spacing:.04em}
+.pc-t-sig,.cr-t-ref,.ms-t-row{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-sig2,.pc-t-note,.cr-t-note,.ms-t-ext{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.pc-t-op{font-size:18px;font-weight:700;fill:var(--c1)}
+.pc-t-val,.pc-t-gate,.cr-t-hl,.ms-t-bus{font-size:14px;font-weight:700;fill:var(--c3)}
+.pc-t-gate{font-size:11.5px}
+.ms-t-bus{font-size:12.5px;letter-spacing:.2em}
+.pc-t-fet,.cr-t-fet{font-size:11.5px;font-weight:600;fill:var(--muted-fg)}
+.pc-t-fetname,.cr-t-chip2{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-pinname,.cr-t-chip,.ms-t-chip{font-size:15px;font-weight:700;fill:var(--c1)}
+.ms-t-chip{font-size:20px;fill:rgba(241,245,249,.75)}
+.pc-t-pinval{font-size:11.5px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-extr{font-size:11px;font-weight:600;fill:var(--c3)}
+.pc-badge,.ms-t-grp{fill:#0f1115;stroke:var(--c1);stroke-width:1.6}
+.ms-t-grp{fill:var(--muted-fg);stroke:none;font-size:11.5px;font-weight:700;letter-spacing:.14em}
+.pc-t-badge{font-size:10.5px;font-weight:700;fill:var(--c1)}
+.pc-sep{stroke:rgba(255,255,255,.12);stroke-width:1.4;stroke-dasharray:4 5}
+.pc-t-bandk{font-size:10px;font-weight:600;fill:var(--muted-fg);letter-spacing:.14em}
+.pc-t-legend{font-size:11.5px;font-weight:500;fill:rgba(203,213,225,.86)}
+.pc-t-chain{font-size:12px;font-weight:600;fill:var(--c1)}
+.cr-t-cell,.ms-t-cell{font-size:11px;font-weight:600;fill:rgba(203,213,225,.82)}
+.cr-t-big{font-size:14px;font-weight:700;fill:var(--c1)}
+.cr-wave{fill:none;stroke:var(--c1);stroke-width:2.2}
+.cr-cell{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.12);stroke-width:1.4}
+.cr-cell-m{stroke:rgba(103,232,249,.4);fill:rgba(103,232,249,.05)}
+.cr-cell-on{stroke:rgba(252,211,77,.45);fill:rgba(252,211,77,.08)}
+
+/* ---------- 状态色 ---------- */
+.pc-on,.pc-hi{fill:var(--c1)!important}
+.pc-cut,.pc-lo{fill:var(--muted-fg)!important}
+.pc-z{fill:var(--c3)!important}
+
+/* ---------- 通路流动与方向箭头 ---------- */
+.pc-f,.cr-f{fill:none;stroke:var(--c1);stroke-width:3;stroke-linecap:round;
+  opacity:0;stroke-dasharray:14 12;transition:opacity .3s}
+.pc-f.pc-live,.cr-f.cr-live{opacity:.95;animation:kpDash .85s linear infinite}
+@keyframes kpDash{to{stroke-dashoffset:-26}}
+.pc-arrow{fill:var(--c1);opacity:.95}
+.pc-trapped .pc-f.pc-live{stroke:var(--c5)}
+.pc-trapped .pc-arrow{fill:var(--c5)}
+.pc-trapped .pc-t-chain{fill:var(--c5)}
+.pc-trapped .pc-t-pinval{fill:var(--c5)!important}
+
+/* ---------- 形变与显隐 ---------- */
+.pc-part,.cr-part{transition:opacity .45s ease,transform .45s cubic-bezier(.2,.85,.3,1);
+  transform-box:view-box}
+.pc-part.pc-off,.cr-part.cr-off{opacity:0;transform:translate(-18px,0);pointer-events:none}
+
+/* ---------- 点选热区 ---------- */
+.pc-hit,.cr-hit,.ms-hit{fill:transparent;cursor:pointer}
+.pc-hit:hover,.cr-hit:hover,.ms-hit:hover{fill:rgba(255,255,255,.05)}
+.pc-ring,.cr-ring,.ms-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;
+  pointer-events:none;animation:kpRing 12s linear infinite}
+@keyframes kpRing{to{stroke-dashoffset:-240}}
+
+/* ---------- 存储空间地址映射图 ---------- */
+.mm-svg{width:100%;height:auto;display:block}
+.mm-band{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.6}
+.mm-prog{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.3)}
+.mm-prog.mm-in{fill:rgba(103,232,249,.14);stroke:rgba(103,232,249,.5)}
+.mm-data{fill:rgba(110,231,183,.05);stroke:rgba(110,231,183,.28)}
+.mm-data.mm-sfr{fill:rgba(252,211,77,.07);stroke:rgba(252,211,77,.34)}
+.mm-xdata{fill:rgba(96,165,250,.05);stroke:rgba(96,165,250,.3)}
+.mm-link{stroke:rgba(253,164,175,.45);stroke-width:1.6;stroke-dasharray:4 4;fill:none}
+.mm-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.mm-t-h{font-size:13px;font-weight:700;fill:var(--slate100)}
+.mm-t-n{font-size:13px;font-weight:600;fill:rgba(241,245,249,.94)}
+.mm-t-s{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.mm-t-a{font-size:10.5px;font-weight:600;fill:var(--c3)}
+.mm-t-warn{font-size:11.5px;font-weight:600;fill:var(--rose300)}
+.mm-hit{fill:transparent;cursor:pointer}
+.mm-hit:hover{fill:rgba(255,255,255,.05)}
+.mm-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;pointer-events:none;
+  animation:kpRing 12s linear infinite}
+
+</style>
+</head>
+<body>
+<!-- 内联自 lib/kp-shell.js -->
+<script>
+/* ============================================================
+   kp-shell.js · 知识点讲解页 · 共用外壳
+   ------------------------------------------------------------
+   六个知识点页共用这一套结构，保证"每篇能独立成篇、彼此风格统一"：
+
+     眉标（单元 · 知识点编号）
+     渐变大标题
+     一句话定位：这个点为什么容易错
+     元信息 chip（对应大纲章节 / 教材图表 / 预计用时）
+     ┌ 标签页 ────────────────────────┐
+     │ 讲解  —— 可交互的图 + 分步说明      │
+     │ 疑点  —— 学生最常错的地方，现象→原因→正解 │
+     │ 自测  —— 2~3 题，即时给解析         │
+     └───────────────────────────┘
+     相关知识点 + 出处
+
+   页面只需提供数据，外壳负责渲染与交互。
+   被 iframe 嵌入时自动加 .kp-embed（收紧留白、隐去页脚）。
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  function h(tag, attrs, html) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  /* 允许在文案里用 **加粗** 和 `等宽` 两种极简标记，省得到处写标签 */
+  function md(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`(.+?)`/g, '<code style="font-family:var(--fm);font-size:.92em;' +
+        'background:rgba(255,255,255,.05);border-radius:4px;padding:1px 5px">$1</code>');
+  }
+
+  function KP(cfg) {
+    /* 被 iframe 装着就进嵌入模式 */
+    try { if (global.self !== global.top) document.body.classList.add('kp-embed'); } catch (e) {
+      document.body.classList.add('kp-embed');
+    }
+    document.title = cfg.kp + '｜' + cfg.unit;
+
+    var wrap = h('div', { class: 'kp-wrap kp-fade' });
+    document.body.appendChild(wrap);
+
+    /* ---- 头部 ---- */
+    wrap.appendChild(h('div', { class: 'kp-eyebrow' },
+      esc(cfg.unitEn || 'KNOWLEDGE POINT') + ' · <b>' + esc(cfg.unit) + '</b>'));
+    wrap.appendChild(h('h1', { class: 'kp-h1' }, esc(cfg.kp)));
+    wrap.appendChild(h('p', { class: 'kp-lead' }, md(cfg.lead)));
+    if (cfg.meta && cfg.meta.length) {
+      wrap.appendChild(h('div', { class: 'kp-meta' },
+        cfg.meta.map(function (m) {
+          return '<span class="kp-chip">' + (m[1] ? '<b>' + esc(m[0]) + '</b>' + esc(m[1]) : esc(m[0])) + '</span>';
+        }).join('')));
+    }
+
+    /* ---- 标签页 ---- */
+    var TABS = [
+      { k: 'teach', n: '01', t: '讲解' },
+      { k: 'pit', n: '02', t: '疑点' },
+      { k: 'quiz', n: '03', t: '自测' }
+    ].filter(function (t) {
+      return t.k === 'teach' ? !!cfg.teach : (t.k === 'pit' ? (cfg.pitfalls || []).length : (cfg.quiz || []).length);
+    });
+
+    var tabsEl = h('div', { class: 'kp-tabs', role: 'tablist' });
+    var panels = {};
+    TABS.forEach(function (t, i) {
+      var b = h('button', {
+        class: 'kp-tab', role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false',
+        'data-k': t.k
+      }, '<span class="n">' + t.n + '</span>' + t.t);
+      b.onclick = function () { select(t.k); };
+      tabsEl.appendChild(b);
+      var p = h('div', { class: 'kp-panel' + (i === 0 ? ' on' : ''), role: 'tabpanel' });
+      panels[t.k] = p;
+    });
+    wrap.appendChild(tabsEl);
+    TABS.forEach(function (t) { wrap.appendChild(panels[t.k]); });
+
+    function select(k) {
+      Array.prototype.forEach.call(tabsEl.children, function (b) {
+        b.setAttribute('aria-selected', b.dataset.k === k ? 'true' : 'false');
+      });
+      for (var key in panels) panels[key].classList.toggle('on', key === k);
+      if (k === 'teach' && cfg.onShowTeach) cfg.onShowTeach();
+    }
+
+    /* ---- 讲解 ---- */
+    if (cfg.teach) {
+      var tp = panels.teach;
+      if (cfg.teach.intro) {
+        tp.appendChild(h('div', { class: 'kp-card' }, '<p>' + md(cfg.teach.intro) + '</p>'));
+      }
+      var stageCard = h('div', { class: 'kp-card' });
+      if (cfg.teach.title) stageCard.appendChild(h('h3', null, esc(cfg.teach.title)));
+      var ctl = h('div', { class: 'kp-ctl', id: 'kpCtl' });
+      stageCard.appendChild(ctl);
+      var stage = h('div', { class: 'kp-stage', id: 'kpStage' });
+      stageCard.appendChild(stage);
+      if (cfg.teach.caption) stageCard.appendChild(h('div', { class: 'kp-stagecap' }, esc(cfg.teach.caption)));
+      var reads = h('div', { class: 'kp-reads', id: 'kpReads', style: 'margin-top:12px' });
+      stageCard.appendChild(reads);
+      var say = h('div', { class: 'kp-card', id: 'kpSay', style: 'margin-top:12px' },
+        '<h3>当前在讲什么</h3><p id="kpSayT"></p>');
+      stageCard.appendChild(say);
+      tp.appendChild(stageCard);
+      if (cfg.teach.steps && cfg.teach.steps.length) {
+        var sc = h('div', { class: 'kp-card' });
+        sc.appendChild(h('h3', null, '要点顺序'));
+        sc.appendChild(h('div', null, cfg.teach.steps.map(function (s, i) {
+          return '<p><b>' + (i + 1) + '.</b> ' + md(s) + '</p>';
+        }).join('')));
+        tp.appendChild(sc);
+      }
+      KP.ctl = ctl; KP.stage = stage; KP.reads = reads;
+      KP.say = function (t) { document.getElementById('kpSayT').innerHTML = md(t); };
+    }
+
+    /* ---- 疑点 ---- */
+    if ((cfg.pitfalls || []).length) {
+      var pp = panels.pit;
+      pp.appendChild(h('div', { class: 'kp-card' },
+        '<p class="kp-note">下面几条是这个知识点上学生最常出错的地方。' +
+        '每条按「常见说法 → 为什么错 → 正确理解」拆开，可以直接拿去当课堂提问。</p>'));
+      cfg.pitfalls.forEach(function (p, i) {
+        var el = h('div', { class: 'kp-pit' });
+        el.innerHTML =
+          '<div class="no">疑点 ' + String(i + 1).padStart(2, '0') + '</div>' +
+          '<div class="q">' + md(p.q) + '</div>' +
+          '<dl>' +
+          '<dt>常见说法</dt><dd>' + md(p.say) + '</dd>' +
+          '<dt>为什么错</dt><dd>' + md(p.why) + '</dd>' +
+          '<dt class="right">正确理解</dt><dd class="right">' + md(p.right) + '</dd>' +
+          '</dl>';
+        pp.appendChild(el);
+      });
+    }
+
+    /* ---- 自测 ---- */
+    if ((cfg.quiz || []).length) {
+      var qp = panels.quiz, right = 0, answered = 0;
+      var score = h('div', { class: 'kp-score' });
+      cfg.quiz.forEach(function (item, i) {
+        var q = h('div', { class: 'kp-q' });
+        q.appendChild(h('div', { class: 'qh' },
+          '<span class="qn">Q' + (i + 1) + '</span><span class="qt">' + md(item.q) + '</span>'));
+        var exp = h('div', { class: 'kp-exp' }, md(item.x));
+        item.o.forEach(function (o, j) {
+          var b = h('button', { class: 'kp-opt' }, 'ABCD'[j] + '．' + md(o));
+          b.onclick = function () {
+            Array.prototype.forEach.call(q.querySelectorAll('.kp-opt'), function (x, k) {
+              x.classList.add('lock');
+              if (k === item.a) x.classList.add('ok');
+            });
+            if (j !== item.a) b.classList.add('no'); else right++;
+            answered++;
+            exp.classList.add('show');
+            exp.classList.toggle('bad', j !== item.a);
+            score.innerHTML = '答对 <b>' + right + '</b> / ' + cfg.quiz.length +
+              '　已答 ' + answered;
+          };
+          q.appendChild(b);
+        });
+        q.appendChild(exp);
+        qp.appendChild(q);
+      });
+      score.innerHTML = '答对 <b>0</b> / ' + cfg.quiz.length + '　已答 0';
+      qp.appendChild(score);
+    }
+
+    /* ---- 页脚 ---- */
+    var foot = h('div', { class: 'kp-foot' });
+    foot.innerHTML =
+      '<b>出处</b>　' + esc(cfg.source || '') + '<br>' +
+      (cfg.note ? esc(cfg.note) + '<br>' : '') +
+      '<b>用法</b>　本页可独立打开，也可作为单元资源嵌入平台（自适应容器宽度）。';
+    if ((cfg.related || []).length) {
+      foot.appendChild(h('div', { class: 'kp-rel' },
+        cfg.related.map(function (r) {
+          return '<a class="kp-btn" href="' + esc(r[1]) + '">' + esc(r[0]) + ' →</a>';
+        }).join('')));
+    }
+    wrap.appendChild(foot);
+
+    KP.select = select;
+    return KP;
+  }
+
+  /* 给讲解区加一个控制按钮组，返回一个 setter */
+  KP.buttons = function (items, onPick, initial) {
+    var btns = items.map(function (it) {
+      var b = document.createElement('button');
+      b.className = 'kp-btn';
+      b.textContent = it.t;
+      b.dataset.k = it.k;
+      b.onclick = function () { pick(it.k); };
+      KP.ctl.appendChild(b);
+      return b;
+    });
+    function pick(k) {
+      btns.forEach(function (b) { b.classList.toggle('on', b.dataset.k === k); });
+      onPick(k);
+    }
+    pick(initial || items[0].k);
+    return pick;
+  };
+  /* 写读数格 */
+  KP.setReads = function (list) {
+    KP.reads.innerHTML = list.map(function (r) {
+      return '<div class="kp-read"><div class="k">' + esc(r[0]) + '</div>' +
+        '<div class="v ' + (r[2] || '') + '">' + esc(r[1]) + '</div></div>';
+    }).join('');
+  };
+  KP.md = md;
+  global.KP = KP;
+})(window);
+
+</script>
+<!-- 内联自 lib/portcell.js -->
+<script>
+/* ============================================================
+   portcell.js  ·  8051 P0/P1/P2/P3 位电路剖面引擎
+   ------------------------------------------------------------
+   设计要点：四个端口共用一张骨架，差异以"加装模块"的形式
+   淡入/淡出，实现"四张图其实是同一张图"的形变教学效果。
+
+   标注一律对齐教材（韩兴国《微控制器原理及接口控制技术》
+   图 2-5 / 2-6 / 2-7 / 2-8），便于学生与课本逐处对照：
+     · 三态缓冲器叫 BUF1（读引脚）、BUF2（读锁存器）、BUF3（第二功能）
+     · 触发器时钟端叫 CLK，不叫 CK
+     · P1/P2/P3 上方器件叫"上拉电阻 R"
+     · 信号叫"读锁存器 / 写锁存器 / 读引脚 / 地址/数据输出 / 控制信号"
+     · 逻辑门用 IEC 方框式（与门"&"、与非门"&"+圈、反相器"1"+圈）
+     · 转换开关 MUX 按教材画成刀开关，触点 0 接 Q/Q̄，触点 1 接地址侧
+
+   骨架：D 锁存器 + 下管 FET + BUF1 + BUF2
+   加装：P1 上拉电阻 R | P2 +MUX+反相器 | P3 +与非门+BUF3
+        P0 -上拉电阻 +上管 FET +MUX +与门 +反相器
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'text') n.textContent = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  /* 折线：points = [[x,y]...]，hops = [[x,y]...] 在水平段上起拱跨线 */
+  function poly(pts, hops) {
+    var d = 'M' + pts[0][0] + ',' + pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      var a = pts[i - 1], b = pts[i], h = null;
+      if (hops) for (var j = 0; j < hops.length; j++) {
+        var hx = hops[j][0], hy = hops[j][1];
+        if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(a[1] - hy) < 6 &&
+            hx > Math.min(a[0], b[0]) + 6 && hx < Math.max(a[0], b[0]) - 6) h = hx;
+      }
+      if (h !== null) {
+        var dir = b[0] > a[0] ? 1 : -1;
+        d += ' L' + (h - 8 * dir) + ',' + a[1];
+        d += ' A8,8 0 0 ' + (dir > 0 ? 1 : 0) + ' ' + (h + 8 * dir) + ',' + a[1];
+        d += ' L' + b[0] + ',' + b[1];
+      } else d += ' L' + b[0] + ',' + b[1];
+    }
+    return d;
+  }
+
+  /* ---------------- 几何常量 ---------------- */
+  var G = {
+    busX: 72,
+    // 高度 122 而非 140：底边留在 302，给下方 y=340 的地址/数据反相器让出空间
+    latch: { x: 276, y: 180, w: 170, h: 122 },
+    D: [276, 212], CLK: [276, 288], Q: [446, 212], QB: [446, 288],
+    tapX: 470,
+    rdLatchY: 112,            // BUF2 读锁存器
+    rdPinY: 486,              // BUF1 读引脚
+    sfInY: 560,               // BUF3 第二功能输入
+    mux: { x: 480, y: 250, w: 56, h: 118 },
+    muxIn0: [480, 278], muxIn1: [480, 340], muxSel: [508, 368], muxOut: [536, 309],
+    nandIn1: [480, 276], nandIn2: [480, 340], nandOut: [560, 308],
+    invOut: [616, 309],
+    andIn1: [658, 116], andIn2: [658, 148], andOut: [716, 132],
+    gate1: [740, 304], gate2: [740, 132],
+    drvX: 800,
+    node: [800, 238], gnd: [800, 392],
+    pinWireEnd: 940, tapDown: 868,
+    ctrlY: 400, ctrlX: 620, sigY: 340,
+    legendY: 652, chainY: 686,      // 图下的注释带
+    W: 1040, H: 714
+  };
+
+  /* 每个端口的结构分解，逐字取自教材"××口位电路由 N 个部分组成" */
+  var LEGEND = {
+    P1: '① 输出寄存器（锁存器）　② 输入缓冲器 BUF1 / BUF2　③ 输出驱动电路（1 只 FET + 上拉电阻 R）',
+    P2: '① 输出寄存器　② 输入缓冲器 BUF1 / BUF2　③ 输出驱动电路（1 只 FET + 上拉电阻 R）　④ 转换开关 MUX',
+    P3: '① 输出寄存器　② 输入缓冲器 BUF1 / BUF2 / BUF3　③ 输出驱动电路（1 只 FET + 上拉电阻 R + 与非门）',
+    P0: '① 输出寄存器　② 输入缓冲器 BUF1 / BUF2　③ 输出驱动电路（2 只 FET，按图 2-8 无片内上拉）　④ 转换开关 MUX'
+  };
+
+  /* 信号链：从内部总线一路追到引脚，与图上每个数值牌一一对应。
+     这是"一看就明白"的关键——学生照着这条链在图上走一遍即可。 */
+  var CHAINS = {
+    'P1.out1': '总线 1 → D → Q=1 → Q̄=0 → 栅极 0 → FET 截止 → 电流经上拉电阻 R 流向引脚 → 引脚 = 1',
+    'P1.out0': '总线 0 → D → Q=0 → Q̄=1 → 栅极 1 → FET 导通 → 引脚经沟道接地 → 引脚 = 0',
+    'P1.in': '先写 1 → Q̄=0 → 栅极 0 → FET 截止 → 引脚浮在 R 上，由外部电路支配 → 经 BUF1 送内部总线',
+    'P1.rdlatch': '读—改—写指令 → 走 BUF2 → 取锁存器 Q（写进去的值）= 1，不看引脚此刻是 0',
+
+    'P2.out1': '控制信号 0 → 刀片在触点 0 → 取 Q=1 → 反相器 0 → 栅极 0 → FET 截止 → 经 R 上拉 → 引脚 = 1',
+    'P2.out0': '控制信号 0 → 取 Q=0 → 反相器 1 → 栅极 1 → FET 导通 → 引脚 = 0',
+    'P2.in': '先写 1 → 栅极 0 → FET 截止 → 引脚由外部电路支配 → 经 BUF1 送内部总线',
+    'P2.addr1': '控制信号 1 → 刀片打到触点 1 → 取地址位 1 → 反相器 0 → 栅极 0 → 截止 → 引脚输出 A=1',
+    'P2.addr0': '控制信号 1 → 取地址位 0 → 反相器 1 → 栅极 1 → 导通 → 引脚输出 A=0',
+
+    'P3.out1': '第二功能输出端自动 1 → 与非门 = NAND(Q=1, 1) = 0 → 栅极 0 → 截止 → 经 R 上拉 → 引脚 = 1',
+    'P3.out0': '总线 0 → Q=0 → 与非门 = NAND(0, 1) = 1 → 栅极 1 → FET 导通 → 引脚 = 0',
+    'P3.in': '锁存器与第二功能输出端均置 1 → 与非门 0 → FET 截止 → 引脚经 BUF1 送内部总线',
+    'P3.fnout': 'Q 置 1 开启与非门 → 第二功能输出 0 → 与非门 1 → 栅极 1 → 导通 → 引脚跟随第二功能 = 0',
+    'P3.fnin': 'Q 与第二功能输出端置 1 → FET 截止 → 引脚信号经 BUF3 直送功能部件，不经过锁存器',
+
+    'P0.gout1': '控制信号 0 → 与门被锁输出 0 → 上管截止；Q=1 → Q̄=0 → 下管截止 → 漏极开路 → 靠外接 R → 引脚 = 1',
+    'P0.gout0': '控制信号 0 → 上管截止；Q=0 → Q̄=1 → 下管导通 → 引脚经沟道接地 → 引脚 = 0（不依赖外接 R）',
+    'P0.gin': '先写 1 → 两管全截止 → 引脚悬空呈高阻 → 外部电平经 BUF1 送内部总线',
+    'P0.ad1': '控制信号 1 → 与门 = 1 AND 1 = 1 → 上管导通；反相器 0 → 下管截止 → 推挽输出 → 引脚 = 1',
+    'P0.ad0': '控制信号 1 → 与门 = 1 AND 0 = 0 → 上管截止；反相器 1 → 下管导通 → 引脚 = 0',
+
+    /* 带 ! 的是"先写 1"踩坑态：锁存器被手动写成 0，链条必须跟着改写 */
+    'P1.in!': '写成了 0 → Q̄=1 → 栅极 1 → FET 导通 → 引脚被死死钳在地 → 外部给 1 给 0 都没用，BUF1 读回恒为 0',
+    'P2.in!': '控制信号 0 → 取 Q=0 → 反相器 1 → 栅极 1 → FET 导通 → 引脚被钳在地 → BUF1 读回恒为 0',
+    'P3.in!': '写成了 0 → 与非门 = NAND(0, 1) = 1 → 栅极 1 → FET 导通 → 引脚被钳在地 → BUF1 读回恒为 0',
+    'P0.gin!': '写成了 0 → Q̄=1 → 下管导通（上管本就截止）→ 引脚被钳在地 → BUF1 读回恒为 0'
+  };
+
+  /* 点选释义：点电路上的器件，讲这个器件是干什么的。
+     文字均可回溯到教材 2.4 节与图 2-5 ~ 2-8。 */
+  var EXPLAIN = {
+    bus: ['内部总线', '8 位内部数据总线，是 CPU 与各功能部件交换数据的通道。写端口时数据从这里进 D 端；读端口时数据经三态缓冲器回到这里。'],
+    latch: ['① 输出寄存器（D 锁存器）', 'CPU 执行写端口指令时，内部总线上的数据位由 D 端进入，被"写锁存器"信号打在 CLK 上锁存下来。Q 端是写进去的值，Q̄ 是它的反。复位后 P0~P3 全为 FFH，所以 Q 的初值是 1。'],
+    buf2: ['② BUF2 · 读锁存器', '三态缓冲器，输入端接锁存器 Q。执行"读—改—写"类指令（ANL P1,A、ORL P1,#data、CPL P1.0 等）时打开，读回的是写进去的值，与引脚此刻的实际电平无关。这样设计是为了避开一个陷阱：引脚若被外部电路拉低，读引脚会把本来写进去的 1 误读成 0。'],
+    buf1: ['② BUF1 · 读引脚', '三态缓冲器，输入端接引脚。执行 MOV A,P1 这类读端口指令时打开，读回引脚上的真实电平。前提是锁存器已经写过 1、管子处于截止——否则引脚被钳在低电平，读回来恒为 0。'],
+    buf3: ['② BUF3 · 第二功能输入', 'P3 口专有。引脚信号经它直接送往串行口、中断、定时器等功能部件，不经过锁存器。对应 RXD、INT0、INT1、T0、T1 这五个输入型第二功能。'],
+    pullup: ['③ 上拉电阻 R（片内）', '管子截止时，由它把引脚顶到高电平。正因为这只电阻始终挂着，P1/P2/P3 永远到不了高阻态，只能叫"准双向口"。P0 没有这只电阻。'],
+    fet1: ['③ 场效应管（下管）', '输出驱动管，是唯一直接决定引脚电平的器件。栅极为 1 时沟道导通，引脚经沟道接地输出 0；栅极为 0 时截止，引脚交给上拉电阻或外部电路支配。'],
+    fet2: ['③ 场效应管（上管）· P0 专有', 'P0 用它替代了上拉电阻。由与门输出控制：控制信号 = 1 且地址/数据 = 1 时导通，把引脚推到 Vcc。正因为这只管子可控、能被关断，P0 才可能出现两管全截止的高阻态。'],
+    mux: ['④ 转换开关 MUX', '多路转换开关。控制信号 = 0 时刀片打到触点 0，接锁存器，端口作通用 I/O；控制信号 = 1 时打到触点 1，接地址侧，端口作地址总线。P2 与 P0 各有一只。'],
+    nand: ['与非门 · P3 专有', '两个输入：锁存器 Q 与第二功能输出端。不用第二功能时后者内部自动为 1，与非门输出 = Q̄，整个电路退化成 P1；使用第二功能时 Q 必须置 1，引脚就跟随第二功能输出端翻转。'],
+    and: ['与门 · P0 专有', '控制上管的门。控制信号 = 0 时输出恒为 0，上管被锁死在截止——这就是 P0 作通用 I/O 口时呈漏极开路、必须外接上拉电阻的直接原因。'],
+    invp2: ['反相器 · P2', '把 MUX 的输出反相后送下管栅极。有了它，锁存器 Q = 1 才对应管子截止、引脚输出 1，与 P1 的 Q̄ 直驱等效。'],
+    invad: ['反相器 · P0', '把地址/数据信号反相后送到 MUX 的触点 1。它与与门配合，使上下两管一通一断，形成推挽输出——这也是 P0 做地址/数据总线时不需要外接上拉的原因。'],
+    pin: ['芯片引脚', '通向芯片外部的引脚。P0 对应 39~32 脚、P1 对应 1~8 脚、P2 对应 21~28 脚、P3 对应 10~17 脚，四个口共 32 条 I/O 线。']
+  };
+
+  /* ---------------- 端口元数据 ---------------- */
+  var PORTS = {
+    P1: {
+      key: 'P1', name: 'P1 口', pins: '1 ~ 8 脚', addr: '90H', bitAddr: '90H ~ 97H',
+      tag: '基准型', drive: '4 个 LS 型 TTL', fig: '教材图 2-5',
+      parts: ['pullup', 'qbDirect'],
+      blurb: '骨架本身。锁存器 Q̄ 直接驱动场效应管，上方一只上拉电阻 R 把高电平顶上去。' +
+             '后面三个口，都是在这张图上加东西。'
+    },
+    P2: {
+      key: 'P2', name: 'P2 口', pins: '21 ~ 28 脚', addr: 'A0H', bitAddr: 'A0H ~ A7H',
+      tag: '骨架 + MUX', drive: '4 个 LS 型 TTL', fig: '教材图 2-6',
+      parts: ['pullup', 'mux', 'invp2', 'ctrl', 'addrHi', 'qToMux'],
+      blurb: '在 P1 的栅极通路上插了一只转换开关 MUX。控制信号 = 0，刀片打到触点 0，' +
+             '走锁存器 Q，就是 P1；控制信号 = 1，刀片打到触点 1，改走地址高 8 位。'
+    },
+    P3: {
+      key: 'P3', name: 'P3 口', pins: '10 ~ 17 脚', addr: 'B0H', bitAddr: 'B0H ~ B7H',
+      tag: '骨架 + 与非门 + BUF3', drive: '4 个 LS 型 TTL', fig: '教材图 2-7',
+      parts: ['pullup', 'nand', 'sfout', 'sfin', 'qToNand'],
+      blurb: '在 P1 的栅极通路上插了一只与非门，又从引脚引出 BUF3。' +
+             '不用第二功能时，第二功能输出端内部自动置 1，与非门退化成反相器 —— 又变回 P1。'
+    },
+    P0: {
+      key: 'P0', name: 'P0 口', pins: '39 ~ 32 脚', addr: '80H', bitAddr: '80H ~ 87H',
+      tag: '换上管 + MUX + 与门', drive: '8 个 LS 型 TTL', fig: '教材图 2-8',
+      parts: ['v2', 'mux', 'muxDirect', 'and', 'ctrl', 'ctrlUp', 'addrData', 'qbToMux'],
+      blurb: 'P0 不是多了个电阻 —— 是把那只上拉电阻换成了一只可控的上管。' +
+             '这一处改动，同时解释了它为什么能做真双向三态、能带 8 个 TTL，' +
+             '以及做普通 I/O 口时为什么必须外接上拉。'
+    }
+  };
+
+  /* ---------------- 工作模式 ---------------- */
+  var MODES = {
+    P1: [
+      { id: 'out1', label: '输出 1', st: { q: 1, ext: null }, note: '写 1 → Q = 1 → Q̄ = 0 → 场效应管截止 → 上拉电阻 R 把引脚顶到高电平。' },
+      { id: 'out0', label: '输出 0', st: { q: 0, ext: null }, note: '写 0 → Q = 0 → Q̄ = 1 → 场效应管导通 → 引脚被拉到地。' },
+      { id: 'in', label: '输入（读引脚）', st: { q: 1, ext: 1 }, trap: true, note: '读引脚之前必须先写 1，让场效应管截止，引脚才交给外部电路支配。' },
+      { id: 'rdlatch', label: '端口操作（读锁存器）', st: { q: 1, ext: 0 }, rd: 'latch', note: '"读—改—写"类指令走 BUF2，读的是锁存器 Q，不看引脚现在是什么电平。' }
+    ],
+    P2: [
+      { id: 'out1', label: '通用输出 1', st: { ctrl: 0, q: 1, ext: null }, note: '控制信号 = 0，刀片打到触点 0，接锁存器 Q。Q = 1 经反相器 → 栅极 0 → 截止 → 引脚为 1。' },
+      { id: 'out0', label: '通用输出 0', st: { ctrl: 0, q: 0, ext: null }, note: '控制信号 = 0，Q = 0 经反相器 → 栅极 1 → 导通 → 引脚为 0。' },
+      { id: 'in', label: '通用输入', st: { ctrl: 0, q: 1, ext: 1 }, trap: true, note: '同 P1：先写 1 再读引脚。' },
+      { id: 'addr1', label: '输出高地址 A=1', st: { ctrl: 1, ad: 1, q: 1, ext: null }, note: '控制信号 = 1，刀片打到触点 1，改接地址高 8 位。地址位 = 1 → 反相器 → 0 → 截止 → 引脚输出 1。' },
+      { id: 'addr0', label: '输出高地址 A=0', st: { ctrl: 1, ad: 0, q: 1, ext: null }, note: '地址位 = 0 → 反相器 → 1 → 导通 → 引脚输出 0。高 8 位地址整条指令期间稳定不变，所以不需要锁存器。' }
+    ],
+    P3: [
+      { id: 'out1', label: '通用输出 1', st: { q: 1, sfo: 1, ext: null }, note: '不用第二功能时第二功能输出端自动 = 1，与非门 = NAND(Q,1) = Q̄ —— 完全等价于 P1。' },
+      { id: 'out0', label: '通用输出 0', st: { q: 0, sfo: 1, ext: null }, note: 'Q = 0 → 与非门输出 1 → 导通 → 引脚为 0。' },
+      { id: 'in', label: '通用输入', st: { q: 1, sfo: 1, ext: 1 }, trap: true, note: '教材：锁存器与第二功能输出端均应置 1，场效应管截止，引脚信息经 BUF3、BUF1 进入内部总线。' },
+      { id: 'fnout', label: '第二功能输出', st: { q: 1, sfo: 0, ext: null }, fn: 'out', note: '第二功能输出（TXD / WR / RD）时锁存器 Q 端必须置 1，与非门开启，引脚跟随第二功能输出端翻转。' },
+      { id: 'fnin', label: '第二功能输入', st: { q: 1, sfo: 1, ext: 0 }, fn: 'in', rd: 'sf', note: '第二功能输入（RXD / INT0 / INT1 / T0 / T1）经 BUF3 送到对应功能部件，不经过锁存器。' }
+    ],
+    P0: [
+      { id: 'gout1', label: '通用输出 1', st: { ctrl: 0, q: 1, ext: null }, needR: true, note: '控制信号 = 0 → 与门被锁，输出 0 → 上管截止；Q = 1 → Q̄ = 0 → 下管也截止。两管全断 = 漏极开路，此时必须靠外接上拉电阻才能输出高电平。' },
+      { id: 'gout0', label: '通用输出 0', st: { ctrl: 0, q: 0, ext: null }, needR: true, note: '控制信号 = 0，Q = 0 → Q̄ = 1 → 下管导通 → 引脚为 0。输出低电平不依赖外接电阻。' },
+      { id: 'gin', label: '通用输入', st: { ctrl: 0, q: 1, ext: 1 }, trap: true, note: '教材原话：先在 P0 口锁存器中写入一个"1"，使 2 个场效应管截止，这种情况下它能用作一个高阻输入。P1/P2/P3 没有这个状态。' },
+      { id: 'ad1', label: '复用输出 1（地址/数据）', st: { ctrl: 1, ad: 1, q: 1, ext: null }, note: '控制信号 = 1：与门 = 1 AND 1 = 1 → 上管导通；反相器 → 0 → 下管截止。上管把引脚推到高电平 —— 推挽输出，不需要外接电阻。' },
+      { id: 'ad0', label: '复用输出 0（地址/数据）', st: { ctrl: 1, ad: 0, q: 1, ext: null }, note: '控制信号 = 1：与门 = 1 AND 0 = 0 → 上管截止；反相器 → 1 → 下管导通 → 引脚为 0。' }
+    ]
+  };
+
+  /* ---------------- 逻辑求解（已逐条比对教材 / 课件 S70–S90） ---------------- */
+  function solve(port, st) {
+    var q = st.q, ctrl = st.ctrl | 0, ad = st.ad | 0, sfo = (st.sfo === undefined ? 1 : st.sfo);
+    var g1, g2 = 0, hasV2 = (port === 'P0'), pullup = (port !== 'P0');
+    var muxOut = null, nandOut = null, invOut = null, andOut = null;
+
+    if (port === 'P1') {
+      g1 = q ? 0 : 1;
+    } else if (port === 'P2') {
+      muxOut = ctrl ? ad : q;
+      invOut = muxOut ? 0 : 1;
+      g1 = invOut;
+    } else if (port === 'P3') {
+      nandOut = (q && sfo) ? 0 : 1;
+      g1 = nandOut;
+    } else {
+      invOut = ad ? 0 : 1;
+      muxOut = ctrl ? invOut : (q ? 0 : 1);
+      g1 = muxOut;
+      andOut = (ctrl && ad) ? 1 : 0;
+      g2 = andOut;
+    }
+
+    var v1 = !!g1, v2 = !!g2, pin, z = false;
+    if (v1) pin = 0;
+    else if (hasV2 && v2) pin = 1;
+    else if (pullup) pin = (st.ext === null || st.ext === undefined) ? 1 : st.ext;
+    else {
+      if (st.ext === null || st.ext === undefined) { pin = st.needR ? 1 : null; z = !st.needR; }
+      else pin = st.ext;
+    }
+    return {
+      q: q, qb: q ? 0 : 1, ctrl: ctrl, ad: ad, sfo: sfo,
+      g1: g1, g2: g2, v1: v1, v2: v2, pin: pin, z: z,
+      muxOut: muxOut, nandOut: nandOut, invOut: invOut, andOut: andOut,
+      pullup: pullup, hasV2: hasV2
+    };
+  }
+
+  /* ============================================================
+     器件符号
+     ============================================================ */
+
+  /* 增强型场效应管：栅极条 + 绝缘间隙 + 三段沟道 + 漏源引线
+     导通时沟道连成实线并发光，截止时沟道断开变暗 —— 通断直接画在器件上 */
+  function drawFet(layer, cx, cy, tag) {
+    var g = el('g', { class: 'pc-fet' }, layer);
+    var gx = cx - 30, chx = cx - 16;           // 栅极条 / 沟道 的 x
+    el('line', { x1: cx - 60, y1: cy, x2: gx, y2: cy, class: 'pc-w' }, g);       // 栅引线
+    el('line', { x1: gx, y1: cy - 26, x2: gx, y2: cy + 26, class: 'pc-w pc-fet-gate' }, g);
+
+    // 三段沟道（截止态：分段、暗）
+    var seg = [[cy - 26, cy - 12], [cy - 7, cy + 7], [cy + 12, cy + 26]];
+    seg.forEach(function (s) {
+      el('line', { x1: chx, y1: s[0], x2: chx, y2: s[1], class: 'pc-w pc-fet-seg' }, g);
+    });
+    // 导通态：整条沟道接通（叠加在分段之上）
+    var chan = el('line', {
+      x1: chx, y1: cy - 26, x2: chx, y2: cy + 26, class: 'pc-fet-chan'
+    }, g);
+
+    // 漏（上）/ 源（下）/ 衬底（中）引线
+    el('path', { d: 'M' + chx + ',' + (cy - 19) + ' H' + cx + ' V' + (cy - 30), class: 'pc-w' }, g);
+    el('path', { d: 'M' + chx + ',' + (cy + 19) + ' H' + cx + ' V' + (cy + 30), class: 'pc-w' }, g);
+    el('path', { d: 'M' + chx + ',' + cy + ' H' + cx, class: 'pc-w' }, g);
+    el('path', { d: 'M' + cx + ',' + cy + ' V' + (cy + 19), class: 'pc-w' }, g);
+    // 衬底箭头（指向沟道）
+    el('path', {
+      d: 'M' + (chx + 13) + ',' + (cy - 5) + ' L' + (chx + 13) + ',' + (cy + 5) + ' L' + (chx + 3) + ',' + cy + ' Z',
+      class: 'pc-fet-arrow'
+    }, g);
+
+    var lbl = el('text', {
+      x: cx + 16, y: cy + 52, class: 'pc-t pc-t-fetname', 'text-anchor': 'start', text: tag || ''
+    }, g);
+    return { g: g, chan: chan, lbl: lbl };
+  }
+
+  /* IEC 方框逻辑门：与门 "&"、与非门 "&"+圈、反相器 "1"+圈 */
+  function drawGate(layer, x, y, w, h, sym, bubble) {
+    var g = el('g', null, layer);
+    el('rect', { x: x, y: y, width: w, height: h, rx: 3, class: 'pc-box pc-box-logic' }, g);
+    el('text', {
+      x: x + w / 2, y: y + h / 2 + 7, class: 'pc-t pc-t-op', 'text-anchor': 'middle', text: sym
+    }, g);
+    if (bubble) el('circle', { cx: x + w + 6, cy: y + h / 2, r: 6, class: 'pc-bubble' }, g);
+    return g;
+  }
+
+  /* ============================================================
+     构图
+     ============================================================ */
+  function build(host) {
+    host.innerHTML = '';
+    var svg = el('svg', {
+      viewBox: '0 0 ' + G.W + ' ' + G.H, class: 'pc-svg', preserveAspectRatio: 'xMidYMid meet'
+    }, host);
+
+    var defs = el('defs', null, svg);
+    var glow = el('filter', { id: 'pcGlow', x: '-60%', y: '-60%', width: '220%', height: '220%' }, defs);
+    el('feGaussianBlur', { stdDeviation: '3.2', result: 'b' }, glow);
+    var mg = el('feMerge', null, glow);
+    el('feMergeNode', { in: 'b' }, mg); el('feMergeNode', { in: 'SourceGraphic' }, mg);
+
+    var L = {};
+    ['wire', 'flow', 'arrow', 'body', 'label', 'hit'].forEach(function (n) {
+      L[n] = el('g', { class: 'pc-l-' + n }, svg);
+    });
+
+    var reg = { parts: {}, flows: {}, txt: {}, svg: svg, L: L, fets: {} };
+
+    function wire(pts, cls, hops) {
+      return el('path', { d: poly(pts, hops), class: 'pc-w ' + (cls || '') }, L.wire);
+    }
+    function flow(id, pts, hops) {
+      var p = el('path', { d: poly(pts, hops), class: 'pc-f' }, L.flow);
+      reg.flows[id] = p; return p;
+    }
+    function dot(x, y, cls) { return el('circle', { cx: x, cy: y, r: 4.5, class: 'pc-dot ' + (cls || '') }, L.wire); }
+    function txt(id, x, y, s, cls, anchor) {
+      var t = el('text', { x: x, y: y, class: 'pc-t ' + (cls || ''), 'text-anchor': anchor || 'middle', text: s }, L.label);
+      if (id) reg.txt[id] = t; return t;
+    }
+    function part(name, node) {
+      (reg.parts[name] = reg.parts[name] || []).push(node);
+      node.classList.add('pc-part');
+      return node;
+    }
+    function partWire(name, pts, cls, hops) { return part(name, wire(pts, cls, hops)); }
+    /* 器件旁的常驻小注：写的都是恒成立的话，不随模式变 */
+    function note(x, y, s, anchor) { return txt(null, x, y, s, 'pc-t-note', anchor || 'start'); }
+    /* 结构分解编号徽章 ①②③④ */
+    function badge(x, y, n) {
+      var g = el('g', null, L.label);
+      el('circle', { cx: x, cy: y, r: 9.5, class: 'pc-badge' }, g);
+      el('text', { x: x, y: y + 4.5, class: 'pc-t pc-t-badge', 'text-anchor': 'middle', text: n }, g);
+      return g;
+    }
+
+    /* ===== 内部总线 ===== */
+    wire([[G.busX, 56], [G.busX, 586]], 'pc-bus');
+    el('text', {
+      x: 44, y: 320, class: 'pc-t pc-t-bus', 'text-anchor': 'middle',
+      transform: 'rotate(-90 44 320)', text: '内 部 总 线'
+    }, L.label);
+
+    /* ===== 锁存器 ===== */
+    el('rect', {
+      x: G.latch.x, y: G.latch.y, width: G.latch.w, height: G.latch.h, rx: 4, class: 'pc-box'
+    }, L.body);
+    txt(null, G.latch.x + G.latch.w / 2, G.latch.y - 14, '锁存器', 'pc-t-cap');
+    txt(null, G.D[0] + 20, G.D[1] + 6, 'D', 'pc-t-pin');
+    txt(null, G.CLK[0] + 32, G.CLK[1] + 6, 'CLK', 'pc-t-pin');
+    txt(null, G.Q[0] - 20, G.Q[1] + 6, 'Q', 'pc-t-pin');
+    // Q̄ 用真正的上划线，不用组合字符（等宽字体下组合字符常错位）
+    txt(null, G.QB[0] - 22, G.QB[1] + 6, 'Q', 'pc-t-pin');
+    el('line', {
+      x1: G.QB[0] - 30, y1: G.QB[1] - 9, x2: G.QB[0] - 14, y2: G.QB[1] - 9, class: 'pc-overbar'
+    }, L.label);
+    // 时钟三角（标准 D 触发器画法）
+    el('path', {
+      d: 'M' + G.CLK[0] + ',' + (G.CLK[1] - 9) + ' L' + (G.CLK[0] + 13) + ',' + G.CLK[1] +
+         ' L' + G.CLK[0] + ',' + (G.CLK[1] + 9) + ' Z', class: 'pc-clk'
+    }, L.body);
+    txt('vQ', G.Q[0] - 54, G.Q[1] + 6, '1', 'pc-t-val');
+    txt('vQB', G.QB[0] - 58, G.QB[1] + 6, '0', 'pc-t-val');
+    badge(G.latch.x + 14, G.latch.y - 16, '1');
+    note(G.latch.x, G.latch.y + G.latch.h + 18, '锁存 CPU 写入的数据位');
+
+    wire([[G.busX, G.D[1]], G.D]);
+    flow('fD', [[G.busX, G.D[1]], G.D]);
+    wire([[196, G.CLK[1]], G.CLK]);
+    txt(null, 190, G.CLK[1] + 6, '写锁存器', 'pc-t-sig', 'end');
+
+    /* ===== BUF2：读锁存器 ===== */
+    el('path', { d: 'M214,88 L214,136 L166,112 Z', class: 'pc-tri' }, L.body);
+    txt(null, 234, 106, 'BUF2', 'pc-t-buf', 'start');
+    txt(null, 190, 78, '读锁存器', 'pc-t-sig');
+    badge(224, 84, '2');
+    note(234, 128, '读的是写进去的值');
+    wire([[166, G.rdLatchY], [G.busX, G.rdLatchY]]);
+    wire([[214, G.rdLatchY], [G.tapX, G.rdLatchY], [G.tapX, G.Q[1]], G.Q]);
+    dot(G.tapX, G.Q[1]);
+    flow('fRdLatch', [G.Q, [G.tapX, G.Q[1]], [G.tapX, G.rdLatchY], [214, G.rdLatchY]]);
+    flow('fRdLatch2', [[166, G.rdLatchY], [G.busX, G.rdLatchY]]);
+
+    /* ===== BUF1：读引脚 ===== */
+    el('path', { d: 'M214,' + (G.rdPinY - 24) + ' L214,' + (G.rdPinY + 24) + ' L166,' + G.rdPinY + ' Z', class: 'pc-tri' }, L.body);
+    txt(null, 234, G.rdPinY - 6, 'BUF1', 'pc-t-buf', 'start');
+    txt(null, 190, G.rdPinY - 34, '读引脚', 'pc-t-sig');
+    badge(224, G.rdPinY - 28, '2');
+    note(234, G.rdPinY + 16, '读的是引脚上的实际电平');
+    wire([[166, G.rdPinY], [G.busX, G.rdPinY]]);
+    wire([[214, G.rdPinY], [G.tapDown, G.rdPinY]]);
+    dot(G.tapDown, G.rdPinY);
+    flow('fRdPin', [[G.tapDown, G.rdPinY], [214, G.rdPinY], [166, G.rdPinY], [G.busX, G.rdPinY]]);
+    wire([[G.tapDown, G.node[1]], [G.tapDown, G.rdPinY]]);
+    dot(G.tapDown, G.node[1]);
+
+    /* ===== 输出级 ===== */
+    wire([[G.drvX, 50], [G.drvX, 96]]);
+    el('path', { d: 'M' + (G.drvX - 16) + ',50 H' + (G.drvX + 16), class: 'pc-w pc-rail' }, L.wire);
+    txt(null, G.drvX, 36, 'Vcc', 'pc-t-cap');
+    badge(868, 60, '3');
+
+    // 上拉电阻 R（P1/P2/P3）
+    part('pullup', el('rect', { x: G.drvX - 14, y: 100, width: 28, height: 58, rx: 2, class: 'pc-res' }, L.body));
+    partWire('pullup', [[G.drvX, 158], [G.drvX, G.node[1]]]);
+    part('pullup', txt(null, 756, 126, '上拉电阻 R', 'pc-t-cap', 'end'));
+    part('pullup', note(756, 146, '管子截止时把引脚拉到高电平', 'end'));
+    part('pullup', flow('fPull', [[G.drvX, 50], [G.drvX, G.node[1]]]));
+
+    // 上管 FET（P0）
+    var f2 = drawFet(L.body, G.drvX, 132, 'FET（上管）');
+    reg.fets.v2 = f2.g; reg.fetLbl2 = f2.lbl;
+    part('v2', f2.g);
+    partWire('v2', [[G.drvX, 96], [G.drvX, 102]]);
+    partWire('v2', [[G.drvX, 162], [G.drvX, G.node[1]]]);
+    partWire('v2', [[G.gate2[0], G.gate2[1]], [G.drvX - 60, G.gate2[1]]]);
+    part('v2', flow('fV2', [[G.drvX, 50], [G.drvX, G.node[1]]]));
+    part('v2', txt('vV2', 756, 168, '截止', 'pc-t-fet', 'end'));
+    part('v2', txt('vG2', 744, 86, '栅极 0', 'pc-t-gate'));
+    part('v2', note(756, 190, '与门输出 1 时导通，把引脚推到 Vcc', 'end'));
+
+    // 下管 FET（全端口）
+    var f1 = drawFet(L.body, G.drvX, 304, 'FET（下管）');
+    reg.fets.v1 = f1.g; reg.fetLbl1 = f1.lbl;
+    wire([[G.drvX, G.node[1]], [G.drvX, 274]]);
+    wire([[G.drvX, 334], [G.drvX, G.gnd[1]]]);
+    wire([[G.gate1[0], G.gate1[1]], [G.drvX - 60, G.gate1[1]]]);
+    el('path', {
+      d: 'M' + (G.drvX - 20) + ',' + G.gnd[1] + ' H' + (G.drvX + 20) +
+         ' M' + (G.drvX - 12) + ',' + (G.gnd[1] + 9) + ' H' + (G.drvX + 12) +
+         ' M' + (G.drvX - 5) + ',' + (G.gnd[1] + 18) + ' H' + (G.drvX + 5),
+      class: 'pc-w pc-rail'
+    }, L.wire);
+    flow('fV1', [G.node, [G.drvX, G.gnd[1]]]);
+    txt('vV1', 756, 340, '截止', 'pc-t-fet', 'end');
+    txt('vG1', 700, 274, '栅极 0', 'pc-t-gate');
+    note(736, 368, '栅极为 1 时沟道导通', 'end');
+
+    /* ===== 引脚 ===== */
+    dot(G.node[0], G.node[1], 'pc-dot-node');
+    wire([G.node, [G.pinWireEnd, G.node[1]]]);
+    el('rect', { x: G.pinWireEnd, y: G.node[1] - 27, width: 92, height: 54, rx: 4, class: 'pc-pin' }, L.body);
+    txt('pinName', G.pinWireEnd + 46, G.node[1] - 4, 'P1.X', 'pc-t-pinname');
+    txt('pinVal', G.pinWireEnd + 46, G.node[1] + 18, '高电平 1', 'pc-t-pinval');
+
+    // 引脚被钳位的红色标记（"先写 1"踩坑时出现）
+    var clamp = el('g', { class: 'pc-clamp' }, L.body);
+    el('path', { d: 'M904,238 V300 M886,300 H922 M892,309 H916 M898,318 H910', class: 'pc-w pc-clamp-w' }, clamp);
+    el('text', { x: 904, y: 338, class: 'pc-t pc-t-clamp', 'text-anchor': 'middle', text: '被钳位' }, clamp);
+    reg.clamp = clamp;
+
+    // P0 专用：外接上拉电阻
+    var gR = el('g', { class: 'pc-extr' }, L.body);
+    el('path', { d: 'M986,146 V178 M970,146 H1002', class: 'pc-w pc-rail' }, gR);
+    el('rect', { x: 972, y: 178, width: 28, height: 22, rx: 2, class: 'pc-res pc-res-ext' }, gR);
+    el('path', { d: 'M986,200 V' + (G.node[1] - 27), class: 'pc-w pc-rail' }, gR);
+    el('text', { x: 986, y: 136, class: 'pc-t pc-t-extr', 'text-anchor': 'middle', text: '外接上拉 R' }, gR);
+    part('extr', gR);
+
+    /* ===== 加装：转换开关 MUX（刀开关，按教材图 2-6 / 2-8） ===== */
+    var mx = G.mux.x, my = G.mux.y, mw = G.mux.w, mh = G.mux.h;
+    part('mux', el('rect', { x: mx, y: my, width: mw, height: mh, rx: 3, class: 'pc-box pc-box-logic' }, L.body));
+    part('mux', txt(null, mx + mw / 2, my + mh / 2 + 5, 'MUX', 'pc-t-cap'));
+    // 两个触点
+    part('mux', el('circle', { cx: mx + 12, cy: G.muxIn0[1], r: 4.5, class: 'pc-contact' }, L.body));
+    part('mux', el('circle', { cx: mx + 12, cy: G.muxIn1[1], r: 4.5, class: 'pc-contact' }, L.body));
+    part('mux', txt(null, mx + 30, G.muxIn0[1] + 5, '0', 'pc-t-pin'));
+    part('mux', txt(null, mx + 30, G.muxIn1[1] + 5, '1', 'pc-t-pin'));
+    partWire('mux', [G.muxIn0, [mx + 12, G.muxIn0[1]]]);
+    partWire('mux', [G.muxIn1, [mx + 12, G.muxIn1[1]]]);
+    // 刀片：以输出端为支点，绕支点摆动
+    reg.blade = part('mux', el('line', {
+      x1: G.muxOut[0], y1: G.muxOut[1], x2: mx + 12, y2: G.muxOut[1], class: 'pc-blade'
+    }, L.body));
+    part('mux', el('circle', { cx: G.muxOut[0], cy: G.muxOut[1], r: 4, class: 'pc-pivot' }, L.body));
+    part('mux', txt('vMux', mx + 72, my + 96, '', 'pc-t-val'));
+    part('mux', badge(mx + 6, my - 14, '4'));
+    part('mux', note(mx + 64, my - 10, '控制信号决定刀片接哪一路'));
+
+    /* MUX 输出直通下管栅极（仅 P0） */
+    partWire('muxDirect', [G.muxOut, [G.gate1[0], G.muxOut[1]], G.gate1], '', [[G.ctrlX, G.muxOut[1]]]);
+    part('muxDirect', flow('fMuxOut', [G.muxOut, [G.gate1[0], G.muxOut[1]], G.gate1], [[G.ctrlX, G.muxOut[1]]]));
+
+    /* 控制信号 */
+    partWire('ctrl', [[G.muxSel[0], G.muxSel[1]], [G.muxSel[0], G.ctrlY]]);
+    partWire('ctrl', [[196, G.ctrlY], [G.muxSel[0], G.ctrlY]]);
+    part('ctrl', txt(null, 190, G.ctrlY + 6, '控制信号', 'pc-t-sig', 'end'));
+    part('ctrl', txt('vCtrl', 236, G.ctrlY - 14, '0', 'pc-t-val'));
+    part('ctrl', flow('fCtrl', [[196, G.ctrlY], [G.muxSel[0], G.ctrlY], G.muxSel]));
+    part('ctrl', dot(G.muxSel[0], G.ctrlY));
+    partWire('ctrlUp', [[G.muxSel[0], G.ctrlY], [G.ctrlX, G.ctrlY], [G.ctrlX, G.andIn1[1]], G.andIn1]);
+    part('ctrlUp', flow('fCtrlUp', [[G.muxSel[0], G.ctrlY], [G.ctrlX, G.ctrlY], [G.ctrlX, G.andIn1[1]], G.andIn1]));
+
+    /* ===== 加装：P2 反相器 ===== */
+    partWire('invp2', [G.muxOut, [556, 309]]);
+    part('invp2', drawGate(L.body, 556, 285, 48, 48, '1', true));
+    partWire('invp2', [G.invOut, [G.gate1[0], 309], G.gate1]);
+    part('invp2', flow('fInvP2', [G.muxOut, [G.gate1[0], 309], G.gate1]));
+
+    /* ===== 加装：P3 与非门 ===== */
+    part('nand', drawGate(L.body, 480, 258, 74, 100, '&', true));
+    part('nand', txt(null, 517, 372, '与非门', 'pc-t-cap'));
+    part('nand', note(566, 250, '第二功能输出端 = 1 时，等效为反相器'));
+    partWire('qToNand', [G.Q, [G.tapX, G.Q[1]], [G.tapX, G.nandIn1[1]], G.nandIn1]);
+    part('qToNand', flow('fQNand', [G.Q, [G.tapX, G.Q[1]], [G.tapX, G.nandIn1[1]], G.nandIn1]));
+    partWire('nand', [G.nandOut, [G.gate1[0], G.nandOut[1]], G.gate1]);
+    part('nand', flow('fNand', [G.nandOut, [G.gate1[0], G.nandOut[1]], G.gate1]));
+    part('nand', txt('vNand', 590, 286, '', 'pc-t-val'));
+
+    partWire('sfout', [[196, G.sigY], G.nandIn2]);
+    part('sfout', txt(null, 190, G.sigY + 6, '第二功能输出', 'pc-t-sig', 'end'));
+    part('sfout', txt('vSfo', 250, G.sigY - 14, '1', 'pc-t-val'));
+    part('sfout', flow('fSfo', [[196, G.sigY], G.nandIn2]));
+
+    /* ===== 加装：P3 BUF3 第二功能输入 ===== */
+    part('sfin', el('path', {
+      d: 'M386,' + (G.sfInY - 22) + ' L386,' + (G.sfInY + 22) + ' L338,' + G.sfInY + ' Z', class: 'pc-tri'
+    }, L.body));
+    part('sfin', txt(null, 406, G.sfInY - 4, 'BUF3', 'pc-t-buf', 'start'));
+    part('sfin', badge(396, G.sfInY - 26, '2'));
+    part('sfin', note(406, G.sfInY + 16, '第二功能输入，不经过锁存器'));
+    partWire('sfin', [[386, G.sfInY], [G.tapDown, G.sfInY]]);
+    partWire('sfin', [[338, G.sfInY], [196, G.sfInY]]);
+    partWire('sfin', [[G.tapDown, G.rdPinY], [G.tapDown, G.sfInY]]);
+    part('sfin', dot(G.tapDown, G.sfInY));
+    part('sfin', txt(null, 190, G.sfInY + 6, '第二功能输入', 'pc-t-sig', 'end'));
+    part('sfin', flow('fSfin', [[G.tapDown, G.sfInY], [386, G.sfInY], [338, G.sfInY], [196, G.sfInY]]));
+
+    /* ===== 加装：P2 地址高 8 位 ===== */
+    partWire('addrHi', [[196, G.sigY], G.muxIn1]);
+    part('addrHi', txt(null, 190, G.sigY + 6, '地址高 8 位', 'pc-t-sig', 'end'));
+    part('addrHi', txt('vAddrHi', 250, G.sigY - 14, '', 'pc-t-val'));
+    part('addrHi', flow('fAddrHi', [[196, G.sigY], G.muxIn1]));
+
+    /* ===== 加装：P0 地址/数据输出 + 反相器 ===== */
+    partWire('addrData', [[196, G.sigY], [404, G.sigY]]);
+    part('addrData', drawGate(L.body, 404, 318, 40, 44, '1', true));
+    partWire('addrData', [[456, G.sigY], G.muxIn1]);
+    part('addrData', txt(null, 190, G.sigY + 6, '地址/数据输出', 'pc-t-sig', 'end'));
+    part('addrData', txt('vAd', 250, G.sigY - 14, '', 'pc-t-val'));
+    part('addrData', flow('fAd', [[196, G.sigY], [404, G.sigY]]));
+
+    /* ===== 加装：P0 与门 → 上管栅极 ===== */
+    part('and', drawGate(L.body, 658, 102, 58, 60, '&', false));
+    partWire('and', [G.andOut, G.gate2]);
+    part('and', flow('fAnd', [G.andOut, G.gate2]));
+    partWire('and', [[596, G.andIn2[1]], G.andIn2]);
+    part('and', txt(null, 590, G.andIn2[1] + 5, '地址/数据输出', 'pc-t-sig2', 'end'));
+    part('and', txt('vAnd', 700, 92, '', 'pc-t-val'));
+    part('and', note(652, 76, '控制信号 = 0 时输出恒为 0，上管被锁死', 'end'));
+
+    /* ===== 栅极前级 ===== */
+    partWire('qbDirect', [G.QB, [G.gate1[0], G.QB[1]], G.gate1]);
+    part('qbDirect', flow('fQb', [G.QB, [G.gate1[0], G.QB[1]], G.gate1]));
+    partWire('qToMux', [G.Q, [G.tapX, G.Q[1]], [G.tapX, G.muxIn0[1]], G.muxIn0]);
+    part('qToMux', flow('fQMux', [G.Q, [G.tapX, G.Q[1]], [G.tapX, G.muxIn0[1]], G.muxIn0]));
+    partWire('qbToMux', [G.QB, [G.tapX, G.QB[1]], [G.tapX, G.muxIn0[1]], G.muxIn0]);
+    part('qbToMux', flow('fQbMux', [G.QB, [G.tapX, G.QB[1]], [G.tapX, G.muxIn0[1]], G.muxIn0]));
+
+    /* ===== 图下注释带：结构分解 + 本模式信号链 ===== */
+    el('path', { d: 'M72,' + (G.legendY - 26) + ' H1010', class: 'pc-w pc-sep' }, L.wire);
+    txt(null, 72, G.legendY, '结构', 'pc-t-bandk', 'start');
+    txt('legend', 140, G.legendY, '', 'pc-t-legend', 'start');
+    txt(null, 72, G.chainY, '信号链', 'pc-t-bandk', 'start');
+    txt('chain', 140, G.chainY, '', 'pc-t-chain', 'start');
+
+    flow('fExt', [[G.pinWireEnd, G.node[1]], G.node]);
+
+    /* ===== 点选热区：透明矩形盖在器件上，点哪个讲哪个 ===== */
+    reg.ring = el('rect', { x: 0, y: 0, width: 0, height: 0, rx: 9, class: 'pc-ring' }, L.hit);
+    function hit(name, x, y, w, h, key) {
+      var r = el('rect', { x: x, y: y, width: w, height: h, class: 'pc-hit', 'data-ex': key }, L.hit);
+      if (name) part(name, r);
+      return r;
+    }
+    hit(null, 54, 56, 36, 530, 'bus');
+    hit(null, 262, 168, 196, 148, 'latch');
+    hit(null, 154, 76, 152, 66, 'buf2');
+    hit(null, 154, 452, 152, 66, 'buf1');
+    hit('sfin', 326, 528, 158, 64, 'buf3');
+    hit('pullup', 754, 86, 96, 90, 'pullup');
+    hit('v2', 754, 86, 96, 90, 'fet2');
+    hit(null, 754, 260, 96, 92, 'fet1');
+    hit('mux', 470, 238, 76, 140, 'mux');
+    hit('nand', 470, 248, 104, 118, 'nand');
+    hit('and', 648, 92, 80, 80, 'and');
+    hit('invp2', 546, 276, 78, 64, 'invp2');
+    hit('addrData', 394, 308, 64, 62, 'invad');
+    hit(null, 932, 204, 104, 68, 'pin');
+
+    return reg;
+  }
+
+  /* ============================================================
+     实例
+     ============================================================ */
+  function PortCell(host) {
+    this.host = host;
+    this.reg = build(host);
+    this.port = 'P1';
+    this.mode = MODES.P1[0];
+    this.st = {};
+    this.onChange = null;
+  }
+
+  PortCell.prototype.setPort = function (p) {
+    if (!PORTS[p]) return;
+    this.port = p;
+    var meta = PORTS[p], want = meta.parts, reg = this.reg;
+    Object.keys(reg.parts).forEach(function (name) {
+      var on = want.indexOf(name) >= 0;
+      reg.parts[name].forEach(function (n) { n.classList.toggle('pc-off', !on); });
+    });
+    reg.txt.pinName.textContent = p + '.X';
+    reg.fetLbl1.textContent = (p === 'P0') ? 'FET（下管）' : 'FET';
+    reg.txt.legend.textContent = LEGEND[p] || '';
+    this.focus(null);
+    this.host.setAttribute('data-port', p);
+    this.setMode(MODES[p][0]);
+    return meta;
+  };
+
+  PortCell.prototype.modes = function () { return MODES[this.port]; };
+  PortCell.prototype.meta = function () { return PORTS[this.port]; };
+
+  PortCell.prototype.setMode = function (mode) {
+    if (typeof mode === 'string') {
+      var list = MODES[this.port];
+      for (var i = 0; i < list.length; i++) if (list[i].id === mode) { mode = list[i]; break; }
+    }
+    this.mode = mode;
+    this.st = Object.assign({}, mode.st, { needR: !!mode.needR });
+    this.render();
+  };
+
+  PortCell.prototype.poke = function (k, v) { this.st[k] = v; this.render(); };
+
+  /* 沿点亮的通路铺方向箭头：虚线只能表示"有电流"，箭头才说得清"往哪儿流" */
+  function drawArrows(reg) {
+    var layer = reg.L.arrow;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    Object.keys(reg.flows).forEach(function (k) {
+      var p = reg.flows[k];
+      if (!p.classList.contains('pc-live')) return;
+      var len;
+      try { len = p.getTotalLength(); } catch (e) { return; }
+      if (!len || len < 60) return;
+      var n = Math.max(1, Math.min(4, Math.round(len / 170)));
+      for (var i = 1; i <= n; i++) {
+        var at = len * i / (n + 1);
+        var a = p.getPointAtLength(at), b = p.getPointAtLength(Math.min(len, at + 3));
+        var ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        el('path', {
+          d: 'M-5.5,-4.6 L6.5,0 L-5.5,4.6 Z', class: 'pc-arrow',
+          transform: 'translate(' + a.x.toFixed(1) + ',' + a.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')'
+        }, layer);
+      }
+    });
+  }
+
+  /* 只换状态类，保留 pc-part / pc-off —— 直接 setAttribute('class') 会把显隐类洗掉 */
+  function setState(node, on, offCls) {
+    node.classList.remove('pc-on', 'pc-cut', 'pc-hi', 'pc-lo', 'pc-z');
+    node.classList.add(on ? 'pc-on' : offCls);
+  }
+
+  PortCell.prototype.render = function () {
+    var r = solve(this.port, this.st), reg = this.reg, mode = this.mode, port = this.port, T = reg.txt;
+
+    T.vQ.textContent = r.q;
+    T.vQB.textContent = r.qb;
+    if (T.vCtrl) T.vCtrl.textContent = r.ctrl;
+    if (T.vSfo) T.vSfo.textContent = r.sfo;
+    if (T.vAddrHi) T.vAddrHi.textContent = r.ad;
+    if (T.vAd) T.vAd.textContent = r.ad;
+    if (T.vMux) T.vMux.textContent = (r.muxOut === null ? '' : r.muxOut);
+    if (T.vNand) T.vNand.textContent = (r.nandOut === null ? '' : r.nandOut);
+    if (T.vAnd) T.vAnd.textContent = (r.andOut === null ? '' : r.andOut);
+
+    T.vG1.textContent = '栅极 ' + r.g1;
+    if (T.vG2) T.vG2.textContent = '栅极 ' + r.g2;
+    var isTrapped = !!mode.trap && r.q === 0;
+    T.chain.textContent = CHAINS[port + '.' + mode.id + (isTrapped ? '!' : '')]
+                       || CHAINS[port + '.' + mode.id] || '';
+    T.vV1.textContent = r.v1 ? '导通' : '截止';
+    setState(T.vV1, r.v1, 'pc-cut');
+    if (T.vV2) { T.vV2.textContent = r.v2 ? '导通' : '截止'; setState(T.vV2, r.v2, 'pc-cut'); }
+
+    /* 通断画在器件本身上：沟道接通 / 断开（类打在整只管子上，不依赖 :has()） */
+    reg.fets.v1.classList.toggle('pc-fet-on', r.v1);
+    reg.fets.v2.classList.toggle('pc-fet-on', r.v2);
+
+    /* 刀开关摆动：控制 = 0 打到触点 0（上），= 1 打到触点 1（下） */
+    if (reg.blade) reg.blade.style.transform = 'rotate(' + (r.ctrl ? 40.7 : -40.7) + 'deg)';
+
+    var pinTxt = r.z ? '高阻 / 浮空'
+      : (r.pin === 1 ? '高电平 1' : (r.pin === 0 ? '低电平 0' : '—'));
+    T.pinVal.textContent = pinTxt;
+    T.pinVal.classList.remove('pc-hi', 'pc-lo', 'pc-z');
+    T.pinVal.classList.add(r.z ? 'pc-z' : (r.pin ? 'pc-hi' : 'pc-lo'));
+
+    /* ---- 通路点亮 ---- */
+    var f = reg.flows;
+    Object.keys(f).forEach(function (k) { f[k].classList.remove('pc-live'); });
+    function on(k) { if (f[k]) f[k].classList.add('pc-live'); }
+
+    if (mode.fn !== 'in') on('fD');
+    if (port === 'P1') on('fQb');
+    else if (port === 'P2') { on('fQMux'); on('fInvP2'); on('fCtrl'); if (r.ctrl) on('fAddrHi'); }
+    else if (port === 'P3') { on('fQNand'); on('fNand'); on('fSfo'); }
+    else { on('fQbMux'); on('fMuxOut'); on('fCtrl'); on('fCtrlUp'); on('fAnd'); if (r.ctrl) on('fAd'); }
+
+    if (r.v1) on('fV1');
+    if (r.v2) on('fV2');
+    if (!r.v1 && r.pullup && r.pin === 1 && (this.st.ext === null || this.st.ext === undefined)) on('fPull');
+
+    if (mode.rd === 'latch') { on('fRdLatch'); on('fRdLatch2'); }
+    else if (mode.rd === 'sf') on('fSfin');
+    else if (mode.id === 'in' || mode.id === 'gin') on('fRdPin');
+    if (mode.fn === 'in') on('fSfin');
+    if ((this.st.ext === 0 || this.st.ext === 1) && !r.v1 && !r.v2) on('fExt');
+
+    drawArrows(reg);
+
+    var needR = port === 'P0' && (mode.id === 'gout1' || mode.id === 'gout0' || mode.id === 'gin');
+    reg.parts.extr.forEach(function (n) { n.classList.toggle('pc-off', !needR); });
+
+    var trapped = isTrapped;
+    reg.clamp.classList.toggle('pc-show', trapped);
+    this.host.classList.toggle('pc-trapped', trapped);
+
+    var readBack = mode.trap ? (r.z ? this.st.ext : r.pin) : null;
+
+    if (this.onChange) this.onChange({
+      port: port, mode: mode, s: r, trapped: trapped,
+      readBack: readBack, ext: this.st.ext, needR: needR
+    });
+  };
+
+  /* 聚焦某个器件：画高亮环并返回释义；传 null 取消 */
+  PortCell.prototype.focus = function (key) {
+    var reg = this.reg, ring = reg.ring;
+    var h = key && reg.svg.querySelector('.pc-hit[data-ex="' + key + '"]:not(.pc-off)');
+    if (!h) { ring.setAttribute('width', 0); this.focusKey = null; return null; }
+    ring.setAttribute('x', +h.getAttribute('x') - 5);
+    ring.setAttribute('y', +h.getAttribute('y') - 5);
+    ring.setAttribute('width', +h.getAttribute('width') + 10);
+    ring.setAttribute('height', +h.getAttribute('height') + 10);
+    this.focusKey = key;
+    return EXPLAIN[key] || null;
+  };
+
+  PortCell.EXPLAIN = EXPLAIN;
+  PortCell.PORTS = PORTS;
+  PortCell.MODES = MODES;
+  global.PortCell = PortCell;
+
+})(window);
+
+</script>
+<script>
+KP({
+  unit: '单元 2 · 硬件结构',
+  unitEn: 'KNOWLEDGE POINT · I/O PORT',
+  kp: 'I/O 接口：四张位结构图其实是同一张图',
+  lead: '教材把 P0、P1、P2、P3 画成四张各不相同的位结构图（图 2-5 ~ 2-8），于是很多同学背了四遍。' +
+        '它们其实共用**同一副骨架**——一个 D 锁存器、一只场效应管、两只三态缓冲器 BUF1 / BUF2。' +
+        '四个口的全部差异，只是在这副骨架上**加装了不同的零件**。看清加了什么，' +
+        '功能差异和使用禁忌就都是推出来的，不是背出来的。',
+  meta: [['大纲　', '第 2 章 80C51 基本结构'], ['教材　', '图 2-5 ~ 2-8、表 2-1'], ['用时　', '约 12 分钟']],
+
+  teach: {
+    intro: '下面这张图会随端口变形。**注意看加装模块是怎么滑进滑出的**——' +
+           '这是整个知识点的关键：四张图不是四个东西，是一个东西的四种装配。',
+    title: '位结构对照 · 可切换',
+    caption: '点图上任一器件（锁存器、BUF1／BUF2、场效应管、上拉电阻、MUX、逻辑门、引脚）可看它的作用',
+    steps: [
+      '**P1 是基准**：锁存器 Q̄ 直接驱动场效应管，上方一只上拉电阻 R 把高电平顶上去。',
+      '**P2 = P1 + 转换开关 MUX**：控制信号 = 0 走锁存器，就是 P1；= 1 改走地址高 8 位。',
+      '**P3 = P1 + 与非门 + BUF3**：不用第二功能时第二功能输出端自动置 1，与非门退化成反相器，又变回 P1。',
+      '**P0 = 换上管**：把上拉电阻换成一只可控的上管。真双向三态、8 个 TTL 驱动、' +
+      '作通用口必须外接上拉，全从这一处改动来。'
+    ]
+  },
+
+  pitfalls: [
+    {
+      q: '"准双向口作输入前要先写 1"——这是一条要背的规矩吗？',
+      say: '记成一条孤立的口诀：读引脚之前先写 1，不写就读不对。',
+      why: '当成口诀背，就没法迁移。其实它是电路的必然结果，不是额外规定。' +
+           '锁存器写 0 时 Q̄ = 1，栅极被拉高，场效应管**导通**，引脚经沟道直接接地——' +
+           '被死死钳在低电平。外部电路无论给 1 还是给 0，引脚都是 0。',
+      right: '先写 1 → Q̄ = 0 → 栅极 0 → 管子**截止** → 引脚才脱开地、交给外部电路支配。' +
+             '这条规矩对 P0/P1/P2/P3 一律成立，因为四个口的下管是同一只。' +
+             '在左边把工作模式切到"输入"，再把锁存器写成 0，整张图会变红、引脚旁出现"被钳位"标记。'
+    },
+    {
+      q: 'P0 为什么"必须外接上拉电阻"，而 P1/P2/P3 不用？',
+      say: 'P0 比较特殊，记住它要外接上拉就行。',
+      why: '说"特殊"等于没解释。差别只有一处：P1/P2/P3 上方挂着一只**片内上拉电阻 R**，' +
+           'P0 把这只电阻换成了一只**可控的上管**。',
+      right: '作通用 I/O 口时控制信号 = 0，与门被锁死输出 0，**上管截止**；' +
+             '锁存器写 1 时下管也截止。两管全断 = 漏极开路，片内没有任何器件能把引脚顶到高电平，' +
+             '只能靠外接电阻。——注意：只有输出**高**电平才依赖它；输出低电平靠下管导通，不需要。' +
+             '而做地址/数据总线时控制信号 = 1，上管参与工作，是推挽输出，反而不需要外接。'
+    },
+    {
+      q: '为什么只有 P0 叫"真双向口"，另外三个叫"准双向口"？',
+      say: '双向就是能进能出，四个口都能进能出，叫法不同只是习惯。',
+      why: '"准"字卡在**高阻态**上，不是能不能双向。P1/P2/P3 的上拉电阻 R 始终挂在那里，' +
+           '即使管子截止，引脚也被 R 轻轻拉向高电平——它**永远到不了悬空**。',
+      right: 'P0 的上管可以被控制信号关断。两管同时截止时引脚真正悬空，呈**高阻态**，' +
+             '这才是三态里的第三态。所以只有 P0 是真双向（三态）口，其余三个只能叫准双向口。' +
+             '教材原话：先在 P0 口锁存器中写入一个"1"，使 2 个场效应管截止，这种情况下它能用作一个高阻输入。'
+    },
+    {
+      q: '`MOV A,P1` 和 `ORL P1,#0FH` 都在"读 P1"，读到的是同一个东西吗？',
+      say: '都是读 P1，当然一样。',
+      why: '不一样，走的是两只不同的缓冲器。引脚电平和锁存器里的值**可以不同**——' +
+           '比如 P1 某位接了三极管基极，锁存器里写的是 1，引脚却被外部电路拉到了低电平。',
+      right: '`MOV A,P1` 这类**读端口**指令打开 **BUF1**，读引脚上的真实电平；' +
+             '`ORL/ANL/CPL` 这类**读—改—写**指令打开 **BUF2**，读锁存器里写进去的值。' +
+             '后者这样设计正是为了避开上面那个陷阱——否则会把本来写进去的 1 误读成 0，' +
+             '"改"完再写回去就错了。'
+    }
+  ],
+
+  quiz: [
+    { q: 'P0 口作通用 I/O 口输出**高**电平时，必须（　）。',
+      o: ['外接上拉电阻', '外接下拉电阻', '外接限流电阻', '什么都不用接'], a: 0,
+      x: '控制信号 = 0 时与门输出 0，上管截止；锁存器写 1 时下管也截止。两管全断是漏极开路，' +
+         '片内没有器件能把引脚顶到高电平。注意只有输出高电平依赖它——输出低电平靠下管导通，不需要。' },
+    { q: '准双向口作输入口使用前必须先向锁存器写 1，根本原因是（　）。',
+      o: ['写 1 可以清除端口的旧数据', '若锁存器为 0，管子导通会把引脚钳在低电平',
+          '写 1 才能打开 BUF1 三态缓冲器', '写 1 可以提高端口的驱动能力'], a: 1,
+      x: '锁存器为 0 时 Q̄ = 1，栅极被拉高，场效应管导通，引脚被直接接到地。' +
+         '外部信号无论高低，读回来都是 0。写 1 让管子截止，引脚才交给外部电路支配。' },
+    { q: '执行 `ORL P1,#0FH` 时，CPU 从 P1 口读取的是（　）。',
+      o: ['引脚上的实际电平，经 BUF1', '锁存器中的值，经 BUF2', '两者相与的结果', '不读取，直接写入'], a: 1,
+      x: '读—改—写类指令走 BUF2 读锁存器。这样设计是为了避开一个陷阱：若 P1 某位接了三极管基极，' +
+         '引脚电平会被外部电路拉低，读引脚就会把本来写进去的 1 误读成 0。' }
+  ],
+
+  source: '教材《微控制器原理及接口控制技术》第 2 章 2.4 并行 I/O 口，图 2-5 ~ 2-8、表 2-1；标注与教材逐处对齐（BUF1/BUF2/BUF3、CLK、上拉电阻 R）。',
+  note: '图中"结构"一行按教材"××口位电路由 N 个部分组成"分解；"信号链"一行把从内部总线到引脚的因果链串成一句话。'
+});
+
+/* ---------- 讲解区：接上位电路引擎 ---------- */
+(function () {
+  var host = document.createElement('div');
+  KP.stage.appendChild(host);
+  var cell = new PortCell(host);
+
+  /* 模式按钮容器要先建：KP.buttons 会立即触发一次回调 */
+  var modeRow = document.createElement('span');
+  modeRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;' +
+    'border-left:1px solid rgba(255,255,255,.1);margin-left:4px;padding-left:12px';
+
+  /* 端口按钮 */
+  KP.buttons(
+    [{ k: 'P1', t: 'P1' }, { k: 'P2', t: 'P2' }, { k: 'P3', t: 'P3' }, { k: 'P0', t: 'P0' }],
+    function (p) { setPort(p); }, 'P1');
+  KP.ctl.appendChild(modeRow);
+
+  function setPort(p) {
+    var meta = cell.setPort(p);
+    modeRow.innerHTML = '';
+    cell.modes().forEach(function (m, i) {
+      var b = document.createElement('button');
+      b.className = 'kp-btn' + (i === 0 ? ' on' : '');
+      b.textContent = m.label;
+      b.onclick = function () {
+        Array.prototype.forEach.call(modeRow.children, function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        cell.setMode(m.id);
+      };
+      modeRow.appendChild(b);
+    });
+    cell.setMode(cell.modes()[0].id);
+    KP.say('**' + meta.name + '　' + meta.tag + '**（' + meta.fig + '）　' + meta.blurb);
+  }
+
+  cell.onChange = function (e) {
+    var s = e.s;
+    KP.setReads([
+      ['锁存器 Q', String(s.q), s.q ? 'hi' : 'lo'],
+      ['下管 FET', s.v1 ? '导通' : '截止', s.v1 ? 'hi' : 'lo'],
+      ['上管 FET', s.hasV2 ? (s.v2 ? '导通' : '截止') : '—　无此管', s.hasV2 && s.v2 ? 'hi' : 'lo'],
+      ['引脚电平', s.z ? '高阻浮空' : (s.pin === 1 ? '高电平 1' : (s.pin === 0 ? '低电平 0' : '—')),
+        s.z ? 'gold' : (e.trapped ? 'warn' : (s.pin ? 'hi' : 'lo'))]
+    ]);
+    if (e.trapped) {
+      KP.say('**踩坑了。**锁存器里是 0，管子一直导通，把引脚死死钳在低电平——' +
+        '外部给 1 给 0 都没用，读回来恒为 0。这就是"作输入前必须先写 1"的全部原因。');
+    } else {
+      KP.say('**' + cell.meta().name + '　' + e.mode.label + '**　' + e.mode.note);
+    }
+  };
+
+  /* 点器件出释义 */
+  host.addEventListener('click', function (ev) {
+    var hit = ev.target.closest ? ev.target.closest('.pc-hit') : null;
+    if (!hit) { cell.focus(null); return; }
+    var info = cell.focus(hit.getAttribute('data-ex'));
+    if (info) KP.say('**' + info[0] + '**　' + info[1]);
+  });
+
+  setPort('P1');
+})();
+</script>
+</body>
+</html>

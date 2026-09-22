@@ -13,6 +13,7 @@ const publicPaths = [
   '/welcome', 
   '/privacy',
   '/terms',
+  '/lesson-notes',
   '/clear-auth',
   '/api/auth/login',
   '/api/auth/register',

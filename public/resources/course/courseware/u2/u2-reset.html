@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>复位系统｜单元 2 硬件结构（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+</style>
+<!-- 内联自 lib/kp-figs.css -->
+<style>
+/* ============================================================
+   kp-figs.css · 把已有三套图形引擎（portcell / clockreset / mcustruct）
+   的配色换成平台色系，使插图与站点同源。
+   引擎的类名一律不动，只重写外观。
+   ============================================================ */
+
+/* ---------- 通用 ---------- */
+.pc-svg,.cr-svg,.ms-svg{width:100%;height:auto;display:block}
+.pc-w,.cr-w,.ms-w{fill:none;stroke:rgba(203,213,225,.34);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.cr-thick{stroke-width:3}
+.pc-bus,.cr-bus{stroke:rgba(241,245,249,.55);stroke-width:3.4}
+.pc-rail,.cr-rail{stroke:rgba(203,213,225,.34)}
+
+.pc-box,.cr-box,.ms-box{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.pc-box-logic,.cr-chip,.ms-box.ms-cpu{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34)}
+.pc-tri,.cr-tri{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-tri-logic{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34);stroke-width:1.8}
+.pc-bubble,.cr-bubble{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-res,.cr-res{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-res-ext{stroke:rgba(252,211,77,.55);stroke-dasharray:5 4}
+.cr-xtal{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:1.8}
+.pc-dot,.cr-dot{fill:rgba(203,213,225,.5)}
+.pc-dot-node{fill:var(--c1);r:5}
+.pc-pin{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:2}
+.pc-extr .pc-w{stroke:rgba(252,211,77,.5)}
+.pc-overbar,.pc-clk{stroke:rgba(241,245,249,.6);stroke-width:1.6}
+.pc-contact{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-pivot{fill:var(--c1)}
+.cr-key{stroke:var(--c3)}
+.cr-grid,.ms-grp{stroke:rgba(255,255,255,.1)}
+.ms-grp{fill:rgba(255,255,255,.015);stroke-width:1.4;stroke-dasharray:6 5}
+.ms-grp-alu{stroke:rgba(252,211,77,.3)}.ms-grp-ctl{stroke:rgba(103,232,249,.3)}
+.ms-bus{fill:rgba(252,211,77,.08);stroke:rgba(252,211,77,.38);stroke-width:1.8}
+.ms-chip{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-notch{fill:#070a0d;stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-arrhead{fill:rgba(203,213,225,.34)}
+.ms-pinpad{fill:rgba(203,213,225,.34)}
+.ms-pinw{stroke-width:2.4}
+.ms-pin{transition:opacity .25s}.ms-pin.ms-dim{opacity:.2}
+.ms-pwr .ms-pinw,.ms-pwr .ms-pinpad{stroke:var(--slate400);fill:var(--slate400)}
+.ms-clk .ms-pinw,.ms-clk .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+.ms-ctl .ms-pinw,.ms-ctl .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io0 .ms-pinw,.ms-io0 .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io1 .ms-pinw,.ms-io1 .ms-pinpad{stroke:var(--c1);fill:var(--c1)}
+.ms-io2 .ms-pinw,.ms-io2 .ms-pinpad{stroke:var(--c4);fill:var(--c4)}
+.ms-io3 .ms-pinw,.ms-io3 .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+
+/* ---------- 场效应管：导通/截止画在器件上 ---------- */
+.pc-fet-gate{stroke:rgba(241,245,249,.62);stroke-width:2.6}
+.pc-fet-seg{stroke:rgba(203,213,225,.34);stroke-width:2.6;transition:opacity .3s}
+.pc-fet-arrow{fill:rgba(203,213,225,.34);transition:fill .3s}
+.pc-fet-chan{stroke:var(--c1);stroke-width:4.2;opacity:0;transition:opacity .28s;stroke-linecap:round}
+.pc-fet.pc-fet-on .pc-fet-chan{opacity:1}
+.pc-fet.pc-fet-on .pc-fet-seg{opacity:0}
+.pc-fet.pc-fet-on .pc-fet-arrow{fill:var(--c1)}
+
+/* ---------- 刀开关 ---------- */
+.pc-blade{stroke:var(--c1);stroke-width:3.2;stroke-linecap:round;
+  transform-box:view-box;transform-origin:536px 309px;
+  transition:transform .42s cubic-bezier(.34,1.3,.5,1)}
+
+/* ---------- 钳位标记 ---------- */
+.pc-clamp{opacity:0;transition:opacity .3s;pointer-events:none}
+.pc-clamp.pc-show{opacity:1}
+.pc-clamp-w{stroke:var(--c5);stroke-width:2.2}
+.pc-t-clamp{font-size:11px;font-weight:600;fill:var(--c5)}
+
+/* ---------- 文字 ---------- */
+.pc-t,.cr-t,.ms-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.pc-t-bus{font-size:12px;font-weight:600;letter-spacing:.24em;fill:var(--muted-fg)}
+.pc-t-cap,.cr-t-cap,.cr-t-fig,.ms-t-s{font-size:11.5px;font-weight:500;fill:var(--muted-fg)}
+.pc-t-pin,.cr-t-pin,.ms-t-b{font-size:13px;font-weight:600;fill:var(--slate100)}
+.ms-t-b{font-size:13.5px}
+.pc-t-buf{font-size:12px;font-weight:700;fill:var(--c1);letter-spacing:.04em}
+.pc-t-sig,.cr-t-ref,.ms-t-row{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-sig2,.pc-t-note,.cr-t-note,.ms-t-ext{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.pc-t-op{font-size:18px;font-weight:700;fill:var(--c1)}
+.pc-t-val,.pc-t-gate,.cr-t-hl,.ms-t-bus{font-size:14px;font-weight:700;fill:var(--c3)}
+.pc-t-gate{font-size:11.5px}
+.ms-t-bus{font-size:12.5px;letter-spacing:.2em}
+.pc-t-fet,.cr-t-fet{font-size:11.5px;font-weight:600;fill:var(--muted-fg)}
+.pc-t-fetname,.cr-t-chip2{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-pinname,.cr-t-chip,.ms-t-chip{font-size:15px;font-weight:700;fill:var(--c1)}
+.ms-t-chip{font-size:20px;fill:rgba(241,245,249,.75)}
+.pc-t-pinval{font-size:11.5px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-extr{font-size:11px;font-weight:600;fill:var(--c3)}
+.pc-badge,.ms-t-grp{fill:#0f1115;stroke:var(--c1);stroke-width:1.6}
+.ms-t-grp{fill:var(--muted-fg);stroke:none;font-size:11.5px;font-weight:700;letter-spacing:.14em}
+.pc-t-badge{font-size:10.5px;font-weight:700;fill:var(--c1)}
+.pc-sep{stroke:rgba(255,255,255,.12);stroke-width:1.4;stroke-dasharray:4 5}
+.pc-t-bandk{font-size:10px;font-weight:600;fill:var(--muted-fg);letter-spacing:.14em}
+.pc-t-legend{font-size:11.5px;font-weight:500;fill:rgba(203,213,225,.86)}
+.pc-t-chain{font-size:12px;font-weight:600;fill:var(--c1)}
+.cr-t-cell,.ms-t-cell{font-size:11px;font-weight:600;fill:rgba(203,213,225,.82)}
+.cr-t-big{font-size:14px;font-weight:700;fill:var(--c1)}
+.cr-wave{fill:none;stroke:var(--c1);stroke-width:2.2}
+.cr-cell{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.12);stroke-width:1.4}
+.cr-cell-m{stroke:rgba(103,232,249,.4);fill:rgba(103,232,249,.05)}
+.cr-cell-on{stroke:rgba(252,211,77,.45);fill:rgba(252,211,77,.08)}
+
+/* ---------- 状态色 ---------- */
+.pc-on,.pc-hi{fill:var(--c1)!important}
+.pc-cut,.pc-lo{fill:var(--muted-fg)!important}
+.pc-z{fill:var(--c3)!important}
+
+/* ---------- 通路流动与方向箭头 ---------- */
+.pc-f,.cr-f{fill:none;stroke:var(--c1);stroke-width:3;stroke-linecap:round;
+  opacity:0;stroke-dasharray:14 12;transition:opacity .3s}
+.pc-f.pc-live,.cr-f.cr-live{opacity:.95;animation:kpDash .85s linear infinite}
+@keyframes kpDash{to{stroke-dashoffset:-26}}
+.pc-arrow{fill:var(--c1);opacity:.95}
+.pc-trapped .pc-f.pc-live{stroke:var(--c5)}
+.pc-trapped .pc-arrow{fill:var(--c5)}
+.pc-trapped .pc-t-chain{fill:var(--c5)}
+.pc-trapped .pc-t-pinval{fill:var(--c5)!important}
+
+/* ---------- 形变与显隐 ---------- */
+.pc-part,.cr-part{transition:opacity .45s ease,transform .45s cubic-bezier(.2,.85,.3,1);
+  transform-box:view-box}
+.pc-part.pc-off,.cr-part.cr-off{opacity:0;transform:translate(-18px,0);pointer-events:none}
+
+/* ---------- 点选热区 ---------- */
+.pc-hit,.cr-hit,.ms-hit{fill:transparent;cursor:pointer}
+.pc-hit:hover,.cr-hit:hover,.ms-hit:hover{fill:rgba(255,255,255,.05)}
+.pc-ring,.cr-ring,.ms-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;
+  pointer-events:none;animation:kpRing 12s linear infinite}
+@keyframes kpRing{to{stroke-dashoffset:-240}}
+
+/* ---------- 存储空间地址映射图 ---------- */
+.mm-svg{width:100%;height:auto;display:block}
+.mm-band{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.6}
+.mm-prog{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.3)}
+.mm-prog.mm-in{fill:rgba(103,232,249,.14);stroke:rgba(103,232,249,.5)}
+.mm-data{fill:rgba(110,231,183,.05);stroke:rgba(110,231,183,.28)}
+.mm-data.mm-sfr{fill:rgba(252,211,77,.07);stroke:rgba(252,211,77,.34)}
+.mm-xdata{fill:rgba(96,165,250,.05);stroke:rgba(96,165,250,.3)}
+.mm-link{stroke:rgba(253,164,175,.45);stroke-width:1.6;stroke-dasharray:4 4;fill:none}
+.mm-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.mm-t-h{font-size:13px;font-weight:700;fill:var(--slate100)}
+.mm-t-n{font-size:13px;font-weight:600;fill:rgba(241,245,249,.94)}
+.mm-t-s{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.mm-t-a{font-size:10.5px;font-weight:600;fill:var(--c3)}
+.mm-t-warn{font-size:11.5px;font-weight:600;fill:var(--rose300)}
+.mm-hit{fill:transparent;cursor:pointer}
+.mm-hit:hover{fill:rgba(255,255,255,.05)}
+.mm-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;pointer-events:none;
+  animation:kpRing 12s linear infinite}
+
+</style>
+</head>
+<body>
+<!-- 内联自 lib/kp-shell.js -->
+<script>
+/* ============================================================
+   kp-shell.js · 知识点讲解页 · 共用外壳
+   ------------------------------------------------------------
+   六个知识点页共用这一套结构，保证"每篇能独立成篇、彼此风格统一"：
+
+     眉标（单元 · 知识点编号）
+     渐变大标题
+     一句话定位：这个点为什么容易错
+     元信息 chip（对应大纲章节 / 教材图表 / 预计用时）
+     ┌ 标签页 ────────────────────────┐
+     │ 讲解  —— 可交互的图 + 分步说明      │
+     │ 疑点  —— 学生最常错的地方，现象→原因→正解 │
+     │ 自测  —— 2~3 题，即时给解析         │
+     └───────────────────────────┘
+     相关知识点 + 出处
+
+   页面只需提供数据，外壳负责渲染与交互。
+   被 iframe 嵌入时自动加 .kp-embed（收紧留白、隐去页脚）。
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  function h(tag, attrs, html) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  /* 允许在文案里用 **加粗** 和 `等宽` 两种极简标记，省得到处写标签 */
+  function md(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`(.+?)`/g, '<code style="font-family:var(--fm);font-size:.92em;' +
+        'background:rgba(255,255,255,.05);border-radius:4px;padding:1px 5px">$1</code>');
+  }
+
+  function KP(cfg) {
+    /* 被 iframe 装着就进嵌入模式 */
+    try { if (global.self !== global.top) document.body.classList.add('kp-embed'); } catch (e) {
+      document.body.classList.add('kp-embed');
+    }
+    document.title = cfg.kp + '｜' + cfg.unit;
+
+    var wrap = h('div', { class: 'kp-wrap kp-fade' });
+    document.body.appendChild(wrap);
+
+    /* ---- 头部 ---- */
+    wrap.appendChild(h('div', { class: 'kp-eyebrow' },
+      esc(cfg.unitEn || 'KNOWLEDGE POINT') + ' · <b>' + esc(cfg.unit) + '</b>'));
+    wrap.appendChild(h('h1', { class: 'kp-h1' }, esc(cfg.kp)));
+    wrap.appendChild(h('p', { class: 'kp-lead' }, md(cfg.lead)));
+    if (cfg.meta && cfg.meta.length) {
+      wrap.appendChild(h('div', { class: 'kp-meta' },
+        cfg.meta.map(function (m) {
+          return '<span class="kp-chip">' + (m[1] ? '<b>' + esc(m[0]) + '</b>' + esc(m[1]) : esc(m[0])) + '</span>';
+        }).join('')));
+    }
+
+    /* ---- 标签页 ---- */
+    var TABS = [
+      { k: 'teach', n: '01', t: '讲解' },
+      { k: 'pit', n: '02', t: '疑点' },
+      { k: 'quiz', n: '03', t: '自测' }
+    ].filter(function (t) {
+      return t.k === 'teach' ? !!cfg.teach : (t.k === 'pit' ? (cfg.pitfalls || []).length : (cfg.quiz || []).length);
+    });
+
+    var tabsEl = h('div', { class: 'kp-tabs', role: 'tablist' });
+    var panels = {};
+    TABS.forEach(function (t, i) {
+      var b = h('button', {
+        class: 'kp-tab', role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false',
+        'data-k': t.k
+      }, '<span class="n">' + t.n + '</span>' + t.t);
+      b.onclick = function () { select(t.k); };
+      tabsEl.appendChild(b);
+      var p = h('div', { class: 'kp-panel' + (i === 0 ? ' on' : ''), role: 'tabpanel' });
+      panels[t.k] = p;
+    });
+    wrap.appendChild(tabsEl);
+    TABS.forEach(function (t) { wrap.appendChild(panels[t.k]); });
+
+    function select(k) {
+      Array.prototype.forEach.call(tabsEl.children, function (b) {
+        b.setAttribute('aria-selected', b.dataset.k === k ? 'true' : 'false');
+      });
+      for (var key in panels) panels[key].classList.toggle('on', key === k);
+      if (k === 'teach' && cfg.onShowTeach) cfg.onShowTeach();
+    }
+
+    /* ---- 讲解 ---- */
+    if (cfg.teach) {
+      var tp = panels.teach;
+      if (cfg.teach.intro) {
+        tp.appendChild(h('div', { class: 'kp-card' }, '<p>' + md(cfg.teach.intro) + '</p>'));
+      }
+      var stageCard = h('div', { class: 'kp-card' });
+      if (cfg.teach.title) stageCard.appendChild(h('h3', null, esc(cfg.teach.title)));
+      var ctl = h('div', { class: 'kp-ctl', id: 'kpCtl' });
+      stageCard.appendChild(ctl);
+      var stage = h('div', { class: 'kp-stage', id: 'kpStage' });
+      stageCard.appendChild(stage);
+      if (cfg.teach.caption) stageCard.appendChild(h('div', { class: 'kp-stagecap' }, esc(cfg.teach.caption)));
+      var reads = h('div', { class: 'kp-reads', id: 'kpReads', style: 'margin-top:12px' });
+      stageCard.appendChild(reads);
+      var say = h('div', { class: 'kp-card', id: 'kpSay', style: 'margin-top:12px' },
+        '<h3>当前在讲什么</h3><p id="kpSayT"></p>');
+      stageCard.appendChild(say);
+      tp.appendChild(stageCard);
+      if (cfg.teach.steps && cfg.teach.steps.length) {
+        var sc = h('div', { class: 'kp-card' });
+        sc.appendChild(h('h3', null, '要点顺序'));
+        sc.appendChild(h('div', null, cfg.teach.steps.map(function (s, i) {
+          return '<p><b>' + (i + 1) + '.</b> ' + md(s) + '</p>';
+        }).join('')));
+        tp.appendChild(sc);
+      }
+      KP.ctl = ctl; KP.stage = stage; KP.reads = reads;
+      KP.say = function (t) { document.getElementById('kpSayT').innerHTML = md(t); };
+    }
+
+    /* ---- 疑点 ---- */
+    if ((cfg.pitfalls || []).length) {
+      var pp = panels.pit;
+      pp.appendChild(h('div', { class: 'kp-card' },
+        '<p class="kp-note">下面几条是这个知识点上学生最常出错的地方。' +
+        '每条按「常见说法 → 为什么错 → 正确理解」拆开，可以直接拿去当课堂提问。</p>'));
+      cfg.pitfalls.forEach(function (p, i) {
+        var el = h('div', { class: 'kp-pit' });
+        el.innerHTML =
+          '<div class="no">疑点 ' + String(i + 1).padStart(2, '0') + '</div>' +
+          '<div class="q">' + md(p.q) + '</div>' +
+          '<dl>' +
+          '<dt>常见说法</dt><dd>' + md(p.say) + '</dd>' +
+          '<dt>为什么错</dt><dd>' + md(p.why) + '</dd>' +
+          '<dt class="right">正确理解</dt><dd class="right">' + md(p.right) + '</dd>' +
+          '</dl>';
+        pp.appendChild(el);
+      });
+    }
+
+    /* ---- 自测 ---- */
+    if ((cfg.quiz || []).length) {
+      var qp = panels.quiz, right = 0, answered = 0;
+      var score = h('div', { class: 'kp-score' });
+      cfg.quiz.forEach(function (item, i) {
+        var q = h('div', { class: 'kp-q' });
+        q.appendChild(h('div', { class: 'qh' },
+          '<span class="qn">Q' + (i + 1) + '</span><span class="qt">' + md(item.q) + '</span>'));
+        var exp = h('div', { class: 'kp-exp' }, md(item.x));
+        item.o.forEach(function (o, j) {
+          var b = h('button', { class: 'kp-opt' }, 'ABCD'[j] + '．' + md(o));
+          b.onclick = function () {
+            Array.prototype.forEach.call(q.querySelectorAll('.kp-opt'), function (x, k) {
+              x.classList.add('lock');
+              if (k === item.a) x.classList.add('ok');
+            });
+            if (j !== item.a) b.classList.add('no'); else right++;
+            answered++;
+            exp.classList.add('show');
+            exp.classList.toggle('bad', j !== item.a);
+            score.innerHTML = '答对 <b>' + right + '</b> / ' + cfg.quiz.length +
+              '　已答 ' + answered;
+          };
+          q.appendChild(b);
+        });
+        q.appendChild(exp);
+        qp.appendChild(q);
+      });
+      score.innerHTML = '答对 <b>0</b> / ' + cfg.quiz.length + '　已答 0';
+      qp.appendChild(score);
+    }
+
+    /* ---- 页脚 ---- */
+    var foot = h('div', { class: 'kp-foot' });
+    foot.innerHTML =
+      '<b>出处</b>　' + esc(cfg.source || '') + '<br>' +
+      (cfg.note ? esc(cfg.note) + '<br>' : '') +
+      '<b>用法</b>　本页可独立打开，也可作为单元资源嵌入平台（自适应容器宽度）。';
+    if ((cfg.related || []).length) {
+      foot.appendChild(h('div', { class: 'kp-rel' },
+        cfg.related.map(function (r) {
+          return '<a class="kp-btn" href="' + esc(r[1]) + '">' + esc(r[0]) + ' →</a>';
+        }).join('')));
+    }
+    wrap.appendChild(foot);
+
+    KP.select = select;
+    return KP;
+  }
+
+  /* 给讲解区加一个控制按钮组，返回一个 setter */
+  KP.buttons = function (items, onPick, initial) {
+    var btns = items.map(function (it) {
+      var b = document.createElement('button');
+      b.className = 'kp-btn';
+      b.textContent = it.t;
+      b.dataset.k = it.k;
+      b.onclick = function () { pick(it.k); };
+      KP.ctl.appendChild(b);
+      return b;
+    });
+    function pick(k) {
+      btns.forEach(function (b) { b.classList.toggle('on', b.dataset.k === k); });
+      onPick(k);
+    }
+    pick(initial || items[0].k);
+    return pick;
+  };
+  /* 写读数格 */
+  KP.setReads = function (list) {
+    KP.reads.innerHTML = list.map(function (r) {
+      return '<div class="kp-read"><div class="k">' + esc(r[0]) + '</div>' +
+        '<div class="v ' + (r[2] || '') + '">' + esc(r[1]) + '</div></div>';
+    }).join('');
+  };
+  KP.md = md;
+  global.KP = KP;
+})(window);
+
+</script>
+<!-- 内联自 lib/clockreset.js -->
+<script>
+/* ============================================================
+   clockreset.js  ·  80C51 时钟电路 / 复位电路 / 时序 / 最小应用系统
+   ------------------------------------------------------------
+   对照教材：韩兴国《微控制器原理及接口控制技术》
+     2.5.1 时钟电路      图 2-9(a) 内部方式、图 2-9(b) 外部方式
+     2.5.2 复位状态和复位电路  图 2-10(a) 加电自动复位、图 2-10(b) 按键复位
+                          表 2-7 特殊功能寄存器复位之后内容状态表
+   配套课件 S91–S109。
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'text') n.textContent = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function poly(pts) {
+    return 'M' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' L');
+  }
+
+  /* 公共零件 ------------------------------------------------ */
+  function ground(g, x, y) {
+    el('path', {
+      d: 'M' + (x - 17) + ',' + y + ' H' + (x + 17) +
+         ' M' + (x - 10) + ',' + (y + 8) + ' H' + (x + 10) +
+         ' M' + (x - 4) + ',' + (y + 16) + ' H' + (x + 4), class: 'cr-w'
+    }, g);
+  }
+  function vcc(g, x, y, label) {
+    el('path', { d: 'M' + (x - 15) + ',' + y + ' H' + (x + 15), class: 'cr-w' }, g);
+    el('text', { x: x, y: y - 9, class: 'cr-t cr-t-cap', 'text-anchor': 'middle', text: label || '+5V' }, g);
+  }
+  /* 电容：两条平行板 */
+  function cap(g, x, y, vertical) {
+    if (vertical) {
+      el('path', { d: 'M' + (x - 15) + ',' + (y - 4) + ' H' + (x + 15), class: 'cr-w cr-thick' }, g);
+      el('path', { d: 'M' + (x - 15) + ',' + (y + 4) + ' H' + (x + 15), class: 'cr-w cr-thick' }, g);
+    } else {
+      el('path', { d: 'M' + (x - 4) + ',' + (y - 15) + ' V' + (y + 15), class: 'cr-w cr-thick' }, g);
+      el('path', { d: 'M' + (x + 4) + ',' + (y - 15) + ' V' + (y + 15), class: 'cr-w cr-thick' }, g);
+    }
+  }
+  /* 电阻：IEC 方框 */
+  function res(g, x, y, vertical) {
+    if (vertical) el('rect', { x: x - 11, y: y - 24, width: 22, height: 48, rx: 2, class: 'cr-res' }, g);
+    else el('rect', { x: x - 24, y: y - 11, width: 48, height: 22, rx: 2, class: 'cr-res' }, g);
+  }
+  /* 石英晶体：两块板 + 中间矩形 */
+  function xtal(g, x, y) {
+    el('path', { d: 'M' + (x - 11) + ',' + (y - 20) + ' V' + (y + 20), class: 'cr-w cr-thick' }, g);
+    el('path', { d: 'M' + (x + 11) + ',' + (y - 20) + ' V' + (y + 20), class: 'cr-w cr-thick' }, g);
+    el('rect', { x: x - 6, y: y - 14, width: 12, height: 28, class: 'cr-xtal' }, g);
+  }
+  /* 反相器三角 + 圈 */
+  function inv(g, x, y, dir) {
+    var d = dir || 1;
+    el('path', {
+      d: 'M' + (x - 16 * d) + ',' + (y - 16) + ' L' + (x - 16 * d) + ',' + (y + 16) +
+         ' L' + (x + 14 * d) + ',' + y + ' Z', class: 'cr-tri'
+    }, g);
+    el('circle', { cx: x + 20 * d, cy: y, r: 5, class: 'cr-bubble' }, g);
+  }
+
+  /* 通用外壳：建 svg + 图层 + 热区 */
+  function shell(host, w, h) {
+    host.innerHTML = '';
+    var svg = el('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'cr-svg', preserveAspectRatio: 'xMidYMid meet' }, host);
+    var defs = el('defs', null, svg);
+    var f = el('filter', { id: 'crGlow' + (shell.n = (shell.n || 0) + 1), x: '-60%', y: '-60%', width: '220%', height: '220%' }, defs);
+    el('feGaussianBlur', { stdDeviation: '3', result: 'b' }, f);
+    var m = el('feMerge', null, f);
+    el('feMergeNode', { in: 'b' }, m); el('feMergeNode', { in: 'SourceGraphic' }, m);
+    var L = {};
+    ['wire', 'flow', 'body', 'label', 'hit'].forEach(function (n) { L[n] = el('g', { class: 'cr-l-' + n }, svg); });
+    var reg = { svg: svg, L: L, parts: {}, txt: {}, glow: 'crGlow' + shell.n };
+    reg.ring = el('rect', { x: 0, y: 0, width: 0, height: 0, rx: 9, class: 'cr-ring' }, L.hit);
+    reg.part = function (name, node) {
+      (reg.parts[name] = reg.parts[name] || []).push(node);
+      node.classList.add('cr-part'); return node;
+    };
+    reg.show = function (names) {
+      Object.keys(reg.parts).forEach(function (k) {
+        var on = names.indexOf(k) >= 0;
+        reg.parts[k].forEach(function (n) { n.classList.toggle('cr-off', !on); });
+      });
+    };
+    reg.hit = function (name, x, y, w2, h2, key) {
+      var r = el('rect', { x: x, y: y, width: w2, height: h2, class: 'cr-hit', 'data-ex': key }, L.hit);
+      if (name) reg.part(name, r);
+      return r;
+    };
+    reg.focus = function (key, EX) {
+      var h2 = key && svg.querySelector('.cr-hit[data-ex="' + key + '"]:not(.cr-off)');
+      if (!h2) { reg.ring.setAttribute('width', 0); return null; }
+      reg.ring.setAttribute('x', +h2.getAttribute('x') - 5);
+      reg.ring.setAttribute('y', +h2.getAttribute('y') - 5);
+      reg.ring.setAttribute('width', +h2.getAttribute('width') + 10);
+      reg.ring.setAttribute('height', +h2.getAttribute('height') + 10);
+      return EX[key] || null;
+    };
+    return reg;
+  }
+
+  /* ============================================================
+     一、时钟电路（教材图 2-9）
+     ============================================================ */
+  var CLOCK_EX = {
+    xtal: ['石英晶体（晶振）', '并联谐振回路的核心。振荡频率可在 1.2 ~ 12 MHz 之间选择（部分高速芯片可达 40 MHz）。它接在 XTAL1 与 XTAL2 之间，与片内的反相放大器一起构成自激振荡器。频率一旦选定，机器周期也就定死了。'],
+    caps: ['微调电容 C1、C2', '与晶振组成并联谐振回路，容值通常在 5 ~ 30 pF 之间选择。改变容值可以对振荡频率起微调作用，但调不动量级——量级由晶振本身决定。'],
+    amp: ['片内高增益反相放大器', '芯片内部自带，输入端是 XTAL1，输出端是 XTAL2。它与外接的晶振和电容一起构成振荡电路，产生单片机工作所必需的时钟信号。'],
+    x1: ['XTAL1 引脚（19 脚）', '内部反相放大器的输入端。内部方式时接晶振一端；外部方式时按教材图 2-9(b) 接地。'],
+    x2: ['XTAL2 引脚（18 脚）', '内部反相放大器的输出端。内部方式时接晶振另一端；外部方式时接外部振荡器的输出。'],
+    ext: ['外部振荡器', '直接提供现成的时钟。教材：对外部振荡信号无特殊要求，只要求保证脉冲宽度，一般采用频率低于 12 MHz 的方波信号。常用于多片单片机同时工作的场合，便于各片同步。'],
+    div: ['片内二分频', '片内时钟发生器把振荡频率二分频，产生两相时钟 P1 和 P2。P1 在每个状态 Si 的前半部分有效，P2 在后半部分有效——这就是"一个状态周期 = 两个振荡周期"的由来。']
+  };
+
+  function ClockFig(host) {
+    var W = 780, H = 470;
+    var reg = shell(host, W, H);
+    var L = reg.L, P = reg.part;
+    this.reg = reg;
+
+    /* 芯片框 */
+    var CX = 500, CY = 86, CW = 220, CH = 230;
+    el('rect', { x: CX, y: CY, width: CW, height: CH, rx: 5, class: 'cr-chip' }, L.body);
+    el('text', { x: CX + CW / 2, y: CY + 26, class: 'cr-t cr-t-chip', 'text-anchor': 'middle', text: '80C51' }, L.label);
+
+    var X1Y = 150, X2Y = 262;
+    el('path', { d: 'M' + CX + ',' + X1Y + ' H' + (CX - 46), class: 'cr-w' }, L.wire);
+    el('path', { d: 'M' + CX + ',' + X2Y + ' H' + (CX - 46), class: 'cr-w' }, L.wire);
+    el('text', { x: CX + 14, y: X1Y + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'start', text: 'XTAL1' }, L.label);
+    el('text', { x: CX + 14, y: X2Y + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'start', text: 'XTAL2' }, L.label);
+
+    /* 片内反相放大器（两种方式都画，说明时钟最终进的是同一个地方） */
+    el('path', { d: 'M' + (CX + 78) + ',' + X1Y + ' H' + (CX + 104), class: 'cr-w' }, L.wire);
+    inv(L.body, CX + 124, X1Y, 1);
+    el('path', { d: 'M' + (CX + 149) + ',' + X1Y + ' H' + (CX + 176) + ' V' + X2Y + ' H' + (CX + 78), class: 'cr-w' }, L.wire);
+    el('text', { x: CX + 124, y: X1Y + 38, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '片内高增益反相放大器' }, L.label);
+
+    /* ---- 内部方式：晶振 + 两只电容 ---- */
+    var BX = 300;
+    P('int', el('path', { d: poly([[CX - 46, X1Y], [BX, X1Y], [BX, 186]]), class: 'cr-w' }, L.wire));
+    P('int', el('path', { d: poly([[CX - 46, X2Y], [BX, X2Y], [BX, 226]]), class: 'cr-w' }, L.wire));
+    P('int', (function () { var g = el('g', null, L.body); xtal(g, BX, 206); return g; })());
+    // C1：XTAL1 支路到地
+    P('int', el('path', { d: poly([[BX, X1Y], [200, X1Y], [200, 176]]), class: 'cr-w' }, L.wire));
+    P('int', (function () { var g = el('g', null, L.body); cap(g, 200, 190, true); return g; })());
+    P('int', el('path', { d: 'M200,204 V246', class: 'cr-w' }, L.wire));
+    P('int', (function () { var g = el('g', null, L.body); ground(g, 200, 246); return g; })());
+    P('int', el('text', { x: 178, y: 196, class: 'cr-t cr-t-ref', 'text-anchor': 'end', text: 'C1' }, L.label));
+    // C2：XTAL2 支路到地
+    P('int', el('path', { d: poly([[BX, X2Y], [120, X2Y], [120, 176]]), class: 'cr-w' }, L.wire));
+    P('int', (function () { var g = el('g', null, L.body); cap(g, 120, 190, true); return g; })());
+    P('int', el('path', { d: 'M120,204 V246', class: 'cr-w' }, L.wire));
+    P('int', (function () { var g = el('g', null, L.body); ground(g, 120, 246); return g; })());
+    P('int', el('text', { x: 98, y: 196, class: 'cr-t cr-t-ref', 'text-anchor': 'end', text: 'C2' }, L.label));
+    P('int', el('circle', { cx: BX, cy: X1Y, r: 4.5, class: 'cr-dot' }, L.wire));
+    P('int', el('circle', { cx: BX, cy: X2Y, r: 4.5, class: 'cr-dot' }, L.wire));
+    P('int', el('text', { x: BX + 28, y: 200, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: '晶振' }, L.label));
+    P('int', el('text', { x: BX + 28, y: 219, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '1.2 ~ 12 MHz' }, L.label));
+    P('int', el('text', { x: 120, y: 292, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'C1、C2 取 5 ~ 30 pF，可微调频率' }, L.label));
+    P('int', el('text', { x: 60, y: 96, class: 'cr-t cr-t-fig', 'text-anchor': 'start', text: '（a）内部方式时钟电路　教材图 2-9(a)' }, L.label));
+
+    /* ---- 外部方式：外部振荡器 → XTAL2，XTAL1 接地 ---- */
+    P('ext', el('rect', { x: 84, y: 232, width: 104, height: 60, rx: 5, class: 'cr-box' }, L.body));
+    P('ext', el('text', { x: 136, y: 256, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: '外部' }, L.label));
+    P('ext', el('text', { x: 136, y: 276, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: '振荡器' }, L.label));
+    P('ext', el('path', { d: 'M188,262 H222', class: 'cr-w' }, L.wire));
+    P('ext', (function () { var g = el('g', null, L.body); inv(g, 246, 262, 1); return g; })());
+    P('ext', el('path', { d: 'M271,262 H' + (CX - 46), class: 'cr-w' }, L.wire));
+    // 上拉到 +5V
+    P('ext', el('path', { d: 'M330,262 V196', class: 'cr-w' }, L.wire));
+    P('ext', (function () { var g = el('g', null, L.body); res(g, 330, 172, true); return g; })());
+    P('ext', el('path', { d: 'M330,148 V120', class: 'cr-w' }, L.wire));
+    P('ext', (function () { var g = el('g', null, L.body); vcc(g, 330, 120, '+5V'); return g; })());
+    P('ext', el('circle', { cx: 330, cy: 262, r: 4.5, class: 'cr-dot' }, L.wire));
+    // XTAL1 接地
+    P('ext', el('path', { d: poly([[CX - 46, X1Y], [400, X1Y], [400, 186]]), class: 'cr-w' }, L.wire));
+    P('ext', (function () { var g = el('g', null, L.body); ground(g, 400, 186); return g; })());
+    P('ext', el('text', { x: 400, y: 226, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: 'XTAL1 接地' }, L.label));
+    P('ext', el('text', { x: 136, y: 314, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '方波，频率 ≤ 12 MHz' }, L.label));
+    P('ext', el('text', { x: 60, y: 96, class: 'cr-t cr-t-fig', 'text-anchor': 'start', text: '（b）外部方式时钟电路　教材图 2-9(b)　常用于多片同步' }, L.label));
+
+    /* 流动高亮：振荡信号从晶振进芯片 */
+    reg.flowInt = el('path', { d: poly([[BX, X1Y], [CX - 46, X1Y], [CX, X1Y]]), class: 'cr-f' }, L.flow);
+    reg.flowExt = el('path', { d: poly([[188, 262], [CX - 46, 262], [CX, 262]]), class: 'cr-f' }, L.flow);
+
+    /* 热区 */
+    reg.hit('int', BX - 34, 176, 68, 62, 'xtal');
+    reg.hit('int', 96, 168, 130, 46, 'caps');
+    reg.hit(null, CX + 96, X1Y - 24, 60, 48, 'amp');
+    reg.hit(null, CX - 46, X1Y - 20, 110, 40, 'x1');
+    reg.hit(null, CX - 46, X2Y - 20, 110, 40, 'x2');
+    reg.hit('ext', 80, 228, 112, 68, 'ext');
+
+    /* ---- 底部：片内二分频 → 两相时钟 P1、P2（教材 2.5.1 末段） ---- */
+    var WX0 = 170, WX1 = 700, wspan = WX1 - WX0, AY = 388, BY = 438;
+    el('text', { x: 60, y: 360, class: 'cr-t cr-t-fig', 'text-anchor': 'start',
+      text: '片内时钟发生器把振荡频率二分频，产生两相时钟 P1、P2' }, L.label);
+    el('text', { x: WX0 - 16, y: AY + 4, class: 'cr-t cr-t-note', 'text-anchor': 'end', text: '振荡 fosc' }, L.label);
+    el('text', { x: WX0 - 16, y: BY + 4, class: 'cr-t cr-t-note', 'text-anchor': 'end', text: '两相时钟' }, L.label);
+    var wd = 'M' + WX0 + ',' + (AY + 11);
+    for (var q = 0; q < 8; q++) {
+      var qx = WX0 + wspan * q / 8, qw = wspan / 8;
+      wd += ' H' + (qx + qw / 2) + ' V' + (AY - 11) + ' H' + (qx + qw) + ' V' + (AY + 11);
+    }
+    el('path', { d: wd, class: 'cr-wave' }, L.body);
+    for (q = 0; q < 4; q++) {
+      var sx2 = WX0 + wspan * q / 4, sw2 = wspan / 4;
+      el('rect', { x: sx2 + 2, y: BY - 13, width: sw2 / 2 - 3, height: 26, rx: 3, class: 'cr-cell cr-cell-m' }, L.body);
+      el('rect', { x: sx2 + sw2 / 2 + 1, y: BY - 13, width: sw2 / 2 - 3, height: 26, rx: 3, class: 'cr-cell' }, L.body);
+      el('text', { x: sx2 + sw2 / 4, y: BY + 4, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: 'P1' }, L.label);
+      el('text', { x: sx2 + sw2 * 3 / 4, y: BY + 4, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: 'P2' }, L.label);
+      el('text', { x: sx2 + sw2 / 2, y: BY - 20, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: 'S' + (q + 1) }, L.label);
+      el('line', { x1: sx2, y1: AY - 16, x2: sx2, y2: BY + 16, class: 'cr-grid' }, L.wire);
+    }
+    el('line', { x1: WX1, y1: AY - 16, x2: WX1, y2: BY + 16, class: 'cr-grid' }, L.wire);
+    el('text', { x: WX1 + 14, y: (AY + BY) / 2 + 4, class: 'cr-t cr-t-hl', 'text-anchor': 'start', text: '÷2' }, L.label);
+    reg.hit(null, WX0 - 80, 350, 200, 26, 'div');
+
+    this.mode = 'int';
+    this.setMode('int');
+  }
+  ClockFig.prototype.setMode = function (m) {
+    this.mode = m;
+    this.reg.show([m]);
+    this.reg.flowInt.classList.toggle('cr-live', m === 'int');
+    this.reg.flowExt.classList.toggle('cr-live', m === 'ext');
+    this.reg.focus(null, CLOCK_EX);
+  };
+  ClockFig.prototype.focus = function (k) { return this.reg.focus(k, CLOCK_EX); };
+
+  /* ============================================================
+     二、时序四层（振荡 / 状态 / 机器 / 指令周期）
+     ============================================================ */
+  function TimingFig(host) {
+    var W = 900, H = 330;
+    var reg = shell(host, W, H);
+    var L = reg.L;
+    this.reg = reg;
+
+    var X0 = 120, X1 = 860, span = X1 - X0;
+    var rows = [
+      { y: 60, label: '振荡周期', sub: 'Tosc = 1/fosc' },
+      { y: 128, label: '状态周期', sub: 'S = 2 个振荡周期' },
+      { y: 196, label: '机器周期', sub: '= 12 个振荡周期' },
+      { y: 264, label: '指令周期', sub: '= 1 ~ 4 个机器周期' }
+    ];
+    rows.forEach(function (r) {
+      el('text', { x: X0 - 16, y: r.y + 4, class: 'cr-t cr-t-row', 'text-anchor': 'end', text: r.label }, L.label);
+      el('text', { x: X0 - 16, y: r.y + 21, class: 'cr-t cr-t-note', 'text-anchor': 'end', text: r.sub }, L.label);
+    });
+
+    /* 第 1 行：12 个振荡周期（方波） */
+    var d = 'M' + X0 + ',' + (rows[0].y + 14);
+    for (var i = 0; i < 12; i++) {
+      var x = X0 + span * i / 12, w = span / 12;
+      d += ' H' + (x + w / 2) + ' V' + (rows[0].y - 14) + ' H' + (x + w) + ' V' + (rows[0].y + 14);
+    }
+    el('path', { d: d, class: 'cr-wave' }, L.body);
+    for (i = 0; i < 12; i++) {
+      el('line', {
+        x1: X0 + span * i / 12, y1: rows[0].y - 20, x2: X0 + span * i / 12, y2: rows[3].y + 22, class: 'cr-grid'
+      }, L.wire);
+    }
+    el('line', { x1: X1, y1: rows[0].y - 20, x2: X1, y2: rows[3].y + 22, class: 'cr-grid' }, L.wire);
+
+    /* 第 2 行：6 个状态，每个分 P1 / P2 */
+    for (i = 0; i < 6; i++) {
+      var sx = X0 + span * i / 6, sw = span / 6;
+      el('rect', { x: sx + 2, y: rows[1].y - 16, width: sw - 4, height: 32, rx: 3, class: 'cr-cell cr-cell-s' }, L.body);
+      el('line', { x1: sx + sw / 2, y1: rows[1].y - 16, x2: sx + sw / 2, y2: rows[1].y + 16, class: 'cr-grid' }, L.wire);
+      el('text', { x: sx + sw / 4, y: rows[1].y + 5, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: 'P1' }, L.label);
+      el('text', { x: sx + sw * 3 / 4, y: rows[1].y + 5, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: 'P2' }, L.label);
+      el('text', { x: sx + sw / 2, y: rows[1].y - 24, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: 'S' + (i + 1) }, L.label);
+    }
+
+    /* 第 3 行：一个机器周期 */
+    el('rect', { x: X0 + 2, y: rows[2].y - 16, width: span - 4, height: 32, rx: 3, class: 'cr-cell cr-cell-m' }, L.body);
+    el('text', { x: (X0 + X1) / 2, y: rows[2].y + 5, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: '1 个机器周期 = 6 个状态 = 12 个振荡周期' }, L.label);
+
+    /* 第 4 行：1 ~ 4 个机器周期 */
+    for (i = 0; i < 4; i++) {
+      var ix = X0 + span * i / 4;
+      el('rect', {
+        x: ix + 2, y: rows[3].y - 16, width: span / 4 - 4, height: 32, rx: 3,
+        class: 'cr-cell cr-cell-i' + (i === 0 ? ' cr-cell-on' : '')
+      }, L.body);
+      el('text', { x: ix + span / 8, y: rows[3].y + 5, class: 'cr-t cr-t-cell', 'text-anchor': 'middle', text: (i + 1) }, L.label);
+    }
+    el('text', { x: X1, y: rows[3].y + 34, class: 'cr-t cr-t-note', 'text-anchor': 'end',
+      text: '单周期指令占 1 格，乘除法指令占 4 格' }, L.label);
+
+    /* 右上角实时数值 */
+    reg.txt.fosc = el('text', { x: X1, y: 26, class: 'cr-t cr-t-big', 'text-anchor': 'end', text: '' }, L.label);
+    this.setFreq(12);
+  }
+  /* 把周期换算成好读的单位 */
+  function fmt(us) {
+    if (us >= 1) return (Math.round(us * 1000) / 1000) + ' µs';
+    return (Math.round(us * 1e6) / 1e3) + ' ns';
+  }
+  TimingFig.prototype.setFreq = function (mhz) {
+    var tosc = 1 / mhz;                       // µs
+    this.reg.txt.fosc.textContent = 'fosc = ' + mhz + ' MHz';
+    return {
+      mhz: mhz,
+      osc: fmt(tosc), state: fmt(2 * tosc), machine: fmt(12 * tosc),
+      instr: fmt(12 * tosc) + ' ~ ' + fmt(48 * tosc)
+    };
+  };
+
+  /* ============================================================
+     三、复位电路（教材图 2-10）
+     ============================================================ */
+  var RESET_EX = {
+    cr: ['电容 CR', '教材取 22 µF。上电瞬间电容两端电压不能突变，相当于短路，于是 +5V 几乎全部加在 RST 上；随后电容被充电，RST 电位逐渐降低，最终到 0。'],
+    rr: ['电阻 RR', '与 CR 构成充电回路，决定 RST 高电平能维持多久。教材：振荡频率选用 6 MHz 时，CR 取 22 µF、RR 取 1 kΩ，便能可靠地实现加电自动复位。'],
+    rst: ['RST 引脚（9 脚）', '复位信号输入端。在振荡器工作的情况下，RST 上出现高电平并保持至少两个机器周期（即 24 个振荡周期），就能实现复位和初始化。CPU 在第二个机器周期内执行内部复位操作，以后每个机器周期重复一次，直至 RST 变为低电平。'],
+    key: ['复位按钮', '按下时把 +5V 经 RR1 直接引到分压点。教材：出现 5V×(1kΩ/1.2kΩ) ≈ 4.2V 的电平，使单片机复位。松开后电路又回到加电自动复位的状态。'],
+    rr1: ['电阻 RR1', '教材取 200 Ω。按键按下时与 RR2 构成分压，决定按下瞬间 RST 上得到多高的电平。'],
+    rr2: ['电阻 RR2', '教材取 1 kΩ。与 CR 构成充电电路，其功能相当于加电自动复位电路中的 RR；同时与 RR1 一起决定按键按下时的分压值。']
+  };
+
+  function ResetFig(host) {
+    var W = 720, H = 360;
+    var reg = shell(host, W, H);
+    var L = reg.L, P = reg.part;
+    this.reg = reg;
+
+    /* 芯片 */
+    var CX = 470, CY = 80, CW = 190, CH = 210;
+    el('rect', { x: CX, y: CY, width: CW, height: CH, rx: 5, class: 'cr-chip' }, L.body);
+    ['8051', '8751', '8031'].forEach(function (s, i) {
+      el('text', { x: CX + CW / 2, y: CY + 88 + i * 26, class: 'cr-t cr-t-chip2', 'text-anchor': 'middle', text: s }, L.label);
+    });
+    var RY = 124;
+    el('path', { d: 'M' + CX + ',' + RY + ' H' + (CX - 60), class: 'cr-w' }, L.wire);
+    el('text', { x: CX + 14, y: RY + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'start', text: 'RST' }, L.label);
+    el('text', { x: CX + CW - 14, y: RY + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'end', text: 'Vcc' }, L.label);
+
+    /* ---- (a) 加电自动复位 ---- */
+    P('pw', el('path', { d: 'M110,124 H196', class: 'cr-w' }, L.wire));
+    P('pw', (function () { var g = el('g', null, L.body); vcc(g, 110, 124, '+5V'); return g; })());
+    P('pw', (function () { var g = el('g', null, L.body); cap(g, 220, 124, false); return g; })());
+    P('pw', el('path', { d: 'M244,124 H' + (CX - 60), class: 'cr-w' }, L.wire));
+    P('pw', el('text', { x: 220, y: 100, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: 'CR' }, L.label));
+    P('pw', el('text', { x: 220, y: 84, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '22 µF' }, L.label));
+    P('pw', el('circle', { cx: 300, cy: 124, r: 4.5, class: 'cr-dot' }, L.wire));
+    P('pw', el('path', { d: 'M300,124 V172', class: 'cr-w' }, L.wire));
+    P('pw', (function () { var g = el('g', null, L.body); res(g, 300, 196, true); return g; })());
+    P('pw', el('path', { d: 'M300,220 V254', class: 'cr-w' }, L.wire));
+    P('pw', (function () { var g = el('g', null, L.body); ground(g, 300, 254); return g; })());
+    P('pw', el('text', { x: 326, y: 192, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: 'RR' }, L.label));
+    P('pw', el('text', { x: 326, y: 208, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '1 kΩ' }, L.label));
+    P('pw', el('text', { x: 92, y: 306, class: 'cr-t cr-t-fig', 'text-anchor': 'start', text: '（a）加电自动复位电路　教材图 2-10(a)' }, L.label));
+    reg.hit('pw', 196, 100, 48, 48, 'cr');
+    reg.hit('pw', 276, 170, 48, 52, 'rr');
+
+    /* ---- (b) 按键复位 ---- */
+    P('kb', (function () { var g = el('g', null, L.body); vcc(g, 92, 124, '+5V'); return g; })());
+    P('kb', el('path', { d: 'M92,124 H150', class: 'cr-w' }, L.wire));
+    P('kb', el('circle', { cx: 150, cy: 124, r: 4.5, class: 'cr-dot' }, L.wire));
+    // 上路：CR
+    P('kb', el('path', { d: 'M150,124 V88 H206', class: 'cr-w' }, L.wire));
+    P('kb', (function () { var g = el('g', null, L.body); cap(g, 230, 88, false); return g; })());
+    P('kb', el('path', { d: 'M254,88 H310 V124', class: 'cr-w' }, L.wire));
+    P('kb', el('text', { x: 230, y: 64, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: 'CR  22 µF' }, L.label));
+    // 下路：RR1 + 按键
+    P('kb', el('path', { d: 'M150,124 V178 H186', class: 'cr-w' }, L.wire));
+    P('kb', (function () { var g = el('g', null, L.body); res(g, 210, 178, false); return g; })());
+    P('kb', el('text', { x: 210, y: 208, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: 'RR1  200 Ω' }, L.label));
+    P('kb', el('path', { d: 'M234,178 H262', class: 'cr-w' }, L.wire));
+    // 按键符号
+    reg.keyArm = P('kb', el('path', { d: 'M262,178 L296,160', class: 'cr-w cr-thick cr-key' }, L.wire));
+    P('kb', el('circle', { cx: 262, cy: 178, r: 4, class: 'cr-dot' }, L.wire));
+    P('kb', el('circle', { cx: 300, cy: 178, r: 4, class: 'cr-dot' }, L.wire));
+    P('kb', el('path', { d: 'M300,178 V124', class: 'cr-w' }, L.wire));
+    P('kb', el('text', { x: 282, y: 146, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '复位键' }, L.label));
+    P('kb', el('circle', { cx: 310, cy: 124, r: 4.5, class: 'cr-dot' }, L.wire));
+    P('kb', el('path', { d: 'M310,124 H' + (CX - 60), class: 'cr-w' }, L.wire));
+    // RR2 到地
+    P('kb', el('path', { d: 'M372,124 V172', class: 'cr-w' }, L.wire));
+    P('kb', el('circle', { cx: 372, cy: 124, r: 4.5, class: 'cr-dot' }, L.wire));
+    P('kb', (function () { var g = el('g', null, L.body); res(g, 372, 196, true); return g; })());
+    P('kb', el('path', { d: 'M372,220 V254', class: 'cr-w' }, L.wire));
+    P('kb', (function () { var g = el('g', null, L.body); ground(g, 372, 254); return g; })());
+    P('kb', el('text', { x: 398, y: 192, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: 'RR2' }, L.label));
+    P('kb', el('text', { x: 398, y: 208, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '1 kΩ' }, L.label));
+    P('kb', el('text', { x: 92, y: 306, class: 'cr-t cr-t-fig', 'text-anchor': 'start', text: '（b）按键复位电路　教材图 2-10(b)　兼有上电复位与按键复位' }, L.label));
+    reg.hit('kb', 206, 64, 48, 48, 'cr');
+    reg.hit('kb', 186, 156, 48, 44, 'rr1');
+    reg.hit('kb', 348, 170, 48, 52, 'rr2');
+    reg.hit('kb', 256, 148, 56, 44, 'key');
+
+    reg.hit(null, CX - 60, RY - 20, 118, 40, 'rst');
+
+    /* 高亮：+5V 经电容/按键到 RST 的通路 */
+    reg.flowPw = el('path', { d: 'M110,124 H' + CX, class: 'cr-f' }, L.flow);
+    reg.flowKb = el('path', { d: 'M92,124 H150 V178 H262 M300,178 V124 H' + CX, class: 'cr-f' }, L.flow);
+
+    this.mode = 'pw';
+    this.setMode('pw');
+  }
+  ResetFig.prototype.setMode = function (m) {
+    this.mode = m;
+    this.reg.show([m]);
+    this.reg.flowPw.classList.toggle('cr-live', m === 'pw');
+    this.reg.flowKb.classList.remove('cr-live');
+    this.reg.focus(null, RESET_EX);
+    this.setPressed(false);
+  };
+  /* 按键按下：刀闭合 + 通路点亮 */
+  ResetFig.prototype.setPressed = function (on) {
+    if (this.mode !== 'kb') return;
+    this.reg.keyArm.setAttribute('d', on ? 'M262,178 L300,178' : 'M262,178 L296,160');
+    this.reg.flowKb.classList.toggle('cr-live', !!on);
+  };
+  ResetFig.prototype.focus = function (k) { return this.reg.focus(k, RESET_EX); };
+
+  /* ============================================================
+     四、最小应用系统
+     ============================================================ */
+  var MIN_EX = {
+    ea: ['EA 引脚（31 脚）', '内外程序存储器选择。EA = 1（接 +5V）时，先访问片内 ROM，地址超出片内容量才转向片外；EA = 0（接地）时只访问片外 ROM。8031 片内没有 ROM，所以 EA 必须接地。'],
+    osc: ['时钟电路', 'XTAL1、XTAL2 外接石英晶体与两只微调电容，与片内反相放大器构成振荡器。晶振 1.2 ~ 12 MHz，电容 5 ~ 30 pF。'],
+    rst: ['复位电路', 'RST 经 CR、RR 接到 +5V 与地之间。上电瞬间 RST 为高，随电容充电逐渐降到 0，完成一次上电复位。'],
+    pwr: ['电源', 'Vcc 接 +5V、Vss 接地。教材与课件：电源电压在 4 ~ 5.5 V 之间，可保证系统正常工作。'],
+    ports: ['四个并行 I/O 口', '8051 最小系统不扩展外部存储器，P0 ~ P3 共 32 条 I/O 线全部可作通用输入/输出使用。'],
+    latch: ['地址锁存器 74LS373', 'P0 送出的低 8 位地址在 ALE 下降沿被锁存在这里，随后 P0 掉头去传数据。这正是第 2 页位电路里 P0"控制信号 = 1"那条支路在系统上的样子。'],
+    rom: ['外部程序存储器', '8031 片内无 ROM，程序必须放在片外。低 8 位地址来自 74LS373，高 8 位地址来自 P2，数据经 P0 读回，取指令由 PSEN 选通。'],
+    ale: ['ALE 地址锁存允许', '访问外部存储器时，ALE 输出一个正脉冲，其下降沿把 P0 上的低 8 位地址锁进 74LS373。'],
+    psen: ['PSEN 外部程序存储器读选通', '低电平有效。外扩 ROM 时接到外部程序存储器的输出使能端，取指令时由它选通。'],
+    busy: ['被总线占用的端口', '8031 扩展外部 ROM 后，P0 变成地址/数据复用总线、P2 变成高 8 位地址总线，都不能再作通用 I/O；P3 的 RD、WR 等第二功能也被占用。真正剩给用户的只有 P1 和 P3 的一部分。']
+  };
+
+  function MinSysFig(host) {
+    var W = 940, H = 520;
+    var reg = shell(host, W, H);
+    var L = reg.L, P = reg.part;
+    this.reg = reg;
+
+    /* 主芯片 */
+    var CX = 300, CY = 120, CW = 240, CH = 280;
+    el('rect', { x: CX, y: CY, width: CW, height: CH, rx: 6, class: 'cr-chip' }, L.body);
+    reg.txt.chip = el('text', { x: CX + CW / 2, y: CY + 40, class: 'cr-t cr-t-chip', 'text-anchor': 'middle', text: '8051' }, L.label);
+    el('text', { x: CX + CW / 2, y: CY + 62, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '最小应用系统' }, L.label);
+
+    /* 电源 */
+    el('path', { d: 'M' + (CX + 60) + ',' + CY + ' V80', class: 'cr-w' }, L.wire);
+    vcc(L.body, CX + 60, 80, '+5V');
+    el('text', { x: CX + 60, y: CY - 10, class: 'cr-t cr-t-pin', 'text-anchor': 'middle', text: 'Vcc' }, L.label);
+    el('path', { d: 'M' + (CX + 160) + ',' + (CY + CH) + ' V450', class: 'cr-w' }, L.wire);
+    ground(L.body, CX + 160, 450);
+    el('text', { x: CX + 160, y: CY + CH + 18, class: 'cr-t cr-t-pin', 'text-anchor': 'middle', text: 'Vss' }, L.label);
+    reg.hit(null, CX + 36, 62, 48, 40, 'pwr');
+
+    /* 复位电路（左上） */
+    var RY = CY + 40;
+    el('path', { d: 'M' + CX + ',' + RY + ' H150', class: 'cr-w' }, L.wire);
+    el('text', { x: CX - 12, y: RY + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'end', text: 'RST' }, L.label);
+    cap(L.body, 126, RY, false);
+    el('path', { d: 'M102,' + RY + ' H60', class: 'cr-w' }, L.wire);
+    vcc(L.body, 60, RY, '+5V');
+    el('circle', { cx: 190, cy: RY, r: 4.5, class: 'cr-dot' }, L.wire);
+    el('path', { d: 'M190,' + RY + ' V' + (RY + 34), class: 'cr-w' }, L.wire);
+    res(L.body, 190, RY + 58, true);
+    el('path', { d: 'M190,' + (RY + 82) + ' V' + (RY + 110), class: 'cr-w' }, L.wire);
+    ground(L.body, 190, RY + 110);
+    el('text', { x: 126, y: RY - 22, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: 'CR' }, L.label);
+    el('text', { x: 214, y: RY + 62, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: 'RR' }, L.label);
+    el('text', { x: 60, y: RY - 42, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '上电自动复位' }, L.label);
+    reg.hit(null, 96, RY - 26, 120, 52, 'rst');
+
+    /* 时钟电路（左下） */
+    var X1Y = CY + 190, X2Y = CY + 240;
+    el('path', { d: 'M' + CX + ',' + X1Y + ' H210', class: 'cr-w' }, L.wire);
+    el('path', { d: 'M' + CX + ',' + X2Y + ' H210', class: 'cr-w' }, L.wire);
+    el('text', { x: CX - 12, y: X1Y + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'end', text: 'XTAL1' }, L.label);
+    el('text', { x: CX - 12, y: X2Y + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'end', text: 'XTAL2' }, L.label);
+    el('path', { d: 'M210,' + X1Y + ' V' + (X1Y + 8), class: 'cr-w' }, L.wire);
+    el('path', { d: 'M210,' + X2Y + ' V' + (X2Y - 8), class: 'cr-w' }, L.wire);
+    (function () { var g = el('g', null, L.body); xtal(g, 210, (X1Y + X2Y) / 2); return g; })();
+    el('text', { x: 236, y: (X1Y + X2Y) / 2 + 5, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: '晶振' }, L.label);
+    // C1 / C2
+    [[X1Y, 'C1'], [X2Y, 'C2']].forEach(function (c) {
+      el('path', { d: 'M260,' + c[0] + ' V' + (c[0] + (c[0] === X1Y ? -38 : 38)), class: 'cr-w' }, L.wire);
+      el('circle', { cx: 260, cy: c[0], r: 4.5, class: 'cr-dot' }, L.wire);
+    });
+    el('path', { d: 'M150,' + X1Y + ' H260 M150,' + X2Y + ' H260', class: 'cr-w' }, L.wire);
+    cap(L.body, 150, X1Y - 26, true); cap(L.body, 150, X2Y + 26, true);
+    el('path', { d: 'M150,' + X1Y + ' V' + (X1Y - 22) + ' M150,' + (X1Y - 30) + ' V' + (X1Y - 56), class: 'cr-w' }, L.wire);
+    el('path', { d: 'M150,' + X2Y + ' V' + (X2Y + 22) + ' M150,' + (X2Y + 30) + ' V' + (X2Y + 56), class: 'cr-w' }, L.wire);
+    ground(L.body, 150, X1Y - 56); ground(L.body, 150, X2Y + 56);
+    el('text', { x: 120, y: X1Y - 24, class: 'cr-t cr-t-ref', 'text-anchor': 'end', text: 'C1' }, L.label);
+    el('text', { x: 120, y: X2Y + 30, class: 'cr-t cr-t-ref', 'text-anchor': 'end', text: 'C2' }, L.label);
+    reg.hit(null, 130, X1Y - 10, 120, 60, 'osc');
+
+    /* EA 引脚 */
+    var EAY = CY + 110;
+    el('path', { d: 'M' + (CX + CW) + ',' + EAY + ' H' + (CX + CW + 50), class: 'cr-w' }, L.wire);
+    el('text', { x: CX + CW - 12, y: EAY + 5, class: 'cr-t cr-t-pin', 'text-anchor': 'end', text: 'EA' }, L.label);
+    // EA=1：接 +5V
+    P('a51', el('path', { d: 'M' + (CX + CW + 50) + ',' + EAY + ' V' + (EAY - 46), class: 'cr-w' }, L.wire));
+    P('a51', (function () { var g = el('g', null, L.body); vcc(g, CX + CW + 50, EAY - 46, '+5V'); return g; })());
+    P('a51', el('text', { x: CX + CW + 66, y: EAY + 5, class: 'cr-t cr-t-hl', 'text-anchor': 'start', text: 'EA = 1　从片内 ROM 取指' }, L.label));
+    // EA=0：接地
+    P('a31', el('path', { d: 'M' + (CX + CW + 50) + ',' + EAY + ' V' + (EAY + 40), class: 'cr-w' }, L.wire));
+    P('a31', (function () { var g = el('g', null, L.body); ground(g, CX + CW + 50, EAY + 40); return g; })());
+    P('a31', el('text', { x: CX + CW + 66, y: EAY + 5, class: 'cr-t cr-t-hl', 'text-anchor': 'start', text: 'EA = 0　只访问片外 ROM' }, L.label));
+    reg.hit(null, CX + CW, EAY - 20, 56, 40, 'ea');
+
+    /* 8051：四个口全部可用 */
+    var PY = CY + 200;
+    P('a51', el('path', { d: 'M' + (CX + CW) + ',' + PY + ' H' + (CX + CW + 90), class: 'cr-w cr-bus' }, L.wire));
+    P('a51', el('text', { x: CX + CW + 100, y: PY - 6, class: 'cr-t cr-t-ref', 'text-anchor': 'start', text: 'P0 / P1 / P2 / P3' }, L.label));
+    P('a51', el('text', { x: CX + CW + 100, y: PY + 14, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '32 条 I/O 线全部可用' }, L.label));
+    P('a51', el('text', { x: CX + CW + 100, y: PY + 52, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '不扩展外部存储器，' }, L.label));
+    P('a51', el('text', { x: CX + CW + 100, y: PY + 70, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '这就是全部电路。' }, L.label));
+    reg.hit('a51', CX + CW + 90, PY - 24, 200, 48, 'ports');
+
+    /* 8031：外扩 ROM ------------------------------------ */
+    var LX = 640, LY = 130, LW = 110, LH = 100;      // 74LS373
+    var RX = 790, RY2 = 260, RW = 120, RH = 150;     // 外部 ROM
+    P('a31', el('rect', { x: LX, y: LY, width: LW, height: LH, rx: 5, class: 'cr-box' }, L.body));
+    P('a31', el('text', { x: LX + LW / 2, y: LY + 40, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: '74LS373' }, L.label));
+    P('a31', el('text', { x: LX + LW / 2, y: LY + 62, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '地址锁存器' }, L.label));
+    P('a31', el('rect', { x: RX, y: RY2, width: RW, height: RH, rx: 5, class: 'cr-box' }, L.body));
+    P('a31', el('text', { x: RX + RW / 2, y: RY2 + 44, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: '外部' }, L.label));
+    P('a31', el('text', { x: RX + RW / 2, y: RY2 + 66, class: 'cr-t cr-t-ref', 'text-anchor': 'middle', text: 'ROM' }, L.label));
+    P('a31', el('text', { x: RX + RW / 2, y: RY2 + 92, class: 'cr-t cr-t-note', 'text-anchor': 'middle', text: '程序存储器' }, L.label));
+
+    // P0 → 373（低 8 位地址）
+    P('a31', el('path', { d: poly([[CX + CW, CY + 176], [600, CY + 176], [600, LY + 30], [LX, LY + 30]]), class: 'cr-w cr-bus' }, L.wire));
+    P('a31', el('text', { x: CX + CW + 10, y: CY + 168, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'P0　低 8 位地址 / 数据' }, L.label));
+    // ALE → 373
+    P('a31', el('path', { d: poly([[CX + CW, CY + 40], [590, CY + 40], [590, LY + 74], [LX, LY + 74]]), class: 'cr-w' }, L.wire));
+    P('a31', el('text', { x: CX + CW + 10, y: CY + 32, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'ALE　锁存允许' }, L.label));
+    // 373 → ROM 低地址
+    P('a31', el('path', { d: poly([[LX + LW, LY + 50], [RX + 20, LY + 50], [RX + 20, RY2]]), class: 'cr-w cr-bus' }, L.wire));
+    P('a31', el('text', { x: LX + LW + 12, y: LY + 42, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'A7 ~ A0' }, L.label));
+    // P2 → ROM 高地址
+    P('a31', el('path', { d: poly([[CX + CW, CY + 236], [620, CY + 236], [620, RY2 + 40], [RX, RY2 + 40]]), class: 'cr-w cr-bus' }, L.wire));
+    P('a31', el('text', { x: CX + CW + 10, y: CY + 228, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'P2　高 8 位地址 A15 ~ A8' }, L.label));
+    // P0 → ROM 数据
+    P('a31', el('path', { d: poly([[600, CY + 176], [600, RY2 + 90], [RX, RY2 + 90]]), class: 'cr-w cr-bus' }, L.wire));
+    P('a31', el('text', { x: 712, y: RY2 + 74, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'D7 ~ D0' }, L.label));
+    // PSEN → ROM
+    P('a31', el('path', { d: poly([[CX + CW, CY + 266], [660, CY + 266], [660, RY2 + 128], [RX, RY2 + 128]]), class: 'cr-w' }, L.wire));
+    P('a31', el('text', { x: CX + CW + 10, y: CY + 258, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: 'PSEN　取指选通' }, L.label));
+    // 剩下能用的口
+    P('a31', el('text', { x: 640, y: 466, class: 'cr-t cr-t-hl', 'text-anchor': 'start', text: 'P0、P2 被总线占用' }, L.label));
+    P('a31', el('text', { x: 640, y: 486, class: 'cr-t cr-t-note', 'text-anchor': 'start', text: '真正留给用户的只有 P1 和 P3 的一部分' }, L.label));
+    reg.hit('a31', LX - 6, LY - 6, LW + 12, LH + 12, 'latch');
+    reg.hit('a31', RX - 6, RY2 - 6, RW + 12, RH + 12, 'rom');
+    reg.hit('a31', CX + CW + 6, CY + 22, 130, 34, 'ale');
+    reg.hit('a31', CX + CW + 6, CY + 248, 140, 34, 'psen');
+    reg.hit('a31', 634, 448, 290, 46, 'busy');
+
+    this.chip = '8051';
+    this.setChip('8051');
+  }
+  MinSysFig.prototype.setChip = function (c) {
+    this.chip = c;
+    this.reg.txt.chip.textContent = c;
+    this.reg.show([c === '8051' ? 'a51' : 'a31']);
+    this.reg.focus(null, MIN_EX);
+  };
+  MinSysFig.prototype.focus = function (k) { return this.reg.focus(k, MIN_EX); };
+
+  global.ClockFig = ClockFig;
+  global.TimingFig = TimingFig;
+  global.ResetFig = ResetFig;
+  global.MinSysFig = MinSysFig;
+  global.CR_EX = { clock: CLOCK_EX, reset: RESET_EX, min: MIN_EX };
+
+})(window);
+
+</script>
+<script>
+KP({
+  unit: '单元 2 · 硬件结构',
+  unitEn: 'KNOWLEDGE POINT · RESET',
+  kp: '复位系统：一个高电平，把全机拨回原点',
+  lead: '复位这件事说穿了只有一句：**在 RST 上给一个够长的高电平**。' +
+        '够长是多长？教材给的是"至少两个机器周期（即 24 个振荡周期）"。' +
+        '难点不在电路——两只元件而已——而在**复位之后芯片变成了什么样**：' +
+        'PC 归零、SP 变 07H、四个口全为 FFH，而片内 RAM 却纹丝不动。',
+  meta: [['大纲　','第 2 章 80C51 基本结构'], ['教材　','2.5.2 · 图 2-10 · 表 2-7'], ['用时　','约 10 分钟']],
+  teach: {
+    intro: '两种复位电路：**加电自动复位**只有 CR 和 RR 两只元件；**按键复位**多一条支路，兼具上电与手动复位。切过去以后可以按住复位键看通路。',
+    title: '复位电路 · 两种接法',
+    caption: '点 CR、RR、RR1、RR2、复位键、RST 引脚可看各自的作用',
+    steps: [
+      '**上电瞬间**电容两端电压不能突变，相当于短路，+5V 几乎全部加在 RST 上 —— 这就是上电复位的高电平。',
+      '**随后电容被充电**，RST 电位按指数衰减，最终到 0，复位结束，CPU 从 0000H 开始执行。',
+      '**复位条件**：RST 保持至少两个机器周期的高电平。CPU 在第二个机器周期内执行内部复位操作。',
+      '**按下复位键**时，+5V 经 RR1 与 RR2 分压，教材算得约 **4.2 V**，足以让单片机复位。'
+    ]
+  },
+  pitfalls: [
+    { q: 'RST 是低电平有效还是高电平有效？',
+      say: '复位嘛，一般都是低电平有效，比如 RESET 上面带横线的那种。',
+      why: '那是别的芯片的习惯。80C51 的 RST **没有上划线**，教材写得很清楚：RST（RESET），复位信号输入引脚，**高电平有效**。',
+      right: '在 RST 引脚上出现**高电平**时实现复位和初始化。这也解释了电路为什么长成那样：上电瞬间电容短路把 +5V 送上 RST，随充电衰减到 0——正好是"先高后低"。顺便记住同一引脚的第二功能 V_PD：Vcc 掉电期间由它向芯片供电，保护 RAM 数据。'
+    },
+    { q: 'RC 参数是按"两个机器周期"算出来的吗？',
+      say: '要求两个机器周期，那按这个时间选 R 和 C 就行。',
+      why: '两个机器周期在 12 MHz 下只有 **2 µs**，而教材给的 CR = 22 µF、RR = 1 kΩ，时间常数 τ = R·C = **22 ms**——差了一万倍。按 2 µs 去选元件，实际根本复位不了。',
+      right: '两个机器周期是**理论下限**；工程上还要等电源和振荡器稳定，所以教材另给了一条实用标准：只要 RST 端维持 **10 ms 以上**的高电平，就能使 80C51 有效地复位。22 ms 的时间常数正是冲着这个 10 ms 去的，余量充足。'
+    },
+    { q: '复位会不会把片内 RAM 里的数据清掉？',
+      say: '复位就是清零，RAM 当然也被清了。',
+      why: '被清零的是**专用寄存器**，不是片内 RAM。教材：专用寄存器都复位为 0，但**不影响片内 RAM 的内容**。',
+      right: '复位后 PC = 0000H、SP = 07H、P0~P3 = FFH、其余 SFR 多为 0，而 00H~7FH 的片内 RAM 保持原值。所以程序不能假设 RAM 上电就是 0，需要自己初始化。另外注意 **复位期间不产生 ALE 和 PSEN 信号**。'
+    }
+  ],
+  quiz: [
+    { q: '在振荡器工作的情况下，要实现复位操作，RST 引脚上必须保持（　）。',
+      o: ['至少两个机器周期的高电平','至少两个机器周期的低电平','一个下降沿','至少 24 个机器周期的高电平'], a: 0,
+      x: '教材原话：必须使 RST 引脚保持至少两个机器周期（即 24 个振荡周期）的高电平。注意是高电平有效，且 24 指的是振荡周期不是机器周期。' },
+    { q: '80C51 复位后，P0 ~ P3 四个端口的内容是（　）。',
+      o: ['00H','07H','FFH','不定'], a: 2,
+      x: '教材表 2-7：P0~P3 复位后均为 FFH，引脚呈高电平。这也正是"准双向口作输入前要先写 1"在复位后天然成立的原因。' },
+    { q: '关于复位对存储器的影响，下列说法正确的是（　）。',
+      o: ['片内 RAM 全部清零','专用寄存器复位为 0，但不影响片内 RAM','片内 RAM 和 SFR 都保持原值','只有 ACC 被清零'], a: 1,
+      x: '教材：专用寄存器都复位为 0，但不影响片内 RAM 的内容。另外复位期间不产生 ALE 和 PSEN 信号。' }
+  ],
+  source: '教材《微控制器原理及接口控制技术》第 2 章 2.5.2 复位状态和复位电路，图 2-10、表 2-7；元件取值按教材数值（CR 22 µF、RR 1 kΩ、RR1 200 Ω、RR2 1 kΩ）。'
+});
+(function(){
+  var host=document.createElement('div'); KP.stage.appendChild(host);
+  var rst=new ResetFig(host);
+  var HINT='**点电路上的器件**看它的作用：CR、RR、RR1、RR2、复位键、RST 引脚。';
+  var pressBtn;
+  KP.buttons([{k:'pw',t:'加电自动复位'},{k:'kb',t:'按键复位'}],function(m){
+    rst.setMode(m);
+    if(pressBtn) pressBtn.style.display=(m==='kb')?'':'none';
+    KP.say(m==='pw'
+      ? '**加电自动复位（教材图 2-10a）**　只有 CR 和 RR 两只元件。上电瞬间电容相当于短路，+5V 加在 RST 上；随电容充电，RST 电位逐渐降到 0。'
+      : '**按键复位（教材图 2-10b）**　多一条 RR1 + 按键支路，兼具上电复位与手动复位。按住右边的按钮试试。');
+  },'pw');
+  pressBtn=document.createElement('button');
+  pressBtn.className='kp-btn go'; pressBtn.textContent='按住复位键'; pressBtn.style.display='none';
+  ['mousedown','touchstart'].forEach(function(e){pressBtn.addEventListener(e,function(ev){
+    rst.setPressed(true); pressBtn.textContent='按下中…约 4.2 V'; ev.preventDefault();
+    KP.say('**按下了。**+5V 经 RR1 与 RR2 分压：5 V × (1 kΩ / 1.2 kΩ) ≈ **4.2 V**，加在 RST 上，单片机复位。');
+  })});
+  ['mouseup','mouseleave','touchend'].forEach(function(e){pressBtn.addEventListener(e,function(){
+    rst.setPressed(false); pressBtn.textContent='按住复位键';
+  })});
+  KP.ctl.appendChild(pressBtn);
+  host.addEventListener('click',function(e){
+    var h=e.target.closest?e.target.closest('.cr-hit'):null;
+    if(!h){ rst.focus(null); return; }
+    var i=rst.focus(h.getAttribute('data-ex'));
+    if(i) KP.say('**'+i[0]+'**　'+i[1]);
+  });
+  KP.setReads([['复位条件','≥ 2 个机器周期高电平','gold'],
+               ['12 MHz 下','= 2 µs','hi'],
+               ['τ = RR·CR','1 kΩ × 22 µF = 22 ms','hi'],
+               ['工程建议','RST 维持 ≥ 10 ms','hi']]);
+  /* 复位后状态表 */
+  var SFR=[['PC','0000H','P0～P3','FFH','TL0','00H'],['ACC','00H','IP','×××00000B','TH1','00H'],
+           ['B','00H','IE','0××00000B','TL1','00H'],['PSW','00H','TMOD','00H','SCON','00H'],
+           ['SP','07H','TCON','00H','SBUF','不定'],['DPTR','0000H','TH0','00H','PCON','0×××××××B']];
+  var card=document.createElement('div'); card.className='kp-card';
+  card.innerHTML='<h3>复位之后 · 教材表 2-7</h3>'+
+    '<table style="width:100%;border-collapse:collapse;font-family:var(--fm);font-size:12px">'+
+    SFR.map(function(r){return '<tr>'+r.map(function(c,i){
+      return '<td style="padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.06);'+
+        (i%2?'color:var(--c1);font-weight:600':'color:var(--muted-fg)')+'">'+c+'</td>';
+    }).join('')+'</tr>';}).join('')+'</table>'+
+    '<p style="margin-top:10px;font-size:12.5px;color:var(--muted-fg);line-height:1.7">'+
+    '复位期间不产生 ALE 和 PSEN 信号；专用寄存器都复位为 0，但<b style="color:var(--c2)">不影响片内 RAM 的内容</b>。</p>';
+  KP.reads.parentNode.appendChild(card);
+})();
+</script>
+</body>
+</html>

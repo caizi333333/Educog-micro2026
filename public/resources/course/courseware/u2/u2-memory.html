@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>存储器组织｜单元 2 硬件结构（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+</style>
+<!-- 内联自 lib/kp-figs.css -->
+<style>
+/* ============================================================
+   kp-figs.css · 把已有三套图形引擎（portcell / clockreset / mcustruct）
+   的配色换成平台色系，使插图与站点同源。
+   引擎的类名一律不动，只重写外观。
+   ============================================================ */
+
+/* ---------- 通用 ---------- */
+.pc-svg,.cr-svg,.ms-svg{width:100%;height:auto;display:block}
+.pc-w,.cr-w,.ms-w{fill:none;stroke:rgba(203,213,225,.34);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.cr-thick{stroke-width:3}
+.pc-bus,.cr-bus{stroke:rgba(241,245,249,.55);stroke-width:3.4}
+.pc-rail,.cr-rail{stroke:rgba(203,213,225,.34)}
+
+.pc-box,.cr-box,.ms-box{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.pc-box-logic,.cr-chip,.ms-box.ms-cpu{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34)}
+.pc-tri,.cr-tri{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-tri-logic{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.34);stroke-width:1.8}
+.pc-bubble,.cr-bubble{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-res,.cr-res{fill:rgba(255,255,255,.03);stroke:rgba(203,213,225,.34);stroke-width:1.8}
+.pc-res-ext{stroke:rgba(252,211,77,.55);stroke-dasharray:5 4}
+.cr-xtal{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:1.8}
+.pc-dot,.cr-dot{fill:rgba(203,213,225,.5)}
+.pc-dot-node{fill:var(--c1);r:5}
+.pc-pin{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.4);stroke-width:2}
+.pc-extr .pc-w{stroke:rgba(252,211,77,.5)}
+.pc-overbar,.pc-clk{stroke:rgba(241,245,249,.6);stroke-width:1.6}
+.pc-contact{fill:#0f1115;stroke:rgba(103,232,249,.44);stroke-width:1.8}
+.pc-pivot{fill:var(--c1)}
+.cr-key{stroke:var(--c3)}
+.cr-grid,.ms-grp{stroke:rgba(255,255,255,.1)}
+.ms-grp{fill:rgba(255,255,255,.015);stroke-width:1.4;stroke-dasharray:6 5}
+.ms-grp-alu{stroke:rgba(252,211,77,.3)}.ms-grp-ctl{stroke:rgba(103,232,249,.3)}
+.ms-bus{fill:rgba(252,211,77,.08);stroke:rgba(252,211,77,.38);stroke-width:1.8}
+.ms-chip{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-notch{fill:#070a0d;stroke:rgba(255,255,255,.14);stroke-width:1.8}
+.ms-arrhead{fill:rgba(203,213,225,.34)}
+.ms-pinpad{fill:rgba(203,213,225,.34)}
+.ms-pinw{stroke-width:2.4}
+.ms-pin{transition:opacity .25s}.ms-pin.ms-dim{opacity:.2}
+.ms-pwr .ms-pinw,.ms-pwr .ms-pinpad{stroke:var(--slate400);fill:var(--slate400)}
+.ms-clk .ms-pinw,.ms-clk .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+.ms-ctl .ms-pinw,.ms-ctl .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io0 .ms-pinw,.ms-io0 .ms-pinpad{stroke:var(--c3);fill:var(--c3)}
+.ms-io1 .ms-pinw,.ms-io1 .ms-pinpad{stroke:var(--c1);fill:var(--c1)}
+.ms-io2 .ms-pinw,.ms-io2 .ms-pinpad{stroke:var(--c4);fill:var(--c4)}
+.ms-io3 .ms-pinw,.ms-io3 .ms-pinpad{stroke:var(--c2);fill:var(--c2)}
+
+/* ---------- 场效应管：导通/截止画在器件上 ---------- */
+.pc-fet-gate{stroke:rgba(241,245,249,.62);stroke-width:2.6}
+.pc-fet-seg{stroke:rgba(203,213,225,.34);stroke-width:2.6;transition:opacity .3s}
+.pc-fet-arrow{fill:rgba(203,213,225,.34);transition:fill .3s}
+.pc-fet-chan{stroke:var(--c1);stroke-width:4.2;opacity:0;transition:opacity .28s;stroke-linecap:round}
+.pc-fet.pc-fet-on .pc-fet-chan{opacity:1}
+.pc-fet.pc-fet-on .pc-fet-seg{opacity:0}
+.pc-fet.pc-fet-on .pc-fet-arrow{fill:var(--c1)}
+
+/* ---------- 刀开关 ---------- */
+.pc-blade{stroke:var(--c1);stroke-width:3.2;stroke-linecap:round;
+  transform-box:view-box;transform-origin:536px 309px;
+  transition:transform .42s cubic-bezier(.34,1.3,.5,1)}
+
+/* ---------- 钳位标记 ---------- */
+.pc-clamp{opacity:0;transition:opacity .3s;pointer-events:none}
+.pc-clamp.pc-show{opacity:1}
+.pc-clamp-w{stroke:var(--c5);stroke-width:2.2}
+.pc-t-clamp{font-size:11px;font-weight:600;fill:var(--c5)}
+
+/* ---------- 文字 ---------- */
+.pc-t,.cr-t,.ms-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.pc-t-bus{font-size:12px;font-weight:600;letter-spacing:.24em;fill:var(--muted-fg)}
+.pc-t-cap,.cr-t-cap,.cr-t-fig,.ms-t-s{font-size:11.5px;font-weight:500;fill:var(--muted-fg)}
+.pc-t-pin,.cr-t-pin,.ms-t-b{font-size:13px;font-weight:600;fill:var(--slate100)}
+.ms-t-b{font-size:13.5px}
+.pc-t-buf{font-size:12px;font-weight:700;fill:var(--c1);letter-spacing:.04em}
+.pc-t-sig,.cr-t-ref,.ms-t-row{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-sig2,.pc-t-note,.cr-t-note,.ms-t-ext{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.pc-t-op{font-size:18px;font-weight:700;fill:var(--c1)}
+.pc-t-val,.pc-t-gate,.cr-t-hl,.ms-t-bus{font-size:14px;font-weight:700;fill:var(--c3)}
+.pc-t-gate{font-size:11.5px}
+.ms-t-bus{font-size:12.5px;letter-spacing:.2em}
+.pc-t-fet,.cr-t-fet{font-size:11.5px;font-weight:600;fill:var(--muted-fg)}
+.pc-t-fetname,.cr-t-chip2{font-size:12px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-pinname,.cr-t-chip,.ms-t-chip{font-size:15px;font-weight:700;fill:var(--c1)}
+.ms-t-chip{font-size:20px;fill:rgba(241,245,249,.75)}
+.pc-t-pinval{font-size:11.5px;font-weight:600;fill:rgba(241,245,249,.9)}
+.pc-t-extr{font-size:11px;font-weight:600;fill:var(--c3)}
+.pc-badge,.ms-t-grp{fill:#0f1115;stroke:var(--c1);stroke-width:1.6}
+.ms-t-grp{fill:var(--muted-fg);stroke:none;font-size:11.5px;font-weight:700;letter-spacing:.14em}
+.pc-t-badge{font-size:10.5px;font-weight:700;fill:var(--c1)}
+.pc-sep{stroke:rgba(255,255,255,.12);stroke-width:1.4;stroke-dasharray:4 5}
+.pc-t-bandk{font-size:10px;font-weight:600;fill:var(--muted-fg);letter-spacing:.14em}
+.pc-t-legend{font-size:11.5px;font-weight:500;fill:rgba(203,213,225,.86)}
+.pc-t-chain{font-size:12px;font-weight:600;fill:var(--c1)}
+.cr-t-cell,.ms-t-cell{font-size:11px;font-weight:600;fill:rgba(203,213,225,.82)}
+.cr-t-big{font-size:14px;font-weight:700;fill:var(--c1)}
+.cr-wave{fill:none;stroke:var(--c1);stroke-width:2.2}
+.cr-cell{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.12);stroke-width:1.4}
+.cr-cell-m{stroke:rgba(103,232,249,.4);fill:rgba(103,232,249,.05)}
+.cr-cell-on{stroke:rgba(252,211,77,.45);fill:rgba(252,211,77,.08)}
+
+/* ---------- 状态色 ---------- */
+.pc-on,.pc-hi{fill:var(--c1)!important}
+.pc-cut,.pc-lo{fill:var(--muted-fg)!important}
+.pc-z{fill:var(--c3)!important}
+
+/* ---------- 通路流动与方向箭头 ---------- */
+.pc-f,.cr-f{fill:none;stroke:var(--c1);stroke-width:3;stroke-linecap:round;
+  opacity:0;stroke-dasharray:14 12;transition:opacity .3s}
+.pc-f.pc-live,.cr-f.cr-live{opacity:.95;animation:kpDash .85s linear infinite}
+@keyframes kpDash{to{stroke-dashoffset:-26}}
+.pc-arrow{fill:var(--c1);opacity:.95}
+.pc-trapped .pc-f.pc-live{stroke:var(--c5)}
+.pc-trapped .pc-arrow{fill:var(--c5)}
+.pc-trapped .pc-t-chain{fill:var(--c5)}
+.pc-trapped .pc-t-pinval{fill:var(--c5)!important}
+
+/* ---------- 形变与显隐 ---------- */
+.pc-part,.cr-part{transition:opacity .45s ease,transform .45s cubic-bezier(.2,.85,.3,1);
+  transform-box:view-box}
+.pc-part.pc-off,.cr-part.cr-off{opacity:0;transform:translate(-18px,0);pointer-events:none}
+
+/* ---------- 点选热区 ---------- */
+.pc-hit,.cr-hit,.ms-hit{fill:transparent;cursor:pointer}
+.pc-hit:hover,.cr-hit:hover,.ms-hit:hover{fill:rgba(255,255,255,.05)}
+.pc-ring,.cr-ring,.ms-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;
+  pointer-events:none;animation:kpRing 12s linear infinite}
+@keyframes kpRing{to{stroke-dashoffset:-240}}
+
+/* ---------- 存储空间地址映射图 ---------- */
+.mm-svg{width:100%;height:auto;display:block}
+.mm-band{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.14);stroke-width:1.6}
+.mm-prog{fill:rgba(103,232,249,.05);stroke:rgba(103,232,249,.3)}
+.mm-prog.mm-in{fill:rgba(103,232,249,.14);stroke:rgba(103,232,249,.5)}
+.mm-data{fill:rgba(110,231,183,.05);stroke:rgba(110,231,183,.28)}
+.mm-data.mm-sfr{fill:rgba(252,211,77,.07);stroke:rgba(252,211,77,.34)}
+.mm-xdata{fill:rgba(96,165,250,.05);stroke:rgba(96,165,250,.3)}
+.mm-link{stroke:rgba(253,164,175,.45);stroke-width:1.6;stroke-dasharray:4 4;fill:none}
+.mm-t{font-family:var(--fm);fill:rgba(203,213,225,.82)}
+.mm-t-h{font-size:13px;font-weight:700;fill:var(--slate100)}
+.mm-t-n{font-size:13px;font-weight:600;fill:rgba(241,245,249,.94)}
+.mm-t-s{font-size:10.5px;font-weight:400;fill:var(--muted-fg)}
+.mm-t-a{font-size:10.5px;font-weight:600;fill:var(--c3)}
+.mm-t-warn{font-size:11.5px;font-weight:600;fill:var(--rose300)}
+.mm-hit{fill:transparent;cursor:pointer}
+.mm-hit:hover{fill:rgba(255,255,255,.05)}
+.mm-ring{fill:none;stroke:var(--c3);stroke-width:2.2;stroke-dasharray:7 5;pointer-events:none;
+  animation:kpRing 12s linear infinite}
+
+</style>
+</head>
+<body>
+<!-- 内联自 lib/kp-shell.js -->
+<script>
+/* ============================================================
+   kp-shell.js · 知识点讲解页 · 共用外壳
+   ------------------------------------------------------------
+   六个知识点页共用这一套结构，保证"每篇能独立成篇、彼此风格统一"：
+
+     眉标（单元 · 知识点编号）
+     渐变大标题
+     一句话定位：这个点为什么容易错
+     元信息 chip（对应大纲章节 / 教材图表 / 预计用时）
+     ┌ 标签页 ────────────────────────┐
+     │ 讲解  —— 可交互的图 + 分步说明      │
+     │ 疑点  —— 学生最常错的地方，现象→原因→正解 │
+     │ 自测  —— 2~3 题，即时给解析         │
+     └───────────────────────────┘
+     相关知识点 + 出处
+
+   页面只需提供数据，外壳负责渲染与交互。
+   被 iframe 嵌入时自动加 .kp-embed（收紧留白、隐去页脚）。
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  function h(tag, attrs, html) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  /* 允许在文案里用 **加粗** 和 `等宽` 两种极简标记，省得到处写标签 */
+  function md(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`(.+?)`/g, '<code style="font-family:var(--fm);font-size:.92em;' +
+        'background:rgba(255,255,255,.05);border-radius:4px;padding:1px 5px">$1</code>');
+  }
+
+  function KP(cfg) {
+    /* 被 iframe 装着就进嵌入模式 */
+    try { if (global.self !== global.top) document.body.classList.add('kp-embed'); } catch (e) {
+      document.body.classList.add('kp-embed');
+    }
+    document.title = cfg.kp + '｜' + cfg.unit;
+
+    var wrap = h('div', { class: 'kp-wrap kp-fade' });
+    document.body.appendChild(wrap);
+
+    /* ---- 头部 ---- */
+    wrap.appendChild(h('div', { class: 'kp-eyebrow' },
+      esc(cfg.unitEn || 'KNOWLEDGE POINT') + ' · <b>' + esc(cfg.unit) + '</b>'));
+    wrap.appendChild(h('h1', { class: 'kp-h1' }, esc(cfg.kp)));
+    wrap.appendChild(h('p', { class: 'kp-lead' }, md(cfg.lead)));
+    if (cfg.meta && cfg.meta.length) {
+      wrap.appendChild(h('div', { class: 'kp-meta' },
+        cfg.meta.map(function (m) {
+          return '<span class="kp-chip">' + (m[1] ? '<b>' + esc(m[0]) + '</b>' + esc(m[1]) : esc(m[0])) + '</span>';
+        }).join('')));
+    }
+
+    /* ---- 标签页 ---- */
+    var TABS = [
+      { k: 'teach', n: '01', t: '讲解' },
+      { k: 'pit', n: '02', t: '疑点' },
+      { k: 'quiz', n: '03', t: '自测' }
+    ].filter(function (t) {
+      return t.k === 'teach' ? !!cfg.teach : (t.k === 'pit' ? (cfg.pitfalls || []).length : (cfg.quiz || []).length);
+    });
+
+    var tabsEl = h('div', { class: 'kp-tabs', role: 'tablist' });
+    var panels = {};
+    TABS.forEach(function (t, i) {
+      var b = h('button', {
+        class: 'kp-tab', role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false',
+        'data-k': t.k
+      }, '<span class="n">' + t.n + '</span>' + t.t);
+      b.onclick = function () { select(t.k); };
+      tabsEl.appendChild(b);
+      var p = h('div', { class: 'kp-panel' + (i === 0 ? ' on' : ''), role: 'tabpanel' });
+      panels[t.k] = p;
+    });
+    wrap.appendChild(tabsEl);
+    TABS.forEach(function (t) { wrap.appendChild(panels[t.k]); });
+
+    function select(k) {
+      Array.prototype.forEach.call(tabsEl.children, function (b) {
+        b.setAttribute('aria-selected', b.dataset.k === k ? 'true' : 'false');
+      });
+      for (var key in panels) panels[key].classList.toggle('on', key === k);
+      if (k === 'teach' && cfg.onShowTeach) cfg.onShowTeach();
+    }
+
+    /* ---- 讲解 ---- */
+    if (cfg.teach) {
+      var tp = panels.teach;
+      if (cfg.teach.intro) {
+        tp.appendChild(h('div', { class: 'kp-card' }, '<p>' + md(cfg.teach.intro) + '</p>'));
+      }
+      var stageCard = h('div', { class: 'kp-card' });
+      if (cfg.teach.title) stageCard.appendChild(h('h3', null, esc(cfg.teach.title)));
+      var ctl = h('div', { class: 'kp-ctl', id: 'kpCtl' });
+      stageCard.appendChild(ctl);
+      var stage = h('div', { class: 'kp-stage', id: 'kpStage' });
+      stageCard.appendChild(stage);
+      if (cfg.teach.caption) stageCard.appendChild(h('div', { class: 'kp-stagecap' }, esc(cfg.teach.caption)));
+      var reads = h('div', { class: 'kp-reads', id: 'kpReads', style: 'margin-top:12px' });
+      stageCard.appendChild(reads);
+      var say = h('div', { class: 'kp-card', id: 'kpSay', style: 'margin-top:12px' },
+        '<h3>当前在讲什么</h3><p id="kpSayT"></p>');
+      stageCard.appendChild(say);
+      tp.appendChild(stageCard);
+      if (cfg.teach.steps && cfg.teach.steps.length) {
+        var sc = h('div', { class: 'kp-card' });
+        sc.appendChild(h('h3', null, '要点顺序'));
+        sc.appendChild(h('div', null, cfg.teach.steps.map(function (s, i) {
+          return '<p><b>' + (i + 1) + '.</b> ' + md(s) + '</p>';
+        }).join('')));
+        tp.appendChild(sc);
+      }
+      KP.ctl = ctl; KP.stage = stage; KP.reads = reads;
+      KP.say = function (t) { document.getElementById('kpSayT').innerHTML = md(t); };
+    }
+
+    /* ---- 疑点 ---- */
+    if ((cfg.pitfalls || []).length) {
+      var pp = panels.pit;
+      pp.appendChild(h('div', { class: 'kp-card' },
+        '<p class="kp-note">下面几条是这个知识点上学生最常出错的地方。' +
+        '每条按「常见说法 → 为什么错 → 正确理解」拆开，可以直接拿去当课堂提问。</p>'));
+      cfg.pitfalls.forEach(function (p, i) {
+        var el = h('div', { class: 'kp-pit' });
+        el.innerHTML =
+          '<div class="no">疑点 ' + String(i + 1).padStart(2, '0') + '</div>' +
+          '<div class="q">' + md(p.q) + '</div>' +
+          '<dl>' +
+          '<dt>常见说法</dt><dd>' + md(p.say) + '</dd>' +
+          '<dt>为什么错</dt><dd>' + md(p.why) + '</dd>' +
+          '<dt class="right">正确理解</dt><dd class="right">' + md(p.right) + '</dd>' +
+          '</dl>';
+        pp.appendChild(el);
+      });
+    }
+
+    /* ---- 自测 ---- */
+    if ((cfg.quiz || []).length) {
+      var qp = panels.quiz, right = 0, answered = 0;
+      var score = h('div', { class: 'kp-score' });
+      cfg.quiz.forEach(function (item, i) {
+        var q = h('div', { class: 'kp-q' });
+        q.appendChild(h('div', { class: 'qh' },
+          '<span class="qn">Q' + (i + 1) + '</span><span class="qt">' + md(item.q) + '</span>'));
+        var exp = h('div', { class: 'kp-exp' }, md(item.x));
+        item.o.forEach(function (o, j) {
+          var b = h('button', { class: 'kp-opt' }, 'ABCD'[j] + '．' + md(o));
+          b.onclick = function () {
+            Array.prototype.forEach.call(q.querySelectorAll('.kp-opt'), function (x, k) {
+              x.classList.add('lock');
+              if (k === item.a) x.classList.add('ok');
+            });
+            if (j !== item.a) b.classList.add('no'); else right++;
+            answered++;
+            exp.classList.add('show');
+            exp.classList.toggle('bad', j !== item.a);
+            score.innerHTML = '答对 <b>' + right + '</b> / ' + cfg.quiz.length +
+              '　已答 ' + answered;
+          };
+          q.appendChild(b);
+        });
+        q.appendChild(exp);
+        qp.appendChild(q);
+      });
+      score.innerHTML = '答对 <b>0</b> / ' + cfg.quiz.length + '　已答 0';
+      qp.appendChild(score);
+    }
+
+    /* ---- 页脚 ---- */
+    var foot = h('div', { class: 'kp-foot' });
+    foot.innerHTML =
+      '<b>出处</b>　' + esc(cfg.source || '') + '<br>' +
+      (cfg.note ? esc(cfg.note) + '<br>' : '') +
+      '<b>用法</b>　本页可独立打开，也可作为单元资源嵌入平台（自适应容器宽度）。';
+    if ((cfg.related || []).length) {
+      foot.appendChild(h('div', { class: 'kp-rel' },
+        cfg.related.map(function (r) {
+          return '<a class="kp-btn" href="' + esc(r[1]) + '">' + esc(r[0]) + ' →</a>';
+        }).join('')));
+    }
+    wrap.appendChild(foot);
+
+    KP.select = select;
+    return KP;
+  }
+
+  /* 给讲解区加一个控制按钮组，返回一个 setter */
+  KP.buttons = function (items, onPick, initial) {
+    var btns = items.map(function (it) {
+      var b = document.createElement('button');
+      b.className = 'kp-btn';
+      b.textContent = it.t;
+      b.dataset.k = it.k;
+      b.onclick = function () { pick(it.k); };
+      KP.ctl.appendChild(b);
+      return b;
+    });
+    function pick(k) {
+      btns.forEach(function (b) { b.classList.toggle('on', b.dataset.k === k); });
+      onPick(k);
+    }
+    pick(initial || items[0].k);
+    return pick;
+  };
+  /* 写读数格 */
+  KP.setReads = function (list) {
+    KP.reads.innerHTML = list.map(function (r) {
+      return '<div class="kp-read"><div class="k">' + esc(r[0]) + '</div>' +
+        '<div class="v ' + (r[2] || '') + '">' + esc(r[1]) + '</div></div>';
+    }).join('');
+  };
+  KP.md = md;
+  global.KP = KP;
+})(window);
+
+</script>
+<!-- 内联自 lib/kp-memmap.js -->
+<script>
+/* ============================================================
+   kp-memmap.js · 80C51 存储空间地址映射图
+   ------------------------------------------------------------
+   为"存储器组织"这个知识点单独画的：四个独立编址的空间并排放，
+   一眼看出"地址会重号，靠指令和 EA 区分"这件事。
+   对照教材第 2 章 2.3 存储器。
+   ============================================================ */
+(function (global) {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(t, a, p) {
+    var n = document.createElementNS(NS, t);
+    if (a) for (var k in a) { if (k === 'text') n.textContent = a[k]; else n.setAttribute(k, a[k]); }
+    if (p) p.appendChild(n); return n;
+  }
+
+  var EX = {
+    prom: ['片内程序存储器 ROM', '4 KB，地址 0000H ~ 0FFFH，存放程序代码。8031 没有这一块。取指令走这里还是走片外，由 EA 引脚决定。'],
+    xrom: ['片外程序存储器', '最大 64 KB，地址 0000H ~ FFFFH。由 PSEN 选通，取指令专用。注意它的地址范围与片内 ROM **重叠**——0000H 这个地址两边都有。'],
+    iram: ['片内数据存储器 RAM', '128 B，地址 00H ~ 7FH。分三个区：00H~1FH 工作寄存器区（4 组 R0~R7）、20H~2FH 位寻址区、30H~7FH 用户 RAM 区。用 MOV 指令访问。'],
+    sfr: ['特殊功能寄存器 SFR', '21 个，地址 80H ~ FFH。与片内 RAM 的高 128 字节**地址重叠**，靠寻址方式区分：SFR 只能直接寻址，高 128 B RAM（52 子系列才有）只能间接寻址。'],
+    xram: ['片外数据存储器', '最大 64 KB，地址 0000H ~ FFFFH。用 MOVX 指令 + DPTR 访问，由 RD / WR 选通。与片外程序存储器地址也重叠，但指令不同（MOVX vs MOVC）。'],
+    bank: ['工作寄存器区 00H ~ 1FH', '4 组，每组 8 个单元 R0 ~ R7，共占 32 个字节。当前用哪一组由 PSW 的 RS1、RS0 选择。复位后 PSW = 00H，默认 BANK0。'],
+    bit: ['位寻址区 20H ~ 2FH', '16 个字节 × 8 位 = 128 个位地址，位地址范围 00H ~ 7FH。这是 80C51 布尔处理器的用武之地，可以对单个位做置位、清零、取反等操作。'],
+    user: ['用户 RAM 区 30H ~ 7FH', '80 个字节，一般用作数据缓冲区和堆栈区。复位后 SP = 07H，第一次压栈进 08H——落在 BANK1 上，所以实际编程通常把 SP 重设到 30H 以上。']
+  };
+
+  function MemMap(host) {
+    var W = 940, H = 430;
+    host.innerHTML = '';
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'mm-svg', preserveAspectRatio: 'xMidYMid meet' }, host);
+    var L = {};
+    ['body', 'label', 'hit'].forEach(function (n) { L[n] = el('g', null, svg); });
+    var reg = { svg: svg, L: L };
+    reg.ring = el('rect', { x: 0, y: 0, width: 0, height: 0, rx: 7, class: 'mm-ring' }, L.hit);
+
+    function hit(x, y, w, h, key) {
+      el('rect', { x: x, y: y, width: w, height: h, class: 'mm-hit', 'data-ex': key }, L.hit);
+    }
+    /* 一条地址带 */
+    function band(x, y, w, h, cls, top, bot, name, sub) {
+      el('rect', { x: x, y: y, width: w, height: h, rx: 5, class: 'mm-band ' + cls }, L.body);
+      el('text', { x: x + w / 2, y: y + h / 2 - 3, class: 'mm-t mm-t-n', 'text-anchor': 'middle', text: name }, L.label);
+      if (sub) el('text', { x: x + w / 2, y: y + h / 2 + 15, class: 'mm-t mm-t-s', 'text-anchor': 'middle', text: sub }, L.label);
+      if (top) el('text', { x: x + w + 8, y: y + 11, class: 'mm-t mm-t-a', 'text-anchor': 'start', text: top }, L.label);
+      if (bot) el('text', { x: x + w + 8, y: y + h - 2, class: 'mm-t mm-t-a', 'text-anchor': 'start', text: bot }, L.label);
+    }
+    function col(x, w, title, sub) {
+      el('text', { x: x + w / 2, y: 26, class: 'mm-t mm-t-h', 'text-anchor': 'middle', text: title }, L.label);
+      el('text', { x: x + w / 2, y: 44, class: 'mm-t mm-t-s', 'text-anchor': 'middle', text: sub }, L.label);
+    }
+
+    var TOP = 66, BOT = 372, HGT = BOT - TOP;
+
+    /* ── 程序存储器 ── */
+    col(40, 180, '程序存储器', 'MOVC · PSEN 选通');
+    band(40, TOP, 180, HGT, 'mm-prog', 'FFFFH', '0000H', '片外 ROM', '最大 64 KB');
+    hit(40, TOP, 180, HGT, 'xrom');
+    var ph = HGT * 4 / 64;
+    band(40, BOT - ph, 180, ph, 'mm-prog mm-in', '0FFFH', '0000H', '片内 4 KB', '');
+    hit(40, BOT - ph, 180, ph, 'prom');
+    el('text', { x: 130, y: BOT + 24, class: 'mm-t mm-t-s', 'text-anchor': 'middle',
+      text: 'EA = 1 先用片内，超出转片外；EA = 0 只用片外' }, L.label);
+
+    /* ── 片内数据存储器 ── */
+    col(330, 190, '片内数据存储器', 'MOV 指令直接访问');
+    var seg = [
+      ['sfr', 'FFH', '80H', 'SFR 专用寄存器', '21 个', .34],
+      ['user', '7FH', '30H', '用户 RAM 区', '80 B · 含堆栈', .30],
+      ['bit', '2FH', '20H', '位寻址区', '16 B · 128 个位地址', .18],
+      ['bank', '1FH', '00H', '工作寄存器区', '4 组 R0~R7 · 32 B', .18]
+    ];
+    var y = TOP;
+    seg.forEach(function (s) {
+      var hh = HGT * s[5];
+      band(330, y, 190, hh, 'mm-data' + (s[0] === 'sfr' ? ' mm-sfr' : ''), s[1], s[2], s[3], s[4]);
+      hit(330, y, 190, hh, s[0]);
+      y += hh;
+    });
+    el('text', { x: 425, y: BOT + 24, class: 'mm-t mm-t-s', 'text-anchor': 'middle',
+      text: 'SFR 与高 128 B 地址重号，靠寻址方式区分' }, L.label);
+
+    /* ── 片外数据存储器 ── */
+    col(650, 180, '片外数据存储器', 'MOVX + DPTR · RD/WR 选通');
+    band(650, TOP, 180, HGT, 'mm-xdata', 'FFFFH', '0000H', '片外 RAM', '最大 64 KB');
+    hit(650, TOP, 180, HGT, 'xram');
+    el('text', { x: 740, y: BOT + 24, class: 'mm-t mm-t-s', 'text-anchor': 'middle',
+      text: '与片外 ROM 地址也重号，靠指令区分' }, L.label);
+
+    /* ── 重号提示 ── */
+    el('path', { d: 'M226,' + (BOT - 6) + ' H320', class: 'mm-link' }, L.body);
+    el('path', { d: 'M596,' + (BOT - 6) + ' H644', class: 'mm-link' }, L.body);
+    el('text', { x: 940 / 2, y: H - 8, class: 'mm-t mm-t-warn', 'text-anchor': 'middle',
+      text: '三个空间都从 0000H / 00H 起编址 —— 地址会重号，靠「哪条指令 + EA 怎么接」区分，不是靠地址本身' }, L.label);
+
+    reg.focus = function (key) {
+      var h2 = key && svg.querySelector('.mm-hit[data-ex="' + key + '"]');
+      if (!h2) { reg.ring.setAttribute('width', 0); return null; }
+      ['x', 'y', 'width', 'height'].forEach(function (a, i) {
+        reg.ring.setAttribute(a, +h2.getAttribute(a) + (i < 2 ? -4 : 8));
+      });
+      return EX[key] || null;
+    };
+    this.reg = reg;
+  }
+  MemMap.prototype.focus = function (k) { return this.reg.focus(k); };
+  MemMap.EX = EX;
+  global.MemMap = MemMap;
+})(window);
+
+</script>
+<script>
+KP({
+  unit: '单元 2 · 硬件结构',
+  unitEn: 'KNOWLEDGE POINT · MEMORY',
+  kp: '存储器组织：地址会重号，靠指令区分',
+  lead: '80C51 最容易绕晕的地方是：**同一个地址 0000H，在三个不同的空间里都存在**。' +
+        '它不像 PC 那样把内存统一编址，而是把程序、片内数据、片外数据分成几个**独立编址**的空间。' +
+        '分不清"地址"和"空间"，后面的寻址方式、MOVX、MOVC 全会乱。',
+  meta: [['大纲　','第 2 章 80C51 基本结构'], ['教材　','2.3 存储器'], ['用时　','约 10 分钟']],
+  teach: {
+    intro: '下面把四个空间按真实比例并排画出来。**点任一块**看它的地址范围和访问方式。' +
+           '注意三根竖条的底部都是 0000H / 00H —— 这就是"重号"的由来。',
+    title: '存储空间地址映射 · 可点击',
+    caption: '片内 ROM 只占片外空间的 1/16，图上按真实比例画；SFR 与高 128 B RAM 的重号用底色区分',
+    steps: [
+      '**先分程序还是数据**：取指令走程序存储器（MOVC / PSEN），存数据走数据存储器（MOV / MOVX）。这是第一层区分。',
+      '**再分片内还是片外**：程序存储器由 **EA 引脚**决定；数据存储器由**指令**决定——MOV 访问片内，MOVX 访问片外。',
+      '**片内 RAM 内部还要再分三块**：00H~1FH 工作寄存器区、20H~2FH 位寻址区、30H~7FH 用户区。',
+      '**SFR 和高 128 B 重号**：80H~FFH 这段地址，SFR 只能直接寻址，高 128 B RAM（52 子系列）只能间接寻址。'
+    ]
+  },
+  pitfalls: [
+    { q: '`MOV A,30H` 和 `MOVX A,@DPTR`（DPTR = 0030H）读的是同一个单元吗？',
+      say: '地址都是 30H，读的当然是同一个地方。',
+      why: '两条指令根本不在同一个空间里找。地址只是"门牌号"，**门牌号相同不代表在同一条街上**。',
+      right: '`MOV A,30H` 用的是直接寻址，访问**片内** RAM 的 30H 单元；`MOVX A,@DPTR` 访问的是**片外**数据存储器的 0030H 单元，由 RD 选通。两个完全独立的存储器，数据互不影响。'
+    },
+    { q: 'EA 接高电平时，程序是不是就只能在片内 4 KB 里跑？',
+      say: 'EA = 1 就是用片内 ROM，所以程序不能超过 4 KB。',
+      why: 'EA 决定的是**从哪里取**，不是**能寻址多大**。教材原话：引脚为高电平时，微控制器首先使用片内程序存储器，一旦地址超过片内程序存储器地址空间，会**自动转向片外**。',
+      right: 'EA = 1 时：0000H~0FFFH 取片内，1000H~FFFFH 自动转片外，整个 64 KB 都可用。EA = 0 时无论什么地址都只访问片外。8031 片内无 ROM，所以 EA 必须接地。'
+    },
+    { q: '复位后 SP = 07H，为什么书上说"实际编程要重设 SP"？',
+      say: '07H 也是个地址，能用就行，不用改。',
+      why: 'SP 指向栈顶，**入栈时先加 1 再压数据**，所以第一次压栈进的是 08H——而 08H 正好是工作寄存器 **BANK1** 的 R0。一旦程序里切到 BANK1，堆栈和寄存器就会互相踩。',
+      right: '把 SP 重设到用户 RAM 区（30H 以上），堆栈就和工作寄存器区、位寻址区彻底分开。这也是为什么 30H~7FH 那 80 个字节常被叫作"数据缓冲区兼堆栈区"。'
+    }
+  ],
+  quiz: [
+    { q: '80C51 的片内数据存储器中，位寻址区的字节地址范围是（　）。',
+      o: ['00H ~ 1FH','20H ~ 2FH','30H ~ 7FH','80H ~ FFH'], a: 1,
+      x: '20H~2FH 共 16 个字节，每字节 8 位，合计 128 个位地址（位地址 00H~7FH）。00H~1FH 是工作寄存器区，30H~7FH 是用户 RAM 区，80H~FFH 是 SFR。' },
+    { q: '要访问片外数据存储器，应使用的指令是（　）。',
+      o: ['MOV','MOVX','MOVC','PUSH'], a: 1,
+      x: 'MOVX 配合 DPTR 访问 64 KB 片外数据空间，由 RD / WR 选通；MOV 访问片内 RAM 与 SFR；MOVC 访问程序存储器（查表）。' },
+    { q: '8031 单片机构成系统时，EA 引脚必须接地，原因是（　）。',
+      o: ['降低功耗','片内没有程序存储器，只能访问片外','防止复位失败','提高驱动能力'], a: 1,
+      x: '8031 片内无 ROM，程序必须放在片外。EA = 0 使 CPU 只访问片外程序存储器。8051 / 8751 片内有 4 KB 程序存储器，EA 接 +5V。' }
+  ],
+  source: '教材《微控制器原理及接口控制技术》第 2 章 2.3 存储器；地址分区与容量按教材数值绘制。',
+  note: '本页图为按真实比例重绘的地址映射图（片内 4 KB : 片外 64 KB = 1 : 16）。'
+});
+(function(){
+  var host=document.createElement('div'); KP.stage.appendChild(host);
+  var mm=new MemMap(host);
+  KP.say('**四个独立编址的空间。**点图上任一块看它的地址范围和访问方式。');
+  KP.setReads([['程序空间','片内 4 KB + 片外 64 KB','hi'],
+               ['片内数据','128 B + 21 个 SFR','hi'],
+               ['片外数据','最大 64 KB','hi'],
+               ['区分依据','指令 + EA 引脚','gold']]);
+  host.addEventListener('click',function(e){
+    var h=e.target.closest?e.target.closest('.mm-hit'):null;
+    if(!h){ mm.focus(null); KP.say('**四个独立编址的空间。**点图上任一块看它的地址范围和访问方式。'); return; }
+    var i=mm.focus(h.getAttribute('data-ex'));
+    if(i) KP.say('**'+i[0]+'**　'+i[1]);
+  });
+})();
+</script>
+</body>
+</html>

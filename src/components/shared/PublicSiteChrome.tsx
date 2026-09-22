@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { Cpu, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type PublicPage = 'welcome' | 'course' | 'login';
+// 'notes' 不在主导航里出现，传入时四个导航项都不高亮——讲解笔记是课程内容的
+// 补充页，不占主导航的位置。
+type PublicPage = 'welcome' | 'course' | 'login' | 'notes';
 
 export function PublicSiteHeader({ active, floating = false }: { active: PublicPage; floating?: boolean }) {
   const navItem = (page: PublicPage) => cn(

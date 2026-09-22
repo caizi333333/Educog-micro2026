@@ -42,6 +42,7 @@ import {
   GraduationCap,
   FileText,
   ListChecks,
+  NotebookPen,
   X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -68,6 +69,9 @@ import { getMostSpecificRouteMatch } from '@/lib/role-access';
 const sharedLearningItems = [
   { href: '/hyper', label: '总览工作台', icon: Sparkles },
   { href: '/knowledge-graph', label: '知识图谱', icon: Share2 },
+  // 讲解笔记：图谱定位之后、上仿真台之前的那一环，按单元逐条讲透。目前只覆盖
+  // 单元 2，处于试运行状态，因此不进主导航，只在登录后的学习分组里出现。
+  { href: '/lesson-notes', label: '讲解笔记', icon: NotebookPen },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
 ];
@@ -465,7 +469,8 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
   // Public pages don't show sidebar. The course home is public for visitors,
   // but keeps the full app chrome once a user is signed in.
   const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
-  const publicCoursePaths = ['/'];
+  // 课程内容与讲解笔记对访客开放（登录后改用完整工作台外壳）
+  const publicCoursePaths = ['/', '/lesson-notes'];
   const isPublicPath = publicPaths.includes(pathname ?? '');
   const isPublicCoursePath = publicCoursePaths.includes(pathname ?? '');
   const renderPublicShell = isPublicPath || (isPublicCoursePath && !user);
