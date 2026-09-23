@@ -1,0 +1,3096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>指令全景图｜单元 3 指令系统（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+
+</style>
+<!-- 内联自 lib/u3.css -->
+<style>
+/* ============================================================
+   u3.css · 第三章共用样式
+   在 kp-theme.css 之上加：团队色、机器码剖面、寻址方式标签、
+   "跑一次"前后对照。全景图与各篇共用。
+   ============================================================ */
+:root{
+  --t-mov:hsl(207 82% 64%); --t-alu:hsl(352 78% 66%); --t-logic:hsl(152 56% 52%);
+  --t-jump:hsl(27 90% 61%); --t-bit:hsl(266 72% 72%);
+  --data:hsl(184 82% 55%);     /* 数的流动 */
+  --addr:hsl(42 92% 60%);      /* 门牌（地址）的流动 */
+}
+
+/* ---------- 机器码剖面 ---------- */
+.cp{border:1px solid rgba(255,255,255,.08);border-radius:6px;background:rgba(0,0,0,.32);padding:10px 11px}
+.cp-row{display:flex;align-items:stretch;gap:5px;flex-wrap:wrap}
+.cp-b{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:48px;padding:5px 7px;
+  border-radius:5px;animation:cpPop .32s cubic-bezier(.34,1.5,.64,1) both}
+.cp-b b{font-family:var(--fm);font-size:13.5px;font-weight:700;line-height:1.2}
+.cp-b i{font-style:normal;font-size:9.5px;opacity:.72;margin-top:1px}
+.cp-b.opc{background:rgba(22,209,223,.16);color:var(--cyan300);border:1px solid rgba(103,232,249,.32)}
+.cp-b.arg{background:rgba(246,187,49,.14);color:var(--amber300);border:1px solid rgba(246,187,49,.3)}
+.cp-len{align-self:center;margin-left:auto;font-family:var(--fm);font-size:11px;color:var(--muted-fg)}
+@keyframes cpPop{from{opacity:0;transform:translateY(-5px) scale(.9)}to{opacity:1;transform:none}}
+.cp-bits{display:flex;gap:3px;margin-top:8px}
+.cp-bits span{flex:1;max-width:30px;text-align:center;font-family:var(--fm);font-size:11.5px;padding:3px 0;border-radius:3px;
+  background:rgba(22,209,223,.09);color:var(--cyan300);border:1px solid rgba(103,232,249,.18)}
+.cp-bits span.var{background:rgba(246,187,49,.2);color:var(--amber200);border-color:rgba(246,187,49,.45);font-weight:700}
+.cp-leg{margin-top:8px;font-size:11.5px;line-height:1.78;color:var(--muted-fg)}
+.cp-leg b{color:var(--slate300);font-weight:600}
+.cp-leg i{font-style:normal;font-family:var(--fm);padding:0 4px;border-radius:3px}
+.cp-leg i.opc{background:rgba(22,209,223,.16);color:var(--cyan300)}
+.cp-leg i.arg{background:rgba(246,187,49,.14);color:var(--amber300)}
+
+/* ---------- 寻址方式标签 ---------- */
+.mchip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:3px 9px;border-radius:5px;margin:0 5px 5px 0;
+  font-size:11.5px;color:var(--slate300);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  text-decoration:none;transition:.15s}
+.mchip b{font-family:var(--fm);font-size:11px;color:var(--amber300)}
+a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:rgba(103,232,249,.08)}
+.mchip.none{color:var(--muted-fg);cursor:default}
+
+/* ---------- 跑一次 ---------- */
+.run{border:1px solid rgba(110,231,183,.22);border-radius:6px;background:rgba(16,185,129,.05);padding:9px 10px}
+.run-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.run-hd code{font-family:var(--fm);font-size:13px;font-weight:700;color:var(--emerald200)}
+.run-mc{font-family:var(--fm);font-size:11px;color:var(--cyan300)}
+.run-cy{font-family:var(--fm);font-size:10.5px;color:var(--muted-fg);margin-left:auto}
+.run-note{font-size:11.5px;color:var(--slate300);line-height:1.7;margin-top:5px}
+.run-tb{margin-top:7px;display:grid;gap:3px}
+.run-row{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto 1fr;align-items:center;gap:6px;
+  font-family:var(--fm);font-size:12px;padding:3px 7px;border-radius:4px;background:rgba(0,0,0,.25);
+  animation:runIn .36s cubic-bezier(.22,1,.36,1) both}
+.run-row .k{color:var(--slate300)}
+.run-row .o{color:var(--muted-fg);text-align:right}
+.run-row .ar{color:var(--muted-fg);font-size:11px}
+.run-row .n{color:var(--emerald200);font-weight:700}
+.run-row.same .n{color:var(--muted-fg);font-weight:400}
+@keyframes runIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.run-jump{margin-top:6px;font-size:11.5px;color:var(--slate300)}
+.run-jump b{color:var(--amber300);font-family:var(--fm)}
+.run-err{font-size:12px;color:var(--rose300)}
+
+@media (prefers-reduced-motion:reduce){.cp-b,.run-row{animation:none}}
+
+/* ============================================================
+   取数现场（u3-machine.js）
+   ============================================================ */
+.mf{width:100%;height:auto;display:block;font-family:var(--fs)}
+.mf-h{font-size:13px;font-weight:700;fill:var(--slate100)}
+.mf-hs{font-size:11px;font-weight:400;fill:var(--amber300)}
+.mf-a{font-family:var(--fm);font-size:9.5px;fill:var(--muted-fg)}
+.mf-a2{font-family:var(--fm);font-size:11px;fill:var(--muted-fg)}
+.mf-s{font-size:11px;fill:var(--muted-fg)}
+.mf-dis{font-family:var(--fm);font-size:17px;font-weight:700;fill:var(--cyan100)}
+.mf-rn{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--slate100)}
+.mf-rn.dyn{fill:var(--amber200);font-size:12.5px}
+.mf-an{font-size:10.5px;fill:var(--amber300);opacity:.9}
+.mf-cell rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);stroke-width:1;transition:fill .3s,stroke .3s}
+.mf-v{font-family:var(--fm);font-size:14px;font-weight:700;fill:var(--slate100)}
+.mf-v.big{font-size:22px}
+.mf-cell.code rect{fill:rgba(246,187,49,.10);stroke:rgba(246,187,49,.35)}
+.mf-cell.code .mf-v{fill:var(--amber300)}
+.mf-cell.code.opc rect{fill:rgba(22,209,223,.13);stroke:rgba(103,232,249,.4)}
+.mf-cell.code.opc .mf-v{fill:var(--cyan300)}
+.mf-cell.code.off rect{fill:transparent;stroke:rgba(255,255,255,.05);stroke-dasharray:3 3}
+.mf-cell.reg rect{fill:rgba(255,255,255,.05)}
+.mf-cell.flag rect{fill:rgba(255,255,255,.04)}
+.mf-cell.flag.up rect{fill:rgba(246,187,49,.2);stroke:var(--addr)}
+.mf-cell.bit rect{rx:4}
+.mf-cell.bit.one rect{fill:rgba(22,209,223,.16);stroke:rgba(103,232,249,.4)}
+.mf-cell.mem.dyn rect{fill:transparent;stroke:rgba(255,255,255,.07);stroke-dasharray:3 3}
+.mf-cell.mem.dyn.on rect{fill:rgba(246,187,49,.08);stroke:rgba(246,187,49,.35);stroke-dasharray:none}
+.mf-cell.rom rect{fill:rgba(255,255,255,.03)}
+.mf-cell.rom.mark rect{fill:rgba(246,187,49,.1);stroke:rgba(246,187,49,.35)}
+.mf-cell.gap rect{fill:transparent;stroke:transparent}
+.mf-cell.sm .mf-v{font-size:11.5px}
+.mf-cell.hot rect{stroke:var(--data);stroke-width:2;fill:rgba(22,209,223,.14)}
+.mf-cell.hot2 rect{stroke:var(--addr);stroke-width:2}
+.mf-cell.ghostHot rect{stroke:rgba(203,213,225,.55);stroke-width:1.5;stroke-dasharray:4 3}
+.mf-cell.flash rect{animation:mfFlash .9s ease-out}
+@keyframes mfFlash{0%{fill:rgba(110,231,183,.45)}100%{}}
+.mf-adder circle{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.18);transition:.3s}
+.mf-adder text{font-family:var(--fm);font-size:16px;font-weight:700;fill:var(--muted-fg)}
+.mf-adder.on circle{fill:rgba(246,187,49,.18);stroke:var(--addr)}
+.mf-adder.on text{fill:var(--amber200)}
+.mf-p{fill:none;stroke-width:2.4;stroke-linecap:round}
+.mf-p.data{stroke:var(--data)}
+.mf-p.addr{stroke:var(--addr);stroke-dasharray:7 5}
+.mf-p.ghost{stroke:rgba(203,213,225,.5);stroke-dasharray:4 5;stroke-width:1.8}
+.mf-tok circle{stroke-width:1.5}
+.mf-tok.data circle{fill:hsl(184 70% 18%);stroke:var(--data)}
+.mf-tok.addr circle{fill:hsl(42 60% 16%);stroke:var(--addr)}
+.mf-tok text{font-family:var(--fm);font-size:10px;font-weight:700;fill:#fff}
+.mf-tag rect{fill:rgba(7,10,13,.92);stroke-width:1}
+.mf-tag text{font-family:var(--fm);font-size:10.5px;font-weight:700}
+.mf-tag.data rect{stroke:rgba(22,209,223,.5)} .mf-tag.data text{fill:var(--cyan300)}
+.mf-tag.addr rect{stroke:rgba(246,187,49,.5)} .mf-tag.addr text{fill:var(--amber300)}
+.mf-tag.ghost rect{stroke:rgba(203,213,225,.35)} .mf-tag.ghost text{fill:var(--slate300)}
+.mf-leg text{font-size:11px;fill:var(--muted-fg)}
+.mf-leg line{stroke-width:2.4}
+
+/* 窄屏：取数现场保持可读的最小宽度，横向滑动看全 */
+@media (max-width:760px){
+  .kp-stage{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .kp-stage .mf{min-width:720px}
+}
+
+/* ============================================================
+   堆栈动画（u3-stack.js）· 3.2 进出栈、3.5 调用返回共用
+   ============================================================ */
+.sk{width:100%;height:auto;display:block;max-width:620px;margin:0 auto}
+.sk-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.sk-h{font-size:12px;font-weight:600;fill:var(--slate300)}
+.sk-a{font-family:var(--fm);font-size:11px;fill:var(--muted-fg)}
+.sk-v{font-family:var(--fm);font-size:13.5px;font-weight:700;fill:var(--slate100)}
+.sk-v.big{font-size:19px}
+.sk-rn{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--slate100)}
+.sk-an{font-size:11px;fill:var(--amber300)}
+.sk-note{font-size:11px;fill:var(--rose300)}
+.sk-br{fill:none;stroke:rgba(253,164,175,.5);stroke-width:1.5}
+.sk-cell rect{fill:rgba(255,255,255,.035);stroke:rgba(255,255,255,.12);transition:fill .3s,stroke .3s}
+.sk-cell.base rect{stroke-dasharray:3 3}
+.sk-cell.live rect{fill:rgba(22,209,223,.12);stroke:rgba(103,232,249,.45)}
+.sk-cell.flash rect,.sk-reg.flash rect{animation:mfFlash .9s ease-out}
+.sk-reg rect{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.16)}
+.sk-sp path{fill:var(--addr)}
+.sk-sp text{font-family:var(--fm);font-size:13px;font-weight:700;fill:var(--amber200)}
+.sk-sp.on path{filter:drop-shadow(0 0 6px rgba(246,187,49,.8))}
+.sk-tok circle{fill:hsl(184 70% 18%);stroke:var(--data);stroke-width:1.5}
+.sk-tok text{font-family:var(--fm);font-size:10.5px;font-weight:700;fill:#fff}
+
+/* ============================================================
+   逐位加法器（u3-alu.js）· 3.3 算术、3.4 逻辑共用
+   ============================================================ */
+.alu{width:100%;height:auto;display:block;font-family:var(--fs)}
+.alu-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.alu-col{fill:transparent;transition:fill .2s}
+.alu-col.on{fill:rgba(103,232,249,.08)}
+.alu-d{font-family:var(--fm);font-size:11px;fill:var(--muted-fg)}
+.alu-nib{stroke:rgba(246,187,49,.4);stroke-dasharray:4 4}
+.alu-s{font-size:11px;fill:var(--muted-fg)}
+.alu-rn{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--slate100)}
+.alu-hex{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--cyan300)}
+.alu-bit rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:fill .25s,stroke .25s}
+.alu-bit text{font-family:var(--fm);font-size:17px;font-weight:700;fill:var(--slate300)}
+.alu-bit.one rect{fill:rgba(22,209,223,.16);stroke:rgba(103,232,249,.45)}
+.alu-bit.one text{fill:var(--cyan100)}
+.alu-bit.r.on rect{stroke:rgba(110,231,183,.5)}
+.alu-bit.r.on.one rect{fill:rgba(16,185,129,.22)}
+.alu-bit.r.on text{fill:var(--emerald200)}
+.alu-op{font-size:24px;font-weight:700;fill:var(--amber300)}
+.alu-eq{stroke:rgba(255,255,255,.3);stroke-width:1.5}
+.alu-c circle{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.18);transition:.25s}
+.alu-c text{font-family:var(--fm);font-size:11px;font-weight:700;fill:var(--muted-fg)}
+.alu-c.on circle{stroke:rgba(246,187,49,.6)}
+.alu-c.one circle{fill:rgba(246,187,49,.32);stroke:var(--addr)}
+.alu-c.one text{fill:#fff}
+.alu-c.cout circle{stroke-width:2}
+.alu-c.pulse circle{animation:aluP .9s ease-in-out 2}
+@keyframes aluP{50%{stroke:#fff;stroke-width:3}}
+.alu-f rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:.3s}
+.alu-f.lit rect{stroke:rgba(203,213,225,.45)}
+.alu-f.up rect{fill:rgba(246,187,49,.2);stroke:var(--addr)}
+.alu-f.off{opacity:.4}
+.alu-fn{font-family:var(--fm);font-size:16px;font-weight:700;fill:var(--slate100)}
+.alu-fv{font-family:var(--fm);font-size:21px;font-weight:700;fill:var(--slate300)}
+.alu-f.up .alu-fv{fill:var(--amber200)}
+.alu-fs{font-size:10.5px;fill:var(--muted-fg)}
+.alu-w{fill:none;stroke:rgba(255,255,255,.08);stroke-width:1.5;stroke-dasharray:3 4;transition:stroke .3s}
+.alu-w.on{stroke:rgba(246,187,49,.55)}
+.alu-read{font-family:var(--fm);font-size:12.5px;fill:var(--slate300)}
+
+/* ============================================================
+   两道接缝（u3-wheel.js）· 3.3 CY/OV，3.5 rel 沿用
+   ============================================================ */
+.wh{width:100%;height:auto;display:block;max-width:560px;margin:0 auto;font-family:var(--fs)}
+.wh-track{fill:none}
+.wh-track.o{stroke:rgba(255,255,255,.07);stroke-width:18}
+.wh-track.i{stroke:rgba(255,255,255,.05);stroke-width:14}
+.wh-tick{stroke:rgba(255,255,255,.25);stroke-width:1}
+.wh-l{font-family:var(--fm);font-size:12px;font-weight:700;fill:var(--slate100)}
+.wh-lu{font-family:var(--fm);font-size:10.5px;fill:var(--muted-fg)}
+.wh-ls{font-family:var(--fm);font-size:11.5px;font-weight:700;fill:var(--amber200)}
+.wh-seam line{stroke:rgba(244,63,94,.65);stroke-width:5;stroke-linecap:round}
+.wh-sn{font-size:12px;fill:var(--rose300)}
+.wh-lead{fill:none;stroke:rgba(244,63,94,.45);stroke-dasharray:3 4}
+.wh-seam.hit line{stroke:#fff;animation:whHit .9s ease-out 2}
+@keyframes whHit{50%{stroke:rgba(244,63,94,1);stroke-width:9}}
+.wh-c{font-size:11px;fill:var(--muted-fg)}
+.wh-m{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--slate100)}
+.wh-m.r{fill:var(--emerald200)}
+.wh-arc{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.wh-arc.o{stroke:var(--data);stroke-width:6}
+.wh-arc.i{stroke:var(--addr);stroke-width:5}
+.wh-dot circle,.wh-dot.a{fill:#fff}
+.wh-tok.o{fill:var(--data)}
+.wh-tok.i{fill:var(--addr)}
+.wh-f rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:.3s}
+.wh-f.lit rect{stroke:rgba(203,213,225,.45)}
+.wh-f.up rect{fill:rgba(246,187,49,.2);stroke:var(--addr)}
+.wh-fn{font-family:var(--fm);font-size:18px;font-weight:700;fill:var(--slate100)}
+.wh-fv{font-family:var(--fm);font-size:22px;font-weight:700;fill:var(--slate300)}
+.wh-f.up .wh-fv{fill:var(--amber200)}
+.wh-fs{font-size:11.5px;fill:var(--muted-fg)}
+@media (max-width:760px){.kp-stage .alu{min-width:720px}}
+
+/* ============================================================
+   掩码工作台（u3-mask.js）· 3.4 逻辑运算
+   动手的三种颜色：清 0 = 玫红，置 1 = 琥珀，翻转 = 紫
+   ============================================================ */
+.mk{width:100%;height:auto;display:block;font-family:var(--fs)}
+.mk-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.mk-rule{font-size:12.5px;fill:var(--slate300)}
+.mk-lane{fill:transparent;transition:fill .25s}
+.mk-lane.clear{fill:rgba(244,63,94,.05)}
+.mk-lane.set{fill:rgba(246,187,49,.05)}
+.mk-lane.flip{fill:rgba(167,139,250,.06)}
+.mk-d{font-family:var(--fm);font-size:11px;fill:var(--muted-fg)}
+.mk-nib{stroke:rgba(246,187,49,.3);stroke-dasharray:4 4}
+.mk-drop{stroke:rgba(255,255,255,.08);stroke-dasharray:2 5}
+.mk-rn{font-family:var(--fm);font-size:14px;font-weight:700;fill:var(--slate100)}
+.mk-hex{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--cyan300)}
+.mk-op{font-size:24px;font-weight:700;fill:var(--amber300)}
+.mk-bit rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:fill .25s,stroke .25s}
+.mk-bit text{font-family:var(--fm);font-size:17px;font-weight:700;fill:var(--slate300);pointer-events:none}
+.mk-bit.click{cursor:pointer}
+.mk-bit.click:hover rect{stroke:rgba(103,232,249,.6)}
+.mk-bit.m.fixed{cursor:default}
+.mk-bit.m.fixed:hover rect{stroke:rgba(255,255,255,.14)}
+.mk-bit.one rect{fill:rgba(22,209,223,.16);stroke:rgba(103,232,249,.45)}
+.mk-bit.one text{fill:var(--cyan100)}
+.mk-bit.m.act-clear rect{fill:rgba(244,63,94,.16);stroke:rgba(253,164,175,.6)}
+.mk-bit.m.act-set rect{fill:rgba(246,187,49,.18);stroke:rgba(246,187,49,.65)}
+.mk-bit.m.act-flip rect{fill:rgba(167,139,250,.18);stroke:rgba(196,181,253,.65)}
+.mk-bit.m.act-clear text{fill:var(--rose300)}
+.mk-bit.m.act-set text{fill:var(--amber200)}
+.mk-bit.m.act-flip text{fill:#ddd6fe}
+.mk-bit.m.flash rect{animation:mkF .5s ease-out}
+@keyframes mkF{0%{fill:rgba(255,255,255,.4)}}
+.mk-bit.r text{fill:var(--muted-fg)}
+.mk-bit.r.guessed rect{stroke-dasharray:4 3;stroke:rgba(203,213,225,.55)}
+.mk-bit.r.guessed text{fill:var(--slate100)}
+.mk-bit.r.on rect{stroke:rgba(110,231,183,.5)}
+.mk-bit.r.on text{fill:var(--emerald200)}
+.mk-bit.r.on.one rect{fill:rgba(16,185,129,.22)}
+.mk-bit.r.right rect{stroke:var(--emerald300);stroke-width:2}
+.mk-bit.r.wrong rect{stroke:var(--rose300);stroke-width:2;fill:rgba(244,63,94,.14)}
+.mk-act{font-size:11.5px;fill:var(--muted-fg)}
+.mk-act.clear{fill:var(--rose300);font-weight:700}
+.mk-act.set{fill:var(--amber200);font-weight:700}
+.mk-act.flip{fill:#c4b5fd;font-weight:700}
+.mk-tok circle{fill:rgba(22,209,223,.85);stroke:#fff;stroke-width:1}
+.mk-tok text{font-family:var(--fm);font-size:13px;font-weight:700;fill:#04121a}
+.mk-tok.hit.clear circle{fill:#fb7185}
+.mk-tok.hit.set circle{fill:#fbbf24}
+.mk-tok.hit.flip circle{fill:#a78bfa}
+.mk-tok.pass circle{fill:rgba(203,213,225,.75)}
+.mk-info{font-size:12.5px;fill:var(--slate300)}
+.mk-info.s{font-size:11.5px;fill:var(--muted-fg)}
+.mk-p rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:.3s}
+.mk-p.lit rect{stroke:rgba(203,213,225,.45)}
+.mk-p.up rect{fill:rgba(246,187,49,.16);stroke:var(--addr)}
+.mk-pn{font-family:var(--fm);font-size:16px;font-weight:700;fill:var(--slate100)}
+.mk-pv{font-family:var(--fm);font-size:20px;font-weight:700;fill:var(--slate300)}
+.mk-p.up .mk-pv{fill:var(--amber200)}
+.mk-ps{font-size:10.5px;fill:var(--muted-fg)}
+
+/* ============================================================
+   环移（u3-rotate.js）· 3.4 逻辑运算
+   ============================================================ */
+.rt3{width:100%;height:auto;display:block;font-family:var(--fs)}
+.rt3-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.rt3-rule{font-size:12.5px;fill:var(--slate300)}
+.rt3-an{font-family:var(--fm);font-size:12px;font-weight:700;fill:var(--slate300)}
+.rt3-d{font-family:var(--fm);font-size:11px;fill:var(--muted-fg)}
+.rt3-loop{fill:none;stroke:rgba(246,187,49,.5);stroke-width:1.6;stroke-dasharray:5 5}
+.rt3-mk{fill:rgba(246,187,49,.8)}
+.rt3-c rect{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.16);transition:fill .25s,stroke .25s}
+.rt3-c text{font-family:var(--fm);font-size:20px;font-weight:700;fill:var(--slate300)}
+.rt3-c.one rect{fill:rgba(22,209,223,.18);stroke:rgba(103,232,249,.5)}
+.rt3-c.one text{fill:var(--cyan100)}
+.rt3-c.cy rect{stroke:rgba(246,187,49,.55)}
+.rt3-c.cy.one rect{fill:rgba(246,187,49,.24);stroke:var(--addr)}
+.rt3-c.cy.one text{fill:var(--amber200)}
+.rt3-c.cy.off{opacity:.35}
+.rt3-c.wrap rect{stroke:#fff;stroke-width:2}
+.rt3-read{font-family:var(--fm);font-size:13px;fill:var(--slate300)}
+.rt3-read.m{fill:var(--emerald200)}
+@media (max-width:760px){.kp-stage .mk,.rt3-host .rt3{min-width:720px}}
+
+/* ============================================================
+   程序走位（u3-flow.js）· 3.5 控制转移
+   ============================================================ */
+.fl{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media(min-width:900px){.fl{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}}
+.fl-list{overflow-y:auto;overflow-x:hidden;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(0,0,0,.25);padding:6px 0}
+.fl-in{position:relative;padding-left:70px}
+.fl-arcs{position:absolute;left:0;top:0;overflow:visible;max-width:none}
+.fl-a path{fill:none;stroke-width:1.6;opacity:.35;transition:opacity .3s}
+.fl-a.jump path{stroke:var(--addr)}
+.fl-a.call path{stroke:#a78bfa}
+.fl-a.ret path{stroke:#5eead4;stroke-dasharray:4 3}
+.fl-a.hot path{opacity:1;stroke-width:2.2}
+.fl-a text{font-family:var(--fm);font-size:10px;fill:var(--amber200)}
+.fl-r{display:grid;grid-template-columns:48px 62px 54px minmax(128px,1fr) minmax(0,1.1fr) 28px;column-gap:4px;align-items:center;height:27px;padding:0 8px;
+  font-family:var(--fm);font-size:12.5px;color:var(--slate300);border-radius:5px;transition:background .2s}
+.fl-r .ad{color:var(--muted-fg);font-size:11px}
+.fl-r .by{color:var(--amber300);font-size:11px}
+.fl-r .lb{color:var(--cyan300)}
+.fl-r .in{color:var(--slate100);white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.fl-r .cm{color:var(--muted-fg);font-family:var(--fs);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl-r .vc{color:var(--amber200);font-size:10.5px;text-align:right}
+.fl-r.ran .ad{color:var(--slate300)}
+.fl-r.db .in{color:var(--muted-fg)}
+.fl-r.now{background:rgba(103,232,249,.15);box-shadow:inset 3px 0 0 var(--c1)}
+.fl-r.now .in{color:var(--cyan100)}
+.fl-side{display:flex;flex-direction:column;gap:10px}
+.fl-regs{display:flex;flex-wrap:wrap;gap:6px}
+.fl-reg{display:flex;flex-direction:column;min-width:70px;padding:5px 9px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035)}
+.fl-reg i{font-style:normal;font-size:10.5px;color:var(--muted-fg)}
+.fl-reg b{font-family:var(--fm);font-size:15px;color:var(--slate100)}
+.fl-reg.pc{border-color:rgba(103,232,249,.35)}
+.fl-reg.pc b{color:var(--cyan100)}
+.fl-cnt{font-size:12.5px;color:var(--slate300);line-height:1.7}
+.fl-cnt b{font-family:var(--fm);color:var(--cyan100)}
+.fl-cnt small{display:block;color:var(--muted-fg)}
+.fl-cnt em{display:block;font-style:normal;color:var(--amber200);margin-top:3px}
+.fl-pc{padding:9px 11px;border-radius:8px;background:rgba(246,187,49,.07);border-left:2px solid var(--c3);font-size:12.5px;line-height:1.75;color:var(--slate300);min-height:64px}
+.fl-pc b{display:block;font-size:11px;color:var(--amber300);font-family:var(--fm);letter-spacing:.06em;margin-bottom:2px}
+.fl-pc span{font-family:var(--fm);font-size:12.5px;color:var(--slate100)}
+
+/* ============================================================
+   目标地址计算器（u3-target.js）· 3.5 控制转移
+   ============================================================ */
+.tg{width:100%;height:auto;display:block;font-family:var(--fs)}
+.tg-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.tg-how{font-size:12.5px;fill:var(--slate300)}
+.tg-d{font-family:var(--fm);font-size:10px;fill:var(--muted-fg)}
+.tg-rn{font-size:13px;font-weight:700;fill:var(--slate100)}
+.tg-hex{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--cyan300)}
+.tg-op{font-size:22px;font-weight:700;fill:var(--amber300)}
+.tg-eq{stroke:rgba(255,255,255,.3);stroke-width:1.5}
+.tg-tag{font-size:11px;fill:var(--muted-fg)}
+.tg-foot{font-family:var(--fm);font-size:13px;fill:var(--emerald200)}
+.tg-b rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.14);transition:fill .25s,stroke .25s}
+.tg-b text{font-family:var(--fm);font-size:15px;font-weight:700;fill:var(--slate300)}
+.tg-b.none rect{fill:transparent;stroke:rgba(255,255,255,.05);stroke-dasharray:3 3}
+.tg-b.dim rect{fill:rgba(255,255,255,.015);stroke:rgba(255,255,255,.07)}
+.tg-b.dim text{fill:rgba(203,213,225,.3);text-decoration:line-through}
+.tg-b.keep rect{fill:rgba(22,209,223,.12);stroke:rgba(103,232,249,.45)}
+.tg-b.keep text{fill:var(--cyan100)}
+.tg-b.arg rect,.tg-b.lo rect{fill:rgba(246,187,49,.12);stroke:rgba(246,187,49,.5)}
+.tg-b.hi rect{fill:rgba(246,187,49,.2);stroke:rgba(246,187,49,.65)}
+.tg-b.arg text,.tg-b.lo text,.tg-b.hi text{fill:var(--amber200)}
+.tg-b.op rect{fill:rgba(167,139,250,.2);stroke:rgba(196,181,253,.65)}
+.tg-b.op text{fill:#ddd6fe}
+.tg-b.sign rect{fill:rgba(244,63,94,.12);stroke:rgba(253,164,175,.55)}
+.tg-b.sign text{fill:var(--rose300)}
+.tg-b.zero rect{fill:rgba(255,255,255,.02);stroke:rgba(255,255,255,.1)}
+.tg-b.zero text{fill:var(--muted-fg)}
+.tg-b.new.on rect{fill:rgba(16,185,129,.2);stroke:rgba(110,231,183,.55)}
+.tg-b.new.on text{fill:var(--emerald200)}
+.tg-b.keep.on{}
+@media (max-width:760px){.kp-stage .tg,.tg-host .tg{min-width:720px}}
+
+/* ============================================================
+   能跳多远（u3-range.js）· 3.5 控制转移
+   ============================================================ */
+.rg{width:100%;height:auto;display:block;font-family:var(--fs);cursor:crosshair}
+.rg-h{font-size:12px;font-weight:700;fill:var(--slate300)}
+.rg-l{font-family:var(--fm);font-size:10.5px;fill:var(--muted-fg)}
+.rg-pg{fill:rgba(255,255,255,.035);stroke:rgba(255,255,255,.1)}
+.rg-pg.odd{fill:rgba(255,255,255,.06)}
+.rg-zb{fill:rgba(255,255,255,.03);stroke:rgba(255,255,255,.12)}
+.rg-lj{fill:none;stroke:rgba(103,232,249,.55);stroke-width:1.5;stroke-dasharray:5 4}
+.rg-aj{fill:rgba(246,187,49,.28);stroke:rgba(246,187,49,.7)}
+.rg-sj{fill:rgba(167,139,250,.55);stroke:#c4b5fd}
+.rg-k.s{fill:rgba(167,139,250,.55)}.rg-k.a{fill:rgba(246,187,49,.4)}.rg-k.l{fill:none;stroke:rgba(103,232,249,.7);stroke-dasharray:3 2}
+.rg-pc{fill:var(--cyan300)}
+.rg-pcl{stroke:var(--cyan300);stroke-width:2}
+.rg-pct{font-family:var(--fm);font-size:11px;fill:var(--cyan100)}
+.rg-tg{fill:#fb7185}
+.rg-tgt{font-family:var(--fm);font-size:11.5px;font-weight:700;fill:var(--rose300)}
+.rg-cn{stroke:rgba(255,255,255,.18);stroke-dasharray:2 4;fill:none}
+.rg-bd{stroke:rgba(244,63,94,.7);stroke-width:2;stroke-dasharray:4 3}
+.rg-bl{font-family:var(--fm);font-size:10.5px;fill:var(--rose300)}
+@media (max-width:760px){.rg-host .rg{min-width:720px}}
+.sk-reg.pc rect{stroke:rgba(103,232,249,.45)}
+
+/* ============================================================
+   位地图（u3-bitmap.js）· 3.6 位操作
+   ============================================================ */
+.bm{width:100%;height:auto;display:block;font-family:var(--fs)}
+.bm-h{font-size:12.5px;font-weight:700;fill:var(--slate300)}
+.bm-d{font-family:var(--fm);font-size:10px;fill:var(--muted-fg)}
+.bm-row{fill:transparent;stroke:none;transition:.2s}
+.bm-row.on{fill:rgba(103,232,249,.08);stroke:rgba(103,232,249,.35)}
+.bm-row.trap{fill:rgba(244,63,94,.06);stroke:rgba(253,164,175,.7);stroke-dasharray:5 4}
+.bm-rl{font-family:var(--fm);font-size:13px;font-weight:700;fill:var(--slate100)}
+.bm-rl.none{fill:var(--muted-fg);font-weight:400}
+.bm-ra{font-family:var(--fm);font-size:10.5px;fill:var(--amber300)}
+.bm-none{font-size:11px;fill:rgba(203,213,225,.35)}
+.bm-c{cursor:pointer}
+.bm-c rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.12);transition:fill .2s,stroke .2s}
+.bm-c text{font-family:var(--fm);font-size:11.5px;fill:var(--slate300);pointer-events:none}
+.bm-c.nm text{fill:var(--amber200);font-weight:700}
+.bm-c.rsv rect{fill:transparent;stroke-dasharray:3 3;stroke:rgba(255,255,255,.12)}
+.bm-c.rsv text{fill:rgba(203,213,225,.35);font-size:10px}
+.bm-c:hover rect{stroke:rgba(103,232,249,.7)}
+.bm-c.one rect{fill:rgba(22,209,223,.2)}
+.bm-c.sel rect{fill:rgba(246,187,49,.3);stroke:var(--addr);stroke-width:2}
+.bm-c.sel text{fill:#fff}
+.bm-info{font-family:var(--fm);font-size:13px;fill:var(--cyan100)}
+@media (max-width:760px){.bm-host .bm,.ch-host .ch{min-width:720px}}
+
+/* ============================================================
+   位累加器流水线（u3-chain.js）· 3.6 位操作
+   ============================================================ */
+.ch{width:100%;height:auto;display:block;font-family:var(--fs)}
+.ch-cap{font-size:14px;font-weight:700;fill:var(--amber200)}
+.ch-c0 rect{fill:rgba(246,187,49,.1);stroke:rgba(246,187,49,.5)}
+.ch-c0.in{cursor:pointer}
+.ch-c0.in:hover rect{stroke:var(--addr)}
+.ch-c0.off{opacity:.45}
+.ch-cn{font-size:11px;fill:var(--amber300)}
+.ch-cv{font-family:var(--fm);font-size:16px;font-weight:700;fill:var(--slate100)}
+.ch-bus{stroke:rgba(246,187,49,.35);stroke-width:4;stroke-linecap:round;transition:stroke .3s}
+.ch-bus.one{stroke:var(--addr)}
+.ch-bv{font-family:var(--fm);font-size:12px;font-weight:700;fill:var(--amber200)}
+.ch-st rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.18);transition:.25s}
+.ch-st.store rect{stroke:rgba(110,231,183,.45)}
+.ch-st.hot rect{fill:rgba(246,187,49,.16);stroke:var(--addr);stroke-width:2}
+.ch-sym{font-family:var(--fm);font-size:22px;font-weight:700;fill:var(--slate100)}
+.ch-sc{font-size:10.5px;fill:var(--muted-fg)}
+.ch-ins{font-family:var(--fm);font-size:11.5px;fill:var(--cyan300)}
+.ch-in{cursor:pointer}
+.ch-in circle{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.3);transition:.2s}
+.ch-in.one circle{fill:rgba(22,209,223,.3);stroke:var(--cyan300)}
+.ch-in:hover circle{stroke:#fff}
+.ch-inn{font-family:var(--fm);font-size:12px;font-weight:700;fill:var(--slate100)}
+.ch-inv{font-family:var(--fm);font-size:13px;font-weight:700;fill:var(--slate100);pointer-events:none}
+.ch-w{stroke:rgba(255,255,255,.25);stroke-width:2}
+.ch-w.one{stroke:var(--cyan300)}
+.ch-w.out{stroke:rgba(110,231,183,.5)}
+.ch-bub{fill:var(--bg,#0b0f14);stroke:var(--rose300);stroke-width:1.8}
+.ch-bt{font-size:10.5px;fill:var(--rose300)}
+.ch-lamp circle{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.25);transition:.25s}
+.ch-lamp.on circle{fill:#fbbf24;stroke:#fde68a;filter:drop-shadow(0 0 8px rgba(251,191,36,.8))}
+.ch-lv{font-family:var(--fm);font-size:14px;font-weight:700;fill:var(--emerald200)}
+
+/* ============================================================
+   按钮在哪，效果就在哪：演示区跟着点击走 · 自己写一段就在图上方
+   ============================================================ */
+.u3-dock{grid-column:1/-1}
+.u3-dock.docked{animation:u3Dock .35s cubic-bezier(.22,1,.36,1)}
+@keyframes u3Dock{from{opacity:.25;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.u3-dock.inrow{margin:6px 0 10px;padding:10px;border:1px solid rgba(103,232,249,.28);border-radius:10px;background:rgba(3,10,16,.55)}
+.u3-try{margin:4px 0 10px;border:1px dashed rgba(103,232,249,.28);border-radius:8px;background:rgba(103,232,249,.03)}
+.u3-try-t{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:6px 12px;border:0;background:none;cursor:pointer;text-align:left;color:var(--slate300);font-family:var(--fs)}
+.u3-try-t b{font-size:13px;color:var(--cyan100)}
+.u3-try-t small{flex:1;font-size:11.5px;color:var(--muted-fg)}
+.u3-try-t i{font-style:normal;font-size:11.5px;color:var(--cyan300)}
+.u3-try-b{display:none;padding:0 12px 10px}
+.u3-try.open .u3-try-b{display:block;animation:u3Dock .3s ease-out}
+.u3-try textarea{width:100%;min-height:64px;resize:vertical;padding:8px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.35);color:var(--slate100);font-family:var(--fm);font-size:14px;line-height:1.6;outline:none}
+.u3-try textarea:focus{border-color:var(--c1)}
+.u3-try-r{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.u3-try .eg{font-size:11.5px;color:var(--muted-fg)}
+.u3-try .eg button{cursor:pointer;background:none;border:0;padding:2px 4px;color:var(--cyan300);font-family:var(--fm);font-size:12px}
+.u3-try .eg button:hover{text-decoration:underline}
+.u3-try .msg{font-size:12.5px;line-height:1.7;padding:8px 10px;border-radius:6px;display:none;margin-top:8px}
+.u3-try .msg.show{display:block}
+.u3-try .msg.err{background:rgba(244,63,94,.1);border:1px solid rgba(253,164,175,.35);color:var(--rose300)}
+.u3-try .msg.ok{background:rgba(16,185,129,.08);border:1px solid rgba(110,231,183,.3);color:var(--emerald200)}
+
+/* 嵌在平台讲解笔记页里：页内章节导航交给外壳的页签 */
+.u3-embed .kp-nav{display:none}
+
+</style>
+<style>
+/* ============================================================
+   指令全景图
+   ------------------------------------------------------------
+   与 3.1 ~ 3.6 各篇同一件外衣（导航条、眉标、渐变标题、元信息、页脚），
+   主体三块联动：团队 tab → 周期表式格子 → 256 格操作码全图，
+   右侧详情可直接"在引擎里跑一次"，寻址方式标签跳进 3.1。
+   ============================================================ */
+.kp-wrap{max-width:1340px}
+.stat{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 14px}
+.stat .s{flex:1 1 120px;border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);background:rgba(255,255,255,.025);padding:9px 12px}
+.stat .n{font-family:var(--fm);font-size:21px;font-weight:700;line-height:1.1}
+.stat .t{font-size:11px;color:var(--muted-fg);margin-top:2px}
+
+.tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px}
+.tools input[type=search]{flex:1 1 220px;min-height:40px;padding:7px 11px;border:1px solid rgba(255,255,255,.1);border-radius:6px;
+  background:rgba(0,0,0,.35);color:var(--slate100);font-family:var(--fm);font-size:13px;outline:none;transition:.16s}
+.tools input[type=search]:focus{border-color:var(--c1);box-shadow:0 0 0 2px rgba(22,209,223,.14)}
+.hint{font-size:11.5px;color:var(--muted-fg);font-family:var(--fm);margin-left:auto}
+
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tab{cursor:pointer;border-radius:7px;padding:6px 12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);
+  color:var(--slate300);font-family:var(--fs);transition:.18s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;gap:8px;min-height:46px;text-align:left}
+.tab:hover{background:rgba(255,255,255,.07);color:var(--slate100)}
+.tab .dot{width:8px;height:8px;border-radius:2px;flex:none}
+.tab .nm{font-size:13.5px;font-weight:700;display:block;line-height:1.2}
+.tab .al{font-size:10.5px;opacity:.72;display:block}
+.tab .ct{font-family:var(--fm);font-size:11px;opacity:.75;margin-left:4px}
+.tab[aria-selected=true]{color:#0b0f14;transform:translateY(-1px)}
+.tab[aria-selected=true] .dot{background:#0b0f14 !important}
+
+.main{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media(min-width:1080px){.main{grid-template-columns:minmax(0,1fr) 380px}}
+.board{border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);background:rgba(255,255,255,.022);overflow:hidden;min-height:440px}
+.board-hd{padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.26)}
+.board-hd .bn{font-size:14.5px;font-weight:700}
+.board-hd .bs{font-size:12px;color:var(--muted-fg);font-weight:400;margin-left:6px}
+.board-hd .bb{font-size:12px;color:var(--muted-fg);margin-top:3px;line-height:1.65}
+.board-hd .go{float:right;font-size:11.5px;color:var(--cyan300);text-decoration:none;margin-top:1px}
+.board-hd .go.soon{color:var(--muted-fg)}
+
+.grp{padding:9px 13px 11px;border-top:1px dashed rgba(255,255,255,.055)}
+.grp:first-of-type{border-top:0}
+.grp-hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin-bottom:4px}
+.grp-sec{font-family:var(--fm);font-size:10.5px;color:var(--amber300)}
+.grp-nm{font-size:13px;font-weight:700;color:var(--slate100)}
+.grp-al{font-size:11px;color:var(--amber200);opacity:.85}
+.grp-n{font-family:var(--fm);font-size:10.5px;color:var(--muted-fg);margin-left:auto}
+.grp-law{font-size:11.8px;color:var(--muted-fg);line-height:1.65;margin-bottom:8px;padding-left:8px;border-left:2px solid rgba(255,255,255,.1)}
+.cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:5px}
+.cell{position:relative;cursor:pointer;border-radius:6px;padding:6px 7px 7px 9px;border:1px solid rgba(255,255,255,.09);
+  background:rgba(255,255,255,.04);text-align:left;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;
+  transition:transform .16s cubic-bezier(.34,1.3,.64,1),background .16s,border-color .16s,opacity .2s;font-family:var(--fs)}
+.cell:hover{background:rgba(255,255,255,.1);transform:translateY(-2px);z-index:2}
+.cell .code{font-family:var(--fm);font-size:9.5px;color:var(--muted-fg)}
+.cell .mne{font-family:var(--fm);font-size:13px;font-weight:700;color:var(--slate100);line-height:1.15;margin-top:1px;display:block}
+.cell .op{font-family:var(--fm);font-size:9.5px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin-top:2px}
+.cell .bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:6px 0 0 6px}
+.cell .anim{position:absolute;right:5px;top:5px;width:5px;height:5px;border-radius:50%;background:var(--c3);animation:pulse 2.6s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(246,187,49,.55)}70%,100%{box-shadow:0 0 0 7px rgba(246,187,49,0)}}
+.cell[aria-pressed=true]{border-color:currentColor;background:rgba(255,255,255,.13);transform:translateY(-2px)}
+.cell.dim{opacity:.16;pointer-events:none;transform:scale(.97)}
+.board.swap .grp{animation:rise .34s cubic-bezier(.22,1,.36,1) both}
+.board.swap .grp:nth-child(3){animation-delay:.03s}.board.swap .grp:nth-child(4){animation-delay:.06s}
+.board.swap .grp:nth-child(5){animation-delay:.09s}.board.swap .grp:nth-child(6){animation-delay:.12s}
+.board.swap .grp:nth-child(7){animation-delay:.15s}.board.swap .grp:nth-child(8){animation-delay:.18s}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+
+.detail{border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);background:rgba(255,255,255,.03);padding:13px;
+  position:sticky;top:12px;min-height:440px;max-height:calc(100vh - 24px);overflow-y:auto;scrollbar-width:thin}
+.detail.inrow{position:static;min-height:0;max-height:none;margin:8px 10px 12px;border-color:rgba(103,232,249,.3)}
+.detail .empty{color:var(--muted-fg);font-size:12.5px;line-height:1.9;text-align:center;padding:48px 8px}
+.d-mne{font-family:var(--fm);font-size:19px;font-weight:700;color:var(--cyan100);line-height:1.3;word-break:break-all}
+.d-mne .o{opacity:.6}
+.d-fn{font-family:var(--fm);font-size:12.5px;color:var(--amber200);margin-top:4px;line-height:1.5}
+.d-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.d-tag{display:inline-flex;align-items:center;gap:5px;font-size:10.8px;padding:3px 7px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--slate300)}
+.d-tag .dot{width:7px;height:7px;border-radius:2px}
+.d-lab{font-size:10px;color:var(--muted-fg);margin:12px 0 5px;font-family:var(--fm);letter-spacing:.1em}
+.d-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}
+.d-cell{border:1px solid rgba(255,255,255,.08);border-radius:5px;padding:6px 8px;background:rgba(0,0,0,.28)}
+.d-cell .k{font-size:10px;color:var(--muted-fg)}
+.d-cell .v{font-family:var(--fm);font-size:13.5px;font-weight:600;margin-top:1px}
+.d-cell .v small{font-size:10.5px;font-weight:400;color:var(--muted-fg);font-family:var(--fs);display:block;margin-top:1px}
+.d-say{margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.75;background:rgba(246,187,49,.07);border-left:2px solid var(--c3);color:var(--amber200)}
+.d-say b{color:var(--c3);font-weight:600;font-size:10px;display:block;margin-bottom:2px;font-family:var(--fm);letter-spacing:.09em}
+.d-law{margin-top:10px;font-size:11.5px;color:var(--muted-fg);line-height:1.75;padding-top:9px;border-top:1px solid rgba(255,255,255,.08)}
+.d-law b{color:var(--slate300);font-weight:600}
+.d-run{margin-top:4px}
+.d-er{margin-top:10px}
+
+.omap{margin-top:14px;border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);background:rgba(255,255,255,.022);padding:12px 13px 13px;
+  display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+@media(min-width:920px){.omap{grid-template-columns:auto minmax(0,1fr)}}
+.omap h2{font-size:15px;font-weight:700;margin-bottom:6px;color:var(--slate100)}
+.omap p{font-size:12px;color:var(--muted-fg);line-height:1.75}
+.omap p b{color:var(--slate300)}
+.ogrid{display:grid;grid-template-columns:18px repeat(16,26px);gap:2px;font-family:var(--fm);justify-content:start}
+@media(max-width:520px){.ogrid{grid-template-columns:16px repeat(16,minmax(0,1fr))}}
+.oh{font-size:9px;color:var(--muted-fg);text-align:center;padding:2px 0;line-height:1.1}
+.oc{aspect-ratio:1;border-radius:2px;cursor:pointer;position:relative;transition:transform .14s cubic-bezier(.34,1.5,.64,1),box-shadow .14s,opacity .2s}
+.oc:hover{transform:scale(1.42);z-index:5;box-shadow:0 0 0 1.5px #fff}
+.oc.none{background:rgba(255,255,255,.05);cursor:default}
+.oc.none:hover{transform:none;box-shadow:none}
+.oc.lit{transform:scale(1.28);box-shadow:0 0 0 1.5px #fff;z-index:4}
+.oc.dim{opacity:.14}
+.oleg{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px;font-size:11px;color:var(--muted-fg)}
+.oleg span{display:inline-flex;align-items:center;gap:5px}
+.oleg i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.otip{margin-top:8px;padding:7px 9px;border-radius:5px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);
+  font-family:var(--fm);font-size:11.5px;color:var(--slate300);min-height:31px;line-height:1.5}
+.dists{display:grid;grid-template-columns:1fr;gap:9px;margin-top:12px}
+.dist{border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);background:rgba(0,0,0,.2);padding:10px 12px 11px}
+.dist h3{font-size:12.5px;font-weight:600;color:var(--slate300);margin-bottom:8px}
+.dist .nt{font-size:11px;color:var(--muted-fg);line-height:1.6;margin-top:6px}
+.drow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.dk{font-family:var(--fm);font-size:11px;color:var(--muted-fg);width:58px;flex:none}
+.dbar{flex:1;height:16px;border-radius:3px;background:rgba(255,255,255,.05);overflow:hidden;display:flex}
+.dseg{height:100%;transition:width .7s cubic-bezier(.22,1,.36,1)}
+.dv{font-family:var(--fm);font-size:11px;color:var(--slate300);width:34px;text-align:right;flex:none}
+
+.audit-bad{margin:10px 0;padding:10px 12px;border-radius:6px;font-size:12.5px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fda4af}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<div class="kp-wrap kp-fade" id="wrap">
+  <div id="nav"></div>
+  <div class="kp-eyebrow">INSTRUCTION SET MAP · <b>单元 3 · 指令系统</b></div>
+  <h1 class="kp-h1">111 条指令，一张图</h1>
+  <p class="kp-lead">
+    指令系统不是一张要背的长表。111 条按教材分成<b>五大类</b>（也就是芯片学院的五支团队），每类再分小组，
+    <b>同一小组里的指令是同一件事的不同写法</b>。三块是联动的：上面选大类，中间点指令，
+    底下那张 <b>256 格操作码全图</b>会同步亮出它占的格子。右边可以把这条指令<b>放进引擎里真跑一次</b>，看它到底改了什么。
+  </p>
+  <div class="kp-meta">
+    <span class="kp-chip"><b>大纲　</b>第 3 章 指令系统</span>
+    <span class="kp-chip"><b>教材　</b>汇总表 3-2、3-3、3-5、3-13、3-14 · 3.3 ~ 3.7 节</span>
+    <span class="kp-chip"><b>对象　</b>80C51 · 111 条指令</span>
+  </div>
+
+  <div id="audit"></div>
+  <div class="stat" id="stat"></div>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="搜助记符 / 操作数 / 机器码 / 芯片学院说法，例如 MOVC、@Ri、93、书架" autocomplete="off">
+    <span class="kp-btn on fb" data-f="all" role="button" tabindex="0">全部</span>
+    <span class="kp-btn fb" data-f="anim" role="button" tabindex="0">有机理动画</span>
+    <span class="kp-btn fb" data-f="cy" role="button" tabindex="0">动 CY 旗</span>
+    <span class="kp-btn fb" data-f="c2" role="button" tabindex="0">2 周期</span>
+    <span class="kp-btn fb" data-f="c4" role="button" tabindex="0">4 周期</span>
+    <span class="hint" id="hint"></span>
+  </div>
+
+  <div class="tabs" id="tabs" role="tablist"></div>
+
+  <div class="main">
+    <section class="board" id="board"></section>
+    <aside class="detail" id="detail">
+      <div class="empty">点左边任意一条指令<br>这里给出机器码剖面、寻址方式<br>还能放进引擎里真跑一次<br><br>
+        <span style="opacity:.6">底下那张全图会同步亮出它占的格子</span></div>
+    </aside>
+  </div>
+
+  <section class="omap">
+    <div class="ogrid" id="ogrid"></div>
+    <div>
+      <h2>256 格操作码全图</h2>
+      <p>横轴是机器码低 4 位，纵轴是高 4 位，<b>一格就是一个操作码</b>。整张图只有一格是空的——
+        MCS-51 唯一保留未用的 <b>A5H</b>。成片的横条是 <code style="font-family:var(--fm)">Rn</code> 变体：
+        一条指令独占 8 格，寄存器号写进了操作码低 3 位，所以不额外占字节（教材 3.1.3 以 <code style="font-family:var(--fm)">MOV A,Rn</code> 为例讲的就是这件事）。
+        鼠标扫过看它是谁，点一下跳到那条指令。</p>
+      <div class="oleg" id="oleg"></div>
+      <div class="otip" id="otip">　</div>
+      <div class="dists">
+        <div class="dist"><h3>指令长度 —— 有多长，由寻址方式决定</h3>
+          <div class="nt" style="font-size:13px;line-height:1.9">单字节指令 <b>49</b> 条，双字节指令 <b>45</b> 条，三字节指令 <b>17</b> 条（教材 3.1）。<br>
+          寄存器号藏在操作码里的（如 <code style="font-family:var(--fm)">MOV A,Rn</code>）不额外占字节；带直接地址、立即数、偏移量的，每带一个多一个字节。</div></div>
+        <div class="dist"><h3>机器周期分布 —— 单周期、双周期、四周期</h3><div id="dCycles"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="kp-foot">
+    <b>出处</b>　教材《微控制器原理及接口控制技术》第 3 章，汇总表 3-2、3-3、3-5、3-13、3-14；分类与小类名称按教材 3.3 ~ 3.7 节，团队叫法按《芯片学院：单片机的校园传奇》。<br>
+    <b>数据</b>　111 条的机器码、字节数、机器周期按 80C51 指令系统逐条列出，并已在执行引擎里逐条运行。<br>
+    <b>用法</b>　本页可独立打开，也可作为单元资源嵌入平台（自适应容器宽度）。
+  </div>
+</div>
+
+<!-- 内联自 lib/kp-shell.js -->
+<script>
+/* ============================================================
+   kp-shell.js · 知识点讲解页 · 共用外壳
+   ------------------------------------------------------------
+   六个知识点页共用这一套结构，保证"每篇能独立成篇、彼此风格统一"：
+
+     眉标（单元 · 知识点编号）
+     渐变大标题
+     一句话定位：这个点为什么容易错
+     元信息 chip（对应大纲章节 / 教材图表 / 预计用时）
+     ┌ 标签页 ────────────────────────┐
+     │ 讲解  —— 可交互的图 + 分步说明      │
+     │ 疑点  —— 学生最常错的地方，现象→原因→正解 │
+     │ 自测  —— 2~3 题，即时给解析         │
+     └───────────────────────────┘
+     相关知识点 + 出处
+
+   页面只需提供数据，外壳负责渲染与交互。
+   被 iframe 嵌入时自动加 .kp-embed（收紧留白、隐去页脚）。
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  function h(tag, attrs, html) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  /* 允许在文案里用 **加粗** 和 `等宽` 两种极简标记，省得到处写标签 */
+  function md(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`(.+?)`/g, '<code style="font-family:var(--fm);font-size:.92em;' +
+        'background:rgba(255,255,255,.05);border-radius:4px;padding:1px 5px">$1</code>');
+  }
+
+  function KP(cfg) {
+    /* 被 iframe 装着就进嵌入模式 */
+    try { if (global.self !== global.top) document.body.classList.add('kp-embed'); } catch (e) {
+      document.body.classList.add('kp-embed');
+    }
+    document.title = cfg.kp + '｜' + cfg.unit;
+
+    var wrap = h('div', { class: 'kp-wrap kp-fade' });
+    document.body.appendChild(wrap);
+
+    /* ---- 章节导航条（可选；第二章各篇不传，渲染结果不变） ---- */
+    if (cfg.nav && cfg.nav.length) wrap.insertAdjacentHTML('beforeend', KP.navHTML(cfg.nav));
+
+    /* ---- 头部 ---- */
+    wrap.appendChild(h('div', { class: 'kp-eyebrow' },
+      esc(cfg.unitEn || 'KNOWLEDGE POINT') + ' · <b>' + esc(cfg.unit) + '</b>'));
+    wrap.appendChild(h('h1', { class: 'kp-h1' }, esc(cfg.kp)));
+    wrap.appendChild(h('p', { class: 'kp-lead' }, md(cfg.lead)));
+    if (cfg.meta && cfg.meta.length) {
+      wrap.appendChild(h('div', { class: 'kp-meta' },
+        cfg.meta.map(function (m) {
+          return '<span class="kp-chip">' + (m[1] ? '<b>' + esc(m[0]) + '</b>' + esc(m[1]) : esc(m[0])) + '</span>';
+        }).join('')));
+    }
+
+    /* ---- 标签页 ---- */
+    var TABS = [
+      { k: 'teach', n: '01', t: '讲解' },
+      { k: 'pit', n: '02', t: '疑点' },
+      { k: 'quiz', n: '03', t: '自测' }
+    ].filter(function (t) {
+      return t.k === 'teach' ? !!cfg.teach : (t.k === 'pit' ? (cfg.pitfalls || []).length : (cfg.quiz || []).length);
+    });
+
+    var tabsEl = h('div', { class: 'kp-tabs', role: 'tablist' });
+    var panels = {};
+    TABS.forEach(function (t, i) {
+      var b = h('button', {
+        class: 'kp-tab', role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false',
+        'data-k': t.k
+      }, '<span class="n">' + t.n + '</span>' + t.t);
+      b.onclick = function () { select(t.k); };
+      tabsEl.appendChild(b);
+      var p = h('div', { class: 'kp-panel' + (i === 0 ? ' on' : ''), role: 'tabpanel' });
+      panels[t.k] = p;
+    });
+    wrap.appendChild(tabsEl);
+    TABS.forEach(function (t) { wrap.appendChild(panels[t.k]); });
+
+    function select(k) {
+      Array.prototype.forEach.call(tabsEl.children, function (b) {
+        b.setAttribute('aria-selected', b.dataset.k === k ? 'true' : 'false');
+      });
+      for (var key in panels) panels[key].classList.toggle('on', key === k);
+      if (k === 'teach' && cfg.onShowTeach) cfg.onShowTeach();
+    }
+
+    /* ---- 讲解 ---- */
+    if (cfg.teach) {
+      var tp = panels.teach;
+      if (cfg.teach.intro) {
+        tp.appendChild(h('div', { class: 'kp-card' }, '<p>' + md(cfg.teach.intro) + '</p>'));
+      }
+      var stageCard = h('div', { class: 'kp-card' });
+      if (cfg.teach.title) stageCard.appendChild(h('h3', null, esc(cfg.teach.title)));
+      var ctl = h('div', { class: 'kp-ctl', id: 'kpCtl' });
+      stageCard.appendChild(ctl);
+      var stage = h('div', { class: 'kp-stage', id: 'kpStage' });
+      stageCard.appendChild(stage);
+      if (cfg.teach.caption) stageCard.appendChild(h('div', { class: 'kp-stagecap' }, esc(cfg.teach.caption)));
+      var reads = h('div', { class: 'kp-reads', id: 'kpReads', style: 'margin-top:12px' });
+      stageCard.appendChild(reads);
+      var say = h('div', { class: 'kp-card', id: 'kpSay', style: 'margin-top:12px' },
+        '<h3>当前在讲什么</h3><p id="kpSayT"></p>');
+      stageCard.appendChild(say);
+      tp.appendChild(stageCard);
+      if (cfg.teach.steps && cfg.teach.steps.length) {
+        var sc = h('div', { class: 'kp-card' });
+        sc.appendChild(h('h3', null, '要点顺序'));
+        sc.appendChild(h('div', null, cfg.teach.steps.map(function (s, i) {
+          return '<p><b>' + (i + 1) + '.</b> ' + md(s) + '</p>';
+        }).join('')));
+        tp.appendChild(sc);
+      }
+      KP.ctl = ctl; KP.stage = stage; KP.reads = reads;
+      KP.say = function (t) { document.getElementById('kpSayT').innerHTML = md(t); };
+    }
+
+    /* ---- 疑点 ---- */
+    if ((cfg.pitfalls || []).length) {
+      var pp = panels.pit;
+      pp.appendChild(h('div', { class: 'kp-card' },
+        '<p class="kp-note">下面几条是这个知识点上学生最常出错的地方。' +
+        '每条按「常见说法 → 为什么错 → 正确理解」拆开，可以直接拿去当课堂提问。</p>'));
+      cfg.pitfalls.forEach(function (p, i) {
+        var el = h('div', { class: 'kp-pit' });
+        el.innerHTML =
+          '<div class="no">疑点 ' + String(i + 1).padStart(2, '0') + '</div>' +
+          '<div class="q">' + md(p.q) + '</div>' +
+          '<dl>' +
+          '<dt>常见说法</dt><dd>' + md(p.say) + '</dd>' +
+          '<dt>为什么错</dt><dd>' + md(p.why) + '</dd>' +
+          '<dt class="right">正确理解</dt><dd class="right">' + md(p.right) + '</dd>' +
+          '</dl>';
+        pp.appendChild(el);
+      });
+    }
+
+    /* ---- 自测 ---- */
+    if ((cfg.quiz || []).length) {
+      var qp = panels.quiz, right = 0, answered = 0;
+      var score = h('div', { class: 'kp-score' });
+      cfg.quiz.forEach(function (item, i) {
+        var q = h('div', { class: 'kp-q' });
+        q.appendChild(h('div', { class: 'qh' },
+          '<span class="qn">Q' + (i + 1) + '</span><span class="qt">' + md(item.q) + '</span>'));
+        var exp = h('div', { class: 'kp-exp' }, md(item.x));
+        item.o.forEach(function (o, j) {
+          var b = h('button', { class: 'kp-opt' }, 'ABCD'[j] + '．' + md(o));
+          b.onclick = function () {
+            Array.prototype.forEach.call(q.querySelectorAll('.kp-opt'), function (x, k) {
+              x.classList.add('lock');
+              if (k === item.a) x.classList.add('ok');
+            });
+            if (j !== item.a) b.classList.add('no'); else right++;
+            answered++;
+            exp.classList.add('show');
+            exp.classList.toggle('bad', j !== item.a);
+            score.innerHTML = '答对 <b>' + right + '</b> / ' + cfg.quiz.length +
+              '　已答 ' + answered;
+          };
+          q.appendChild(b);
+        });
+        q.appendChild(exp);
+        qp.appendChild(q);
+      });
+      score.innerHTML = '答对 <b>0</b> / ' + cfg.quiz.length + '　已答 0';
+      qp.appendChild(score);
+    }
+
+    /* ---- 页脚 ---- */
+    var foot = h('div', { class: 'kp-foot' });
+    foot.innerHTML =
+      '<b>出处</b>　' + esc(cfg.source || '') + '<br>' +
+      (cfg.note ? esc(cfg.note) + '<br>' : '') +
+      '<b>用法</b>　本页可独立打开，也可作为单元资源嵌入平台（自适应容器宽度）。';
+    if ((cfg.related || []).length) {
+      foot.appendChild(h('div', { class: 'kp-rel' },
+        cfg.related.map(function (r) {
+          return '<a class="kp-btn" href="' + esc(r[1]) + '">' + esc(r[0]) + ' →</a>';
+        }).join('')));
+    }
+    wrap.appendChild(foot);
+
+    KP.select = select;
+    KP.panels = panels;          // 页面可往各栏追加自定义内容（第三章的"动手验证"等）
+    return KP;
+  }
+
+  /**
+   * 章节导航条：[{ t:'全景图', href:'u3-isa-map.html', on:true, soon:false, sub:'111 条' }, …]
+   * 做成独立函数，不走 KP() 的页面（如全景图）也能用同一条导航
+   */
+  KP.navHTML = function (items) {
+    return '<nav class="kp-nav" aria-label="本章导航">' + items.map(function (it) {
+      var cls = 'kp-nav-i' + (it.on ? ' on' : '') + (it.soon ? ' soon' : '');
+      var inner = '<span class="t">' + esc(it.t) + '</span>' + (it.sub ? '<span class="s">' + esc(it.sub) + '</span>' : '');
+      if (it.soon || it.on) return '<span class="' + cls + '"' + (it.on ? ' aria-current="page"' : '') + '>' + inner + '</span>';
+      return '<a class="' + cls + '" href="' + esc(it.href) + '">' + inner + '</a>';
+    }).join('') + '</nav>';
+  };
+
+  /* 给讲解区加一个控制按钮组，返回一个 setter */
+  KP.buttons = function (items, onPick, initial) {
+    var btns = items.map(function (it) {
+      var b = document.createElement('button');
+      b.className = 'kp-btn';
+      b.textContent = it.t;
+      b.dataset.k = it.k;
+      b.onclick = function () { pick(it.k); };
+      KP.ctl.appendChild(b);
+      return b;
+    });
+    function pick(k) {
+      btns.forEach(function (b) { b.classList.toggle('on', b.dataset.k === k); });
+      onPick(k);
+    }
+    pick(initial || items[0].k);
+    return pick;
+  };
+  /* 写读数格 */
+  KP.setReads = function (list) {
+    KP.reads.innerHTML = list.map(function (r) {
+      return '<div class="kp-read"><div class="k">' + esc(r[0]) + '</div>' +
+        '<div class="v ' + (r[2] || '') + '">' + esc(r[1]) + '</div></div>';
+    }).join('');
+  };
+  KP.md = md;
+  global.KP = KP;
+})(window);
+
+</script>
+<!-- 内联自 lib/mcs51-isa.js -->
+<script>
+/* ============================================================
+   mcs51-isa.js · MCS-51 指令表（111 条，一条不落）
+   ------------------------------------------------------------
+   第三章所有页面的共同底座：
+     · 指令全景图   直接铺这张表
+     · 执行引擎     直接吃这张表（译码就是查 opcodeTable）
+     · 单条讲解     从这张表取机器码、字节数、周期数、标志位
+
+   口径
+     · 对象是 80C51；五大类与小类按教材 3.3 ~ 3.7 节划分，芯片学院的叫法挂在 alias 上
+     · 机器码 / 字节数 / 周期数按 80C51 指令系统逐条列出，并在执行引擎里逐条运行过
+
+   字段
+     m / ops   助记符 / 操作数形式
+     code      基础操作码；span 占几个连续操作码；step 相邻操作码间隔（默认 1）
+     bytes     字节数；cycles 机器周期数
+     flags     可能改变的标志位（CY AC OV 为条件标志；P 为奇偶位，随 A 由硬件自动算出）
+     pSame     该指令会改写 A，但 1 的个数不变，所以 P 实际不会变
+     fn        功能（教材记法）
+     team      大类；group 小类
+     say       芯片学院说法（类比常驻小字）
+     anim      机理动画类型；null 表示归"同组规律"档
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  /* ---- 五大类（芯片学院的五支团队）
+     count：本表里归这一类的条数（自检用，合计 111）；book：页面上显示的条数，照教材各节的说法 ---- */
+  var TEAMS = {
+    mov:   { key:'mov',   name:'数据传送', alias:'搬运团队',     count:29, book:29, coat:'蓝', kp:'3.2', sec:'3.3',
+             blurb:'数量最多、用得最多。只搬不算——除了改写 A 时 P 跟着变，不碰任何标志位。' },
+    alu:   { key:'alu',   name:'算术运算', alias:'计算团队',     count:24, book:24, coat:'红', kp:'3.3', sec:'3.4',
+             blurb:'加减乘除与十进制调整。算完要把 CY、AC、OV 三面旗该升的升起来。' },
+    logic: { key:'logic', name:'逻辑运算', alias:'逻辑思维团队', count:24, book:25, bookNote:'含在交换指令里讲的 SWAP A', coat:'绿', kp:'3.4', sec:'3.5',
+             blurb:'按位做与、或、异或，外加对 A 整体清零、取反、环移。' },
+    jump:  { key:'jump',  name:'控制转移', alias:'引导团队',     count:17, book:16, bookNote:'另有空操作 NOP 1 条', coat:'橙', kp:'3.5', sec:'3.6',
+             blurb:'改写 PC 就是改变下一步去哪。跳多远、要不要回来，决定用哪一条。' },
+    bit:   { key:'bit',   name:'位操作',   alias:'位操作团队',   count:17, book:17, coat:'紫', kp:'3.6', sec:'3.7',
+             blurb:'只跟单个位打交道，C 是它们的"布尔累加器"。控制场合最常用。' }
+  };
+
+  /* ---- 小类：名称与节号取自教材；law 是这一组的共同规律 ---- */
+  var GROUPS = {
+    'mov-a':     { sec:'3.3.1', name:'以 A 为一方', alias:'红皮记事本进出',
+                   law:'一方固定是 A，另一方是 Rn、@Ri 或 direct。A 被写入时 P 随之改变。' },
+    'mov-noa':   { sec:'3.3.2', name:'不以 A 为一方', alias:'院内直送',
+                   law:'以直接地址为一方，另一方是 Rn、@Ri 或另一个直接地址——不经过 A，也不影响任何标志。' },
+    'mov-imm':   { sec:'3.3.3', name:'立即数置数', alias:'照纸条写数',
+                   law:'源操作数是写在指令里的常数（#）。立即数只能当"源"，不能当"目的"。' },
+    'mov-ext':   { sec:'3.3.4', name:'访问片外 RAM', alias:'校外联络组',
+                   law:'MOVX 必须经过 A；@DPTR 可达 64KB，@Ri 只给出低 8 位地址。' },
+    'mov-rom':   { sec:'3.3.5', name:'基址加变址', alias:'教案咨询组',
+                   law:'MOVC 专读程序存储器里的常数表：基址（DPTR 或 PC）+ 偏移（A）。只能读，不能写。' },
+    'mov-xch':   { sec:'3.3.6', name:'交换', alias:'交换服务组',
+                   law:'双向交换，一条顶两条 MOV 还不需要中间单元。XCHD 只换低 4 位，SWAP 是 A 自己高低对调。' },
+    'mov-stack': { sec:'3.3.7', name:'进栈出栈', alias:'堆栈管理组',
+                   law:'PUSH 先 SP+1 再存；POP 先取再 SP−1。只能用直接地址，所以写 PUSH ACC 而不是 PUSH A。' },
+
+    'alu-add':   { sec:'3.4.1', name:'加法', alias:'加法组',
+                   law:'和一律回 A。ADD 不管 CY，ADDC 把 CY 也加进来——多字节加法就靠这一点。' },
+    'alu-sub':   { sec:'3.4.2', name:'减法', alias:'减法组',
+                   law:'只有带借位的 SUBB，没有不带借位的减法。单字节相减前先 CLR C。' },
+    'alu-inc':   { sec:'3.4.3', name:'加 1', alias:'增量组',
+                   law:'加 1 不影响 CY、AC、OV。INC DPTR 是唯一的 16 位运算。' },
+    'alu-dec':   { sec:'3.4.4', name:'减 1', alias:'减量组',
+                   law:'减 1 同样不影响 CY、AC、OV。没有 DEC DPTR 这条指令。' },
+    'alu-other': { sec:'3.4.5', name:'其他算术运算', alias:'乘除与调整',
+                   law:'MUL、DIV 是全表仅有的两条 4 周期指令，执行后 CY 一定为 0；DA 只能紧跟在加法后面。' },
+
+    'logic-and': { sec:'3.5.1', name:'与', alias:'屏蔽',
+                   law:'逐位相与，两边都是 1 才得 1。想清掉哪几位，就在掩码那几位放 0。' },
+    'logic-or':  { sec:'3.5.2', name:'或', alias:'置位',
+                   law:'逐位相或，有 1 就得 1。想置 1 哪几位，就在掩码那几位放 1。' },
+    'logic-xor': { sec:'3.5.3', name:'异或', alias:'翻转',
+                   law:'逐位异或，不同得 1。想翻转哪几位，就在掩码那几位放 1；自己和自己异或得 0。' },
+    'logic-a':   { sec:'3.5.4', name:'A 操作', alias:'红皮记事本整页',
+                   law:'对 A 的八位一起动手：清零、取反、环移。只有 RLC、RRC 让 CY 参与成第 9 位。' },
+
+    'jump-uncond': { sec:'3.6.1', name:'无条件转移', alias:'直接去',
+                     law:'四条的差别只在"能跳多远、占几个字节"：LJMP 64KB、AJMP 同一 2KB、SJMP −128~+127、JMP @A+DPTR 散转。' },
+    'jump-cond':   { sec:'3.6.2', name:'条件转移', alias:'看情况再去',
+                     law:'全部用相对寻址，偏移是 8 位补码，只能在 −128 ~ +127 以内跳。CJNE 还会顺手用 CY 报大小。' },
+    'jump-call':   { sec:'3.6.3', name:'子程序调用', alias:'做标记再出发',
+                     law:'调用 = 把返回地址压栈 + 跳转。压的是下一条指令的地址，低字节先进栈。' },
+    'jump-ret':    { sec:'3.6.4', name:'子程序返回', alias:'照标记回来',
+                     law:'从栈顶弹出两字节放回 PC。RETI 还要清除中断优先级状态，两者不能互换。' },
+    'jump-nop':    { sec:'3.6.5', name:'空操作', alias:'原地等一拍',
+                     law:'什么都不做，但实打实占 1 个机器周期——精确延时的最小砖块。' },
+
+    'bit-mov':   { sec:'3.7.2', name:'位传送', alias:'经 C 中转',
+                   law:'只能在 C 与某一位之间传。两个任意位之间传送，必须经 C 走两步。' },
+    'bit-logic': { sec:'3.7.3', name:'位逻辑操作', alias:'单个位的开关',
+                   law:'清零、置位、取反、与、或。/bit 表示取反后参与运算，但那一位本身不变。' },
+    'bit-jump':  { sec:'3.7.4', name:'位条件转移', alias:'看一位定去向',
+                   law:'按 C 或某一位决定跳不跳。JBC 跳的同时把那一位清零——查了就销账。' }
+  };
+
+  /* ---- 七种寻址方式（第 3.1 篇的主角） ----
+     bends：取到操作数要"拐几道弯"——这条轴串起七种方式 */
+  var MODES = {
+    imm:  { key:'imm',  name:'立即寻址',       mark:'#',        bends:0, sec:'3.2.3', fig:'图 3-3',
+            say:'东西就写在纸条上，不用出门。' },
+    reg:  { key:'reg',  name:'寄存器寻址',     mark:'Rn / A',   bends:0, sec:'3.2.1', fig:'图 3-1',
+            say:'东西就在手边的本子上。' },
+    dir:  { key:'dir',  name:'直接寻址',       mark:'direct',   bends:1, sec:'3.2.2', fig:'图 3-2',
+            say:'纸条上写的是门牌号，照门牌去取。' },
+    bit:  { key:'bit',  name:'位寻址',         mark:'bit',      bends:1, sec:'3.2.7', fig:'图 3-7',
+            say:'门牌精确到某一格里的某一位。' },
+    ind:  { key:'ind',  name:'寄存器间接寻址', mark:'@',        bends:2, sec:'3.2.4', fig:'图 3-4',
+            say:'纸条上写的是本子名，本子上写着门牌号，再照门牌去取。' },
+    idx:  { key:'idx',  name:'变址寻址',       mark:'@A+',      bends:3, sec:'3.2.5', fig:'图 3-5',
+            say:'地图装订器指到书架，红皮记事本写着翻第几页——两数相加得门牌。' },
+    rel:  { key:'rel',  name:'相对寻址',       mark:'rel',      bends:3, sec:'3.2.6', fig:'图 3-6',
+            say:'从脚下（下一条指令）往前或往后数步子。' }
+  };
+
+  /* ============================================================
+     指令表
+     ============================================================ */
+  var ISA = [
+
+    /* ========== 数据传送 29 ========== */
+    /* 3.3.1 以 A 为一方 6 */
+    { m:'MOV', ops:'A,Rn',     code:0xE8, span:8, bytes:1, cycles:1, flags:'P', fn:'A←(Rn)',
+      team:'mov', group:'mov-a', anim:'transfer', say:'从手边第 n 本工作簿抄一份到红皮记事本' },
+    { m:'MOV', ops:'Rn,A',     code:0xF8, span:8, bytes:1, cycles:1, flags:'',  fn:'Rn←(A)',
+      team:'mov', group:'mov-a', anim:null, say:'把红皮记事本抄一份到第 n 本工作簿' },
+    { m:'MOV', ops:'A,@Ri',    code:0xE6, span:2, bytes:1, cycles:1, flags:'P', fn:'A←((Ri))',
+      team:'mov', group:'mov-a', anim:'transfer', say:'先看 Ri 上写的门牌，再照门牌去取' },
+    { m:'MOV', ops:'@Ri,A',    code:0xF6, span:2, bytes:1, cycles:1, flags:'',  fn:'(Ri)←(A)',
+      team:'mov', group:'mov-a', anim:null, say:'照 Ri 上写的门牌，把红皮记事本存进去' },
+    { m:'MOV', ops:'A,direct', code:0xE5, bytes:2, cycles:1, flags:'P', fn:'A←(direct)',
+      team:'mov', group:'mov-a', anim:'transfer', say:'照门牌去内部 RAM 或 SFR 取一份' },
+    { m:'MOV', ops:'direct,A', code:0xF5, bytes:2, cycles:1, flags:'',  fn:'direct←(A)',
+      team:'mov', group:'mov-a', anim:null, say:'把红皮记事本存到指定门牌' },
+
+    /* 3.3.2 不以 A 为一方 5 */
+    { m:'MOV', ops:'Rn,direct',     code:0xA8, span:8, bytes:2, cycles:2, flags:'', fn:'Rn←(direct)',
+      team:'mov', group:'mov-noa', anim:null, say:'照门牌取一份，放进第 n 本工作簿' },
+    { m:'MOV', ops:'direct,Rn',     code:0x88, span:8, bytes:2, cycles:2, flags:'', fn:'direct←(Rn)',
+      team:'mov', group:'mov-noa', anim:null, say:'把第 n 本工作簿存到指定门牌' },
+    { m:'MOV', ops:'direct,direct', code:0x85, bytes:3, cycles:2, flags:'', fn:'direct1←(direct2)', enc:'src-first',
+      team:'mov', group:'mov-noa', anim:'transfer', say:'两个门牌之间直接搬，不惊动红皮记事本' },
+    { m:'MOV', ops:'direct,@Ri',    code:0x86, span:2, bytes:2, cycles:2, flags:'', fn:'direct←((Ri))',
+      team:'mov', group:'mov-noa', anim:null, say:'照 Ri 指的门牌取来，存到另一个门牌' },
+    { m:'MOV', ops:'@Ri,direct',    code:0xA6, span:2, bytes:2, cycles:2, flags:'', fn:'(Ri)←(direct)',
+      team:'mov', group:'mov-noa', anim:null, say:'从一个门牌取来，存到 Ri 指的门牌' },
+
+    /* 3.3.3 立即数置数 5 */
+    { m:'MOV', ops:'A,#data',       code:0x74, bytes:2, cycles:1, flags:'P', fn:'A←data',
+      team:'mov', group:'mov-imm', anim:'transfer', say:'数就写在指令纸条上，直接誊进红皮记事本' },
+    { m:'MOV', ops:'Rn,#data',      code:0x78, span:8, bytes:2, cycles:1, flags:'', fn:'Rn←data',
+      team:'mov', group:'mov-imm', anim:null, say:'纸条上的数，直接写进第 n 本工作簿' },
+    { m:'MOV', ops:'@Ri,#data',     code:0x76, span:2, bytes:2, cycles:1, flags:'', fn:'(Ri)←data',
+      team:'mov', group:'mov-imm', anim:null, say:'纸条上的数，存到 Ri 指的门牌' },
+    { m:'MOV', ops:'direct,#data',  code:0x75, bytes:3, cycles:2, flags:'', fn:'direct←data',
+      team:'mov', group:'mov-imm', anim:'transfer', say:'纸条上的数，直接写进指定门牌' },
+    { m:'MOV', ops:'DPTR,#data16',  code:0x90, bytes:3, cycles:2, flags:'', fn:'DPTR←data16',
+      team:'mov', group:'mov-imm', anim:'transfer', say:'给地图装订器一次装上 16 位地址：高位册 DPH、低位册 DPL' },
+
+    /* 3.3.4 访问片外 RAM 4 */
+    { m:'MOVX', ops:'A,@Ri',   code:0xE2, span:2, bytes:1, cycles:2, flags:'P', fn:'A←((Ri))',
+      team:'mov', group:'mov-ext', anim:null, say:'只带 8 位门牌出校门取货' },
+    { m:'MOVX', ops:'A,@DPTR', code:0xE0, bytes:1, cycles:2, flags:'P', fn:'A←((DPTR))',
+      team:'mov', group:'mov-ext', anim:'transfer', say:'拿着地图装订器出校门取货，回来放进红皮记事本' },
+    { m:'MOVX', ops:'@Ri,A',   code:0xF2, span:2, bytes:1, cycles:2, flags:'',  fn:'(Ri)←(A)',
+      team:'mov', group:'mov-ext', anim:null, say:'带 8 位门牌出校门送货' },
+    { m:'MOVX', ops:'@DPTR,A', code:0xF0, bytes:1, cycles:2, flags:'',  fn:'(DPTR)←(A)',
+      team:'mov', group:'mov-ext', anim:'transfer', say:'把红皮记事本送出校门，存到地图装订器指的地方' },
+
+    /* 3.3.5 基址加变址 2 */
+    { m:'MOVC', ops:'A,@A+DPTR', code:0x93, bytes:1, cycles:2, flags:'P', fn:'A←((A)+(DPTR))',
+      team:'mov', group:'mov-rom', anim:'transfer', say:'地图装订器指到书架，红皮记事本写着翻第几页——去教案馆查表' },
+    { m:'MOVC', ops:'A,@A+PC',   code:0x83, bytes:1, cycles:2, flags:'P', fn:'PC←(PC)+1，A←((A)+(PC))',
+      team:'mov', group:'mov-rom', anim:'transfer', say:'以脚下为书架，往后翻 A 页——表必须紧跟在后面' },
+
+    /* 3.3.6 交换 5 */
+    { m:'XCH',  ops:'A,Rn',     code:0xC8, span:8, bytes:1, cycles:1, flags:'P', fn:'(A)↔(Rn)',
+      team:'mov', group:'mov-xch', anim:'transfer', say:'红皮记事本与第 n 本工作簿当场对调' },
+    { m:'XCH',  ops:'A,@Ri',    code:0xC6, span:2, bytes:1, cycles:1, flags:'P', fn:'(A)↔((Ri))',
+      team:'mov', group:'mov-xch', anim:null, say:'红皮记事本与 Ri 指的那格对调' },
+    { m:'XCH',  ops:'A,direct', code:0xC5, bytes:2, cycles:1, flags:'P', fn:'(A)↔(direct)',
+      team:'mov', group:'mov-xch', anim:null, say:'红皮记事本与某个门牌对调' },
+    { m:'XCHD', ops:'A,@Ri',    code:0xD6, span:2, bytes:1, cycles:1, flags:'P', fn:'(A)3~0↔((Ri))3~0',
+      team:'mov', group:'mov-xch', anim:'transfer', say:'只对调低 4 位，高 4 位各自不动' },
+    { m:'SWAP', ops:'A',        code:0xC4, bytes:1, cycles:1, flags:'P', pSame:true, fn:'(A)3~0↔(A)7~4',
+      team:'mov', group:'mov-xch', anim:'transfer', say:'红皮记事本上下半页对调' },
+
+    /* 3.3.7 进栈出栈 2 */
+    { m:'PUSH', ops:'direct', code:0xC0, bytes:2, cycles:2, flags:'', fn:'SP←(SP)+1，(SP)←(direct)',
+      team:'mov', group:'mov-stack', anim:'stack', say:'先在回路标记器上添一格，再把东西放上去' },
+    { m:'POP',  ops:'direct', code:0xD0, bytes:2, cycles:2, flags:'', fn:'direct←((SP))，SP←(SP)−1',
+      team:'mov', group:'mov-stack', anim:'stack', say:'先取走最上面那格，再退一格——后标记先返回' },
+
+    /* ========== 算术运算 24 ========== */
+    /* 3.4.1 加法 8 */
+    { m:'ADD',  ops:'A,Rn',     code:0x28, span:8, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)+(Rn)',
+      team:'alu', group:'alu-add', anim:'alu', say:'红皮记事本加上第 n 本工作簿，三面旗随结果升降' },
+    { m:'ADD',  ops:'A,@Ri',    code:0x26, span:2, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)+((Ri))',
+      team:'alu', group:'alu-add', anim:null, say:'加上 Ri 指的那格' },
+    { m:'ADD',  ops:'A,direct', code:0x25, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)+(direct)',
+      team:'alu', group:'alu-add', anim:null, say:'加上某个门牌那格' },
+    { m:'ADD',  ops:'A,#data',  code:0x24, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)+data',
+      team:'alu', group:'alu-add', anim:'alu', say:'加上纸条上的数' },
+    { m:'ADDC', ops:'A,Rn',     code:0x38, span:8, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)+(Rn)+(CY)',
+      team:'alu', group:'alu-add', anim:'alu', say:'比 ADD 多加一面 CY 旗——多字节加法的高位就靠它' },
+    { m:'ADDC', ops:'A,@Ri',    code:0x36, span:2, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)+((Ri))+(CY)',
+      team:'alu', group:'alu-add', anim:null, say:'带进位加 Ri 指的那格' },
+    { m:'ADDC', ops:'A,direct', code:0x35, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)+(direct)+(CY)',
+      team:'alu', group:'alu-add', anim:null, say:'带进位加某个门牌那格' },
+    { m:'ADDC', ops:'A,#data',  code:0x34, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)+data+(CY)',
+      team:'alu', group:'alu-add', anim:null, say:'带进位加纸条上的数' },
+
+    /* 3.4.2 减法 4 */
+    { m:'SUBB', ops:'A,Rn',     code:0x98, span:8, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)−(Rn)−(CY)',
+      team:'alu', group:'alu-sub', anim:'alu', say:'减的时候连借位一起减掉' },
+    { m:'SUBB', ops:'A,@Ri',    code:0x96, span:2, bytes:1, cycles:1, flags:'CY AC OV P', fn:'A←(A)−((Ri))−(CY)',
+      team:'alu', group:'alu-sub', anim:null, say:'带借位减 Ri 指的那格' },
+    { m:'SUBB', ops:'A,direct', code:0x95, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)−(direct)−(CY)',
+      team:'alu', group:'alu-sub', anim:null, say:'带借位减某个门牌那格' },
+    { m:'SUBB', ops:'A,#data',  code:0x94, bytes:2, cycles:1, flags:'CY AC OV P', fn:'A←(A)−data−(CY)',
+      team:'alu', group:'alu-sub', anim:null, say:'带借位减纸条上的数' },
+
+    /* 3.4.3 加 1 5 */
+    { m:'INC', ops:'A',      code:0x04, bytes:1, cycles:1, flags:'P', fn:'A←(A)+1',
+      team:'alu', group:'alu-inc', anim:'alu', say:'红皮记事本加一——CY 旗一动不动' },
+    { m:'INC', ops:'Rn',     code:0x08, span:8, bytes:1, cycles:1, flags:'', fn:'Rn←(Rn)+1',
+      team:'alu', group:'alu-inc', anim:null, say:'第 n 本工作簿加一' },
+    { m:'INC', ops:'@Ri',    code:0x06, span:2, bytes:1, cycles:1, flags:'', fn:'(Ri)←((Ri))+1',
+      team:'alu', group:'alu-inc', anim:null, say:'Ri 指的那格加一' },
+    { m:'INC', ops:'direct', code:0x05, bytes:2, cycles:1, flags:'', fn:'direct←(direct)+1',
+      team:'alu', group:'alu-inc', anim:null, say:'某个门牌那格加一' },
+    { m:'INC', ops:'DPTR',   code:0xA3, bytes:1, cycles:2, flags:'', fn:'DPTR←(DPTR)+1',
+      team:'alu', group:'alu-inc', anim:'alu', say:'地图装订器整体加一，低位册满了往高位册进——全表唯一的 16 位加法' },
+
+    /* 3.4.4 减 1 4 */
+    { m:'DEC', ops:'A',      code:0x14, bytes:1, cycles:1, flags:'P', fn:'A←(A)−1',
+      team:'alu', group:'alu-dec', anim:null, say:'红皮记事本减一，CY 旗同样不动' },
+    { m:'DEC', ops:'Rn',     code:0x18, span:8, bytes:1, cycles:1, flags:'', fn:'Rn←(Rn)−1',
+      team:'alu', group:'alu-dec', anim:null, say:'第 n 本工作簿减一' },
+    { m:'DEC', ops:'@Ri',    code:0x16, span:2, bytes:1, cycles:1, flags:'', fn:'(Ri)←((Ri))−1',
+      team:'alu', group:'alu-dec', anim:null, say:'Ri 指的那格减一' },
+    { m:'DEC', ops:'direct', code:0x15, bytes:2, cycles:1, flags:'', fn:'direct←(direct)−1',
+      team:'alu', group:'alu-dec', anim:null, say:'某个门牌那格减一' },
+
+    /* 3.4.5 其他 3 */
+    { m:'DA',  ops:'A',  code:0xD4, bytes:1, cycles:1, flags:'CY P', fn:'对 A 做十进制调整',
+      team:'alu', group:'alu-other', anim:'alu', say:'二进制加完不像十进制，这一步把它掰回 BCD' },
+    { m:'MUL', ops:'AB', code:0xA4, bytes:1, cycles:4, flags:'CY OV P', fn:'B:A←(A)×(B)，CY←0',
+      team:'alu', group:'alu-other', anim:'alu', say:'红蓝两本相乘：低 8 位留红皮，高 8 位记蓝皮；高位非 0 就升 OV 旗' },
+    { m:'DIV', ops:'AB', code:0x84, bytes:1, cycles:4, flags:'CY OV P', fn:'A←商，B←余数，CY←0',
+      team:'alu', group:'alu-other', anim:'alu', say:'商留红皮，余数记蓝皮；除数为 0 就升 OV 旗' },
+
+    /* ========== 逻辑运算 24 ========== */
+    /* 3.5.1 与 6 */
+    { m:'ANL', ops:'A,Rn',         code:0x58, span:8, bytes:1, cycles:1, flags:'P', fn:'A←(A)∧(Rn)',
+      team:'logic', group:'logic-and', anim:'logic', say:'逐位相与：两边都是 1 才留 1' },
+    { m:'ANL', ops:'A,@Ri',        code:0x56, span:2, bytes:1, cycles:1, flags:'P', fn:'A←(A)∧((Ri))',
+      team:'logic', group:'logic-and', anim:null, say:'和 Ri 指的那格逐位相与' },
+    { m:'ANL', ops:'A,direct',     code:0x55, bytes:2, cycles:1, flags:'P', fn:'A←(A)∧(direct)',
+      team:'logic', group:'logic-and', anim:null, say:'和某个门牌那格逐位相与' },
+    { m:'ANL', ops:'direct,A',     code:0x52, bytes:2, cycles:1, flags:'',  fn:'direct←(direct)∧(A)',
+      team:'logic', group:'logic-and', anim:null, say:'结果写回门牌那格，A 不变' },
+    { m:'ANL', ops:'A,#data',      code:0x54, bytes:2, cycles:1, flags:'P', fn:'A←(A)∧data',
+      team:'logic', group:'logic-and', anim:'logic', say:'拿掩码清掉 A 的某几位' },
+    { m:'ANL', ops:'direct,#data', code:0x53, bytes:3, cycles:2, flags:'',  fn:'direct←(direct)∧data',
+      team:'logic', group:'logic-and', anim:null, say:'直接拿掩码清 SFR 的某几位，不惊动 A' },
+    /* 3.5.2 或 6 */
+    { m:'ORL', ops:'A,Rn',         code:0x48, span:8, bytes:1, cycles:1, flags:'P', fn:'A←(A)∨(Rn)',
+      team:'logic', group:'logic-or', anim:'logic', say:'逐位相或：有一个 1 就是 1' },
+    { m:'ORL', ops:'A,@Ri',        code:0x46, span:2, bytes:1, cycles:1, flags:'P', fn:'A←(A)∨((Ri))',
+      team:'logic', group:'logic-or', anim:null, say:'和 Ri 指的那格逐位相或' },
+    { m:'ORL', ops:'A,direct',     code:0x45, bytes:2, cycles:1, flags:'P', fn:'A←(A)∨(direct)',
+      team:'logic', group:'logic-or', anim:null, say:'和某个门牌那格逐位相或' },
+    { m:'ORL', ops:'direct,A',     code:0x42, bytes:2, cycles:1, flags:'',  fn:'direct←(direct)∨(A)',
+      team:'logic', group:'logic-or', anim:null, say:'结果写回门牌那格' },
+    { m:'ORL', ops:'A,#data',      code:0x44, bytes:2, cycles:1, flags:'P', fn:'A←(A)∨data',
+      team:'logic', group:'logic-or', anim:'logic', say:'拿掩码把 A 的某几位置 1' },
+    { m:'ORL', ops:'direct,#data', code:0x43, bytes:3, cycles:2, flags:'',  fn:'direct←(direct)∨data',
+      team:'logic', group:'logic-or', anim:null, say:'直接把 SFR 的某几位置 1' },
+    /* 3.5.3 异或 6 */
+    { m:'XRL', ops:'A,Rn',         code:0x68, span:8, bytes:1, cycles:1, flags:'P', fn:'A←(A)⊕(Rn)',
+      team:'logic', group:'logic-xor', anim:'logic', say:'逐位异或：不同得 1' },
+    { m:'XRL', ops:'A,@Ri',        code:0x66, span:2, bytes:1, cycles:1, flags:'P', fn:'A←(A)⊕((Ri))',
+      team:'logic', group:'logic-xor', anim:null, say:'和 Ri 指的那格逐位异或' },
+    { m:'XRL', ops:'A,direct',     code:0x65, bytes:2, cycles:1, flags:'P', fn:'A←(A)⊕(direct)',
+      team:'logic', group:'logic-xor', anim:null, say:'和某个门牌那格逐位异或' },
+    { m:'XRL', ops:'direct,A',     code:0x62, bytes:2, cycles:1, flags:'',  fn:'direct←(direct)⊕(A)',
+      team:'logic', group:'logic-xor', anim:null, say:'结果写回门牌那格' },
+    { m:'XRL', ops:'A,#data',      code:0x64, bytes:2, cycles:1, flags:'P', fn:'A←(A)⊕data',
+      team:'logic', group:'logic-xor', anim:'logic', say:'拿掩码翻转 A 的某几位' },
+    { m:'XRL', ops:'direct,#data', code:0x63, bytes:3, cycles:2, flags:'',  fn:'direct←(direct)⊕data',
+      team:'logic', group:'logic-xor', anim:null, say:'直接把 SFR 的某几位翻转' },
+    /* 3.5.4 A 操作 6 */
+    { m:'CPL', ops:'A', code:0xF4, bytes:1, cycles:1, flags:'P', pSame:true, fn:'A←/(A)',
+      team:'logic', group:'logic-a', anim:'logic', say:'红皮记事本八位全部翻面' },
+    { m:'CLR', ops:'A', code:0xE4, bytes:1, cycles:1, flags:'P', fn:'A←0',
+      team:'logic', group:'logic-a', anim:null, say:'红皮记事本整页擦掉' },
+    { m:'RL',  ops:'A', code:0x23, bytes:1, cycles:1, flags:'P', pSame:true, fn:'A 循环左移一位',
+      team:'logic', group:'logic-a', anim:'rotate', say:'八格整体左挪一格，挤出去的那位绕回最右边' },
+    { m:'RR',  ops:'A', code:0x03, bytes:1, cycles:1, flags:'P', pSame:true, fn:'A 循环右移一位',
+      team:'logic', group:'logic-a', anim:'rotate', say:'八格整体右挪一格，掉出来的那位绕回最左边' },
+    { m:'RLC', ops:'A', code:0x33, bytes:1, cycles:1, flags:'CY P', fn:'A 带 CY 循环左移一位',
+      team:'logic', group:'logic-a', anim:'rotate', say:'CY 排进队伍当第 9 格，挤出去的那位由它接住' },
+    { m:'RRC', ops:'A', code:0x13, bytes:1, cycles:1, flags:'CY P', fn:'A 带 CY 循环右移一位',
+      team:'logic', group:'logic-a', anim:'rotate', say:'CY 当第 9 格接住掉出来的那位——串行移位就靠它' },
+
+    /* ========== 控制转移 17 ========== */
+    /* 3.6.1 无条件转移 4 */
+    { m:'LJMP', ops:'addr16',  code:0x02, bytes:3, cycles:2, flags:'', fn:'PC←addr16',
+      team:'jump', group:'jump-uncond', anim:'jump', say:'进度指示器直接改成 16 位新地址——64KB 内任意一点都能到' },
+    { m:'AJMP', ops:'addr11',  code:0x01, span:8, step:0x20, bytes:2, cycles:2, flags:'', fn:'PC←(PC)+2，PC10~0←addr11',
+      team:'jump', group:'jump-uncond', anim:'jump', say:'只换低 11 位，高 5 位不动——只能在同一个 2KB 区里跳' },
+    { m:'SJMP', ops:'rel',     code:0x80, bytes:2, cycles:2, flags:'', fn:'PC←(PC)+2+rel',
+      team:'jump', group:'jump-uncond', anim:'jump', say:'从下一条往前后数步子，最多 −128 到 +127' },
+    { m:'JMP',  ops:'@A+DPTR', code:0x73, bytes:1, cycles:2, flags:'', fn:'PC←(A)+(DPTR)',
+      team:'jump', group:'jump-uncond', anim:'jump', say:'地图装订器定基准，红皮记事本定偏移——散转表靠它' },
+    /* 3.6.2 条件转移 8 */
+    { m:'JZ',   ops:'rel', code:0x60, bytes:2, cycles:2, flags:'', fn:'若(A)=0 则 PC←(PC)+2+rel',
+      team:'jump', group:'jump-cond', anim:'jump', say:'红皮记事本是空的就跳' },
+    { m:'JNZ',  ops:'rel', code:0x70, bytes:2, cycles:2, flags:'', fn:'若(A)≠0 则 PC←(PC)+2+rel',
+      team:'jump', group:'jump-cond', anim:null, say:'红皮记事本不空就跳' },
+    { m:'CJNE', ops:'A,direct,rel',  code:0xB5, bytes:3, cycles:2, flags:'CY', fn:'(A)≠(direct) 则转移；(A)<(direct) 则 CY=1',
+      team:'jump', group:'jump-cond', anim:'jump', say:'比一比，不等就跳；顺手用 CY 报谁小' },
+    { m:'CJNE', ops:'A,#data,rel',   code:0xB4, bytes:3, cycles:2, flags:'CY', fn:'(A)≠data 则转移；(A)<data 则 CY=1',
+      team:'jump', group:'jump-cond', anim:null, say:'和纸条上的数比，不等就跳' },
+    { m:'CJNE', ops:'Rn,#data,rel',  code:0xB8, span:8, bytes:3, cycles:2, flags:'CY', fn:'(Rn)≠data 则转移；(Rn)<data 则 CY=1',
+      team:'jump', group:'jump-cond', anim:null, say:'第 n 本工作簿和纸条上的数比' },
+    { m:'CJNE', ops:'@Ri,#data,rel', code:0xB6, span:2, bytes:3, cycles:2, flags:'CY', fn:'((Ri))≠data 则转移；((Ri))<data 则 CY=1',
+      team:'jump', group:'jump-cond', anim:null, say:'Ri 指的那格和纸条上的数比' },
+    { m:'DJNZ', ops:'Rn,rel',     code:0xD8, span:8, bytes:2, cycles:2, flags:'', fn:'Rn←(Rn)−1；≠0 则 PC←(PC)+2+rel',
+      team:'jump', group:'jump-cond', anim:'jump', say:'减一再看，还没到 0 就再来一轮——循环计数的标准写法' },
+    { m:'DJNZ', ops:'direct,rel', code:0xD5, bytes:3, cycles:2, flags:'', fn:'direct←(direct)−1；≠0 则 PC←(PC)+3+rel',
+      team:'jump', group:'jump-cond', anim:null, say:'用内存单元当计数器做循环' },
+    /* 3.6.3 子程序调用 2 */
+    { m:'ACALL', ops:'addr11', code:0x11, span:8, step:0x20, bytes:2, cycles:2, flags:'', fn:'PC←(PC)+2，返回地址压栈，PC10~0←addr11',
+      team:'jump', group:'jump-call', anim:'stack', say:'先做返回标记，但只能叫本 2KB 区里的人' },
+    { m:'LCALL', ops:'addr16', code:0x12, bytes:3, cycles:2, flags:'', fn:'PC←(PC)+3，返回地址压栈，PC←addr16',
+      team:'jump', group:'jump-call', anim:'stack', say:'先在回路标记器上记下"回来的地方"，再出发' },
+    /* 3.6.4 子程序返回 2 */
+    { m:'RET',  ops:'', code:0x22, bytes:1, cycles:2, flags:'', fn:'PC15~8←((SP))，SP−1；PC7~0←((SP))，SP−1',
+      team:'jump', group:'jump-ret', anim:'stack', say:'撕掉最上面的标记，照它回去——后标记先返回' },
+    { m:'RETI', ops:'', code:0x32, bytes:1, cycles:2, flags:'', fn:'同 RET，并清除中断优先级状态',
+      team:'jump', group:'jump-ret', anim:null, say:'比 RET 多一步：告诉学院"这次中断处理完了"' },
+    /* 3.6.5 空操作 1 */
+    { m:'NOP',  ops:'', code:0x00, bytes:1, cycles:1, flags:'', fn:'PC←(PC)+1',
+      team:'jump', group:'jump-nop', anim:null, say:'什么也不做，但实打实占掉一个机器周期' },
+
+    /* ========== 位操作 17 ========== */
+    /* 3.7.2 位传送 2 */
+    { m:'MOV', ops:'C,bit', code:0xA2, bytes:2, cycles:1, flags:'CY', fn:'CY←(bit)',
+      team:'bit', group:'bit-mov', anim:'bitop', say:'把某一位的状态取到 C 旗上' },
+    { m:'MOV', ops:'bit,C', code:0x92, bytes:2, cycles:2, flags:'',   fn:'bit←(CY)',
+      team:'bit', group:'bit-mov', anim:'bitop', say:'把 C 旗的状态写到某一位' },
+    /* 3.7.3 位逻辑操作 10 */
+    { m:'CLR',  ops:'C',     code:0xC3, bytes:1, cycles:1, flags:'CY', fn:'CY←0',
+      team:'bit', group:'bit-logic', anim:null, say:'把 C 旗降下来' },
+    { m:'CLR',  ops:'bit',   code:0xC2, bytes:2, cycles:1, flags:'',   fn:'bit←0',
+      team:'bit', group:'bit-logic', anim:'bitop', say:'只清指定那一位，旁边七位纹丝不动' },
+    { m:'SETB', ops:'C',     code:0xD3, bytes:1, cycles:1, flags:'CY', fn:'CY←1',
+      team:'bit', group:'bit-logic', anim:null, say:'把 C 旗升起来' },
+    { m:'SETB', ops:'bit',   code:0xD2, bytes:2, cycles:1, flags:'',   fn:'bit←1',
+      team:'bit', group:'bit-logic', anim:'bitop', say:'只置指定那一位——点亮一盏 LED 就这一条' },
+    { m:'CPL',  ops:'C',     code:0xB3, bytes:1, cycles:1, flags:'CY', fn:'CY←/(CY)',
+      team:'bit', group:'bit-logic', anim:null, say:'C 旗翻面' },
+    { m:'CPL',  ops:'bit',   code:0xB2, bytes:2, cycles:1, flags:'',   fn:'bit←/(bit)',
+      team:'bit', group:'bit-logic', anim:null, say:'指定那一位翻面——让灯闪烁就反复用它' },
+    { m:'ANL',  ops:'C,bit', code:0x82, bytes:2, cycles:2, flags:'CY', fn:'CY←(CY)∧(bit)',
+      team:'bit', group:'bit-logic', anim:'bitop', say:'C 旗和某一位相与，结果留在 C' },
+    { m:'ANL',  ops:'C,/bit',code:0xB0, bytes:2, cycles:2, flags:'CY', fn:'CY←(CY)∧/(bit)',
+      team:'bit', group:'bit-logic', anim:null, say:'那一位取反后再参与——原位本身不变' },
+    { m:'ORL',  ops:'C,bit', code:0x72, bytes:2, cycles:2, flags:'CY', fn:'CY←(CY)∨(bit)',
+      team:'bit', group:'bit-logic', anim:null, say:'C 旗和某一位相或' },
+    { m:'ORL',  ops:'C,/bit',code:0xA0, bytes:2, cycles:2, flags:'CY', fn:'CY←(CY)∨/(bit)',
+      team:'bit', group:'bit-logic', anim:null, say:'那一位取反后再相或，原位不变' },
+    /* 3.7.4 位条件转移 5 */
+    { m:'JC',  ops:'rel',     code:0x40, bytes:2, cycles:2, flags:'', fn:'若 CY=1 则 PC←(PC)+2+rel',
+      team:'bit', group:'bit-jump', anim:'jump', say:'C 旗升着就跳——判断有没有进位就用它' },
+    { m:'JNC', ops:'rel',     code:0x50, bytes:2, cycles:2, flags:'', fn:'若 CY=0 则 PC←(PC)+2+rel',
+      team:'bit', group:'bit-jump', anim:null, say:'C 旗降着就跳' },
+    { m:'JB',  ops:'bit,rel', code:0x20, bytes:3, cycles:2, flags:'', fn:'若(bit)=1 则 PC←(PC)+3+rel',
+      team:'bit', group:'bit-jump', anim:null, say:'那一位是 1 就跳——查按键、查标志都靠它' },
+    { m:'JNB', ops:'bit,rel', code:0x30, bytes:3, cycles:2, flags:'', fn:'若(bit)=0 则 PC←(PC)+3+rel',
+      team:'bit', group:'bit-jump', anim:null, say:'那一位是 0 就跳' },
+    { m:'JBC', ops:'bit,rel', code:0x10, bytes:3, cycles:2, flags:'', fn:'若(bit)=1 则 bit←0 且 PC←(PC)+3+rel',
+      team:'bit', group:'bit-jump', anim:'jump', say:'跳的同时把那一位清零——查了就销账' }
+  ];
+
+  /* ============================================================
+     查询与派生
+     ============================================================ */
+  function audit() {
+    var byTeam = {}, opcodes = {}, dup = [], i, j, ins, c;
+    for (i = 0; i < ISA.length; i++) {
+      ins = ISA[i];
+      byTeam[ins.team] = (byTeam[ins.team] || 0) + 1;
+      if (!GROUPS[ins.group]) dup.push('未知小类 ' + ins.group);
+      var span = ins.span || 1, step = ins.step || 1;
+      for (j = 0; j < span; j++) {
+        c = ins.code + j * step;
+        if (opcodes[c]) dup.push('操作码 ' + c.toString(16).toUpperCase() + 'H 重复');
+        opcodes[c] = ins;
+      }
+    }
+    var errs = [];
+    for (var k in TEAMS) {
+      if (byTeam[k] !== TEAMS[k].count) {
+        errs.push(TEAMS[k].name + ' 应有 ' + TEAMS[k].count + ' 条，实际 ' + (byTeam[k] || 0) + ' 条');
+      }
+    }
+    if (ISA.length !== 111) errs.push('总条数应为 111，实际 ' + ISA.length);
+    errs = errs.concat(dup);
+    return { ok: !errs.length, errs: errs, byTeam: byTeam, opcodeCount: Object.keys(opcodes).length };
+  }
+
+  function byTeam(team) { return ISA.filter(function (x) { return x.team === team; }); }
+  function byGroup(group) { return ISA.filter(function (x) { return x.group === group; }); }
+  function groupsOf(team) {
+    var out = [];
+    byTeam(team).forEach(function (x) { if (out.indexOf(x.group) < 0) out.push(x.group); });
+    return out;
+  }
+  function hex2(n) { return (n < 16 ? '0' : '') + n.toString(16).toUpperCase(); }
+  function codeRange(ins) {
+    var span = ins.span || 1, step = ins.step || 1;
+    if (span === 1) return hex2(ins.code) + 'H';
+    if (span === 2) return hex2(ins.code) + 'H、' + hex2(ins.code + step) + 'H';
+    return hex2(ins.code) + 'H~' + hex2(ins.code + (span - 1) * step) + 'H';
+  }
+  function opcodeSpan(ins) { return ins.span || 1; }
+  function label(ins) { return ins.m + (ins.ops ? ' ' + ins.ops : ''); }
+
+  /** 条件标志（不含 P）——与教材表 3-4 的口径一致 */
+  function condFlags(ins) {
+    return (ins.flags || '').split(' ').filter(function (f) { return f && f !== 'P'; });
+  }
+  /** 该指令会不会改写 A（从而 P 会被硬件重新算一次） */
+  function writesA(ins) { return /\bP\b/.test(ins.flags || ''); }
+
+  /** 这条指令用到了哪几种寻址方式（按操作数逐个判断，去重，按"拐弯数"排序） */
+  function modesOf(ins) {
+    var out = [];
+    function add(k) { if (out.indexOf(k) < 0) out.push(k); }
+    (ins.ops || '').split(',').forEach(function (o) {
+      o = o.trim();
+      if (!o) return;
+      if (/^#/.test(o)) add('imm');
+      else if (/^@A\+/.test(o)) add('idx');
+      else if (/^@/.test(o)) add('ind');
+      else if (o === 'rel') add('rel');
+      else if (o === 'bit' || o === '/bit' || o === 'C') add('bit');
+      else if (o === 'direct') add('dir');
+      else if (/^(A|Rn|DPTR|AB)$/.test(o)) add('reg');
+      /* addr11 / addr16：转移目标地址不在教材 3.2 节的七种寻址方式之内，这里不归类 */
+    });
+    return out.sort(function (a, b) { return MODES[a].bends - MODES[b].bends; });
+  }
+
+  /** 256 项操作码索引：opcodeTable()[0x93] → { ins: MOVC A,@A+DPTR, n: 0 } */
+  var _table = null;
+  function opcodeTable() {
+    if (_table) return _table;
+    _table = new Array(256);
+    for (var i = 0; i < 256; i++) _table[i] = null;
+    ISA.forEach(function (ins) {
+      var span = ins.span || 1, step = ins.step || 1;
+      for (var j = 0; j < span; j++) _table[ins.code + j * step] = { ins: ins, n: j };
+    });
+    return _table;
+  }
+
+  global.MCS51_ISA = {
+    list: ISA, TEAMS: TEAMS, GROUPS: GROUPS, MODES: MODES,
+    audit: audit, byTeam: byTeam, byGroup: byGroup, groupsOf: groupsOf,
+    codeRange: codeRange, opcodeSpan: opcodeSpan, opcodeTable: opcodeTable, label: label,
+    condFlags: condFlags, writesA: writesA, modesOf: modesOf, hex2: hex2
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<!-- 内联自 lib/mcs51.js -->
+<script>
+/* ============================================================
+   mcs51.js · 80C51 执行引擎 + 汇编器 + 反汇编器
+   ------------------------------------------------------------
+   · 引擎：255 个操作码全部实现，逐条对应 mcs51-isa.js 的 111 条指令。
+     每走一步都留一份"访问记录"（读了哪、写了哪、各自扮演什么角色），
+     页面上的取数路径动画就是照这份记录画的——动画不是摆拍，是引擎真跑出来的。
+   · 汇编器：两遍扫描，支持标号、ORG、DB、$、SFR 名、P1.0 这类位名。
+     写错时给出按教材口径的提示（PUSH A、@R2、MOV #30H,A、F0H 不加 0……）。
+   · 反汇编：机器码 → 教材书写格式。
+
+   存储模型（与教材第 2 章一致）
+     rom   64KB 程序存储器        xram  64KB 片外数据存储器
+     iram  片内 RAM：80C51 只有 00H~7FH；数组开到 256 字节只是为了 @Ri 指到 80H 以上时有个去处（那里不是 SFR）
+     sfr   特殊功能寄存器 80H~FFH（仅直接寻址可达）
+   依赖：mcs51-isa.js
+   ============================================================ */
+(function (global) {
+  'use strict';
+  var I = global.MCS51_ISA;
+  if (!I) throw new Error('mcs51.js 需要先加载 mcs51-isa.js');
+  var TABLE = I.opcodeTable();
+
+  /* ---------------- 地址表 ---------------- */
+  var SFR = {
+    P0: 0x80, SP: 0x81, DPL: 0x82, DPH: 0x83, PCON: 0x87, TCON: 0x88, TMOD: 0x89,
+    TL0: 0x8A, TL1: 0x8B, TH0: 0x8C, TH1: 0x8D, P1: 0x90, SCON: 0x98, SBUF: 0x99,
+    P2: 0xA0, IE: 0xA8, P3: 0xB0, IP: 0xB8, PSW: 0xD0, ACC: 0xE0, B: 0xF0
+  };
+  var SFR_NAME = {};
+  Object.keys(SFR).forEach(function (k) { SFR_NAME[SFR[k]] = k; });
+  var NAMED_BITS = {
+    CY: 0xD7, AC: 0xD6, F0: 0xD5, RS1: 0xD4, RS0: 0xD3, OV: 0xD2, P: 0xD0,
+    TF1: 0x8F, TR1: 0x8E, TF0: 0x8D, TR0: 0x8C, IE1: 0x8B, IT1: 0x8A, IE0: 0x89, IT0: 0x88,
+    EA: 0xAF, ES: 0xAC, ET1: 0xAB, EX1: 0xAA, ET0: 0xA9, EX0: 0xA8,
+    PS: 0xBC, PT1: 0xBB, PX1: 0xBA, PT0: 0xB9, PX0: 0xB8,
+    SM0: 0x9F, SM1: 0x9E, SM2: 0x9D, REN: 0x9C, TB8: 0x9B, RB8: 0x9A, TI: 0x99, RI: 0x98
+  };
+  var BIT_NAME = {};
+  Object.keys(NAMED_BITS).forEach(function (k) { BIT_NAME[NAMED_BITS[k]] = k; });
+  var PSW_I = SFR.PSW - 0x80, ACC_I = SFR.ACC - 0x80, B_I = SFR.B - 0x80;
+  var SP_I = SFR.SP - 0x80, DPL_I = SFR.DPL - 0x80, DPH_I = SFR.DPH - 0x80;
+
+  /* ---------------- 数字格式（教材写法：以 A~F 开头前面补 0） ---------------- */
+  function hx(n, w) {
+    var s = n.toString(16).toUpperCase();
+    while (s.length < w) s = '0' + s;
+    if (/^[A-F]/.test(s)) s = '0' + s;
+    return s + 'H';
+  }
+  function hb(n) { return hx(n & 0xFF, 2); }
+  function hw(n) { return hx(n & 0xFFFF, 4); }
+  function bitText(b) {
+    if (b < 0x80) return hb(b);
+    if (BIT_NAME[b]) return BIT_NAME[b];
+    var byte = b & 0xF8, name = SFR_NAME[byte];
+    return name ? name + '.' + (b & 7) : hb(b);
+  }
+  /** 位地址 → 所在字节与位号（教材 3.2.7） */
+  function bitHome(b) {
+    return b < 0x80 ? { byte: 0x20 + (b >> 3), n: b & 7 } : { byte: b & 0xF8, n: b & 7 };
+  }
+
+  /* ============================================================
+     CPU
+     ============================================================ */
+  function CPU() {
+    this.rom = new Uint8Array(65536);
+    this.xram = new Uint8Array(65536);
+    this.iram = new Uint8Array(256);
+    this.sfr = new Uint8Array(128);
+    this.reset();
+  }
+  /** 复位：教材表 2-7 —— PC=0000H，SP=07H，P0~P3=FFH，其余 SFR 为 00H */
+  CPU.prototype.reset = function () {
+    this.iram.fill(0); this.sfr.fill(0); this.xram.fill(0);
+    this.pc = 0; this.cycles = 0; this.steps = 0;
+    this.sfr[SP_I] = 0x07;
+    this.sfr[SFR.P0 - 0x80] = this.sfr[SFR.P1 - 0x80] = this.sfr[SFR.P2 - 0x80] = this.sfr[SFR.P3 - 0x80] = 0xFF;
+    this._log = null;
+  };
+
+  /* ---- 访问记录 ----
+     每条：{ op:'r'|'w', kind, addr, val, old, role }
+     kind: A B R iram sfr xram rom code bit C DPTR SP PC
+     role: src 源 · dst 目的 · ptr 间址指针 · base 基址 · index 变址 · stack 堆栈 · jump 转移 · cmp 比较 */
+  CPU.prototype._rec = function (op, kind, addr, val, role, old) {
+    if (this._log) this._log.push({ op: op, kind: kind, addr: addr, val: val, role: role || '', old: old });
+    return val;
+  };
+
+  CPU.prototype.parity = function () {
+    var a = this.sfr[ACC_I], p = 0;
+    while (a) { p ^= a & 1; a >>= 1; }
+    this.sfr[PSW_I] = (this.sfr[PSW_I] & 0xFE) | p;
+  };
+  CPU.prototype.flag = function (bit) { return (this.sfr[PSW_I] >> bit) & 1; };
+  CPU.prototype.setFlag = function (bit, v) {
+    this.sfr[PSW_I] = v ? (this.sfr[PSW_I] | (1 << bit)) : (this.sfr[PSW_I] & ~(1 << bit));
+  };
+  Object.defineProperties(CPU.prototype, {
+    A:    { get: function () { return this.sfr[ACC_I]; }, set: function (v) { this.sfr[ACC_I] = v & 0xFF; this.parity(); } },
+    B:    { get: function () { return this.sfr[B_I]; },   set: function (v) { this.sfr[B_I] = v & 0xFF; } },
+    PSW:  { get: function () { return this.sfr[PSW_I]; }, set: function (v) { this.sfr[PSW_I] = v & 0xFF; this.parity(); } },
+    SP:   { get: function () { return this.sfr[SP_I]; },  set: function (v) { this.sfr[SP_I] = v & 0xFF; } },
+    DPTR: { get: function () { return (this.sfr[DPH_I] << 8) | this.sfr[DPL_I]; },
+            set: function (v) { this.sfr[DPH_I] = (v >> 8) & 0xFF; this.sfr[DPL_I] = v & 0xFF; } },
+    CY:   { get: function () { return this.flag(7); }, set: function (v) { this.setFlag(7, v); } },
+    AC:   { get: function () { return this.flag(6); }, set: function (v) { this.setFlag(6, v); } },
+    OV:   { get: function () { return this.flag(2); }, set: function (v) { this.setFlag(2, v); } },
+    P:    { get: function () { return this.flag(0); } },
+    bank: { get: function () { return (this.sfr[PSW_I] >> 3) & 3; } }
+  });
+  CPU.prototype.regAddr = function (n) { return this.bank * 8 + n; };
+  CPU.prototype.R = function (n, v) {
+    if (v === undefined) return this.iram[this.regAddr(n)];
+    this.iram[this.regAddr(n)] = v & 0xFF;
+  };
+  CPU.prototype.readDirect = function (a) { return a < 0x80 ? this.iram[a] : this.sfr[a - 0x80]; };
+  CPU.prototype.writeDirect = function (a, v) {
+    v &= 0xFF;
+    if (a < 0x80) this.iram[a] = v;
+    else if (a === SFR.ACC) this.A = v;
+    else if (a === SFR.PSW) this.PSW = v;     // P 位由硬件按 A 重算，写进去也会被纠正
+    else this.sfr[a - 0x80] = v;
+  };
+  CPU.prototype.readBit = function (b) {
+    var h = bitHome(b);
+    return (this.readDirect(h.byte) >> h.n) & 1;
+  };
+  CPU.prototype.writeBit = function (b, v) {
+    var h = bitHome(b), x = this.readDirect(h.byte);
+    this.writeDirect(h.byte, v ? (x | (1 << h.n)) : (x & ~(1 << h.n)));
+  };
+
+  /* ---- 批量设初值：演示与自测用 ----
+     st = { A, B, PSW, CY, AC, OV, SP, DPTR, PC, R:[…], iram:{addr:val}, sfr:{name|addr:val},
+            xram:{addr:val}, rom:{addr:val|[…]}, bits:{bitaddr:0|1} } */
+  CPU.prototype.load = function (st) {
+    var self = this, k;
+    if (!st) return this;
+    if (st.PSW != null) this.PSW = st.PSW;
+    if (st.CY != null) this.CY = st.CY;
+    if (st.AC != null) this.AC = st.AC;
+    if (st.OV != null) this.OV = st.OV;
+    if (st.R) st.R.forEach(function (v, n) { if (v != null) self.R(n, v); });
+    if (st.iram) for (k in st.iram) this.iram[+k] = st.iram[k];
+    if (st.sfr) for (k in st.sfr) this.writeDirect(isNaN(+k) ? SFR[k] : +k, st.sfr[k]);
+    if (st.xram) for (k in st.xram) this.xram[+k] = st.xram[k];
+    if (st.rom) for (k in st.rom) {
+      var v = st.rom[k], a = +k;
+      if (Array.isArray(v)) v.forEach(function (x, i) { self.rom[(a + i) & 0xFFFF] = x; });
+      else this.rom[a] = v;
+    }
+    if (st.bits) for (k in st.bits) this.writeBit(+k, st.bits[k]);
+    if (st.A != null) this.A = st.A;
+    if (st.B != null) this.B = st.B;
+    if (st.SP != null) this.SP = st.SP;
+    if (st.DPTR != null) this.DPTR = st.DPTR;
+    if (st.PC != null) this.pc = st.PC;
+    this.parity();
+    return this;
+  };
+
+  /** 完整复制一份（动画前先让副本试跑，拿到访问记录，原机状态不动） */
+  CPU.prototype.clone = function () {
+    var c = new CPU();
+    c.rom.set(this.rom); c.xram.set(this.xram); c.iram.set(this.iram); c.sfr.set(this.sfr);
+    c.pc = this.pc; c.cycles = this.cycles; c.steps = this.steps;
+    return c;
+  };
+
+  CPU.prototype.snapshot = function () {
+    return {
+      pc: this.pc, iram: this.iram.slice(), sfr: this.sfr.slice(),
+      xram: this.xram, cycles: this.cycles
+    };
+  };
+
+  /* ============================================================
+     取操作数 / 写操作数（带访问记录）
+     ============================================================ */
+  function decode(ins, n, b, pc0, next) {
+    if (ins.enc === 'src-first') {           // MOV direct,direct：机器码里源在前、目的在后
+      return [{ t: 'direct', a: b[2], bi: 2 }, { t: 'direct', a: b[1], bi: 1 }];
+    }
+    var toks = ins.ops ? ins.ops.split(',') : [], k = 1, out = [];
+    toks.forEach(function (t) {
+      switch (t) {
+        case 'A': case 'AB': case 'C': case 'DPTR': case '@DPTR': case '@A+DPTR': case '@A+PC':
+          out.push({ t: t }); break;
+        case 'Rn':  out.push({ t: 'R', n: n }); break;
+        case '@Ri': out.push({ t: '@R', n: n }); break;
+        case 'direct': out.push({ t: 'direct', a: b[k], bi: k }); k++; break;
+        case '#data':  out.push({ t: '#', v: b[k], bi: k }); k++; break;
+        case '#data16': out.push({ t: '#16', v: (b[k] << 8) | b[k + 1], bi: k }); k += 2; break;
+        case 'bit':  out.push({ t: 'bit', a: b[k], bi: k }); k++; break;
+        case '/bit': out.push({ t: '/bit', a: b[k], bi: k }); k++; break;
+        case 'rel': { var r = b[k]; out.push({ t: 'rel', v: r > 127 ? r - 256 : r, raw: r, bi: k }); k++; break; }
+        case 'addr16': out.push({ t: 'addr', v: (b[k] << 8) | b[k + 1], bi: k }); k += 2; break;
+        case 'addr11': out.push({ t: 'addr', v: (next & 0xF800) | (n << 8) | b[k], bi: k }); k++; break;
+      }
+    });
+    return out;
+  }
+
+  CPU.prototype.rd = function (o, role) {
+    var v, p;
+    switch (o.t) {
+      case 'A': return this._rec('r', 'A', null, this.A, role);
+      case 'C': return this._rec('r', 'C', null, this.CY, role);
+      case 'DPTR': return this._rec('r', 'DPTR', null, this.DPTR, role);
+      case 'R': return this._rec('r', 'R', o.n, this.R(o.n), role);
+      case '@R':
+        p = this._rec('r', 'R', o.n, this.R(o.n), 'ptr');
+        return this._rec('r', 'iram', p, this.iram[p], role);
+      case 'direct':
+        v = this.readDirect(o.a);
+        return this._rec('r', o.a < 0x80 ? 'iram' : 'sfr', o.a, v, role);
+      case '#': return this._rec('r', 'code', this._pc0 + o.bi, o.v, role);
+      case '#16': return this._rec('r', 'code', this._pc0 + o.bi, o.v, role);
+      case 'bit': return this._rec('r', 'bit', o.a, this.readBit(o.a), role);
+      case '/bit': return this._rec('r', 'bit', o.a, this.readBit(o.a), role) ^ 1;
+      case '@DPTR':
+        p = this._rec('r', 'DPTR', null, this.DPTR, 'ptr');
+        return this._rec('r', 'xram', p, this.xram[p], role);
+      case '@A+DPTR': {
+        var a = this._rec('r', 'A', null, this.A, 'index');
+        var d = this._rec('r', 'DPTR', null, this.DPTR, 'base');
+        p = (a + d) & 0xFFFF;
+        return this._rec('r', 'rom', p, this.rom[p], role);
+      }
+      case '@A+PC': {
+        var a2 = this._rec('r', 'A', null, this.A, 'index');
+        var pcv = this._rec('r', 'PC', null, this.pc, 'base');
+        p = (a2 + pcv) & 0xFFFF;
+        return this._rec('r', 'rom', p, this.rom[p], role);
+      }
+    }
+    throw new Error('无法读取操作数 ' + o.t);
+  };
+  /* MOVX 的 @Ri：低 8 位来自 Ri，高 8 位是 P2 口锁存器的值（硬件如此） */
+  CPU.prototype.xAddr = function (o) {
+    var lo = this._rec('r', 'R', o.n, this.R(o.n), 'ptr');
+    return ((this.sfr[SFR.P2 - 0x80] << 8) | lo) & 0xFFFF;
+  };
+  CPU.prototype.wr = function (o, v, role) {
+    v &= 0xFF; role = role || 'dst';
+    var old, p;
+    switch (o.t) {
+      case 'A': old = this.A; this.A = v; return this._rec('w', 'A', null, v, role, old);
+      case 'C': old = this.CY; this.CY = v & 1; return this._rec('w', 'C', null, v & 1, role, old);
+      case 'R': old = this.R(o.n); this.R(o.n, v); return this._rec('w', 'R', o.n, v, role, old);
+      case '@R':
+        p = this._rec('r', 'R', o.n, this.R(o.n), 'ptr');
+        old = this.iram[p]; this.iram[p] = v;
+        return this._rec('w', 'iram', p, v, role, old);
+      case 'direct':
+        old = this.readDirect(o.a); this.writeDirect(o.a, v);
+        return this._rec('w', o.a < 0x80 ? 'iram' : 'sfr', o.a, v, role, old);
+      case 'bit':
+        old = this.readBit(o.a); this.writeBit(o.a, v & 1);
+        return this._rec('w', 'bit', o.a, v & 1, role, old);
+      case '@DPTR':
+        p = this._rec('r', 'DPTR', null, this.DPTR, 'ptr');
+        old = this.xram[p]; this.xram[p] = v;
+        return this._rec('w', 'xram', p, v, role, old);
+    }
+    throw new Error('无法写入操作数 ' + o.t);
+  };
+  CPU.prototype.setFlags = function (f) {
+    var self = this;
+    ['CY', 'AC', 'OV'].forEach(function (k) {
+      if (f[k.toLowerCase()] == null) return;
+      var old = self[k], v = f[k.toLowerCase()];
+      self[k] = v;
+      if (old !== v || k === 'CY') self._rec('w', 'flag', k, v, 'flag', old);
+    });
+  };
+  CPU.prototype.jumpTo = function (addr, taken) {
+    addr &= 0xFFFF;
+    if (taken === false) { this._rec('r', 'PC', null, this.pc, 'fall'); return; }
+    var old = this.pc; this.pc = addr;
+    this._rec('w', 'PC', null, addr, 'jump', old);
+  };
+  CPU.prototype.push = function (v) {
+    var sp = (this.SP + 1) & 0xFF;
+    this.SP = sp; this._rec('w', 'SP', null, sp, 'stack', (sp - 1) & 0xFF);
+    var old = this.iram[sp]; this.iram[sp] = v & 0xFF;
+    this._rec('w', 'iram', sp, v & 0xFF, 'stack', old);
+  };
+  CPU.prototype.pop = function () {
+    var sp = this._rec('r', 'SP', null, this.SP, 'stack'), v = this.iram[sp];
+    this._rec('r', 'iram', sp, v, 'stack');
+    this.SP = (sp - 1) & 0xFF; this._rec('w', 'SP', null, this.SP, 'stack', sp);
+    return v;
+  };
+
+  /* ---------------- 运算与标志（教材表 3-4） ---------------- */
+  function addc(a, b, c) {
+    var s = a + b + c;
+    var cy = s > 0xFF ? 1 : 0;
+    var ac = ((a & 0x0F) + (b & 0x0F) + c) > 0x0F ? 1 : 0;
+    var c6 = ((a & 0x7F) + (b & 0x7F) + c) > 0x7F ? 1 : 0;   // 第 6 位向第 7 位的进位
+    return { r: s & 0xFF, cy: cy, ac: ac, ov: c6 ^ cy };
+  }
+  function subb(a, b, c) {
+    var d = a - b - c;
+    var cy = d < 0 ? 1 : 0;
+    var ac = ((a & 0x0F) - (b & 0x0F) - c) < 0 ? 1 : 0;
+    var c6 = ((a & 0x7F) - (b & 0x7F) - c) < 0 ? 1 : 0;
+    return { r: d & 0xFF, cy: cy, ac: ac, ov: c6 ^ cy };
+  }
+
+  /* ============================================================
+     执行一条
+     ============================================================ */
+  CPU.prototype.step = function () {
+    var pc0 = this.pc, op = this.rom[pc0], hit = TABLE[op];
+    this._log = [];
+    this._pc0 = pc0;
+    if (!hit) {                                // A5H：全表唯一保留未用的操作码
+      this.pc = (pc0 + 1) & 0xFFFF; this.cycles += 1; this.steps++;
+      var lg = this._log; this._log = null;
+      return { pc: pc0, next: this.pc, newPC: this.pc, bytes: [op], ins: null, reserved: true,
+               text: '（保留操作码 ' + hb(op) + '，未定义）', log: lg, cycles: 1, jumped: false };
+    }
+    var ins = hit.ins, n = hit.n, len = ins.bytes, b = [], i;
+    for (i = 0; i < len; i++) b.push(this._rec('r', 'code', (pc0 + i) & 0xFFFF, this.rom[(pc0 + i) & 0xFFFF], i ? 'operand' : 'opcode'));
+    var next = (pc0 + len) & 0xFFFF;
+    this.pc = next;
+    var psw0 = this.PSW;
+    exec(this, ins, n, b, pc0, next);
+    this.parity();
+    this.cycles += ins.cycles; this.steps++;
+    var log = this._log; this._log = null;
+    if ((psw0 & 1) !== (this.PSW & 1)) log.push({ op: 'w', kind: 'flag', addr: 'P', val: this.P, old: psw0 & 1, role: 'parity' });
+    return {
+      pc: pc0, next: next, newPC: this.pc, bytes: b, ins: ins, n: n,
+      text: disasmBytes(b, pc0), log: log, cycles: ins.cycles, jumped: this.pc !== next
+    };
+  };
+
+  function exec(c, ins, n, b, pc0, next) {
+    var o = decode(ins, n, b, pc0, next), m = ins.m, x, y, r, v, a;
+    switch (m) {
+      case 'NOP': return;
+
+      /* ---- 数据传送 ---- */
+      case 'MOV':
+        if (o[0].t === 'DPTR') {
+          v = c._rec('r', 'code', pc0 + 1, o[1].v, 'src');
+          var oldD = c.DPTR; c.DPTR = v; c._rec('w', 'DPTR', null, v, 'dst', oldD);
+        } else {
+          c.wr(o[0], c.rd(o[1], 'src'));
+        }
+        return;
+      case 'MOVC':
+        c.wr(o[0], c.rd(o[1], 'src'));
+        return;
+      case 'MOVX':
+        if (o[1].t === '@DPTR') { c.wr(o[0], c.rd(o[1], 'src')); return; }
+        if (o[1].t === '@R') {
+          a = c.xAddr(o[1]); v = c._rec('r', 'xram', a, c.xram[a], 'src');
+          c.wr(o[0], v); return;
+        }
+        if (o[0].t === '@DPTR') { c.wr(o[0], c.rd(o[1], 'src')); return; }
+        /* MOVX @Ri,A */
+        v = c.rd(o[1], 'src'); a = c.xAddr(o[0]);
+        var oldX = c.xram[a]; c.xram[a] = v; c._rec('w', 'xram', a, v, 'dst', oldX);
+        return;
+      case 'PUSH': c.push(c.rd(o[0], 'src')); return;
+      case 'POP':  c.wr(o[0], c.pop()); return;
+      case 'XCH':
+        x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+        c.wr(o[0], y); c.wr(o[1], x); return;
+      case 'XCHD':
+        x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+        c.wr(o[0], (x & 0xF0) | (y & 0x0F)); c.wr(o[1], (y & 0xF0) | (x & 0x0F)); return;
+      case 'SWAP':
+        x = c.rd(o[0], 'src'); c.wr(o[0], ((x << 4) | (x >> 4)) & 0xFF); return;
+
+      /* ---- 算术 ---- */
+      case 'ADD': case 'ADDC':
+        x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+        r = addc(x, y, m === 'ADDC' ? c._rec('r', 'C', null, c.CY, 'src') : 0);
+        c.wr(o[0], r.r); c.setFlags(r); return;
+      case 'SUBB':
+        x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+        r = subb(x, y, c._rec('r', 'C', null, c.CY, 'src'));
+        c.wr(o[0], r.r); c.setFlags(r); return;
+      case 'INC':
+        if (o[0].t === 'DPTR') {
+          x = c.rd(o[0], 'src'); c.DPTR = (x + 1) & 0xFFFF;
+          c._rec('w', 'DPTR', null, c.DPTR, 'dst', x); return;
+        }
+        c.wr(o[0], c.rd(o[0], 'src') + 1); return;
+      case 'DEC':
+        c.wr(o[0], c.rd(o[0], 'src') - 1); return;
+      case 'MUL':
+        x = c._rec('r', 'A', null, c.A, 'src'); y = c._rec('r', 'B', null, c.B, 'src');
+        r = x * y;
+        v = c.A; c.A = r & 0xFF; c._rec('w', 'A', null, c.A, 'dst', v);
+        v = c.B; c.B = r >> 8; c._rec('w', 'B', null, c.B, 'dst', v);
+        c.setFlags({ cy: 0, ov: r > 0xFF ? 1 : 0 }); return;
+      case 'DIV':
+        x = c._rec('r', 'A', null, c.A, 'src'); y = c._rec('r', 'B', null, c.B, 'src');
+        if (y === 0) { c.setFlags({ cy: 0, ov: 1 }); return; }   // 除数为 0：OV=1，A、B 结果无意义
+        v = c.A; c.A = Math.floor(x / y); c._rec('w', 'A', null, c.A, 'dst', v);
+        v = c.B; c.B = x % y; c._rec('w', 'B', null, c.B, 'dst', v);
+        c.setFlags({ cy: 0, ov: 0 }); return;
+      case 'DA': {
+        a = c.rd(o[0], 'src'); var cy = c.CY;
+        if ((a & 0x0F) > 9 || c.AC) { a += 0x06; if (a > 0xFF) { cy = 1; a &= 0xFF; } }
+        if ((a >> 4) > 9 || cy) { a += 0x60; if (a > 0xFF) { cy = 1; a &= 0xFF; } }
+        c.wr(o[0], a); c.setFlags({ cy: cy }); return;
+      }
+
+      /* ---- 逻辑 ---- */
+      case 'ANL': case 'ORL': case 'XRL':
+        if (o[0].t === 'C') {                            // 位逻辑：ANL/ORL C,bit 与 C,/bit
+          x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+          c.wr(o[0], m === 'ANL' ? (x & y) : (x | y)); return;
+        }
+        x = c.rd(o[0], 'src'); y = c.rd(o[1], 'src');
+        c.wr(o[0], m === 'ANL' ? (x & y) : m === 'ORL' ? (x | y) : (x ^ y)); return;
+      case 'CLR':
+        c.wr(o[0], 0); return;
+      case 'SETB':
+        c.wr(o[0], 1); return;
+      case 'CPL':
+        x = c.rd(o[0], 'src');
+        c.wr(o[0], o[0].t === 'A' ? (~x & 0xFF) : (x ^ 1)); return;
+      case 'RL':
+        x = c.rd(o[0], 'src'); c.wr(o[0], ((x << 1) | (x >> 7)) & 0xFF); return;
+      case 'RR':
+        x = c.rd(o[0], 'src'); c.wr(o[0], ((x >> 1) | (x << 7)) & 0xFF); return;
+      case 'RLC':
+        x = c.rd(o[0], 'src'); y = c._rec('r', 'C', null, c.CY, 'src');
+        c.wr(o[0], ((x << 1) | y) & 0xFF); c.setFlags({ cy: (x >> 7) & 1 }); return;
+      case 'RRC':
+        x = c.rd(o[0], 'src'); y = c._rec('r', 'C', null, c.CY, 'src');
+        c.wr(o[0], ((x >> 1) | (y << 7)) & 0xFF); c.setFlags({ cy: x & 1 }); return;
+
+      /* ---- 控制转移 ---- */
+      case 'LJMP': case 'AJMP':
+        c.jumpTo(o[0].v); return;
+      case 'SJMP':
+        c.jumpTo(next + o[0].v); return;
+      case 'JMP':
+        x = c._rec('r', 'A', null, c.A, 'index'); y = c._rec('r', 'DPTR', null, c.DPTR, 'base');
+        c.jumpTo(x + y); return;
+      case 'JZ':  x = c.rd({ t: 'A' }, 'cmp'); c.jumpTo(next + o[0].v, x === 0); return;
+      case 'JNZ': x = c.rd({ t: 'A' }, 'cmp'); c.jumpTo(next + o[0].v, x !== 0); return;
+      case 'JC':  x = c.rd({ t: 'C' }, 'cmp'); c.jumpTo(next + o[0].v, x === 1); return;
+      case 'JNC': x = c.rd({ t: 'C' }, 'cmp'); c.jumpTo(next + o[0].v, x === 0); return;
+      case 'JB':  x = c.rd(o[0], 'cmp'); c.jumpTo(next + o[1].v, x === 1); return;
+      case 'JNB': x = c.rd(o[0], 'cmp'); c.jumpTo(next + o[1].v, x === 0); return;
+      case 'JBC':
+        x = c.rd(o[0], 'cmp');
+        if (x === 1) c.wr(o[0], 0);
+        c.jumpTo(next + o[1].v, x === 1); return;
+      case 'CJNE':
+        x = c.rd(o[0], 'cmp'); y = c.rd(o[1], 'cmp');
+        c.setFlags({ cy: x < y ? 1 : 0 });
+        c.jumpTo(next + o[2].v, x !== y); return;
+      case 'DJNZ':
+        x = (c.rd(o[0], 'src') - 1) & 0xFF; c.wr(o[0], x);
+        c.jumpTo(next + o[1].v, x !== 0); return;
+      case 'ACALL': case 'LCALL':
+        c.push(next & 0xFF); c.push(next >> 8);          // 低字节先进栈
+        c.jumpTo(o[0].v); return;
+      case 'RET': case 'RETI':
+        x = c.pop(); y = c.pop();                         // 先弹高字节，再弹低字节
+        c.jumpTo((x << 8) | y); return;
+    }
+    throw new Error('引擎未实现：' + I.label(ins));
+  }
+
+  /** 连续执行（带保险丝，防死循环） */
+  CPU.prototype.run = function (opt) {
+    opt = opt || {};
+    var max = opt.max || 10000, until = opt.until, out = [];
+    for (var i = 0; i < max; i++) {
+      if (until != null && this.pc === until) break;
+      var t = this.step();
+      if (opt.trace) out.push(t);
+      if (t.newPC === t.pc && t.ins && /JMP|SJMP/.test(t.ins.m)) break;  // SJMP $ 之类的原地停
+      if (opt.stopAt != null && this.pc >= opt.stopAt) break;
+    }
+    return out;
+  };
+
+  /* ============================================================
+     反汇编
+     ============================================================ */
+  function disasmBytes(b, pc0) {
+    var hit = TABLE[b[0]];
+    if (!hit) return '（保留 ' + hb(b[0]) + '）';
+    var ins = hit.ins, n = hit.n, next = (pc0 + ins.bytes) & 0xFFFF;
+    var o = decode(ins, n, b, pc0, next);
+    var toks = ins.ops ? ins.ops.split(',') : [];
+    var parts;
+    if (ins.enc === 'src-first') parts = [fmtDirect(b[2]), fmtDirect(b[1])];
+    else parts = toks.map(function (t, i) {
+      var x = o[i];
+      switch (t) {
+        case 'Rn': return 'R' + n;
+        case '@Ri': return '@R' + n;
+        case 'direct': return fmtDirect(x.a);
+        case '#data': return '#' + hb(x.v);
+        case '#data16': return '#' + hw(x.v);
+        case 'bit': return bitText(x.a);
+        case '/bit': return '/' + bitText(x.a);
+        case 'rel': return hw(next + x.v);
+        case 'addr16': case 'addr11': return hw(x.v);
+        default: return t;
+      }
+    });
+    return ins.m + (parts.length ? ' ' + parts.join(',') : '');
+  }
+  function fmtDirect(a) { return a >= 0x80 && SFR_NAME[a] ? SFR_NAME[a] : hb(a); }
+  function disasm(cpu, addr) {
+    var hit = TABLE[cpu.rom[addr]], len = hit ? hit.ins.bytes : 1, b = [];
+    for (var i = 0; i < len; i++) b.push(cpu.rom[(addr + i) & 0xFFFF]);
+    return { addr: addr, bytes: b, text: disasmBytes(b, addr), len: len, ins: hit && hit.ins };
+  }
+
+  /* ============================================================
+     汇编器
+     ============================================================ */
+  function parseNumber(s) {
+    var U = s.toUpperCase(), m;
+    if (/^[0-9][0-9A-F]*H$/.test(U)) return parseInt(U.slice(0, -1), 16);
+    if (/^[A-F][0-9A-F]*H$/.test(U)) return { err: '以 A~F 开头的十六进制数前面要补 0，应写成 0' + U + '（教材 3.1.1）' };
+    if (/^[01]+B$/.test(U)) return parseInt(U.slice(0, -1), 2);
+    if ((m = /^0X([0-9A-F]+)$/.exec(U))) return parseInt(m[1], 16);
+    if (/^[0-9]+D?$/.test(U)) return parseInt(U, 10);
+    if (/^'.'$/.test(s)) return s.charCodeAt(1);
+    return null;
+  }
+  /** 求值：数字 / SFR 名 / 位名 / 标号 / $ / 简单加减。kind: 'byte' 'bit' 'addr' */
+  function evalExpr(expr, ctx, kind) {
+    var s = expr.trim(), U = s.toUpperCase(), m;
+    if (!s) return { err: '缺少操作数' };
+    /* 位：X.n 形式 */
+    if ((m = /^(.+)\.([0-7])$/.exec(U)) && kind === 'bit') {
+      var base = evalExpr(m[1], ctx, 'byte');
+      if (base.err) return base;
+      var byte = base.v;
+      if (byte >= 0x20 && byte <= 0x2F) return { v: (byte - 0x20) * 8 + (+m[2]) };
+      if (byte >= 0x80 && (byte & 7) === 0) return { v: byte + (+m[2]) };
+      return { err: hb(byte) + ' 单元不可位寻址——只有 20H~2FH 和地址能被 8 整除的 SFR 可以（教材 3.2.7）' };
+    }
+    if (/\.[0-7]$/.test(U) && kind !== 'bit') return { err: '"' + s + '" 是一个位，这里需要字节。位要经 C 传送：MOV C,' + s, bitForm: true };
+    if (kind === 'bit' && NAMED_BITS.hasOwnProperty(U)) return { v: NAMED_BITS[U] };
+    if (kind !== 'bit' && SFR.hasOwnProperty(U)) return { v: SFR[U] };
+    if (kind === 'bit' && SFR.hasOwnProperty(U)) return { err: U + ' 是字节，不是位；要写成 ' + U + '.0 ~ ' + U + '.7' };
+    if (U === '$') return { v: ctx.pc };
+    /* 加减表达式 */
+    if ((m = /^(.+?)([+-])(.+)$/.exec(s)) && !/^[+-]/.test(s)) {
+      var L = evalExpr(m[1], ctx, kind === 'bit' ? 'byte' : kind), R = evalExpr(m[3], ctx, 'byte');
+      if (L.err) return L; if (R.err) return R;
+      return { v: m[2] === '+' ? L.v + R.v : L.v - R.v };
+    }
+    if (/^-/.test(s)) { var neg = evalExpr(s.slice(1), ctx, kind); return neg.err ? neg : { v: -neg.v }; }
+    var num = parseNumber(s);
+    if (num && num.err) return num;
+    if (num != null) return { v: num };
+    if (ctx.labels && ctx.labels.hasOwnProperty(U)) return { v: ctx.labels[U] };
+    if (ctx.pass === 1 && /^[A-Z_][A-Z0-9_]*$/.test(U)) return { v: ctx.pc, pending: true };
+    return { err: '不认识的符号 "' + s + '"' };
+  }
+
+  function splitOperands(s) {
+    return s ? s.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; }) : [];
+  }
+
+  function classify(tok) {
+    var U = tok.toUpperCase().replace(/\s+/g, '');
+    if (U === 'A') return { k: 'A' };
+    if (U === 'AB') return { k: 'AB' };
+    if (U === 'C') return { k: 'C' };
+    if (U === 'DPTR') return { k: 'DPTR' };
+    if (/^R[0-7]$/.test(U)) return { k: 'Rn', n: +U[1] };
+    if (/^@R[01]$/.test(U)) return { k: '@Ri', n: +U[2] };
+    if (/^@R[2-7]$/.test(U)) return { k: 'bad', msg: '间接寻址只能用 R0、R1 —— 80C51 规定只有这两个是间址寄存器（教材 3.2.4）' };
+    if (U === '@DPTR') return { k: '@DPTR' };
+    if (U === '@A+DPTR') return { k: '@A+DPTR' };
+    if (U === '@A+PC') return { k: '@A+PC' };
+    if (U[0] === '@') return { k: 'bad', msg: '"' + tok + '" 不是合法的间接寻址写法' };
+    if (U[0] === '#') return { k: '#', expr: tok.trim().slice(1) };
+    if (U[0] === '/') return { k: '/bit', expr: tok.trim().slice(1) };
+    return { k: 'expr', expr: tok.trim() };
+  }
+
+  /* 试着把一组操作数装进某条指令的"槽位"里 */
+  function tryMatch(ins, ops, ctx, len) {
+    var slots = ins.ops ? ins.ops.split(',') : [];
+    if (slots.length !== ops.length) return null;
+    var vals = [], nsel = 0, err = null;
+    for (var i = 0; i < slots.length; i++) {
+      var s = slots[i], o = ops[i], e;
+      switch (s) {
+        case 'A': case 'AB': case 'C': case 'DPTR': case '@DPTR': case '@A+DPTR': case '@A+PC':
+          if (o.k !== s) return null; vals.push(null); break;
+        case 'Rn': if (o.k !== 'Rn') return null; nsel = o.n; vals.push(null); break;
+        case '@Ri': if (o.k !== '@Ri') return null; nsel = o.n; vals.push(null); break;
+        case '#data':
+          if (o.k !== '#') return null;
+          e = evalExpr(o.expr, ctx, 'byte'); if (e.err) { err = e.err; break; }
+          if (e.v < -128 || e.v > 255) { err = '立即数 ' + o.expr + ' 超出 8 位（0~255）'; break; }
+          vals.push(e.v & 0xFF); break;
+        case '#data16':
+          if (o.k !== '#') return null;
+          e = evalExpr(o.expr, ctx, 'addr'); if (e.err) { err = e.err; break; }
+          if (e.v < 0 || e.v > 0xFFFF) { err = '16 位立即数超出范围'; break; }
+          vals.push(e.v); break;
+        case 'direct':
+          if (o.k !== 'expr') return null;
+          e = evalExpr(o.expr, ctx, 'byte');
+          if (e.bitForm) return null;
+          if (e.err) { err = e.err; break; }
+          if (e.v < 0 || e.v > 255) { err = '直接地址 ' + o.expr + ' 超出 00H~FFH'; break; }
+          vals.push(e.v); break;
+        case 'bit': case '/bit':
+          if (o.k !== (s === 'bit' ? 'expr' : '/bit')) return null;
+          e = evalExpr(o.expr, ctx, 'bit'); if (e.err) { err = e.err; break; }
+          if (e.v < 0 || e.v > 255) { err = '位地址超出 00H~FFH'; break; }
+          vals.push(e.v); break;
+        case 'rel':
+          if (o.k !== 'expr') return null;
+          e = evalExpr(o.expr, ctx, 'addr'); if (e.err) { err = e.err; break; }
+          var off = e.v - ((ctx.pc + len) & 0xFFFF);
+          if (ctx.pass === 2 && (off < -128 || off > 127)) {
+            err = '相对转移目标 ' + hw(e.v) + ' 离下一条指令 ' + (off > 0 ? '+' : '') + off +
+                  ' 字节，超出 −128~+127（教材 3.2.6）；远处请用 LJMP'; break;
+          }
+          vals.push(off & 0xFF); break;
+        case 'addr16':
+          if (o.k !== 'expr') return null;
+          e = evalExpr(o.expr, ctx, 'addr'); if (e.err) { err = e.err; break; }
+          vals.push(e.v & 0xFFFF); break;
+        case 'addr11':
+          if (o.k !== 'expr') return null;
+          e = evalExpr(o.expr, ctx, 'addr'); if (e.err) { err = e.err; break; }
+          var nx = (ctx.pc + len) & 0xFFFF;
+          if (ctx.pass === 2 && (e.v & 0xF800) !== (nx & 0xF800)) {
+            err = ins.m + ' 只能到下一条指令所在的 2KB 区（' + hw(nx & 0xF800) + '~' + hw((nx & 0xF800) + 0x7FF) +
+                  '），' + hw(e.v) + ' 不在其中；请用 ' + (ins.m === 'AJMP' ? 'LJMP' : 'LCALL'); break;
+          }
+          nsel = (e.v >> 8) & 7; vals.push(e.v & 0xFF); break;
+        default: return null;
+      }
+      if (err) break;
+    }
+    return { ins: ins, vals: vals, n: nsel, err: err };
+  }
+
+  function encode(mt) {
+    var ins = mt.ins, step = ins.step || 1, b = [(ins.code + mt.n * step) & 0xFF];
+    var slots = ins.ops ? ins.ops.split(',') : [];
+    if (ins.enc === 'src-first') return [b[0], mt.vals[1], mt.vals[0]];
+    slots.forEach(function (s, i) {
+      var v = mt.vals[i];
+      if (v == null) return;
+      if (s === '#data16' || s === 'addr16') b.push((v >> 8) & 0xFF, v & 0xFF);
+      else b.push(v & 0xFF);
+    });
+    return b;
+  }
+
+  /* 操作数看起来是一个位：X.n 或位名称 */
+  function isBitExpr(o) { return !!o && o.k === 'expr' && (/\.[0-7]$/.test(o.expr) || NAMED_BITS.hasOwnProperty(String(o.expr).toUpperCase())); }
+
+  /* 写错时，按教材给一句像老师批改一样的话 */
+  function hintFor(M, ops, raw) {
+    var k = ops.map(function (o) { return o.k; });
+    var U = raw.toUpperCase();
+    if ((M === 'PUSH' || M === 'POP') && k[0] === 'A')
+      return M + ' 只接受直接地址。累加器的直接地址是 E0H，要写成 ' + M + ' ACC（教材 3.3.7）';
+    if (M === 'SUB') return '80C51 没有 SUB，只有带借位的 SUBB；单字节相减前先 CLR C（教材 3.4.2）';
+    if (M === 'DEC' && k[0] === 'DPTR') return '没有 DEC DPTR 这条指令，只有 INC DPTR（教材 3.4.4）';
+    if (k[0] === '#' && ['MOV', 'ADD', 'ADDC', 'SUBB', 'ANL', 'ORL', 'XRL'].indexOf(M) >= 0)
+      return '立即数只能作源操作数，不能当目的（教材 3.2.3）';
+    if (M === 'MOV' && k[0] === 'Rn' && k[1] === 'Rn')
+      return '工作寄存器之间不能直接传送，要经过 A：先 MOV A,' + ops[1].expr0 + '，再 MOV ' + ops[0].expr0 + ',A';
+    if (M === 'MOV' && k[0] === '@Ri' && k[1] === '@Ri') return '没有 MOV @Ri,@Ri，要经过 A 中转';
+    if (M === 'MOV' && (k[0] === 'Rn' && k[1] === '@Ri' || k[0] === '@Ri' && k[1] === 'Rn'))
+      return 'Rn 与 @Ri 之间不能直接传送，要经过 A 中转';
+    if (M === 'MOVX' && !/@/.test(U)) return 'MOVX 只能用 @DPTR 或 @Ri 间接寻址片外 RAM（教材 3.3.4）';
+    if (M === 'MOVX' && k.indexOf('A') < 0) return 'MOVX 必须经过 A：一方是 A，另一方是 @DPTR 或 @Ri';
+    if (M === 'MOVC' && /@DPTR/.test(U) && !/@A\+DPTR/.test(U)) return 'MOVC 要写成 @A+DPTR 或 @A+PC（教材 3.2.5）';
+    if (M === 'MOV' && k[0] === 'A' && ops[1] && ops[1].k === 'expr' && /\.[0-7]$/.test(ops[1].expr))
+      return 'A 不能直接取一个位。位传送必须经过 C：MOV C,' + ops[1].expr;
+    if (M === 'MOV' && k[0] === 'A' && k[1] === 'A') return 'MOV A,A 没有意义，指令表里也没有这一条';
+    if (M === 'JMP' && k[0] === 'expr') return 'JMP 后面跟地址时，请写明 LJMP / AJMP / SJMP';
+    /* 3.4 逻辑运算 */
+    if (/^(SHL|SHR|SAL|SAR|SLA|SRA|SLL|SRL|LSL|LSR|ASL|ASR)$/.test(M))
+      return '80C51 没有移位指令。左移一位：先 CLR C，再 RLC A；右移一位：先 CLR C，再 RRC A（教材 3.5.4）';
+    if (M === 'ROL' || M === 'ROR') return '80C51 的循环移位写作 ' + (M === 'ROL' ? 'RL A' : 'RR A') + '，带 CY 的写作 ' + (M === 'ROL' ? 'RLC A' : 'RRC A') + '（教材 3.5.4）';
+    if (/^(AND|OR|XOR|NOT|EOR)$/.test(M))
+      return '80C51 的逻辑运算写作 ANL（与）、ORL（或）、XRL（异或）；取反：整字节 CPL A，单个位 CPL C 或 CPL bit（教材 3.5、3.7）';
+    /* 3.6 位操作 */
+    if (M === 'XRL' && k[0] === 'C') return '位逻辑只有与（ANL C,…）、或（ORL C,…）和取反（CPL），没有位异或；要做异或，用 JB / JNB 配合 CPL C';
+    if ((M === 'ANL' || M === 'ORL' || M === 'MOV') && k[0] === 'C' && k[1] === '#') return 'C 只和位打交道，没有立即数写法；置 1 用 SETB C，清 0 用 CLR C';
+    if (M === 'MOV' && k[0] === 'C' && k[1] === 'A') return 'C 只能和某一位互送：写 MOV C,ACC.n（n 是 0~7）';
+    if (M === 'SETB' && k[0] === 'A') return 'SETB 只对位：SETB C 或 SETB bit。A 的某一位写 SETB ACC.n；整字节全置 1 用 MOV A,#0FFH';
+    if ((M === 'CPL' || M === 'SETB' || M === 'CLR') && k[0] === '/bit') return '"/" 只出现在 ANL C,/bit 和 ORL C,/bit 里，表示"取反后参与、原位不变"；要把某一位取反，写 CPL ' + ops[0].expr;
+    if (/^(JB|JNB|JBC)$/.test(M) && k[0] === 'A') return M + ' 看的是某一位，比如 ' + M + ' ACC.7,…；看 A 是不是 0 用 JZ / JNZ';
+    if (['ANL', 'ORL', 'XRL'].indexOf(M) >= 0 && k[0] === 'A' && k[1] === 'A')
+      return 'A 作第二个操作数时要写它的直接地址 ACC，例如 ' + M + ' A,ACC；想把 A 清零，直接用 CLR A';
+    if (['ANL', 'ORL', 'XRL'].indexOf(M) >= 0 && k[0] === 'Rn')
+      return '逻辑运算的结果只能回 A 或直接地址。第 0 组时 ' + ops[0].expr0.toUpperCase() + ' 的直接地址是 0' + ops[0].expr0.slice(1) + 'H，可写成 ' + M + ' 0' + ops[0].expr0.slice(1) + 'H,…';
+    if (['ANL', 'ORL', 'XRL'].indexOf(M) >= 0 && k[0] === '@Ri')
+      return '逻辑运算的结果只能回 A 或直接地址。要改 ' + ops[0].expr0.toUpperCase() + ' 指的那格：先 MOV A,' + ops[0].expr0.toUpperCase() + '，算完再 MOV ' + ops[0].expr0.toUpperCase() + ',A';
+    if (M === 'DJNZ' && k[0] === 'A') return 'DJNZ 只能对 Rn 或直接地址计数。要拿 A 计数，写它的直接地址：DJNZ ACC,…（一般用 R2~R7 更清楚）';
+    if (M === 'CJNE' && k[0] !== 'A' && k[1] && k[1] !== '#') return 'CJNE 第一个操作数是 Rn 或 @Ri 时，第二个只能是立即数（教材 3.6.2）；两个存储单元比较要先把一个送进 A';
+    if ((M === 'JZ' || M === 'JNZ') && ops.length > 1) return M + ' 只看 A 是不是 0，后面只写一个目标：' + M + ' 标号';
+    if (/^(RL|RR|RLC|RRC)$/.test(M) && k[0] !== 'A')
+      return '环移只对 A：' + M + ' A。别的单元要先送进 A 再移';
+    if (M === 'SWAP' && k[0] !== 'A') return '高低 4 位对调只有 SWAP A 一条。别的单元要先送进 A';
+    if ((M === 'CPL' || M === 'CLR') && (k[0] === 'Rn' || k[0] === '@Ri'))
+      return '按字节' + (M === 'CPL' ? '取反' : '清零') + '只有 ' + M + ' A 一条。别的单元可以用' + (M === 'CPL' ? ' XRL direct,#0FFH' : ' MOV 或 ANL direct,#00H') + '，或先送进 A';
+    return null;
+  }
+  /* 这几种写法，老师的话比"查不到这种组合"更有用，优先给 */
+  function strongHint(M, ops) {
+    var e = ops[0] && ops[0].expr0 ? ops[0].expr0.toUpperCase() : '';
+    if (M === 'MOV' && ops.length === 2 && isBitExpr(ops[0]) && isBitExpr(ops[1]))
+      return '两个位之间不能直接传送，要经过 C：MOV C,' + ops[1].expr0 + ' 再 MOV ' + ops[0].expr0 + ',C（教材 3.7.2）';
+    if ((M === 'ANL' || M === 'ORL') && isBitExpr(ops[0])) return '位逻辑的结果只能留在 C：先 ' + M + ' C,…，要写回某一位再 MOV ' + ops[0].expr0 + ',C';
+    if ((M === 'CPL' || M === 'CLR') && e === 'ACC') return '对 A 整字节' + (M === 'CPL' ? '取反' : '清零') + '直接写 ' + M + ' A；ACC 后面加 .0 ~ .7 才是某一位';
+    if ((M === 'CPL' || M === 'CLR') && ops.length === 1 && SFR.hasOwnProperty(e))
+      return e + ' 是字节，' + M + ' 只能对 A 整字节操作，或对某一位操作（' + e + '.0 ~ ' + e + '.7）。' +
+        (M === 'CPL' ? '想把整个 ' + e + ' 取反：XRL ' + e + ',#0FFH' : '想把整个 ' + e + ' 清零：MOV ' + e + ',#00H 或 ANL ' + e + ',#00H');
+    return null;
+  }
+
+  var MNEMONICS = {};
+  I.list.forEach(function (x) { MNEMONICS[x.m] = 1; });
+
+  /**
+   * 汇编一段程序
+   * @returns { ok, lines:[{line, src, addr, bytes, text, ins}], errors:[{line, msg}], labels, rom:{addr:[bytes]} }
+   */
+  function assemble(src, org) {
+    var rawLines = String(src || '').split(/\r?\n/);
+    var parsed = [], labels = {}, errors = [];
+    rawLines.forEach(function (raw, idx) {
+      var s = raw.replace(/[；;].*$/, '').replace(/[，]/g, ',').replace(/＠/g, '@').replace(/＃/g, '#').trim();
+      var label = null, m;
+      if ((m = /^([A-Za-z_][A-Za-z0-9_]*)\s*[:：]\s*(.*)$/.exec(s))) { label = m[1].toUpperCase(); s = m[2].trim(); }
+      if (!s && !label) return;
+      var mm = /^([A-Za-z]+)\s*(.*)$/.exec(s);
+      parsed.push({ line: idx + 1, src: raw.trim(), label: label, m: mm ? mm[1].toUpperCase() : '', rest: mm ? mm[2].trim() : s });
+    });
+
+    function pass(p) {
+      var pc = org || 0, out = [];
+      parsed.forEach(function (L) {
+        var ctx = { pc: pc, labels: labels, pass: p };
+        if (L.label && p === 1) {
+          if (labels.hasOwnProperty(L.label)) errors.push({ line: L.line, msg: '标号 ' + L.label + ' 重复定义（教材 3.1.1：标号不可重复使用）' });
+          labels[L.label] = pc;
+        }
+        if (!L.m) { if (L.rest) errors.push({ line: L.line, msg: '看不懂这一行' }); return; }
+        if (L.m === 'ORG') {
+          var e = evalExpr(L.rest, ctx, 'addr');
+          if (e.err) { if (p === 2) errors.push({ line: L.line, msg: e.err }); return; }
+          pc = e.v & 0xFFFF; return;
+        }
+        if (L.m === 'END') return;
+        if (L.m === 'DB') {
+          var bytes = [];
+          splitOperands(L.rest).forEach(function (t) {
+            var ev = evalExpr(t, ctx, 'byte');
+            if (ev.err) { if (p === 2) errors.push({ line: L.line, msg: ev.err }); bytes.push(0); }
+            else bytes.push(ev.v & 0xFF);
+          });
+          out.push({ line: L.line, src: L.src, addr: pc, bytes: bytes, text: 'DB ' + bytes.map(hb).join(','), ins: null, db: true });
+          pc = (pc + bytes.length) & 0xFFFF; return;
+        }
+        if (!MNEMONICS[L.m]) {
+          var hint0 = hintFor(L.m, [], L.rest);
+          if (p === 2) errors.push({ line: L.line, msg: hint0 || ('不认识的助记符 ' + L.m) });
+          return;
+        }
+        var ops = splitOperands(L.rest).map(function (t) { var c = classify(t); c.expr0 = t; return c; });
+        var bad = ops.filter(function (o) { return o.k === 'bad'; })[0];
+        if (bad) { if (p === 2) errors.push({ line: L.line, msg: bad.msg }); return; }
+        var cands = I.list.filter(function (x) { return x.m === L.m; });
+        var found = null, firstErr = null;
+        for (var i = 0; i < cands.length && !found; i++) {
+          var mt = tryMatch(cands[i], ops, ctx, cands[i].bytes);
+          if (!mt) continue;
+          if (mt.err) { firstErr = firstErr || mt.err; continue; }
+          found = mt;
+        }
+        if (!found) {
+          if (p === 2) {
+            var hint = hintFor(L.m, ops, L.rest);
+            errors.push({ line: L.line, msg: strongHint(L.m, ops) || firstErr || hint ||
+              (L.m + ' 没有这种操作数组合。合法写法：' + cands.map(function (x) { return I.label(x); }).join('、')) });
+          }
+          return;
+        }
+        var bytesE = encode(found);
+        out.push({ line: L.line, src: L.src, addr: pc, bytes: bytesE, ins: found.ins,
+                   text: disasmBytes(bytesE, pc) });
+        pc = (pc + found.ins.bytes) & 0xFFFF;
+      });
+      return out;
+    }
+    pass(1);
+    var lines = pass(2);
+    return { ok: !errors.length, lines: lines, errors: errors, labels: labels };
+  }
+
+  /** 汇编并装入 ROM；返回汇编结果 */
+  CPU.prototype.program = function (src, org) {
+    var asm = assemble(src, org || 0), self = this;
+    if (asm.ok) asm.lines.forEach(function (L) {
+      L.bytes.forEach(function (x, i) { self.rom[(L.addr + i) & 0xFFFF] = x; });
+    });
+    if (asm.ok && asm.lines.length) this.pc = asm.lines[0].addr;
+    return asm;
+  };
+
+  /* ============================================================
+     每条指令一个现成例子：全景图"跑一次"用
+     统一初态尽量让每条指令都看得出变化
+     ============================================================ */
+  var EX_STATE = {
+    A: 0x5A, B: 0x12, SP: 0x07, DPTR: 0x2400,
+    R: [0x30, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+    iram: { 0x20: 0x01, 0x30: 0xF0, 0x31: 0x0F, 0x50: 0x3A },
+    xram: { 0x2400: 0x66, 0xFF30: 0x77 },
+    rom: { 0x245A: 0x88, 0x005B: 0x3F }
+  };
+  var EX_OPS = {
+    'A': 'A', 'AB': 'AB', 'C': 'C', 'DPTR': 'DPTR', '@DPTR': '@DPTR', '@A+DPTR': '@A+DPTR', '@A+PC': '@A+PC',
+    'Rn': 'R0', '@Ri': '@R0', 'direct': '30H', '#data': '#0FH', '#data16': '#2400H',
+    'bit': '00H', '/bit': '/00H', 'rel': '0010H', 'addr16': '1234H', 'addr11': '0123H'
+  };
+  /* 需要特别安排的几条 */
+  var EX_OVERRIDE = {
+    'MOV direct,direct': { src: 'MOV 31H,30H' },
+    'MOV Rn,A': { src: 'MOV R1,A' },
+    'MOV direct,Rn': { src: 'MOV 31H,R0' },
+    'MOV @Ri,direct': { src: 'MOV @R0,50H' },
+    'MOV direct,@Ri': { src: 'MOV 50H,@R0' },
+    'ADD A,#data': { src: 'ADD A,#0A6H', note: '5AH + 0A6H = 100H：结果 00H，CY、AC 都升起' },
+    'ADDC A,Rn': { src: 'ADDC A,R2', pre: { A: 0xC3, R: [null, null, 0xAA], CY: 1 }, note: '教材例 3-10：0C3H + 0AAH + 1 = 16EH' },
+    'SUBB A,Rn': { src: 'SUBB A,R2', pre: { A: 0xC9, R: [null, null, 0x54], CY: 1 }, note: '教材例 3-11：0C9H − 54H − 1 = 74H，OV=1' },
+    'DA A': { src: 'DA A', pre: { A: 0x3C, AC: 0, CY: 0 }, note: '15H + 27H 按二进制加得 3CH，DA 调整为 BCD 的 42H' },
+    'MUL AB': { note: '5AH × 12H = 0654H：A 得 54H，B 得 06H，高位非 0 所以 OV=1' },
+    'DIV AB': { note: '5AH ÷ 12H = 5 余 0：A 得 05H，B 得 00H' },
+    'RLC A': { pre: { CY: 1 }, note: '教材例 3-17：A=5AH、C=1，RLC 后 A=0B5H' },
+    'RRC A': { pre: { CY: 1 }, note: '教材例 3-17：A=5AH、C=1，RRC 后 A=0ADH' },
+    'JZ rel': { note: 'A=5AH 不为 0，所以不跳' },
+    'CJNE A,direct,rel': { note: 'A=5AH 与 (30H)=0F0H 不等，跳；5AH<0F0H 所以 CY=1' },
+    'CJNE A,#data,rel': { src: 'CJNE A,#60H,0010H', note: '5AH≠60H 跳；5AH<60H 所以 CY=1' },
+    'CJNE Rn,#data,rel': { src: 'CJNE R0,#30H,0010H', note: 'R0 恰好等于 30H，不跳，CY=0' },
+    'DJNZ Rn,rel': { note: 'R0 从 30H 减到 2FH，不为 0，跳回去再来一轮' },
+    'JC rel': { pre: { CY: 1 }, note: '教材例 3-6 的同类：CY=1 所以跳' },
+    'JBC bit,rel': { note: '位 00H（20H.0）为 1：跳，同时把它清 0' },
+    'RET': { pre: { SP: 0x09, iram: { 0x08: 0x34, 0x09: 0x12 } }, note: '栈里放着 1234H：先弹高字节 12H，再弹低字节 34H' },
+    'RETI': { pre: { SP: 0x09, iram: { 0x08: 0x34, 0x09: 0x12 } }, note: '和 RET 一样弹出返回地址' },
+    'POP direct': { pre: { SP: 0x08, iram: { 0x08: 0x99 } }, note: '栈顶 08H 里是 99H，弹给 30H，SP 退回 07H' },
+    'XCH A,@Ri': { src: 'XCH A,@R0', pre: { A: 0x3F, R: [0x20], iram: { 0x20: 0x75 } }, note: '教材例 3-9：交换后 A=75H，(20H)=3FH' },
+    'DEC @Ri': { pre: { R: [0x7E], iram: { 0x7E: 0x00 } }, note: '教材例 3-13：00H 减 1 得 0FFH' },
+    'ANL A,Rn': { pre: { A: 0xC3, R: [0xAA] }, note: '教材例 3-14：0C3H ∧ 0AAH = 82H' },
+    'ORL A,Rn': { pre: { A: 0xC3, R: [0x55] }, note: '教材例 3-15：0C3H ∨ 55H = 0D7H' },
+    'XRL A,Rn': { pre: { A: 0xC3, R: [0xAA] }, note: '教材例 3-16：0C3H ⊕ 0AAH = 69H' },
+    'MOV bit,C': { src: 'MOV P1.3,C', pre: { CY: 1, sfr: { P1: 0x00 } }, note: '教材例 3-22：C=1，执行后 P1.3=1（先把 P1 置成 00H，才看得出这一位的变化）' },
+    'MOV DPTR,#data16': { src: 'MOV DPTR,#1234H', note: '一次装满 16 位：高字节 12H 进 DPH，低字节 34H 进 DPL' },
+    'CLR C': { pre: { CY: 1 }, note: 'CY 原来是 1，清成 0' },
+    'SETB bit': { src: 'SETB 01H', note: '位地址 01H 是 20H 单元的第 1 位，原来是 0；旁边第 0 位（位 00H）不受影响' },
+    'ANL C,bit': { src: 'ANL C,01H', pre: { CY: 1 }, note: 'C=1 与位 01H（=0）相与，结果 0 留在 C' },
+    'ANL C,/bit': { src: 'ANL C,/00H', pre: { CY: 1 }, note: '/00H 取的是位 00H（=1）的反，即 0；C=1 与 0 相与得 0。位 00H 本身仍是 1' },
+    'ORL C,/bit': { src: 'ORL C,/01H', note: '/01H 取的是位 01H（=0）的反，即 1；C=0 与 1 相或得 1。位 01H 本身仍是 0' },
+    'ORL C,bit': { src: 'ORL C,P1.1', pre: { CY: 0 }, note: '教材例 3-24：CY=0、P1.1=1（复位后 P1=0FFH），执行后 CY=1' },
+    'CPL bit': { src: 'CPL P1.1', pre: { sfr: { P1: 0x5D } }, note: '教材例 3-23：P1=01011101B，CPL P1.1 后 P1.1 变 1' },
+    'MOVX A,@Ri': { note: '@Ri 只给出低 8 位；高 8 位是 P2 锁存器的值（复位后 FFH），所以读的是片外 FF30H' },
+    'MOVX @Ri,A': { note: '写到片外 FF30H：高 8 位同样来自 P2' },
+    'MOVC A,@A+PC': { note: 'PC 先加 1 指向下一条（0001H），再加 A=5AH，读 ROM 的 005BH' },
+    'SWAP A': { note: '5AH → 0A5H：1 的个数不变，所以 P 没变' },
+    'CPL A': { note: '5AH → 0A5H：八位全翻，1 的个数 4 → 4，P 没变' }
+  };
+  function exampleFor(ins) {
+    var key = I.label(ins), ov = EX_OVERRIDE[key] || {};
+    var src = ov.src || (ins.m + (ins.ops ? ' ' + ins.ops.split(',').map(function (s) { return EX_OPS[s] || s; }).join(',') : ''));
+    return { src: src, pre: ov.pre || null, note: ov.note || '' };
+  }
+  /** 在统一初态上跑一条指令，返回前后状态与访问记录 */
+  function runExample(ins, override) {
+    var ex = override || exampleFor(ins), cpu = new CPU();
+    cpu.load(EX_STATE); if (ex.pre) cpu.load(ex.pre);
+    var asm = cpu.program(ex.src, 0);
+    if (!asm.ok) return { ex: ex, asm: asm, error: asm.errors[0].msg };
+    var before = cpu.snapshot(), t = cpu.step();
+    return { ex: ex, asm: asm, cpu: cpu, before: before, trace: t };
+  }
+
+  global.MCS51 = {
+    CPU: CPU, assemble: assemble, disasm: disasm, disasmBytes: disasmBytes,
+    exampleFor: exampleFor, runExample: runExample, EX_STATE: EX_STATE,
+    SFR: SFR, SFR_NAME: SFR_NAME, NAMED_BITS: NAMED_BITS, bitText: bitText, bitHome: bitHome,
+    hb: hb, hw: hw
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<!-- 内联自 lib/u3-kit.js -->
+<script>
+/* ============================================================
+   u3-kit.js · 第三章共用件
+   ------------------------------------------------------------
+   全景图与 3.1 ~ 3.6 各篇都从这里取：
+     · 同一套团队配色（与平台主题 --c1~c5 同一色系）
+     · 同一条章节导航
+     · 同一种机器码剖面（含操作码逐位图）
+     · 同一种寻址方式标签、"跑一次"前后对照
+   这样各篇长得像一家人，改一处全章跟着变。
+   依赖：mcs51-isa.js、mcs51.js
+   ============================================================ */
+(function (global) {
+  'use strict';
+  var I = global.MCS51_ISA, M = global.MCS51;
+
+  var COLOR = {
+    mov:   'hsl(207 82% 64%)',   /* 蓝：搬运团队 */
+    alu:   'hsl(352 78% 66%)',   /* 红：计算团队 */
+    logic: 'hsl(152 56% 52%)',   /* 绿：逻辑思维团队 */
+    jump:  'hsl(27 90% 61%)',    /* 橙：引导团队 */
+    bit:   'hsl(266 72% 72%)'    /* 紫：位操作团队 */
+  };
+
+  /* ---- 章节导航：做好一篇就把 soon 去掉 ---- */
+  var PAGES = [
+    { k: 'map',  t: '指令全景图',   sub: '111 条 · 256 格', href: 'u3-isa-map.html' },
+    { k: '3.1',  t: '3.1 寻址方式', sub: '七种',            href: 'u3-addressing.html' },
+    { k: '3.2',  t: '3.2 数据传送', sub: '29 条',           href: 'u3-transfer.html' },
+    { k: '3.3',  t: '3.3 算术运算', sub: '24 条',           href: 'u3-arith.html' },
+    { k: '3.4',  t: '3.4 逻辑运算', sub: '25 条',           href: 'u3-logic.html' },
+    { k: '3.5',  t: '3.5 控制转移', sub: '16 条 + NOP',           href: 'u3-jump.html' },
+    { k: '3.6',  t: '3.6 位操作',   sub: '17 条',           href: 'u3-bit.html' }
+  ];
+  function nav(cur) {
+    return PAGES.map(function (p) {
+      return { t: p.t, sub: p.soon ? '制作中' : p.sub, href: p.href, on: p.k === cur, soon: !!p.soon };
+    });
+  }
+  function pageFor(kp) {
+    for (var i = 0; i < PAGES.length; i++) if (PAGES[i].k === kp) return PAGES[i];
+    return null;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function hex2(n) { return (n < 16 ? '0' : '') + (n & 0xFF).toString(16).toUpperCase(); }
+
+  /* ============================================================
+     机器码剖面
+     ins：指令条目；bytes：可选的实际机器码（给了就显示真值）
+     ============================================================ */
+  function opcodeBits(ins) {
+    var span = ins.span || 1, step = ins.step || 1, code = ins.code, bits = [];
+    for (var i = 7; i >= 0; i--) bits.push({ v: (code >> i) & 1, var: false, lab: '' });
+    if (span > 1 && step === 1) {                       // Rn：低 3 位；@Ri：最低 1 位
+      var nb = span === 8 ? 3 : 1;
+      for (var j = 0; j < nb; j++) { bits[7 - j].var = true; bits[7 - j].lab = span === 8 ? 'r' : 'i'; }
+    }
+    if (span > 1 && step === 0x20) {                    // addr11：高 3 位是 a10 a9 a8
+      ['a10', 'a9', 'a8'].forEach(function (l, j) { bits[j].var = true; bits[j].lab = l; });
+    }
+    return bits;
+  }
+
+  function codeProfile(ins, bytes) {
+    var span = ins.span || 1, step = ins.step || 1, cells = [], leg = [];
+    var real = bytes && bytes.length === ins.bytes;
+    cells.push({ t: 'opc', v: real ? hex2(bytes[0]) : hex2(ins.code) + (span > 1 ? '+' + (step === 0x20 ? 'n·20' : 'n') : ''), s: '操作码' });
+
+    var ops = ins.ops ? ins.ops.split(',') : [], k = 1;
+    var argLab = { '#data': ['data', '立即数：指令自带的那个数'],
+                   'direct': ['direct', '直接地址：片内 RAM 或 SFR 的门牌号'],
+                   'bit': ['bit', '位地址：00H~7FH 在 20H~2FH，80H 起在可位寻址的 SFR'],
+                   '/bit': ['bit', '位地址（/ 只是写法，机器码另用一个操作码区分）'],
+                   'rel': ['rel', '8 位补码偏移，基准是下一条指令的地址——只能跳 −128~+127'] };
+    if (ins.enc === 'src-first') {
+      cells.push({ t: 'arg', v: real ? hex2(bytes[1]) : 'direct₂', s: '源' });
+      cells.push({ t: 'arg', v: real ? hex2(bytes[2]) : 'direct₁', s: '目的' });
+      leg.push('<i class="arg">源 目的</i> 注意顺序：机器码里<b>源地址在前、目的地址在后</b>，和汇编书写顺序相反');
+    } else {
+      ops.forEach(function (o) {
+        if (o === '#data16' || o === 'addr16') {
+          var hi = o === '#data16' ? 'dH' : 'aH', lo = o === '#data16' ? 'dL' : 'aL';
+          cells.push({ t: 'arg', v: real ? hex2(bytes[k]) : hi, s: '高字节' });
+          cells.push({ t: 'arg', v: real ? hex2(bytes[k + 1]) : lo, s: '低字节' });
+          leg.push('<i class="arg">' + hi + ' ' + lo + '</i> ' + (o === '#data16' ? '16 位立即数' : '16 位目标地址，64KB 内任意一点') + '，<b>高字节在前</b>');
+          k += 2;
+        } else if (o === 'addr11') {
+          cells.push({ t: 'arg', v: real ? hex2(bytes[k]) : 'a7~0', s: '低 8 位' });
+          leg.push('<i class="arg">a7~0</i> 目标地址低 8 位；a10~a8 藏在操作码高 3 位里——所以只能在同一个 2KB 区里跳');
+          k += 1;
+        } else if (argLab[o]) {
+          cells.push({ t: 'arg', v: real ? hex2(bytes[k]) : argLab[o][0], s: o === 'rel' ? '偏移' : (o === '#data' ? '数' : '门牌') });
+          leg.push('<i class="arg">' + argLab[o][0] + '</i> ' + argLab[o][1]);
+          k += 1;
+        }
+      });
+    }
+    if (span > 1) {
+      leg.unshift('<i class="opc">' + I.codeRange(ins) + '</i> 这条指令独占 ' + span + ' 个操作码。' +
+        (step === 0x20 ? '目标地址的高 3 位写进了操作码' : (span === 8 ? '寄存器号 R0~R7 写进了操作码低 3 位' : '寄存器号 R0/R1 写进了操作码最低位')) +
+        '——所以不额外占字节');
+    } else {
+      leg.unshift('<i class="opc">' + I.codeRange(ins) + '</i> 操作码：告诉 CPU "做什么"');
+    }
+
+    var html = '<div class="cp"><div class="cp-row">' + cells.map(function (c, i) {
+      return '<span class="cp-b ' + c.t + '" style="animation-delay:' + (i * 0.07) + 's"><b>' + c.v + '</b><i>' + c.s + '</i></span>';
+    }).join('') + '<span class="cp-len">' + ins.bytes + ' 字节</span></div>';
+
+    if (span > 1) {
+      html += '<div class="cp-bits" title="操作码逐位">' + opcodeBits(ins).map(function (b) {
+        return '<span class="' + (b.var ? 'var' : '') + '">' + (b.var ? b.lab : b.v) + '</span>';
+      }).join('') + '</div>';
+    }
+    html += '<div class="cp-leg">' + leg.join('<br>') + '</div></div>';
+    return html;
+  }
+
+  /* ---- 寻址方式标签：点了去 3.1 看这种方式的动画 ---- */
+  function modeChips(ins) {
+    var ms = I.modesOf(ins);
+    if (!ms.length) return '<span class="mchip none">转移目标地址直接写在指令里</span>';
+    return ms.map(function (k) {
+      var md = I.MODES[k];
+      return '<a class="mchip" href="u3-addressing.html#m=' + k + '" title="' + esc(md.say) + '">' +
+        '<b>' + esc(md.mark) + '</b>' + esc(md.name) + '</a>';
+    }).join('');
+  }
+
+  /* ============================================================
+     "跑一次"：在统一初态上执行，列出变了什么
+     ============================================================ */
+  var KIND_LABEL = function (e) {
+    switch (e.kind) {
+      case 'A': return 'A';
+      case 'B': return 'B';
+      case 'R': return 'R' + e.addr;
+      case 'iram': return '(' + M.hb(e.addr) + ')';
+      case 'sfr': return M.SFR_NAME[e.addr] || '(' + M.hb(e.addr) + ')';
+      case 'xram': return '片外(' + M.hw(e.addr) + ')';
+      case 'bit': return '位 ' + M.bitText(e.addr);
+      case 'C': return 'CY';
+      case 'flag': return e.addr;
+      case 'DPTR': return 'DPTR';
+      case 'SP': return 'SP';
+      case 'PC': return 'PC';
+    }
+    return e.kind;
+  };
+  function fmtVal(e) {
+    if (e.kind === 'C' || e.kind === 'flag' || e.kind === 'bit') return String(e.val);
+    if (e.kind === 'DPTR' || e.kind === 'PC' || (e.kind === 'xram' && false)) return M.hw(e.val);
+    return M.hb(e.val);
+  }
+  function fmtOld(e) {
+    if (e.old == null) return '—';
+    if (e.kind === 'C' || e.kind === 'flag' || e.kind === 'bit') return String(e.old);
+    if (e.kind === 'DPTR' || e.kind === 'PC') return M.hw(e.old);
+    return M.hb(e.old);
+  }
+  /** 从访问记录里挑出"变了的"——同一处多次写只留最后一次，旧值取第一次 */
+  function changes(trace) {
+    var seen = {}, out = [];
+    trace.log.forEach(function (e) {
+      if (e.op !== 'w') return;
+      var key = e.kind + ':' + e.addr;
+      if (seen[key]) { seen[key].val = e.val; return; }
+      var c = { kind: e.kind, addr: e.addr, val: e.val, old: e.old, role: e.role };
+      seen[key] = c; out.push(c);
+    });
+    return out;
+  }
+
+  function runHTML(ins) {
+    var r = M.runExample(ins);
+    if (r.error) return '<div class="run-err">这条的示例没跑起来：' + esc(r.error) + '</div>';
+    var t = r.trace, ch = changes(t), line = r.asm.lines[0];
+    var cyc = t.cycles + ' 个机器周期';
+    var rows = ch.length ? ch.map(function (c, i) {
+      var same = c.old === c.val;
+      return '<div class="run-row' + (same ? ' same' : '') + '" style="animation-delay:' + (0.12 + i * 0.09) + 's">' +
+        '<span class="k">' + esc(KIND_LABEL(c)) + '</span><span class="o">' + fmtOld(c) + '</span>' +
+        '<span class="ar">→</span><span class="n">' + fmtVal(c) + '</span></div>';
+    }).join('') : '<div class="run-row"><span class="k">—</span><span class="o">什么都没变</span></div>';
+    var jump = t.ins && /jump-|bit-jump/.test(t.ins.group)
+      ? '<div class="run-jump">' + (t.jumped ? '跳了：PC 从下一条 ' + M.hw(t.next) + ' 改成 <b>' + M.hw(t.newPC) + '</b>'
+                                             : '没跳：PC 顺着走到 <b>' + M.hw(t.next) + '</b>') + '</div>' : '';
+    return '<div class="run">' +
+      '<div class="run-hd"><code>' + esc(line.text) + '</code><span class="run-mc">' +
+        line.bytes.map(hex2).join(' ') + '</span><span class="run-cy">' + cyc + '</span></div>' +
+      (r.ex.note ? '<div class="run-note">' + esc(r.ex.note) + '</div>' : '') +
+      '<div class="run-tb">' + rows + '</div>' + jump + '</div>';
+  }
+
+  /**
+   * 在"取数现场"上逐条放映一段程序
+   *   lines：汇编结果里的指令行；cpu：已装好初值和程序的引擎
+   *   hooks.rows(line, probeTrace, i, lines) → { head, rows }   ROM 下半显示什么
+   *   hooks.note(line, i, lines) → 字符串                          指令下方的小字
+   *   hooks.after(trace, i)                                          每条放完后
+   * 每条先让副本试跑一遍拿到访问记录，格子提前就位，再让原机真跑并播放路径。
+   */
+  function runOnFigure(fig, cpu, lines, hooks, done) {
+    hooks = hooks || {};
+    var i = 0, traces = [];
+    (function next() {
+      if (i >= lines.length) { if (done) done(traces); return; }
+      var L = lines[i];
+      cpu.pc = L.addr;
+      var probe = cpu.clone(), tp = probe.step();
+      if (hooks.rows) { var rr = hooks.rows(L, tp, i, lines); fig.setRows(rr.head, rr.rows); }
+      fig.clear(); fig.resetDyn();
+      fig.showInstruction(L.addr, L.bytes, L.text, hooks.note ? hooks.note(L, i, lines) : '');
+      var hops = fig.hops(tp, probe);
+      fig.render(cpu, false);
+      var t = cpu.step(); traces.push(t);
+      fig.play(hops, function () {
+        fig.render(cpu, true);
+        if (hooks.after) hooks.after(t, i);
+        i++;
+        if (i < lines.length) setTimeout(next, hooks.gap || 700); else next();
+      });
+    })();
+  }
+
+  /* ============================================================
+     按钮在哪，效果就在哪
+     ============================================================ */
+  /** 把演示区（图 + 说明）挪到刚点的那一块紧下面；已经在那儿就不动。返回是否挪了 */
+  function dock(panel, after, keep) {
+    if (!panel || !after || panel.previousElementSibling === after) return false;
+    var y0 = keep ? keep.getBoundingClientRect().top : 0;
+    after.parentNode.insertBefore(panel, after.nextSibling);
+    /* 刚点的那个按钮留在屏幕原位：演示区从别处挪走、页面会缩，这里把它补回来 */
+    if (keep) { var dy = keep.getBoundingClientRect().top - y0; if (dy) window.scrollBy({ top: dy, left: 0, behavior: 'instant' }); }
+    panel.classList.remove('docked'); void panel.offsetWidth; panel.classList.add('docked');
+    return true;
+  }
+  /** 把讲解卡里 KP.stage 连同它后面的说明、读数、"当前在讲什么"包成一个可以挪动的演示区 */
+  function demoPanel(stage) {
+    var card = stage.parentNode, d = document.createElement('div');
+    d.className = 'u3-dock'; card.insertBefore(d, stage);
+    var el = d.nextSibling; while (el) { var n = el.nextSibling; d.appendChild(el); el = n; }
+    return d;
+  }
+  /** 表格型的网格里，点的是哪一格，就找到这一行的最后一格（下一行从 rowSel 开始） */
+  function rowEnd(cell, grid, rowSel) {
+    var el = cell; while (el.parentNode !== grid) el = el.parentNode;
+    while (el.nextElementSibling && !el.nextElementSibling.matches(rowSel) && !el.nextElementSibling.classList.contains('u3-dock')) el = el.nextElementSibling;
+    return el;
+  }
+  /**
+   * "自己写一段"：收起时只占一行，放在它驱动的那张图紧上方，运行结果就在眼前
+   * o = { id, msgId, value, examples: [[src, label?]], run(src), sub, label, open }
+   */
+  function tryBox(o) {
+    var box = document.createElement('div');
+    box.className = 'u3-try' + (o.open ? ' open' : '');
+    box.innerHTML = '<button class="u3-try-t" type="button"><b>✎ 自己写一段</b><small>' + esc(o.sub || '') + '</small><i>展开</i></button>' +
+      '<div class="u3-try-b"><textarea id="' + o.id + '" spellcheck="false">' + esc(o.value || '') + '</textarea>' +
+      '<div class="u3-try-r"><button class="kp-btn go" type="button" data-run="1">' + esc(o.label || '▶ 运行') + '</button><span class="eg">试试：' +
+      (o.examples || []).map(function (x, i) { return '<button type="button" data-i="' + i + '">' + esc(x[1] || x[0]) + '</button>'; }).join('') + '</span></div>' +
+      '<div class="msg" id="' + o.msgId + '"></div></div>';
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.classList.contains('u3-try-t')) { box.classList.toggle('open'); b.querySelector('i').textContent = box.classList.contains('open') ? '收起' : '展开'; return; }
+      if (b.dataset.run) { o.run(document.getElementById(o.id).value); return; }
+      if (b.dataset.i != null) { document.getElementById(o.id).value = o.examples[+b.dataset.i][0]; o.run(o.examples[+b.dataset.i][0]); }
+    });
+    if (o.open) box.querySelector('.u3-try-t i').textContent = '收起';
+    return box;
+  }
+
+  /* ============================================================
+     嵌在平台"讲解笔记"页里时（同源 iframe）
+       · 页内的章节导航条收起来——平台外壳自己有页签
+       · 点到别的讲解页（文件名 u2-、u3- 开头的）不在框里跳，而是请外壳切到那一篇
+     单独打开时一切照旧
+     ============================================================ */
+  var EMBED = (function () { try { return global.self !== global.top; } catch (e) { return true; } })();
+  if (EMBED && typeof document !== 'undefined') {
+    document.documentElement.classList.add('u3-embed');
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href]'); if (!a || a.target === '_blank') return;
+      var m = /(?:^|\/)(u[23]-[a-z-]+)\.html(#.*)?$/.exec(a.getAttribute('href') || '');
+      if (!m) return;
+      e.preventDefault();
+      try { global.parent.postMessage({ type: 'lesson-note:open', file: m[1], hash: m[2] || '' }, global.location.origin); } catch (err) { global.location.href = a.href; }
+    }, true);
+  }
+
+  global.U3 = {
+    embedded: EMBED,
+    dock: dock, rowEnd: rowEnd, tryBox: tryBox, demoPanel: demoPanel,
+    runOnFigure: runOnFigure,
+    COLOR: COLOR, PAGES: PAGES, nav: nav, pageFor: pageFor,
+    codeProfile: codeProfile, modeChips: modeChips, runHTML: runHTML, changes: changes,
+    esc: esc, hex2: hex2, KIND_LABEL: KIND_LABEL
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  var I = MCS51_ISA, TABLE = I.opcodeTable(), COLOR = U3.COLOR;
+  var ORDER = ['mov', 'alu', 'logic', 'jump', 'bit'];
+  try { if (self !== top) document.body.classList.add('kp-embed'); } catch (e) { document.body.classList.add('kp-embed'); }
+  document.getElementById('nav').innerHTML = KP.navHTML(U3.nav('map'));
+
+  var a = I.audit();
+  if (!a.ok) document.getElementById('audit').innerHTML =
+    '<div class="audit-bad"><b>指令表自检未通过</b><br>' + a.errs.join('<br>') + '</div>';
+
+  /* ---------- 统计（数字滚动） ---------- */
+  var animN = I.list.filter(function (x) { return x.anim; }).length;
+  var STATS = [[111, '条指令', 'var(--cyan300)'], [5, '大类 · 五支团队', 'var(--amber300)'],
+    [Object.keys(I.GROUPS).length, '个小类（教材节次）', 'var(--emerald300)'],
+    [a.opcodeCount, '个操作码（余 A5H 保留）', 'var(--slate300)'], [animN, '条配机理动画', 'var(--t-jump)']];
+  document.getElementById('stat').innerHTML = STATS.map(function (s, i) {
+    return '<div class="s"><div class="n" id="st' + i + '" style="color:' + s[2] + '">0</div><div class="t">' + s[1] + '</div></div>';
+  }).join('');
+  STATS.forEach(function (s, i) {
+    var el = document.getElementById('st' + i), t0 = performance.now();
+    (function tick(now) {
+      var p = Math.min(1, (now - t0) / 620);
+      el.textContent = Math.round(s[0] * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(tick);
+    })(t0);
+  });
+
+  /* ---------- 大类 tab ---------- */
+  var tabsEl = document.getElementById('tabs');
+  ORDER.forEach(function (tk) {
+    var T = I.TEAMS[tk], b = document.createElement('button');
+    b.className = 'tab'; b.setAttribute('role', 'tab'); b.dataset.team = tk;
+    b.innerHTML = '<span class="dot" style="background:' + COLOR[tk] + '"></span><span><span class="nm">' + T.name +
+      '<span class="ct">' + T.book + (tk === 'jump' ? '+1' : '') + '</span></span><span class="al">' + T.alias + ' · ' + T.coat + '色工作服</span></span>';
+    b.onclick = function () { pick(tk); };
+    tabsEl.appendChild(b);
+  });
+
+  /* ---------- 周期表式格子 ---------- */
+  var board = document.getElementById('board');
+  function renderTeam(tk) {
+    dHomeBack();
+    var T = I.TEAMS[tk], c = COLOR[tk], page = U3.pageFor(T.kp);
+    var link = page && !page.soon ? '<a class="go" href="' + page.href + '">进入 ' + T.kp + ' 讲解 →</a>'
+                                  : '<span class="go soon">' + T.kp + ' 讲解制作中</span>';
+    var html = '<div class="board-hd">' + link + '<div class="bn" style="color:' + c + '">' + T.name +
+      '<span class="bs">' + T.alias + ' · 教材 ' + T.sec + ' 节 · ' + T.book + ' 条' + (T.bookNote ? '（' + T.bookNote + '）' : '') + '</span></div><div class="bb">' + T.blurb + '</div></div>';
+    I.groupsOf(tk).forEach(function (gk) {
+      var G = I.GROUPS[gk], items = I.byGroup(gk);
+      html += '<div class="grp"><div class="grp-hd"><span class="grp-sec">' + G.sec + '</span><span class="grp-nm">' + G.name +
+        '</span><span class="grp-al">' + G.alias + '</span><span class="grp-n">' + items.length + ' 条</span></div>' +
+        '<div class="grp-law">' + G.law + '</div><div class="cells">' +
+        items.map(function (ins) {
+          var idx = I.list.indexOf(ins);
+          return '<button class="cell" data-i="' + idx + '" aria-pressed="false" style="color:' + c + '">' +
+            '<span class="bar" style="background:' + c + '"></span>' + (ins.anim ? '<span class="anim" title="配机理动画"></span>' : '') +
+            '<span class="code">' + I.codeRange(ins) + '</span><span><span class="mne">' + ins.m + '</span>' +
+            '<span class="op">' + (ins.ops || '—') + '</span></span></button>';
+        }).join('') + '</div></div>';
+    });
+    /* 逻辑运算 25 条：SWAP A 在数据传送的交换指令里讲，计数时也算在这一类，这里一并列出 */
+    if (tk === 'logic') {
+      var sw = I.list.filter(function (x) { return I.label(x) === 'SWAP A'; })[0], si = I.list.indexOf(sw);
+      html += '<div class="grp"><div class="grp-hd"><span class="grp-sec">3.3.6</span><span class="grp-nm">另 1 条</span><span class="grp-al">高低半字节对调</span><span class="grp-n">1 条</span></div>' +
+        '<div class="grp-law">SWAP A 在数据传送的交换指令里讲，计数时算在逻辑运算类，所以这一类是 25 条。</div><div class="cells">' +
+        '<button class="cell" data-i="' + si + '" aria-pressed="false" style="color:' + c + '"><span class="bar" style="background:' + c + '"></span>' +
+        '<span class="code">' + I.codeRange(sw) + '</span><span><span class="mne">SWAP</span><span class="op">A</span></span></button></div></div>';
+    }
+    board.innerHTML = html;
+    board.classList.remove('swap'); void board.offsetWidth; board.classList.add('swap');
+  }
+  var team = 'mov', cur = null;
+  function pick(tk) {
+    team = tk;
+    [].forEach.call(tabsEl.children, function (b) {
+      var on = b.dataset.team === tk;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.style.background = on ? COLOR[tk] : ''; b.style.borderColor = on ? COLOR[tk] : '';
+    });
+    cur = null; renderTeam(tk); apply();
+  }
+
+  /* ---------- 详情 ---------- */
+  var dEl = document.getElementById('detail'), dHome = dEl.parentNode, dNext = dEl.nextSibling;
+  /* 窄屏时详情排在列表下面：不再滚过去，而是把详情挪到刚点的那一组紧下面 */
+  function dHomeBack() { if (dEl && dEl.parentNode !== dHome) { dHome.insertBefore(dEl, dNext); dEl.classList.remove('inrow'); } }
+  function show(idx) {
+    var ins = I.list[idx], T = I.TEAMS[ins.team], G = I.GROUPS[ins.group], c = COLOR[ins.team];
+    var cf = I.condFlags(ins);
+    var pTxt = I.writesA(ins) ? (ins.pSame ? '会改写 A，但 1 的个数不变，<b>P 实际不变</b>' : '随 A 由硬件自动重算') : '不改写 A，与 P 无关';
+    dEl.innerHTML =
+      '<div class="d-mne">' + ins.m + (ins.ops ? ' <span class="o">' + ins.ops + '</span>' : '') + '</div>' +
+      '<div class="d-fn">' + U3.esc(ins.fn) + '</div>' +
+      '<div class="d-tags"><span class="d-tag"><span class="dot" style="background:' + c + '"></span>' + T.name + ' · ' + G.sec + ' ' + G.name + '</span>' +
+        '<span class="d-tag" style="color:var(--amber200)">' + T.alias + ' · ' + G.alias + '</span>' +
+        (ins.anim ? '<span class="d-tag" style="color:var(--amber300)">配机理动画</span>' : '<span class="d-tag">同组规律档</span>') + '</div>' +
+      '<div class="d-lab">寻址方式 · 点了去 3.1 看动画</div><div>' + U3.modeChips(ins) + '</div>' +
+      '<div class="d-grid">' +
+        '<div class="d-cell"><div class="k">机器码</div><div class="v" style="color:var(--cyan300)">' + I.codeRange(ins) + '</div></div>' +
+        '<div class="d-cell"><div class="k">占操作码</div><div class="v">' + I.opcodeSpan(ins) + ' 格</div></div>' +
+        '<div class="d-cell"><div class="k">字节数</div><div class="v">' + ins.bytes + ' B</div></div>' +
+        '<div class="d-cell"><div class="k">机器周期</div><div class="v"' + (ins.cycles === 4 ? ' style="color:var(--amber300)"' : '') + '>' + ins.cycles + '</div></div>' +
+        '<div class="d-cell"><div class="k">条件标志（按表 3-4）</div><div class="v" style="color:' + (cf.length ? 'var(--amber300)' : 'var(--muted-fg)') + '">' +
+          (cf.length ? cf.join(' · ') : '不影响') + '</div></div>' +
+        '<div class="d-cell"><div class="k">奇偶位 P</div><div class="v" style="font-size:11.5px;font-weight:400;color:var(--slate300)">' + pTxt + '</div></div>' +
+      '</div>' +
+      '<div class="d-lab">机器码剖面</div>' + U3.codeProfile(ins) +
+      '<div class="d-lab">在引擎里跑一次</div><div class="d-run" id="dRun"><button class="kp-btn go" id="dRunB">▶ 执行，看它改了什么</button></div>' +
+      '<div class="d-say"><b>芯片学院</b>' + U3.esc(ins.say) + '</div>' +
+      '<div class="d-law"><b>' + G.name + '的规律 · </b>' + U3.esc(G.law) + '</div>';
+    document.getElementById('dRunB').onclick = function () {
+      document.getElementById('dRun').innerHTML = U3.runHTML(ins);
+    };
+    dEl.scrollTop = 0;
+    lit(ins);
+  }
+  board.addEventListener('click', function (e) {
+    var b = e.target.closest('.cell'); if (!b) return;
+    select(b);
+  });
+  function select(b) {
+    if (cur) cur.setAttribute('aria-pressed', 'false');
+    b.setAttribute('aria-pressed', 'true'); cur = b;
+    if (innerWidth < 1080) { U3.dock(dEl, b.closest('.grp'), b); dEl.classList.add('inrow'); } else dHomeBack();
+    show(+b.dataset.i);
+  }
+  board.addEventListener('mouseover', function (e) {
+    var b = e.target.closest('.cell'); if (b) lit(I.list[+b.dataset.i], true);
+  });
+  board.addEventListener('mouseout', function (e) {
+    if (e.target.closest('.cell') && cur) lit(I.list[+cur.dataset.i]);
+  });
+  function gotoIns(ins) {
+    if (ins.team !== team) pick(ins.team);
+    var b = board.querySelector('.cell[data-i="' + I.list.indexOf(ins) + '"]');
+    if (b) { select(b); b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }
+
+  /* ---------- 256 格全图 ---------- */
+  var ogrid = document.getElementById('ogrid'), otip = document.getElementById('otip');
+  (function () {
+    var h = '<div class="oh"></div>', r, c;
+    for (c = 0; c < 16; c++) h += '<div class="oh">' + c.toString(16).toUpperCase() + '</div>';
+    for (r = 0; r < 16; r++) {
+      h += '<div class="oh">' + r.toString(16).toUpperCase() + '</div>';
+      for (c = 0; c < 16; c++) {
+        var op = r * 16 + c, hit = TABLE[op];
+        h += hit ? '<div class="oc" data-op="' + op + '" data-i="' + I.list.indexOf(hit.ins) + '" style="background:' + COLOR[hit.ins.team] + '"></div>'
+                 : '<div class="oc none" data-op="' + op + '" title="A5H 保留未用"></div>';
+      }
+    }
+    ogrid.innerHTML = h;
+    document.getElementById('oleg').innerHTML = ORDER.map(function (k) {
+      return '<span><i style="background:' + COLOR[k] + '"></i>' + I.TEAMS[k].name + '</span>';
+    }).join('') + '<span><i style="background:rgba(255,255,255,.12)"></i>A5H 保留</span>';
+  })();
+  function lit(ins, soft) {
+    var span = ins.span || 1, step = ins.step || 1, set = {};
+    for (var j = 0; j < span; j++) set[ins.code + j * step] = 1;
+    [].forEach.call(ogrid.querySelectorAll('.oc'), function (o) { o.classList.toggle('lit', !!set[+o.dataset.op]); });
+    if (soft) otip.textContent = '⌖ ' + I.label(ins) + '　占 ' + span + ' 格　' + I.codeRange(ins);
+  }
+  ogrid.addEventListener('mouseover', function (e) {
+    var o = e.target.closest('.oc'); if (!o) return;
+    var op = +o.dataset.op, hit = TABLE[op];
+    otip.textContent = U3.hex2(op) + 'H　' + (hit ? I.label(hit.ins) + (hit.ins.span > 1 && hit.ins.step !== 0x20 ? '（n=' + hit.n + '）' : '') +
+      '　' + I.TEAMS[hit.ins.team].name : '保留未用 —— 全表唯一的空格');
+  });
+  ogrid.addEventListener('click', function (e) {
+    var o = e.target.closest('.oc'); if (!o || o.classList.contains('none')) return;
+    gotoIns(I.list[+o.dataset.i]);
+  });
+
+  /* ---------- 分布条 ---------- */
+  function dist(host, keyFn, lab) {
+    var bk = {};
+    I.list.forEach(function (x) { var k = keyFn(x); bk[k] = bk[k] || {}; bk[k][x.team] = (bk[k][x.team] || 0) + 1; });
+    host.innerHTML = Object.keys(bk).sort().map(function (k) {
+      var b = bk[k], tot = ORDER.reduce(function (s, t) { return s + (b[t] || 0); }, 0);
+      return '<div class="drow"><span class="dk">' + k + ' ' + lab + '</span><span class="dbar">' + ORDER.map(function (t) {
+        return b[t] ? '<span class="dseg" style="width:0;background:' + COLOR[t] + '" data-w="' + (b[t] / 111 * 100) + '" title="' + I.TEAMS[t].name + ' ' + b[t] + ' 条"></span>' : '';
+      }).join('') + '</span><span class="dv">' + tot + '</span></div>';
+    }).join('');
+  }
+  dist(document.getElementById('dCycles'), function (x) { return x.cycles; }, '周期');
+  requestAnimationFrame(function () {
+    [].forEach.call(document.querySelectorAll('.dseg'), function (s) { s.style.width = s.dataset.w + '%'; });
+  });
+
+  /* ---------- 筛选 ---------- */
+  var filter = 'all', query = '';
+  function match(ins) {
+    if (filter === 'anim' && !ins.anim) return false;
+    if (filter === 'cy' && !/CY/.test(ins.flags)) return false;
+    if (filter === 'c2' && ins.cycles !== 2) return false;
+    if (filter === 'c4' && ins.cycles !== 4) return false;
+    if (query) {
+      var hay = (ins.m + ' ' + ins.ops + ' ' + I.codeRange(ins) + ' ' + ins.fn + ' ' + ins.say + ' ' + I.GROUPS[ins.group].name + ' ' + I.GROUPS[ins.group].alias).toLowerCase();
+      if (hay.indexOf(query) < 0) return false;
+    }
+    return true;
+  }
+  function apply() {
+    var total = I.list.filter(match).length, here = 0;
+    [].forEach.call(board.querySelectorAll('.cell'), function (b) {
+      var ok = match(I.list[+b.dataset.i]); b.classList.toggle('dim', !ok); if (ok) here++;
+    });
+    [].forEach.call(board.querySelectorAll('.grp'), function (g) {
+      g.style.display = g.querySelectorAll('.cell:not(.dim)').length ? '' : 'none';
+    });
+    [].forEach.call(ogrid.querySelectorAll('.oc'), function (o) {
+      if (!o.classList.contains('none')) o.classList.toggle('dim', !match(I.list[+o.dataset.i]));
+    });
+    [].forEach.call(tabsEl.children, function (b) {
+      var n = I.byTeam(b.dataset.team).filter(match).length, T = I.TEAMS[b.dataset.team];
+      /* 没筛选时照教材各节的条数显示；筛选、搜索时显示命中几条 */
+      b.querySelector('.ct').textContent = filter === 'all' && !query ? T.book + (b.dataset.team === 'jump' ? '+1' : '') : n;
+      b.style.opacity = n ? '' : '.35';
+    });
+    document.getElementById('hint').textContent = '本类 ' + here + ' 条 · 全表命中 ' + total + ' / 111';
+  }
+  [].forEach.call(document.querySelectorAll('.fb'), function (b) {
+    var go = function () {
+      [].forEach.call(document.querySelectorAll('.fb'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); filter = b.dataset.f; apply();
+      if (filter !== 'all' && !I.byTeam(team).some(match)) {
+        var t = ORDER.filter(function (k) { return I.byTeam(k).some(match); })[0]; if (t) pick(t);
+      }
+    };
+    b.onclick = go; b.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+  });
+  document.getElementById('q').addEventListener('input', function (e) { query = e.target.value.trim().toLowerCase(); apply(); });
+
+  pick('mov');
+  var hk = /#i=([^&]+)/.exec(location.hash);
+  if (hk) { var ins0 = I.list.filter(function (x) { return I.label(x) === decodeURIComponent(hk[1]); })[0]; if (ins0) gotoIns(ins0); }
+  window.addEventListener('hashchange', function () {
+    var h = /#i=([^&]+)/.exec(location.hash); if (!h) return;
+    var ins = I.list.filter(function (x) { return I.label(x) === decodeURIComponent(h[1]); })[0]; if (ins) gotoIns(ins);
+  });
+})();
+</script>
+</body>
+</html>
