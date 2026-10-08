@@ -73,6 +73,11 @@ const U3_NOTES: readonly LessonNote[] = [
   { file: 'u3-bit', title: '位操作', sub: 'C 是位累加器', pointId: '3.6' },
 ] as const;
 
+const U4_NOTES: readonly LessonNote[] = [
+  { file: 'u4-video', title: '讲解视频', sub: '第一讲精讲版：伪指令到查表，约 25 分钟', pointId: '3.5', pointName: '控制转移（前置）' },
+  { file: 'u4-classroom', title: '课堂互动台', sub: '指令判对错 / 寻址 / 例程演练 / 当堂自测', pointId: '3.5', pointName: '控制转移（前置）' },
+] as const;
+
 const LESSON_UNITS: readonly LessonUnit[] = [
   {
     id: 2,
@@ -99,6 +104,19 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     ),
     intro: '指令系统难在"看不见"：数从哪取、往哪去、哪面标志跟着变。这一批把教材第 3 章按知识点拆开，先看全景，再逐节单步仿真、自己写一段、当场自测。',
     figures: '表 3-2~3-6 / 3-13 / 3-14，例 3-1~3-26',
+  },
+  {
+    id: 4,
+    name: '汇编语言程序设计',
+    base: '/resources/course/courseware/u4',
+    notes: U4_NOTES,
+    bannerMid: (
+      <>
+        讲解视频 + 课堂互动台：例程可<b className="font-semibold text-amber-100">单步演练、当堂自测</b>
+      </>
+    ),
+    intro: '第 4 章配套讲解视频与课堂互动台：先看视频把伪指令、程序设计步骤、查表思路过一遍，再到互动台里判指令、拆例程、做当堂自测。',
+    figures: '例 4-1~4-16，伪指令 ORG / DB / DW / EQU / DATA / BIT',
   },
 ] as const;
 
