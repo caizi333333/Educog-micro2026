@@ -3891,10 +3891,10 @@ table.cmp tr.wait td{color:var(--muted-fg)}
     PITS: [
       { t: '@R2 非法', src: 'MOV @R2,A', kind: 'asm',
         say: '间址寄存器只有 R0、R1 两个。' },
-      { t: 'MOV A,ACC 没有效果', src: 'MOV A,ACC', kind: 'run',
-        say: '汇编能过——它其实是 MOV A,direct，E0H 是 A 的直接地址。可跑完什么都没变：A 自己送自己，等于白写。' },
-      { t: 'SFR 只能直接寻址', src: 'MOV R0,#80H\nMOV A,@R0', kind: 'run', then: 'MOV A,P0',
-        say: '80C51 的片内 RAM 只有 00H~7FH。把 80H 放进 R0 再 @R0，够不着 P0——读到的不是 P0 的 0FFH。要读 P0 只能直接寻址：MOV A,P0（即 MOV A,80H）。' }
+      { t: 'MOV A,ACC 可编码，A 数值不变', src: 'MOV A,ACC', kind: 'run',
+        say: '汇编能过——它其实是 MOV A,direct，E0H 是 A 的直接地址。执行后 A 数值保持不变；这是合法的直接寻址形式。' },
+      { t: 'SFR 只能直接寻址', src: 'MOV R0,#80H\nMOV A,@R0', kind: 'boundary', then: 'MOV A,P0',
+        say: '80C51 的片内 RAM 只有 00H~7FH。把 80H 放进 R0 再 @R0，够不着 P0——该地址超出80C51已实现的片内RAM范围，不推定读出的数值。要读 P0 只能直接寻址：MOV A,P0（即 MOV A,80H）。' }
     ]
   };
 
@@ -4348,15 +4348,11 @@ table.cmp tr.wait td{color:var(--muted-fg)}
     b.onclick = function () {
       var p = RT.PITS[+b.dataset.i], h = '<b>' + esc(p.t) + '</b>　' + esc(p.say);
       if (p.kind === 'asm') { var a = M.assemble(p.src, 0); h += '<span class="e"><code>' + esc(p.src) + '</code>汇编器说：' + esc(a.ok ? '（通过了）' : a.errors[0].msg) + '</span>'; }
+      else if (p.kind === 'boundary') { h += '<span class="o">两条指令形式均可编码，但间接寻址不访问 P0；这里不运行未实现 RAM 地址。正确访问：<code>MOV A,P0</code> 或 <code>MOV A,80H</code>。</span>'; }
       else {
         var c = rFresh(), asm = c.program(p.src, 0), lines = asm.lines.filter(function (L) { return !L.db; }), last = null;
         lines.forEach(function () { last = c.step(); });
-        if (p.then) {
-          var a0 = c.A, c2 = rFresh(); c2.program(p.then, 0); c2.step();
-          h += '<span class="o"><code>' + esc(p.src.split('\n').join(' / ')) + '</code>跑完 A = ' + hb(a0) + '——读到的是 80H 那个"不存在的单元"，不是 P0。<br><code>' + esc(p.then) + '</code>跑完 A = ' + hb(c2.A) + '——直接寻址才读到 P0（复位值 0FFH）。</span>';
-        } else {
-          h += '<span class="o"><code>' + esc(p.src) + '</code>汇编通过，机器码 ' + mcOf(lines[0]) + '（MOV A,direct，E0H 是 ACC 的直接地址）。' + diffHTML(last, '跑完') + '</span>';
-        }
+        h += '<span class="o"><code>' + esc(p.src) + '</code>汇编通过，机器码 ' + mcOf(lines[0]) + '（MOV A,direct，E0H 是 ACC 的直接地址）。' + diffHTML(last, '跑完') + '</span>';
       }
       $('#pitOut').innerHTML = h;
     };
