@@ -64,6 +64,7 @@ const U2_NOTES: readonly LessonNote[] = [
 ] as const;
 
 const U3_NOTES: readonly LessonNote[] = [
+  { file: 'u3-video', title: '讲解视频', sub: '寻址收官：变址·相对·位，11 分 49 秒', pointId: '3.1', pointName: '寻址方式' },
   { file: 'u3-isa-map', title: '指令全景', sub: '111 条指令一张图看全', pointId: '3', pointName: '指令系统' },
   { file: 'u3-addressing', title: '寻址方式', sub: '同一个 30H，四种身份', pointId: '3.1' },
   { file: 'u3-transfer', title: '数据传送', sub: '29 条，一张路线表', pointId: '3.2' },
@@ -71,6 +72,7 @@ const U3_NOTES: readonly LessonNote[] = [
   { file: 'u3-logic', title: '逻辑运算', sub: '与 0 清、或 1 置、异或 1 翻', pointId: '3.4' },
   { file: 'u3-jump', title: '控制转移', sub: '改写 PC，四种算法', pointId: '3.5' },
   { file: 'u3-bit', title: '位操作', sub: 'C 是位累加器', pointId: '3.6' },
+  { file: 'u3-classroom', title: '课堂互动台', sub: '寻址收官（变址·相对·位）+ 数据传送开篇', pointId: '3.1', pointName: '寻址方式' },
 ] as const;
 
 const U4_NOTES: readonly LessonNote[] = [
