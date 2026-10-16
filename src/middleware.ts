@@ -19,7 +19,9 @@ const publicPaths = [
   '/api/auth/register',
   '/api/auth/logout',
   '/api/experiments',
-  '/api/quiz/questions'
+  '/api/quiz/questions',
+  '/ilab/entry',
+  '/ilab/error'
 ];
 
 const publicExactPaths = ['/', ...publicPaths];
