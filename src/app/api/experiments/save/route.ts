@@ -17,6 +17,7 @@ import {
   PROJ04_MIN_OBSERVATION_STEPS,
   type Proj04CompletionEvidence,
 } from '@/lib/experiment-config';
+import { maybeUploadToIlab } from '@/lib/ilab/service';
 
 const OFFICIAL_EXPERIMENT_IDS = experimentCatalog.map((experiment) => experiment.id);
 
@@ -1108,6 +1109,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
     } catch (eventError) {
       console.error('记录实验行为失败:', eventError);
+    }
+
+    // 实验空间回传：仅当 ILAB_ENABLED 且该生为实验空间来源且实验完成时触发。
+    // 回传失败不阻塞学生回执，内部已写 IlabUploadLog 留痕。
+    if (status === 'COMPLETED') {
+      try {
+        await maybeUploadToIlab(payload.userId, experimentId);
+      } catch (ilabError) {
+        console.error('实验空间回传异常（不影响学生保存）:', ilabError);
+      }
     }
 
     // 简化处理逻辑 - 保留积分/成就接口字段，避免破坏前端合约

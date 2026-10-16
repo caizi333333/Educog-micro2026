@@ -41,6 +41,9 @@ model User {
   activities         UserActivity[]
   classEnrollments   ClassEnrollment[]
   experiments        UserExperiment[]
+  ilabSessions       IlabSession[]
+  ilabStepEvents     IlabStepEvent[]
+  ilabUploadLogs     IlabUploadLog[]
   learningEvents     LearningEvent[]
   pointsTransactions UserPointsTransaction[]
   teachingClasses    ClassGroup[]            @relation("ClassTeacher")
@@ -511,4 +514,58 @@ model CQIActionItem {
 
   @@index([cqiReportId])
   @@index([status])
+}
+
+// ===== 实验空间（ilab-x.com）2022/2026 版接口对接 =====
+model IlabSession {
+  id              String   @id @default(cuid())
+  sessionId       String   // 本平台 Session.id
+  userId          String
+  ilabUsername    String   // 实验空间用户账号（un）
+  ilabDisplayName String?  // 用户姓名（dis）
+  accessToken     String   // 实验空间接口令牌（24h）
+  tokenExpiresAt  DateTime
+  refreshCount    Int      @default(0) // 最多刷新 2 次
+  experimentId    String   // 本平台实验编号（默认 proj04）
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ilabUsername])
+  @@index([sessionId])
+}
+
+model IlabStepEvent {
+  id           String    @id @default(cuid())
+  sessionId    String
+  userId       String
+  experimentId String
+  stepId       String    // ILAB_STEP_CATALOG 内 id 或 ai_* 信标
+  clientAt     DateTime? // 客户端自报时间，仅供参考
+  createdAt    DateTime  @default(now()) // 服务端权威时间
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId, experimentId])
+}
+
+model IlabUploadLog {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionId    String?
+  experimentId String
+  originId     String
+  endpoint     String   // data_upload | attachment_upload | ...
+  requestJson  String
+  responseCode Int?
+  responseMsg  String?
+  success      Boolean  @default(false)
+  attempt      Int      @default(1)
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([originId])
+  @@index([userId])
+  @@index([success])
 }

@@ -36,6 +36,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { emitIlabStep } from '@/lib/ilab/beacon-client';
 import { useSimulator } from '@/hooks/useSimulator';
 import {
   experiments as staticExperiments,
@@ -251,6 +252,7 @@ export default function SimulationPage(): React.JSX.Element {
       loadExperiment(expId);
       // 默认切到教学指南，让用户先看到课前测试
       setActiveRightTab('guide');
+      if (params.get('from') === 'ilab') emitIlabStep('intro');
       if (params.get('from') === 'preclass') {
         setPreclassExperimentId(expId);
         // 开始状态会更新同一实验记录的 updatedAt；先确认开始、再读取草稿，
@@ -312,6 +314,16 @@ export default function SimulationPage(): React.JSX.Element {
   const proj04ChecklistReady = isProj04MilestoneEvidenceComplete(projectCompletion);
   const proj04TelemetryObserved = hasProj04TelemetryFrame(simulatorState?.uart?.transmitBuffer);
   const proj04ObservationReady = executionCount >= PROJ04_MIN_OBSERVATION_STEPS && proj04TelemetryObserved;
+
+  // 实验空间来源会话：遥测帧首次核验成功时上报步骤信标（服务端去重计时）。
+  const telemetryBeaconSentRef = React.useRef(false);
+  useEffect(() => {
+    if (proj04TelemetryObserved && !telemetryBeaconSentRef.current) {
+      telemetryBeaconSentRef.current = true;
+      emitIlabStep('telemetry_verify');
+    }
+    if (!proj04TelemetryObserved) telemetryBeaconSentRef.current = false;
+  }, [proj04TelemetryObserved]);
   const proj04DraftReady = !draftState.hasUnsavedChanges
     && !['SAVING', 'SYNCING', 'CONFLICT', 'ERROR', 'LOADING'].includes(draftState.status);
   const projectCompletionBlockedReason = selectedExperiment === 'proj04' && !proj04DraftReady
@@ -416,7 +428,7 @@ export default function SimulationPage(): React.JSX.Element {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={isRunning ? stop : runSimulation}
+                  onClick={() => { if (!isRunning) emitIlabStep('sim_run'); (isRunning ? stop : runSimulation)(); }}
                   disabled={identityBlocked || isCompletingExperiment || preclassStartBlocked}
                   aria-label={isRunning ? '停止执行' : paused ? '从断点继续运行' : '运行程序'}
                   className={cn(
@@ -802,7 +814,7 @@ export default function SimulationPage(): React.JSX.Element {
               onBreakpointToggle={toggleBreakpoint}
               currentLine={currentLine}
               isRunning={isRunning}
-              onRun={runSimulation}
+              onRun={() => { emitIlabStep('sim_run'); runSimulation(); }}
               onStep={stepSimulation}
               onReset={resetSimulation}
               onStop={stop}
@@ -835,7 +847,7 @@ export default function SimulationPage(): React.JSX.Element {
               ]).map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveRightTab(tab.key)}
+                  onClick={() => { setActiveRightTab(tab.key); if (tab.key === 'ai') emitIlabStep('ai_fix'); }}
                   aria-label={`切换到${tab.label}面板`}
                   aria-pressed={activeRightTab === tab.key}
                   className={cn(
