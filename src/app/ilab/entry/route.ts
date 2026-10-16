@@ -40,7 +40,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const target = new URL('/ilab/error', request.url);
     target.searchParams.set('reason', 'entry_failed');
     const response = NextResponse.redirect(target, { status: 302 });
-    response.headers.set('X-Ilab-Error', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+    // 错误信息走 URL 编码查询参数：响应头只接受 latin-1，中文会直接 500。
+    const detail = error instanceof Error ? error.message.slice(0, 150) : 'unknown';
+    target.searchParams.set('detail', detail);
     return response;
   }
 }
