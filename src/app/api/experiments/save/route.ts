@@ -677,6 +677,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         }, { status: 503 });
       }
       if (experiment.status === 'COMPLETED') {
+        // 已完成记录的重复提交是回传重试窗口：上一次若失败（IlabUploadLog 留痕），
+        // 这里以相同 originId 幂等补传；已成功则内部直接返回。
+        try {
+          await maybeUploadToIlab(payload.userId, experimentId);
+        } catch (ilabError) {
+          console.error('实验空间补传异常（不影响学生回执）:', ilabError);
+        }
         return NextResponse.json({
           success: true,
           ownerId: payload.userId,

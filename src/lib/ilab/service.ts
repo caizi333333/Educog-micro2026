@@ -187,6 +187,12 @@ export async function maybeUploadToIlab(
   if (!record || record.status !== 'COMPLETED') return true;
 
   const originId = normalizeOriginId(`XZY_${record.id}`);
+  // 幂等：已成功回传过的记录不再重复上传（重试入口见 save 路由 COMPLETED 分支）。
+  const uploaded = await prisma.ilabUploadLog.findFirst({
+    where: { originId, success: true },
+    select: { id: true },
+  });
+  if (uploaded) return true;
   // 实验窗口起点：学生从实验空间进入的时刻（session.createdAt）与本站记录的
   // startedAt 取更早者——快速完成或 startedAt 缺失时窗口也不会退化成 0 秒。
   const windowStart = Math.min(
