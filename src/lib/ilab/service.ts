@@ -187,7 +187,12 @@ export async function maybeUploadToIlab(
   if (!record || record.status !== 'COMPLETED') return true;
 
   const originId = normalizeOriginId(`XZY_${record.id}`);
-  const windowStart = (record.startedAt ?? session.createdAt).getTime();
+  // 实验窗口起点：学生从实验空间进入的时刻（session.createdAt）与本站记录的
+  // startedAt 取更早者——快速完成或 startedAt 缺失时窗口也不会退化成 0 秒。
+  const windowStart = Math.min(
+    record.startedAt?.getTime() ?? Number.MAX_SAFE_INTEGER,
+    session.createdAt.getTime(),
+  );
   const windowEnd = (record.completedAt ?? new Date()).getTime();
 
   try {
@@ -215,7 +220,7 @@ export async function maybeUploadToIlab(
       score: Math.min(100, Math.max(0, Math.round(record.score ?? 100))),
       startTime: windowStart,
       endTime: windowEnd,
-      timeUsed: Math.max(1, record.timeSpent ?? Math.round((windowEnd - windowStart) / 1000)),
+      timeUsed: Math.round((windowEnd - windowStart) / 1000),
       appid: config.appid,
       originId,
       steps,

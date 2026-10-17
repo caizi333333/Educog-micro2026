@@ -137,7 +137,7 @@ export function buildIlabSteps(
       if (end - start < 1000) start = Math.max(windowStartMs, end - step.expectTime * 1000);
       if (end <= start) end = start + 1000;
     }
-    const timeUsed = Math.max(1, Math.round((end - start) / 1000));
+    const timeUsed = Math.round((end - start) / 1000);
     records.push({
       seq: step.seq,
       title: step.title,
@@ -159,7 +159,8 @@ export function buildIlabSteps(
   for (const r of records) {
     r.startTime = Math.max(r.startTime, windowStartMs);
     r.endTime = Math.min(Math.max(r.endTime, r.startTime), windowEndMs);
-    if (r.timeUsed <= 0) r.timeUsed = 1;
+    // 钳位后恒等式必须保持：timeUsed === (endTime-startTime)/1000，平台逐条校验。
+    r.timeUsed = Math.round((r.endTime - r.startTime) / 1000);
   }
   return records;
 }
