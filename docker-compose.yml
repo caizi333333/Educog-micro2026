@@ -1,4 +1,28 @@
 services:
+  # 应用本体（Next.js standalone 构建产物）
+  app:
+    build: .
+    container_name: educog-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://educog_user:educog_password@postgres:5432/educog_micro
+      NODE_ENV: production
+      # 以下密钥请在 .env 文件中配置（勿留默认值上线）：
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?请在 .env 中设置 JWT_REFRESH_SECRET}
+      PEPPER: ${PEPPER:?请在 .env 中设置 PEPPER}
+      GOOGLE_GENAI_API_KEY: ${GOOGLE_GENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      ILAB_APP_ID: ${ILAB_APP_ID:-}
+      ILAB_APP_SECRET: ${ILAB_APP_SECRET:-}
+      ILAB_API_BASE: ${ILAB_API_BASE:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:15-alpine
     container_name: educog-postgres

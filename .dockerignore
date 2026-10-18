@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+docs
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+coverage
+.vercel
+Dockerfile
+.dockerignore
+docker-compose.yml
+ccpm-demo
