@@ -56,6 +56,7 @@ import ExecutionTrace from '@/components/simulation/ExecutionTrace';
 import ExperimentGuide from '@/components/simulation/ExperimentGuide';
 import AiDiagnostics from '@/components/simulation/AiDiagnostics';
 import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
+import { useSimulationAdmission } from '@/hooks/useSimulationAdmission';
 
 // 实验分类 → 顶栏徽章小图标（与实验配置的 category 一一对应）
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -390,10 +391,34 @@ export default function SimulationPage(): React.JSX.Element {
     selectedExperiment && experimentStatus[selectedExperiment] === 'COMPLETED',
   );
 
+  // 并发准入：进入实验工作台前取入场券，满员进入排队（自动重试放行）。
+  // 申报承诺"超并发排队提示服务"的兑现路径；检查不可达时降级放行并提示。
+  const admission = useSimulationAdmission(
+    selectedExperiment || null,
+    Boolean(selectedExperiment) && !identityBlocked,
+  );
+
   return (
     <TooltipProvider delayDuration={300}>
-      <section aria-labelledby="simulation-page-title" className="circuit-grid animate-fade-in -m-4 flex h-[calc(100dvh-3.5rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
+      <section aria-labelledby="simulation-page-title" className="circuit-grid animate-fade-in -m-4 relative flex h-[calc(100dvh-3.5rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
         <h1 id="simulation-page-title" className="sr-only">实验仿真工作台</h1>
+        {admission.status === 'queued' && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#080a0d]/95 px-6 text-center" role="alert" aria-live="assertive">
+            <span className="pulse-dot h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.6)]" />
+            <div>
+              <p className="text-lg font-semibold text-amber-100">当前实验人数已满，已为您自动排队</p>
+              <p className="mt-2 font-mono text-3xl font-bold text-amber-200">第 {admission.position ?? 1} 位</p>
+              <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
+                平台承诺并发容量内的实验请求即时进入；超出容量时按位次放行，页面将自动为您进入实验，请勿关闭或刷新本页。
+              </p>
+            </div>
+          </div>
+        )}
+        {admission.status === 'unavailable' && (
+          <div className="flex w-full flex-shrink-0 items-center gap-2 border-b border-amber-300/20 bg-amber-300/[0.07] px-3 py-1.5 text-[11px] text-amber-100" role="status">
+            并发准入检查暂时不可达，已降级放行；如高峰时段响应缓慢请稍后再试。
+          </div>
+        )}
         {/* ── Top Toolbar ── */}
         <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-1 overflow-hidden border-b border-white/[0.08] bg-[#0e1317]/95 px-2 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-nowrap sm:overflow-x-auto">
           {/* Left section */}

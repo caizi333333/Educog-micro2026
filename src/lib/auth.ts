@@ -137,7 +137,25 @@ export async function register(data: {
   department?: string;
   title?: string;
   classInviteCode?: string;
+  /** 注册来源 IP：用于 REGISTER 活动留痕与来源限流（课堂整班注册走同一 NAT，阈值给足余量） */
+  ip?: string;
 }) {
+  // 来源限流：同一 IP 15 分钟内注册超过阈值即拒绝。
+  // 阈值取 60：一个 60 人机房班同时开账号也能放下，脚本批量刷号会被明显拖慢。
+  const registerIp = data.ip;
+  if (registerIp) {
+    const recent = await prisma.userActivity.count({
+      where: {
+        action: 'REGISTER',
+        ip: registerIp,
+        createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
+      },
+    });
+    if (recent >= 60) {
+      throw new Error('注册过于频繁，请稍后再试');
+    }
+  }
+
   // 检查邮箱是否已存在
   const existingEmail = await prisma.user.findUnique({
     where: { email: data.email }
@@ -219,6 +237,7 @@ export async function register(data: {
       data: {
         userId: user.id,
         action: 'REGISTER',
+        ip: registerIp ?? null,
         details: JSON.stringify({ username: user.username, role: user.role, classId: classGroup?.id ?? null })
       }
     });

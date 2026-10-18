@@ -60,11 +60,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ));
     }
 
+    const ip = (
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ?? request.headers.get('x-real-ip')?.trim()
+      ?? ''
+    ).slice(0, 128) || undefined;
+
     // 注册用户
     const result = await register({
       email,
       username,
       password,
+      ip,
       name: optionalString(body.name) ?? optionalString(body.displayName),
       studentId: optionalString(body.studentId),
       class: optionalString(body.class),
@@ -106,6 +113,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const KNOWN_REGISTER_ERRORS = ['邮箱已被注册', '用户名已被使用', '班级邀请码无效或已停用'];
     if (error instanceof Error && KNOWN_REGISTER_ERRORS.includes(error.message)) {
       return setNoStore(NextResponse.json({ error: error.message }, { status: 400 }));
+    }
+    if (error instanceof Error && error.message === '注册过于频繁，请稍后再试') {
+      return setNoStore(NextResponse.json({ error: error.message }, { status: 429 }));
     }
     return setNoStore(NextResponse.json(
       { error: '服务器内部错误，请稍后重试' },

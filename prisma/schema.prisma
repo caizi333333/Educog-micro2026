@@ -44,6 +44,7 @@ model User {
   ilabSessions       IlabSession[]
   ilabStepEvents     IlabStepEvent[]
   ilabUploadLogs     IlabUploadLog[]
+  simulationSessions SimulationSession[]
   learningEvents     LearningEvent[]
   pointsTransactions UserPointsTransaction[]
   teachingClasses    ClassGroup[]            @relation("ClassTeacher")
@@ -568,4 +569,16 @@ model IlabUploadLog {
   @@index([originId])
   @@index([userId])
   @@index([success])
+}
+
+model SimulationSession {
+  id           String   @id @default(cuid())
+  userId       String
+  experimentId String
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, experimentId])
+  @@index([lastSeenAt])
 }
