@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { processAchievementResponse } from '@/hooks/use-achievement-notifications';
 import { Simulator, type SimulatorState, type ExecutionTraceEntry } from '@/lib/simulator';
+import { GreenhouseEnvironment } from '@/lib/devices/greenhouse-env';
+import { Ds18b20Device } from '@/lib/devices/ds18b20';
+import { Dht11Device } from '@/lib/devices/dht11';
 import {
   experiments,
   emptyProj04CompletionEvidence,
@@ -125,6 +128,8 @@ export interface UseSimulatorResult {
   setPortBit: (port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean) => void;
   pulsePortBit: (port: 'P0' | 'P1' | 'P2' | 'P3', bit: number) => void;
   receiveUartByte: (value: number) => boolean;
+  setEnvironmentScenario: (scenarioId: string) => void;
+  setEnvironmentTargets: (temperature: number, humidity: number) => void;
   canAcceptInput: boolean;
   updateCode: (newCode: string) => void;
   run: () => void;
@@ -1043,6 +1048,22 @@ D2: DJNZ R6, D2
           experiment.peripheral?.kind === 'buzzer' ? experiment.peripheral.buzzerPin ?? null : null,
         );
       }
+      // proj04：挂接大棚环境模型 + 虚拟传感器（DS18B20 on P3.7、DHT11 on P3.4、通风风机 on P3.3）
+      if (simulatorRef.current?.clearPeripherals) {
+        simulatorRef.current.clearPeripherals();
+        if (experimentId === 'proj04') {
+          const env = new GreenhouseEnvironment();
+          simulatorRef.current.attachEnvironment(env);
+          simulatorRef.current.attachDevice('P3', 7, new Ds18b20Device(env));
+          simulatorRef.current.attachDevice('P3', 4, new Dht11Device(env));
+          // FAN 引脚（P3.3）：学生程序驱动的通风执行器，锁存电平反馈进环境模型
+          simulatorRef.current.attachDevice('P3', 3, {
+            bindDrive: () => {},
+            onMasterDrive: (level: boolean) => env.setFan(level),
+            tick: () => {},
+          });
+        }
+      }
       resetSimulation();
 
       toast({
@@ -1092,6 +1113,26 @@ D2: DJNZ R6, D2
     if (accepted) setSimulatorState(simulator.getState());
     return accepted;
   }, [acceptsInput]);
+
+  // 大棚环境：场景切换与自定义目标工况（环境面板操作不受运行状态限制——
+  // 真实大棚的天气也不会等程序跑起来才变）
+  const setEnvironmentScenario = useCallback((scenarioId: string): void => {
+    const env = simulatorRef.current?.getEnvironment<GreenhouseEnvironment>();
+    if (!env) return;
+    env.setScenario(scenarioId);
+    if (!runningRef.current && typeof simulatorRef.current?.getState === 'function') {
+      setSimulatorState(simulatorRef.current.getState());
+    }
+  }, []);
+
+  const setEnvironmentTargets = useCallback((temperature: number, humidity: number): void => {
+    const env = simulatorRef.current?.getEnvironment<GreenhouseEnvironment>();
+    if (!env) return;
+    env.setTargets(temperature, humidity);
+    if (!runningRef.current && typeof simulatorRef.current?.getState === 'function') {
+      setSimulatorState(simulatorRef.current.getState());
+    }
+  }, []);
 
   // 记录实验完成
   const recordExperimentCompletion = useCallback(async (experimentId: string): Promise<void> => {
@@ -2344,6 +2385,7 @@ D2: DJNZ R6, D2
         pc: 0,
         psw: { CY: false, AC: false, F0: false, RS1: false, RS0: false, OV: false, P: false },
         portValues: { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF },
+        environment: null,
         currentLine: -1,
         memory: [],
         uart: {
@@ -2443,6 +2485,8 @@ D2: DJNZ R6, D2
     setPortBit,
     pulsePortBit,
     receiveUartByte,
+    setEnvironmentScenario,
+    setEnvironmentTargets,
     canAcceptInput: !identityBlocked && !isCompletingExperiment && loadedCodeRef.current === code
       && Boolean(loadedCodeRef.current) && (isRunning || resumableRef.current)
       && completionKeyRef.current === null && pendingCompletionRef.current === null && !simulatorState?.terminated,

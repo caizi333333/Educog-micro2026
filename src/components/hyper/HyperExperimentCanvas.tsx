@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
-  Activity, AlertTriangle, ArrowDown, ArrowUp, Camera, Car, Cpu, Keyboard,
+  Activity, AlertTriangle, ArrowDown, ArrowUp, Camera, Car, Cpu, Droplets, Fan, Keyboard,
   Lightbulb, Maximize2, Radio, TerminalSquare, Thermometer, Waypoints, Zap,
   ZoomIn, ZoomOut, type LucideIcon,
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
   getExperimentConfig,
   type BitMapEntry, type KeyMapEntry, type PeripheralConfig, type PortName,
 } from '@/lib/experiment-config';
+import { GREENHOUSE_SCENARIOS } from '@/lib/devices/greenhouse-env';
 import { cn } from '@/lib/utils';
 
 // ── 共阴数码管段码 → 字符 ──
@@ -907,8 +908,110 @@ function WaveStrip({ history }: { history: number[][] }) {
   );
 }
 
+// ─────────────────────────── 大棚环境面板（proj04） ───────────────────────────
+/** 虚拟大棚环境模型：真实温湿度源，驱动 DS18B20/DHT11 读数；场景切换对应实验步骤里的工况注入 */
+function GreenhouseEnvPanel({ env, onScenario, onTargets }: {
+  env: { temperature: number; humidity: number; scenario: string; scenarioId: string; fanOn: boolean };
+  onScenario?: (scenarioId: string) => void;
+  onTargets?: (temperature: number, humidity: number) => void;
+}) {
+  const [draftT, setDraftT] = useState<number | null>(null);
+  const [draftH, setDraftH] = useState<number | null>(null);
+  const temp = draftT ?? env.temperature;
+  const humi = draftH ?? env.humidity;
+
+  return (
+    <div className="flex w-full max-w-[420px] flex-col gap-2 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.04] px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <Thermometer className="h-4 w-4 text-emerald-300" />
+        <span className="text-[12px] font-medium text-emerald-100">大棚环境模型</span>
+        <span className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+          <Fan className={cn('h-3 w-3', env.fanOn ? 'animate-spin text-cyan-300' : 'text-slate-600')} />
+          {env.fanOn ? '通风中' : '通风关'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-md border border-white/[0.08] bg-black/25 px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <Thermometer className="h-3 w-3" /> 环境温度
+          </div>
+          <div className={cn('font-mono text-lg font-semibold', env.temperature >= 30 ? 'text-amber-300' : 'text-emerald-200')}>
+            {env.temperature.toFixed(1)}°C
+          </div>
+        </div>
+        <div className="rounded-md border border-white/[0.08] bg-black/25 px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <Droplets className="h-3 w-3" /> 环境湿度
+          </div>
+          <div className="font-mono text-lg font-semibold text-emerald-200">
+            {env.humidity.toFixed(0)}%
+          </div>
+        </div>
+      </div>
+
+      <div className="text-[10px] text-slate-400">
+        工况：<span className="text-slate-300">{env.scenario}</span>
+        <span className="text-slate-500">（DS18B20/DHT11 读数由此模型驱动）</span>
+      </div>
+
+      {onScenario && (
+        <div className="grid grid-cols-2 gap-1.5">
+          {GREENHOUSE_SCENARIOS.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => { setDraftT(null); setDraftH(null); onScenario(s.id); }}
+              className={cn(
+                'min-h-11 rounded-md border px-2 py-1.5 text-left text-[11px] leading-4 transition-colors',
+                env.scenarioId === s.id
+                  ? 'border-emerald-300/45 bg-emerald-300/[0.14] text-emerald-100'
+                  : 'border-white/[0.09] bg-white/[0.03] text-slate-300 hover:border-emerald-300/30 hover:text-emerald-100',
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {onTargets && (
+        <div className="space-y-1.5 border-t border-white/[0.07] pt-2">
+          <label className="flex items-center gap-2 text-[10px] text-slate-400">
+            <span className="w-14 shrink-0">温度 {temp.toFixed(0)}°C</span>
+            <input
+              type="range" min={5} max={45} step={1} value={Math.round(temp)}
+              aria-label="设定目标环境温度"
+              onChange={e => setDraftT(Number(e.target.value))}
+              onMouseUp={() => { if (draftT !== null) onTargets(draftT, humi); }}
+              onTouchEnd={() => { if (draftT !== null) onTargets(draftT, humi); }}
+              className="min-h-11 flex-1 accent-emerald-300"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-[10px] text-slate-400">
+            <span className="w-14 shrink-0">湿度 {humi.toFixed(0)}%</span>
+            <input
+              type="range" min={20} max={90} step={5} value={Math.round(humi)}
+              aria-label="设定目标环境湿度"
+              onChange={e => setDraftH(Number(e.target.value))}
+              onMouseUp={() => { if (draftH !== null) onTargets(temp, draftH); }}
+              onTouchEnd={() => { if (draftH !== null) onTargets(temp, draftH); }}
+              className="min-h-11 flex-1 accent-emerald-300"
+            />
+          </label>
+        </div>
+      )}
+
+      <p className="text-[10px] leading-4 text-slate-500">
+        切换工况后读数随时间趋近目标值；程序驱动 FAN(P3.3) 可将温度压回 ≤23.5°C。
+        温度 ≥30°C 触发报警验证（实验步骤19）。
+      </p>
+    </div>
+  );
+}
+
 // ─────────────────────────── 主组件 ───────────────────────────
-export function HyperExperimentCanvas({ simulatorState, isRunning = false, experimentId = null, inputEnabled = true, onSetPortBit: setPortBit, onPulsePortBit: pulsePortBit, onReceiveUartByte: receiveUartByte }: {
+export function HyperExperimentCanvas({ simulatorState, isRunning = false, experimentId = null, inputEnabled = true, onSetPortBit: setPortBit, onPulsePortBit: pulsePortBit, onReceiveUartByte: receiveUartByte, onEnvironmentScenario, onEnvironmentTargets }: {
   simulatorState: SimulatorState | null;
   isRunning?: boolean;
   /** 当前加载的实验 ID：优先使用其 peripheral 声明，缺省回落端口启发式 */
@@ -918,6 +1021,9 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
   /** 瞬时按键回调（固定模型时长的低电平脉冲） */
   onPulsePortBit?: (port: PortName, bit: number) => void;
   onReceiveUartByte?: (value: number) => boolean;
+  /** 大棚环境工况切换（proj04；未挂环境模型时不渲染对应面板） */
+  onEnvironmentScenario?: (scenarioId: string) => void;
+  onEnvironmentTargets?: (temperature: number, humidity: number) => void;
   inputEnabled?: boolean;
 }) {
   const allowInput = inputEnabled && !!simulatorState && !simulatorState.terminated;
@@ -1090,6 +1196,13 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
               onReceiveUartByte={onReceiveUartByte} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />}
             {renderPeripheral()}
             {extraKeys}
+            {simulatorState?.environment && typeof simulatorState.environment.temperature === 'number' && (
+              <GreenhouseEnvPanel
+                env={simulatorState.environment as { temperature: number; humidity: number; scenario: string; scenarioId: string; fanOn: boolean }}
+                onScenario={onEnvironmentScenario}
+                onTargets={onEnvironmentTargets}
+              />
+            )}
           </div>
         )}
 

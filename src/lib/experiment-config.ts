@@ -2535,7 +2535,7 @@ END`,
   {
     id: 'proj04',
     title: '项目四：智慧农业大棚监控系统设计',
-    description: '综合项目：以模拟温湿度输入完成采集、阈值报警和串口JSON上报；LCD仅保留未实现接口，EEPROM属于后续扩展，不计入本轮完成判定。',
+    description: '综合项目：DS18B20/DHT11 虚拟传感器按真实总线协议应答，温湿度由大棚环境模型实时演化；完成采集、阈值报警和串口JSON上报，通风执行器可形成闭环。LCD仅保留未实现接口，EEPROM属于后续扩展，不计入本轮完成判定。',
     category: '综合项目',
     difficulty: 'advanced',
     duration: 240,
@@ -2581,6 +2581,8 @@ END`,
       kind: 'bitpanel',
       label: 'P3 · 智慧大棚',
       bitMap: [
+        { port: 'P3', bit: 3, icon: 'zap', label: '通风风机 FAN（扩展）', onText: '通风中', offText: '关闭' },
+        { port: 'P3', bit: 4, icon: 'radio', label: 'DHT11 数据线', onText: '高电平', offText: '低电平' },
         { port: 'P3', bit: 5, icon: 'alert', label: '蜂鸣器报警 BEEP', onText: '报警中', offText: '静音' },
         { port: 'P3', bit: 7, icon: 'thermometer', label: 'DS18B20 单总线 DQ', onText: '高电平', offText: '低电平' },
       ],
@@ -2588,14 +2590,20 @@ END`,
     },
     code: `; 项目四：智慧农业大棚监控系统
 ; 功能：温湿度采集 + 串口JSON上报 + 阈值报警（LCD驱动为项目后续任务，UPDATE_LCD留出接口）
+; 传感器：DS18B20(P3.7 1-Wire) + DHT11(P3.4 单总线)——仿真环境模型实时供电，
+;         温度/湿度随大棚工况演化，环境面板可切换场景、通风(P3.3)可降温
 ; 桂林航天工业学院 微控制器应用技术
 
 DQ    EQU P3.7           ; DS18B20数据线
+DHT   EQU P3.4           ; DHT11数据线
+FAN   EQU P3.3           ; 通风风机（扩展执行器，SETB=开启降温）
 BEEP  EQU P3.5           ; 蜂鸣器
 TEMP_H EQU 40H           ; 温度高字节
 TEMP_L EQU 41H           ; 温度低字节
 HUMI   EQU 42H           ; 湿度值
 ALARM  EQU 43H           ; 报警标志
+DTEMP  EQU 44H           ; DHT11回报温度（可与DS18B20读数对照）
+DBUF   EQU 50H           ; DHT11接收缓冲 50H-54H
 
 ORG 0000H
     LJMP MAIN
@@ -2662,14 +2670,27 @@ READ_DS18B20:
 READ_T_DONE:
     RET
 
-; 单总线复位
+; 单总线复位（含存在检测）：复位低脉冲→释放→等器件存在脉冲结束
 OW_RESET:
     CLR DQ
     MOV R7, #200         ; 480us低电平
     DJNZ R7, $
     SETB DQ
-    MOV R7, #30          ; 等待响应
+    MOV R7, #30          ; 等存在脉冲拉低（无器件则超时跳过）
+OW_PRES_W:
+    JNB DQ, OW_PRES_L
+    DJNZ R7, OW_PRES_W
+    SJMP OW_R_DONE       ; 无应答：兼容无传感器环境
+OW_PRES_L:
+    MOV R7, #250
+OW_PRES_H:
+    JB DQ, OW_PRES_END   ; 存在脉冲结束回高
+    DJNZ R7, OW_PRES_H
+    SJMP OW_R_DONE
+OW_PRES_END:
+    MOV R7, #10          ; 恢复间隔
     DJNZ R7, $
+OW_R_DONE:
     RET
 
 ; 单总线写字节
@@ -2703,9 +2724,86 @@ OW_RD_BIT:
     DJNZ R6, OW_RD_BIT
     RET
 
-; 简化的DHT11读取
+; DHT11读取（真实单总线协议）：起始信号→80+80应答→40bit(湿度+温度+校验)
 READ_DHT11:
-    MOV HUMI, #65        ; 模拟湿度值65%
+    ; 主机起始信号：拉低约18ms
+    CLR DHT
+    MOV R5, #72
+DHT_START_DLY:
+    MOV R6, #250
+    DJNZ R6, $
+    DJNZ R5, DHT_START_DLY
+    SETB DHT
+    MOV R7, #20          ; 释放后等待器件应答
+    DJNZ R7, $
+    ; 等应答低电平(80us)
+    MOV R6, #200
+DHT_W_L:
+    JNB DHT, DHT_GOT_L
+    DJNZ R6, DHT_W_L
+    SJMP DHT_FAIL        ; 超时无应答→容错
+DHT_GOT_L:
+    ; 等应答低电平结束（转高80us）
+    MOV R6, #200
+DHT_W_H:
+    JB DHT, DHT_GOT_H
+    DJNZ R6, DHT_W_H
+    SJMP DHT_FAIL
+DHT_GOT_H:
+    ; 等应答高电平结束（首位数据的50us低电平开始）
+    MOV R6, #200
+DHT_W_D:
+    JNB DHT, DHT_GOT_D
+    DJNZ R6, DHT_W_D
+    SJMP DHT_FAIL
+DHT_GOT_D:
+    MOV R2, #40          ; 40bit
+    MOV R0, #DBUF        ; 接收缓冲 50H..54H
+DHT_BIT:
+    ; 等位周期低电平(50us)结束→转高
+    MOV R6, #120
+DHT_B_L:
+    JB DHT, DHT_B_HI
+    DJNZ R6, DHT_B_L
+    SJMP DHT_FAIL
+DHT_B_HI:
+    ; 测高电平脉宽：0→28us(约14迭代) / 1→70us(约35迭代)；带超时保护
+    MOV R3, #0
+    MOV R5, #80
+DHT_CNT:
+    INC R3
+    JNB DHT, DHT_CNT_END
+    DJNZ R5, DHT_CNT
+    SJMP DHT_FAIL        ; 高电平异常持续→容错
+DHT_CNT_END:
+    MOV A, R3
+    CLR C
+    SUBB A, #22          ; 阈值居中：>=22判1，否则0
+    CPL C                ; C=1表示1位
+    MOV A, @R0
+    RLC A                ; MSB先，逐位左移入缓冲
+    MOV @R0, A
+    DJNZ R2, DHT_NEXT
+    SJMP DHT_CHK
+DHT_NEXT:
+    MOV A, R2
+    ANL A, #7
+    JNZ DHT_BIT
+    INC R0               ; 每收满8bit换下一字节
+    SJMP DHT_BIT
+DHT_CHK:
+    ; 校验和 = 前4字节和 &0xFF（DBUF=50H..54H 直接寻址）
+    MOV A, 50H
+    ADD A, 51H
+    ADD A, 52H
+    ADD A, 53H
+    CJNE A, 54H, DHT_FAIL
+    MOV HUMI, 50H        ; 湿度整数位
+    MOV DTEMP, 52H       ; DHT回报温度
+    SJMP DHT_DONE
+DHT_FAIL:
+    ; 容错：保留上次有效湿度值（遥测帧标记由上层判断）
+DHT_DONE:
     RET
 
 ; 检查报警阈值（30度 = 01E0H）
@@ -2805,10 +2903,11 @@ JSON_MID:  DB ',"humi":', 0
 
 END`,
     expectedResults: [
-      'DS18B20单总线时序完整执行（复位-跳过ROM-启动转换-读暂存器），仿真无实体传感器时代入25.0°C',
-      '温度原始值在40H-41H（0190H=25×16）、湿度65%在42H，内存面板可观察',
-      '串口每2秒发送JSON格式数据：{"temp":25,"humi":65}，串口终端实时显示',
-      '25°C低于30°C阈值，蜂鸣器保持静音（P3.5=0）；修改阈值或模拟温度可触发报警',
+      'DS18B20单总线时序完整执行（复位-跳过ROM-启动转换-读暂存器），虚拟器件按真实协议应答存在脉冲并回送暂存器数据',
+      'DHT11 单总线读取：主机起始信号→80+80应答→40bit湿度/温度/校验和，校验失败时保留上次有效值',
+      '温度原始值在40H-41H（=环境模型温度×16）、DHT湿度在42H、DHT回报温度在44H，内存面板可观察；环境面板可切换大棚工况',
+      '串口每2秒发送JSON格式数据：{"temp":<环境实时温度>,"humi":<环境实时湿度>}，数值随环境模型演化非固定',
+      '默认工况约25°C低于30°C阈值蜂鸣器静音；将环境切换至"午间高温"场景后温度超阈，蜂鸣器置位报警（P3.5=1）',
       '程序持续循环且未出现故障属于正确状态；观察到完整遥测帧并手动停止后可提交本轮结果（LCD驱动尚未实现，EEPROM仅为扩展项）'
     ],
     troubleshooting: [

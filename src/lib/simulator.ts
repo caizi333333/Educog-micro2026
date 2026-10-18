@@ -1,3 +1,5 @@
+import type { SimDevice, SimEnvironment, PortName } from './sim-devices';
+
 export interface SimulatorState {
   registers: {
     A: number;
@@ -132,6 +134,8 @@ export interface SimulatorState {
     }[];
   };
   terminated: boolean;
+  /** 挂接的虚拟环境模型状态快照（如大棚温湿度），无环境时为 null */
+  environment: Record<string, unknown> | null;
 }
 
 export interface Instruction {
@@ -173,6 +177,14 @@ export class Simulator {
   private pendingPulses: { port: 'P0' | 'P1' | 'P2' | 'P3'; bit: number; remaining: number }[] = [];
   // 8051 的同地址 SBUF 读写对应不同缓冲器，发送不能覆盖尚待程序读取的接收字节。
   private receivedSbuf: number | null = null;
+  // 开漏端口模型：resolved(portValues) = cpuLatch & externalDrive。
+  // CPU 写锁存器（SETB/CLR/MOV Px.y 与字节写），外设/按键经 externalDrive 拉线。
+  private portLatches: Record<PortName, number> = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+  private externalDrive: Record<PortName, number> = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+  // 挂在端口位上的虚拟器件（如 DS18B20），key 形如 'P3.7'
+  private devicePins: Map<string, SimDevice> = new Map();
+  private devices: SimDevice[] = [];
+  private environments: SimEnvironment[] = [];
   // Standard 8051 SFR address map (no duplicates, correct addresses per datasheet)
   private sfrMap: Map<number, string> = new Map([
     [0x80, 'P0'], [0x81, 'SP'], [0x82, 'DPL'], [0x83, 'DPH'],
@@ -210,6 +222,10 @@ export class Simulator {
     this.pendingPulses = [];
     this.receivedSbuf = null;
     this.xram.fill(0xFF);
+    this.portLatches = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+    this.externalDrive = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+    this.state.environment = this.environments.length ? this.environments[0].state as Record<string, unknown> : null;
+    for (const d of this.devices) d.reset?.();
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
   }
 
@@ -228,6 +244,10 @@ export class Simulator {
     this.receivedSbuf = null;
     this.xram.fill(0xFF);
     this.state = this.getInitialState();
+    this.portLatches = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+    this.externalDrive = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+    this.state.environment = this.environments.length ? this.environments[0].state as Record<string, unknown> : null;
+    for (const d of this.devices) d.reset?.();
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
     this.parseCode();
   }
@@ -242,6 +262,7 @@ export class Simulator {
       pc: 0,
       psw: { CY: false, AC: false, F0: false, RS1: false, RS0: false, OV: false, P: false },
       portValues: { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF },
+      environment: null,
       currentLine: -1,
       memory: [],
       // 串口通信初始状态
@@ -436,10 +457,10 @@ export class Simulator {
   private setSfrValueByName(name: string, value: number): boolean {
     const byteValue = value & 0xFF;
     switch (name.toUpperCase()) {
-      case 'P0': this.state.portValues.P0 = byteValue; return true;
-      case 'P1': this.state.portValues.P1 = byteValue; return true;
-      case 'P2': this.state.portValues.P2 = byteValue; return true;
-      case 'P3': this.state.portValues.P3 = byteValue; return true;
+      case 'P0': this.writePortLatch('P0', byteValue); return true;
+      case 'P1': this.writePortLatch('P1', byteValue); return true;
+      case 'P2': this.writePortLatch('P2', byteValue); return true;
+      case 'P3': this.writePortLatch('P3', byteValue); return true;
       case 'SP': this.state.registers.SP = byteValue; return true;
       case 'DPL': this.state.registers.DPL = byteValue; return true;
       case 'DPH': this.state.registers.DPH = byteValue; return true;
@@ -907,27 +928,102 @@ export class Simulator {
         this.pendingPulses = this.pendingPulses.filter(p => p.remaining > 0);
       }
     }
+    // 虚拟器件与环境模型逐指令推进（协议状态机、环境演化按模型时间）
+    if (this.devices.length > 0 || this.environments.length > 0) {
+      for (const env of this.environments) env.tick(this.instrCount);
+      for (const d of this.devices) d.tick(this.instrCount);
+    }
     this.tickTimers();
     this.dispatchInterrupts();
   }
 
   /**
-   * 外部输入：改写某端口位的锁存电平（幂等），供画布按键"按下拉低、松开回高"。
-   * 只动 portValues，不触碰执行引擎——程序里的 MOV A,P3 / JNB P3.x 会读到新电平。
+   * 外部输入：改写某端口位的外部驱动电平（幂等），供画布按键"按下拉低、松开回高"。
+   * 走 externalDrive 开漏模型，不触碰 CPU 锁存器——程序里的 MOV A,P3 / JNB P3.x 读到的是
+   * latch & externalDrive 的合成线态。
    */
   public setPortBit(port: 'P0' | 'P1' | 'P2' | 'P3', bit: number, level: boolean): void {
     if (!['P0', 'P1', 'P2', 'P3'].includes(port) || !Number.isInteger(bit) || bit < 0 || bit > 7 || typeof level !== 'boolean') return;
     const wasHigh = (this.state.portValues[port] & (1 << bit)) !== 0;
     if (level) {
-      this.state.portValues[port] |= (1 << bit);
+      this.externalDrive[port] |= (1 << bit);
     } else {
-      this.state.portValues[port] &= ~(1 << bit);
+      this.externalDrive[port] &= ~(1 << bit);
     }
+    this.recomputePort(port);
     // INT0/INT1 的下降沿由外部输入产生；电平触发在指令边界读取。
     if (port === 'P3' && wasHigh && !level && (bit === 2 || bit === 3)) {
       const modeBit = bit === 2 ? 0x01 : 0x04;
       if (this.state.timers.TCON & modeBit) this.state.timers.TCON |= modeBit << 1;
     }
+  }
+
+  /** 合成线态：resolved = cpuLatch & externalDrive（开漏 + 上拉，任一方拉低线即低） */
+  private recomputePort(port: PortName): void {
+    this.state.portValues[port] = (this.portLatches[port] & this.externalDrive[port]) & 0xFF;
+  }
+
+  /** CPU 字节写端口锁存器；变化位上挂有器件时通知 onMasterDrive */
+  private writePortLatch(port: PortName, byteValue: number): void {
+    const old = this.portLatches[port];
+    const next = byteValue & 0xFF;
+    if (old === next) { this.portLatches[port] = next; this.recomputePort(port); return; }
+    this.portLatches[port] = next;
+    this.recomputePort(port);
+    const changed = old ^ next;
+    for (let bit = 0; bit < 8; bit++) {
+      if (changed & (1 << bit)) {
+        this.devicePins.get(`${port}.${bit}`)?.onMasterDrive(((next >> bit) & 1) === 1, this.instrCount);
+      }
+    }
+  }
+
+  /** CPU 位写端口锁存器（SETB/CLR/MOV Px.y,C） */
+  private writePortLatchBit(port: PortName, bit: number, level: boolean): void {
+    const old = this.portLatches[port];
+    const next = level ? (old | (1 << bit)) : (old & ~(1 << bit));
+    if (old === next) { this.recomputePort(port); return; }
+    this.portLatches[port] = next;
+    this.recomputePort(port);
+    this.devicePins.get(`${port}.${bit}`)?.onMasterDrive(level, this.instrCount);
+  }
+
+  /** 器件侧拉线：更新 externalDrive 对应位后合成线态 */
+  private deviceDrive(port: PortName, bit: number, pullLow: boolean): void {
+    if (pullLow) this.externalDrive[port] &= ~(1 << bit);
+    else this.externalDrive[port] |= (1 << bit);
+    this.recomputePort(port);
+  }
+
+  /**
+   * 在端口位上挂载虚拟器件（如 DS18B20 on P3.7、DHT11 on P3.4）。
+   * 器件获得 PinDrive 拉线回调；CPU 在该位的锁存变化会回调 onMasterDrive。
+   */
+  public attachDevice(port: PortName, bit: number, device: SimDevice): void {
+    this.devicePins.set(`${port}.${bit}`, device);
+    device.bindDrive((pullLow) => this.deviceDrive(port, bit, pullLow));
+    if (!this.devices.includes(device)) this.devices.push(device);
+  }
+
+  /** 挂载环境模型（如大棚温湿度），其 state 对象暴露进 state.environment 供 UI 快照 */
+  public attachEnvironment(env: SimEnvironment): void {
+    if (!this.environments.includes(env)) this.environments.push(env);
+    this.state.environment = env.state as Record<string, unknown>;
+  }
+
+  /** 取当前挂接的环境模型（UI 用于读写场景参数），无则 null */
+  public getEnvironment<T extends SimEnvironment>(): T | null {
+    return (this.environments[0] as T | undefined) ?? null;
+  }
+
+  /** 清空已挂接的器件与环境模型（切换实验时调用） */
+  public clearPeripherals(): void {
+    this.devicePins.clear();
+    this.devices = [];
+    this.environments = [];
+    this.externalDrive = { P0: 0xFF, P1: 0xFF, P2: 0xFF, P3: 0xFF };
+    for (const p of ['P0', 'P1', 'P2', 'P3'] as const) this.recomputePort(p);
+    this.state.environment = null;
   }
 
   /**
@@ -1403,14 +1499,10 @@ export class Simulator {
     const upper = bitAddr.toUpperCase();
     const portMatch = upper.match(/^P([0-3])\.([0-7])$/);
     if (portMatch) {
-      const port = `P${portMatch[1]}` as keyof typeof this.state.portValues;
+      const port = `P${portMatch[1]}` as PortName;
       const bit = parseInt(portMatch[2], 10);
-      const before = (this.state.portValues[port] >> bit) & 1;
-      if (value) {
-        this.state.portValues[port] |= (1 << bit);
-      } else {
-        this.state.portValues[port] &= ~(1 << bit);
-      }
+      const before = (this.portLatches[port] >> bit) & 1;
+      this.writePortLatchBit(port, bit, value);
       // 蜂鸣器引脚电平真实翻转（CPL/SETB/CLR）→ 记录一次振荡沿
       if (before !== (value ? 1 : 0) && upper === this.state.buzzer.outputPin.toUpperCase()) {
         this.recordBuzzerToggle();
@@ -1707,10 +1799,10 @@ export class Simulator {
     }
 
     switch (operandUpper) {
-        case 'P0': this.state.portValues.P0 = value; return;
-        case 'P1': this.state.portValues.P1 = value; return;
-        case 'P2': this.state.portValues.P2 = value; return;
-        case 'P3': this.state.portValues.P3 = value; return;
+        case 'P0': this.writePortLatch('P0', value); return;
+        case 'P1': this.writePortLatch('P1', value); return;
+        case 'P2': this.writePortLatch('P2', value); return;
+        case 'P3': this.writePortLatch('P3', value); return;
         case 'TMOD':
             this.state.timers.TMOD = value;
             return;
@@ -1775,7 +1867,7 @@ export class Simulator {
     if (operandUpper.startsWith('P') && operand[1]) {
         const portNum = parseInt(operand[1], 10);
         if (portNum >= 0 && portNum <= 3) {
-            this.state.portValues[`P${portNum}` as keyof typeof this.state.portValues] = value;
+            this.writePortLatch(`P${portNum}` as PortName, value);
             return;
         }
     }

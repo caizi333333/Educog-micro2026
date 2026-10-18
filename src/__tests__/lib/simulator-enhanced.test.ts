@@ -873,7 +873,9 @@ describe('Simulator Enhanced Tests', () => {
 
       expect(executed).toBeGreaterThanOrEqual(PROJ04_MIN_OBSERVATION_STEPS);
       expect(hasProj04TelemetryFrame(simulator.state.uart.transmitBuffer)).toBe(true);
-      expect(simulator.state.uart.transmitBuffer).toContain('{"temp":25,"humi":65}');
+      // 无虚拟器件挂载时：DS18B20 读回全1触发文档化兜底→25°C；
+      // DHT11 无应答→保留初始值 00（不再硬编码 65）。挂真实器件的行为见 virtual-devices.test.ts
+      expect(simulator.state.uart.transmitBuffer).toContain('{"temp":25,"humi":00}');
       expect(simulator.state.terminated).toBe(false);
     });
 

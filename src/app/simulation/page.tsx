@@ -116,6 +116,7 @@ export default function SimulationPage(): React.JSX.Element {
     useServerDraft, keepLocalDraft, saveProj04Milestone, startExperiment, completeExperiment, stop,
     speed, setSpeed, speedPresets,
     breakpoints, toggleBreakpoint, paused, setPortBit, pulsePortBit, receiveUartByte, canAcceptInput,
+    setEnvironmentScenario, setEnvironmentTargets,
   } = useSimulator();
 
   const breakpointLines = React.useMemo(() => Array.from(breakpoints), [breakpoints]);
@@ -830,6 +831,8 @@ export default function SimulationPage(): React.JSX.Element {
             onSetPortBit={setPortBit}
             onPulsePortBit={pulsePortBit}
             onReceiveUartByte={receiveUartByte}
+            onEnvironmentScenario={setEnvironmentScenario}
+            onEnvironmentTargets={setEnvironmentTargets}
             inputEnabled={canAcceptInput}
           />
 
