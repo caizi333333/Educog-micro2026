@@ -58,6 +58,25 @@ interface GainsData {
   chapterMasteryAvg: { chapter: string; avgMastery: number }[];
 }
 
+interface AbilityDimension {
+  id: string;
+  name: string;
+  jobRef: string;
+  score: number | null;
+  completedCount: number;
+  totalCount: number;
+}
+
+interface AbilityProfileData {
+  dimensions: AbilityDimension[];
+  level: number;
+  levelName: string;
+  levelEvidence: string;
+  nextLevel: { level: number; name: string; evidence: string } | null;
+  completedExperiments: number;
+  asOf: string;
+}
+
 interface AiUsageData {
   dataProvenance: DataProvenance;
   interpretation?: 'CORRELATION_ONLY';
@@ -117,6 +136,16 @@ function parseGainsData(value: unknown): GainsData | null {
     || !Array.isArray(record.prePostComparison)
     || !Array.isArray(record.chapterMasteryAvg)) return null;
   return record as unknown as GainsData;
+}
+
+function parseAbilityProfile(value: unknown): AbilityProfileData | null {
+  const record = asRecord(value);
+  if (!record
+    || !Array.isArray(record.dimensions)
+    || typeof record.level !== 'number'
+    || typeof record.levelName !== 'string'
+    || typeof record.completedExperiments !== 'number') return null;
+  return record as unknown as AbilityProfileData;
 }
 
 function parseAiUsageData(value: unknown): AiUsageData | null {
@@ -226,6 +255,11 @@ export function HyperAnalyticsPage() {
   const gainsControllerRef = useRef<AbortController | null>(null);
   const aiRequestIdRef = useRef(0);
   const aiControllerRef = useRef<AbortController | null>(null);
+  const [abilityData, setAbilityData] = useState<AbilityProfileData | null>(null);
+  const [abilityError, setAbilityError] = useState<string | null>(null);
+  const [abilityLoading, setAbilityLoading] = useState(false);
+  const abilityRequestIdRef = useRef(0);
+  const abilityControllerRef = useRef<AbortController | null>(null);
 
   const knowledgeMastery = calculateKnowledgeMastery();
   const learningStats = calculateLearningStats();
@@ -400,6 +434,61 @@ export function HyperAnalyticsPage() {
       aiControllerRef.current = null;
     };
   }, [fetchAiUsage, isTeacherView]);
+
+  // Fetch ability profile (student view)
+  const fetchAbilityProfile = useCallback(async () => {
+    if (isTeacherView || !user?.id) return;
+    const requestId = ++abilityRequestIdRef.current;
+    abilityControllerRef.current?.abort();
+    const controller = new AbortController();
+    abilityControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    setAbilityLoading(true);
+    setAbilityError(null);
+    try {
+      const token = getStoredAccessToken();
+      if (!token) throw new Error('登录状态已失效，请重新登录');
+      const res = await fetch('/api/analytics/ability-profile', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(await apiError(res, '无法读取能力画像'));
+      const parsed = parseAbilityProfile(await res.json());
+      if (!parsed) throw new Error('能力画像数据格式异常，请重试');
+      if (requestId !== abilityRequestIdRef.current) return;
+      setAbilityData(parsed);
+    } catch (error) {
+      if (requestId !== abilityRequestIdRef.current) return;
+      setAbilityError(error instanceof DOMException && error.name === 'AbortError'
+        ? '能力画像请求超时，请重试'
+        : error instanceof Error ? error.message : '无法读取能力画像');
+    } finally {
+      clearTimeout(timeoutId);
+      if (requestId === abilityRequestIdRef.current) {
+        abilityControllerRef.current = null;
+        setAbilityLoading(false);
+      }
+    }
+  }, [isTeacherView, user?.id]);
+
+  useEffect(() => {
+    if (isTeacherView) {
+      abilityRequestIdRef.current += 1;
+      abilityControllerRef.current?.abort();
+      abilityControllerRef.current = null;
+      setAbilityData(null);
+      setAbilityError(null);
+      setAbilityLoading(false);
+      return;
+    }
+    void fetchAbilityProfile();
+    return () => {
+      abilityRequestIdRef.current += 1;
+      abilityControllerRef.current?.abort();
+      abilityControllerRef.current = null;
+    };
+  }, [fetchAbilityProfile, isTeacherView]);
 
   const rankedStudents = useMemo(() => {
     const students = teacherData?.students || [];
@@ -636,6 +725,70 @@ export function HyperAnalyticsPage() {
             </div>
           ))}
         </section>
+
+        {!isTeacherView && (
+          <section className="glass-hover mb-6 rounded-md border border-white/[0.08] bg-white/[0.035]" aria-labelledby="ability-profile-title">
+            <div className="flex flex-col gap-3 border-b border-white/[0.08] p-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 id="ability-profile-title" className="text-lg font-semibold text-slate-50">岗位能力画像</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  按课程能力阶梯（L1–L4）聚合实验留痕与测验成绩；无记录的维度显示 N/A。
+                </p>
+              </div>
+              {abilityData && (
+                <div className="shrink-0 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-4 py-2 text-right">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-200/70">当前等级</div>
+                  <div className="mt-0.5 text-sm font-semibold text-cyan-100">{abilityData.levelName}</div>
+                  <div className="mt-0.5 text-[10px] text-slate-400">{abilityData.levelEvidence}</div>
+                </div>
+              )}
+            </div>
+            <div className="p-5">
+              {abilityLoading && !abilityData ? (
+                <SectionLoading label="正在生成能力画像…" />
+              ) : abilityError && !abilityData ? (
+                <LoadFailure message={abilityError} retryLabel="重试能力画像" onRetry={() => void fetchAbilityProfile()} />
+              ) : abilityData ? (
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    {abilityData.dimensions.map((dim) => (
+                      <div key={dim.id} className="rounded-md border border-white/[0.08] bg-black/20 p-4">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-sm font-semibold text-slate-100">{dim.name}</div>
+                          <div className={cn('font-mono text-sm', dim.score === null ? 'text-slate-500' : 'text-cyan-100')}>
+                            {dim.score === null ? 'N/A' : `${dim.score}`}
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                          <div
+                            className={cn('h-full rounded-full',
+                              dim.score === null ? 'bg-transparent'
+                              : dim.score >= 80 ? 'bg-emerald-300'
+                              : dim.score >= 60 ? 'bg-amber-300' : 'bg-red-300')}
+                            style={{ width: `${dim.score ?? 0}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 font-mono text-[10px] text-slate-500">
+                          完成 {dim.completedCount}/{dim.totalCount} 项
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500" title={dim.jobRef}>
+                          {dim.jobRef}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {abilityData.nextLevel && (
+                    <div className="rounded-md border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-xs leading-5 text-slate-400">
+                      下一等级 <span className="font-semibold text-slate-200">{abilityData.nextLevel.name}</span>：{abilityData.nextLevel.evidence}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <EmptyState centered icon={Award} title="暂无能力画像" description="完成任一实验后，这里会生成基于岗位能力的五维画像与等级" className="min-h-40" />
+              )}
+            </div>
+          </section>
+        )}
 
         <section aria-labelledby="analytics-page-title" className={cn('grid items-start gap-6', !isTeacherView && 'xl:grid-cols-[1.15fr_0.85fr]')}>
           {!isTeacherView && <section className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035]">
