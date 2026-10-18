@@ -8,12 +8,12 @@ export default function TermsPage() {
       </Link>
       <div className="min-w-0 break-words rounded-2xl border border-white/[0.08] bg-white/[0.035] p-6 sm:p-8">
         <h1 className="text-3xl font-bold text-slate-50">使用说明</h1>
-        <p className="mt-2 text-sm text-slate-500">当前版本：2026年7月31日</p>
+        <p className="mt-2 text-sm text-slate-500">当前版本：2026年10月</p>
 
         <section className="mt-8 space-y-3">
           <h2 className="text-xl font-semibold text-cyan-100">1. 服务范围</h2>
           <p className="leading-relaxed">
-            芯智育才用于8051微控制器课程的知识学习、测验、仿真实验、学习任务和教师复核。当前线上环境含演示账号与演示记录，不能据此认定真实教学成效。
+            芯智育才用于8051微控制器课程的知识学习、测验、仿真实验、学习任务和教师复核，由桂林航天工业学院机电工程学院主办。
           </p>
         </section>
 
@@ -55,7 +55,7 @@ export default function TermsPage() {
         <section className="mt-8 space-y-3">
           <h2 className="text-xl font-semibold text-cyan-100">6. 问题处理</h2>
           <p className="leading-relaxed">
-            遇到账号、数据或内容问题，请通过课程教师或平台管理员反馈，并提供发生时间、页面和必要的非敏感截图。当前版本不公布未经验证的客服邮箱。
+            遇到账号、数据或内容问题，请通过课程教师或平台管理员反馈，并提供发生时间、页面和必要的非敏感截图。课程组联系邮箱：2024025@guat.edu.cn。
           </p>
         </section>
       </div>

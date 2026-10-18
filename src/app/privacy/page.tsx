@@ -15,13 +15,13 @@ export default function PrivacyPolicyPage() {
             <span>隐私说明</span>
           </h1>
           <CardDescription className="text-slate-400">
-            本说明对应当前竞赛演示环境，最后更新于2026年9月2日。
+            本说明适用于本平台教学应用环境，最后更新于2026年10月。
           </CardDescription>
         </CardHeader>
 
         <CardContent className="min-w-0 space-y-8 break-words text-slate-300">
           <section className="rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-4">
-            <h2 className="font-semibold text-amber-100">演示环境提示</h2>
+            <h2 className="font-semibold text-amber-100">信息安全提示</h2>
             <p className="mt-2 leading-relaxed text-amber-50/80">
               请勿在平台输入身份证号、银行卡、账号密钥、未授权学生材料或其他与课程学习无关的敏感信息。AI回答只作学习辅助，重要结论需结合教材、实验结果和教师意见复核。
             </p>

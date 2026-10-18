@@ -191,7 +191,7 @@ export default function WelcomePage() {
 
       <footer className="border-t border-white/[0.08]">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-slate-400 sm:flex-row sm:px-6">
-          <p>&copy; 2026 芯智育才 · 微控制器课程智能化教学辅助平台</p>
+          <p>主办：桂林航天工业学院 机电工程学院 &nbsp;·&nbsp; &copy; 2026 芯智育才微控制器虚拟仿真实验教学平台 &nbsp;·&nbsp; 联系：2024025@guat.edu.cn</p>
           <p className="flex items-center gap-3">
             <Link href="/privacy" className="inline-flex min-h-11 items-center rounded px-1 transition-colors hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">隐私政策</Link>
             <span className="h-3 w-px bg-slate-700" aria-hidden="true" />
