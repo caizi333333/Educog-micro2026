@@ -18,6 +18,7 @@ import {
   type Proj04CompletionEvidence,
 } from '@/lib/experiment-config';
 import { maybeUploadToIlab } from '@/lib/ilab/service';
+import { compareAgainst, type SimilarityReport } from '@/lib/code-similarity';
 
 const OFFICIAL_EXPERIMENT_IDS = experimentCatalog.map((experiment) => experiment.id);
 
@@ -942,6 +943,32 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...(newCompletionContext ? { completionContext: newCompletionContext } : {}),
       ...(completionHistory.length > 0 ? { completionHistory } : {}),
     } : null;
+
+    // 防抄袭：完成提交时与同实验他人代码做指令序列 n-gram 相似度检测，报告随 results 入库；
+    // 比对标识用 userId 哈希脱敏，教师侧可溯源、学生侧不暴露他人身份。检测失败不阻断保存。
+    let plagiarismCheck: SimilarityReport | null = null;
+    if (status === 'COMPLETED' && typeof code === 'string' && code.trim()) {
+      try {
+        const peers = await prisma.userExperiment.findMany({
+          where: { experimentId, userId: { not: payload.userId }, lastCode: { not: null } },
+          select: { userId: true, lastCode: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 200,
+        });
+        plagiarismCheck = compareAgainst(
+          code,
+          peers.map((p) => ({
+            key: createHash('sha256').update(p.userId).digest('hex').slice(0, 12),
+            code: p.lastCode ?? '',
+          })),
+        );
+        if (storedResults) {
+          (storedResults as Record<string, unknown>).plagiarismCheck = plagiarismCheck;
+        }
+      } catch {
+        plagiarismCheck = null;
+      }
+    }
     
     if (status === 'COMPLETED') {
       // 完成活动使用确定性主键并与实验记录、任务推进放在同一事务中。
@@ -1145,6 +1172,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         completedAt: experiment.completedAt
       },
       message: status === 'COMPLETED' ? '本轮仿真运行记录已保存；课程目标是否达到仍需结合测评与教师评价' : '实验进度已保存',
+      ...(plagiarismCheck
+        ? { integrity: { flagged: plagiarismCheck.flagged, maxSimilarity: plagiarismCheck.maxSimilarity, checkedCount: plagiarismCheck.checkedCount } }
+        : {}),
       pointsEarned: basePoints,
       newAchievements: newAchievements.length > 0 ? newAchievements : null,
       totalPointsEarned: basePoints + achievementPoints

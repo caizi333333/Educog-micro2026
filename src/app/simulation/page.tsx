@@ -915,7 +915,7 @@ export default function SimulationPage(): React.JSX.Element {
                   onProjectMilestoneChange={saveProj04Milestone}
                 />
               ) : activeRightTab === 'ai' ? (
-                <AiDiagnostics code={code} fault={fault} experimentTitle={currentExp?.title} />
+                <AiDiagnostics code={code} fault={fault} experimentTitle={currentExp?.title} experimentId={currentExp?.id ?? null} simulatorState={simulatorState} />
               ) : (
                 <ControlPanel
                   error={error}

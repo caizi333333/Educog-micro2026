@@ -5,11 +5,16 @@ import { Sparkles, Loader2, AlertCircle, AlertTriangle, CheckCircle2, BookOpen, 
 import { cn } from '@/lib/utils';
 import { validateAssemblyCode, type ValidationResult } from '@/lib/syntax-validator';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import type { SimulatorState } from '@/lib/simulator';
+import type { DiagnosisResult } from '@/lib/experiment-diagnosis';
+import type { AiCodeReview } from '@/lib/ai-code-review';
 
 interface Props {
   code: string;
   fault: string;
   experimentTitle?: string;
+  experimentId?: string | null;
+  simulatorState?: SimulatorState | null;
 }
 
 interface Chapter {
@@ -24,7 +29,7 @@ function isFallbackAnswer(a: string): boolean {
 
 // 仿真页内嵌的代码诊断：本地静态语法检查打底（始终可用、能定位到行），
 // AI 深度分析（/api/ai/chat · 智谱 GLM）作为叠加，共同构成实验流程内的智能辅助。
-export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
+export default function AiDiagnostics({ code, fault, experimentTitle, experimentId, simulatorState }: Props) {
   const [loading, setLoading] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [answer, setAnswer] = useState('');
@@ -32,6 +37,98 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [error, setError] = useState('');
   const [asked, setAsked] = useState(false);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveResult, setLiveResult] = useState<DiagnosisResult | null>(null);
+  const [liveQuota, setLiveQuota] = useState<{ dailyLimit: number; usedToday: number } | null>(null);
+  const [liveError, setLiveError] = useState('');
+  const [liveQuestion, setLiveQuestion] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [review, setReview] = useState<(AiCodeReview & { cached?: boolean }) | null>(null);
+  const [reviewError, setReviewError] = useState('');
+
+  const requestReview = async () => {
+    if (!experimentId) return;
+    setReviewError('');
+    setReviewLoading(true);
+    try {
+      const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
+      const res = await fetch('/api/experiments/ai-review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ experimentId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
+      setReview(json);
+    } catch (e) {
+      setReviewError(e instanceof Error ? e.message : '评价请求失败');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  // 从仿真状态提取诊断快照（只取模型判断需要的关键状态，避免全量序列化）
+  const buildSnapshot = () => {
+    if (!simulatorState) return null;
+    const s = simulatorState;
+    const currentInstruction =
+      s.currentLine >= 0 && s.memory?.[s.currentLine] ? s.memory[s.currentLine] : '';
+    return {
+      registers: { A: s.registers.A, B: s.registers.B, SP: s.registers.SP, DPTR: (s.registers.DPH << 8) | s.registers.DPL },
+      portValues: s.portValues,
+      pc: s.pc,
+      currentLine: s.currentLine,
+      currentInstruction,
+      uartTail: `TX:${s.uart.transmitBuffer.slice(-400)} | RX:${s.uart.receiveBuffer.slice(-400)}`,
+      timers: {
+        TMOD: s.timers.TMOD, TCON: s.timers.TCON,
+        TR0: s.timers.TR0, TR1: s.timers.TR1,
+        overflow0: s.timers.overflowCount0, overflow1: s.timers.overflowCount1,
+      },
+      environment: s.environment ?? undefined,
+      deviceNotes: [
+        s.buzzer.active ? '蜂鸣器激活中' : '蜂鸣器静默',
+        `串口 SBUF=0x${s.uart.SBUF.toString(16).padStart(2, '0')} TI=${s.uart.TI} RI=${s.uart.RI}`,
+        s.terminated ? '程序已终止' : '程序运行中/暂停',
+      ],
+    };
+  };
+
+  const diagnoseLive = async () => {
+    if (!experimentId) {
+      setLiveError('当前不在实验模式下，无实验上下文可诊断');
+      return;
+    }
+    setLiveError('');
+    setLiveLoading(true);
+    try {
+      const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
+      const res = await fetch('/api/ai/experiment-diagnosis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          experimentId,
+          code: code.slice(0, 24000),
+          question: liveQuestion.trim() || undefined,
+          snapshot: buildSnapshot() ?? {},
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
+      setLiveResult(json);
+      if (json.quota) setLiveQuota(json.quota);
+    } catch (e) {
+      setLiveError(e instanceof Error ? e.message : '诊断请求失败');
+    } finally {
+      setLiveLoading(false);
+    }
+  };
 
   const buildQuestion = () => {
     const parts = [
@@ -113,6 +210,58 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           {loading ? '分析中…' : fault ? '诊断当前报错' : '分析当前代码'}
         </button>
+
+        {/* 实时仿真诊断：AI 读取当前仿真快照（寄存器/端口/串口/环境），长在实验流程里 */}
+        {experimentId && (
+          <div className="mt-2 rounded-md border border-cyan-300/15 bg-cyan-400/[0.04] p-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-cyan-300">实时仿真诊断</span>
+              {liveQuota && (
+                <span className="text-[9px] text-[#6c7086]">今日 {liveQuota.usedToday}/{liveQuota.dailyLimit}</span>
+              )}
+            </div>
+            <input
+              value={liveQuestion}
+              onChange={(e) => setLiveQuestion(e.target.value)}
+              placeholder="卡在哪了？（可留空，直接读状态诊断）"
+              maxLength={400}
+              className="mb-1.5 w-full rounded border border-white/[0.08] bg-[#181825] px-2 py-1 text-[10px] text-[#cdd6f4] placeholder:text-[#585b70] focus:border-cyan-300/40 focus:outline-none"
+            />
+            <button
+              onClick={diagnoseLive}
+              disabled={liveLoading}
+              className={cn(
+                'flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all',
+                liveLoading
+                  ? 'cursor-not-allowed bg-white/[0.05] text-[#6c7086]'
+                  : 'bg-cyan-400/20 text-cyan-100 ring-1 ring-cyan-300/30 hover:bg-cyan-400/30',
+              )}
+            >
+              {liveLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {liveLoading ? '读取仿真状态诊断中…' : 'AI 读当前状态诊断'}
+            </button>
+            <p className="mt-1 text-[9px] leading-3.5 text-[#585b70]">
+              将当前寄存器/端口/串口/环境读数连同代码发给 AI，只给排查方向不给答案。
+            </p>
+          </div>
+        )}
+
+        {/* AI 代码评价：对已提交代码按 rubric 分项评分（入库留痕，可复看） */}
+        {experimentId && (
+          <button
+            onClick={requestReview}
+            disabled={reviewLoading}
+            className={cn(
+              'mt-2 flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all',
+              reviewLoading
+                ? 'cursor-not-allowed bg-white/[0.05] text-[#6c7086]'
+                : 'bg-[#f9e2af]/15 text-[#f9e2af] ring-1 ring-[#f9e2af]/25 hover:bg-[#f9e2af]/25',
+            )}
+          >
+            {reviewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            {reviewLoading ? 'AI 评审中…' : review ? '刷新 AI 代码评价' : '获取 AI 代码评价（须已提交）'}
+          </button>
+        )}
       </div>
 
       {/* 内容区 */}
@@ -129,6 +278,88 @@ export default function AiDiagnostics({ code, fault, experimentTitle }: Props) {
           <div className="flex items-start gap-2 rounded-md border border-[#f38ba8]/20 bg-[#f38ba8]/5 p-2.5 text-[11px] text-[#f38ba8]">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {liveError && (
+          <div className="flex items-start gap-2 rounded-md border border-[#f38ba8]/20 bg-[#f38ba8]/5 p-2.5 text-[11px] text-[#f38ba8]">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>{liveError}</span>
+          </div>
+        )}
+
+        {/* 实时诊断结构化结果 */}
+        {liveResult && (
+          <div className="space-y-2 rounded-md border border-cyan-300/20 bg-cyan-400/[0.04] p-2.5">
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300">
+              <Sparkles className="h-3 w-3" /> 仿真状态诊断
+            </div>
+            {liveResult.observation && (
+              <div className="text-[10px] leading-relaxed text-[#a6adc8]">
+                <span className="font-semibold text-[#89b4fa]">现象：</span>{liveResult.observation}
+              </div>
+            )}
+            <div className="text-[11px] leading-relaxed text-[#cdd6f4]">
+              <span className="font-semibold text-[#f9e2af]">判断：</span>{liveResult.diagnosis}
+            </div>
+            {liveResult.hints.length > 0 && (
+              <ol className="list-decimal space-y-1 pl-4 text-[10px] leading-relaxed text-[#cdd6f4]">
+                {liveResult.hints.map((h, i) => <li key={i}>{h}</li>)}
+              </ol>
+            )}
+            {liveResult.nextCheck && (
+              <div className="rounded border border-[#45475a] bg-[#181825] px-2 py-1.5 text-[10px] text-[#a6e3a1]">
+                <span className="font-semibold">下一步自查：</span>{liveResult.nextCheck}
+              </div>
+            )}
+            <p className="text-[9px] italic text-[#585b70]">诊断仅指方向不给答案，请自行修改验证。</p>
+          </div>
+        )}
+
+        {reviewError && (
+          <div className="flex items-start gap-2 rounded-md border border-[#f38ba8]/20 bg-[#f38ba8]/5 p-2.5 text-[11px] text-[#f38ba8]">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>{reviewError}</span>
+          </div>
+        )}
+
+        {/* AI 代码评价 rubric 结果 */}
+        {review && (
+          <div className="space-y-2 rounded-md border border-[#f9e2af]/20 bg-[#f9e2af]/[0.04] p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-[#f9e2af]">AI 代码评价</span>
+              <span className="rounded bg-[#f9e2af]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#f9e2af]">
+                {review.overall} 分{review.cached ? ' · 缓存' : ''}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {review.dimensions.map((d, i) => (
+                <div key={i} className="rounded border border-white/[0.06] bg-[#181825] px-2 py-1.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-semibold text-[#cdd6f4]">{d.name}</span>
+                    <span className={cn('font-mono', d.score >= 80 ? 'text-[#a6e3a1]' : d.score >= 60 ? 'text-[#f9e2af]' : 'text-[#f38ba8]')}>
+                      {d.score}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1 rounded-full bg-white/[0.06]">
+                    <div
+                      className={cn('h-1 rounded-full', d.score >= 80 ? 'bg-[#a6e3a1]' : d.score >= 60 ? 'bg-[#f9e2af]' : 'bg-[#f38ba8]')}
+                      style={{ width: `${d.score}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[9px] leading-relaxed text-[#a6adc8]">{d.comment}</p>
+                </div>
+              ))}
+            </div>
+            {review.summary && (
+              <p className="text-[10px] leading-relaxed text-[#cdd6f4]"><span className="font-semibold">总评：</span>{review.summary}</p>
+            )}
+            {review.suggestions.length > 0 && (
+              <ul className="list-disc space-y-0.5 pl-4 text-[9px] leading-relaxed text-[#a6adc8]">
+                {review.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+              </ul>
+            )}
+            <p className="text-[9px] italic text-[#585b70]">AI 辅助评价已存入实验记录，最终成绩以教师评定为准。</p>
           </div>
         )}
 
