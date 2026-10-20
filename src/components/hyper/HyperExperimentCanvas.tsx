@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   Activity, AlertTriangle, ArrowDown, ArrowUp, Camera, Car, Cpu, Droplets, Fan, Keyboard,
-  Lightbulb, Maximize2, Radio, TerminalSquare, Thermometer, Waypoints, Zap,
+  Lightbulb, Maximize2, Radio, Scale, TerminalSquare, Thermometer, Waypoints, Zap,
   ZoomIn, ZoomOut, type LucideIcon,
 } from 'lucide-react';
 import type { SimulatorState } from '@/lib/simulator';
+import { parseRealTelemetry, compareWithVirtual } from '@/lib/real-compare';
 import {
   getExperimentConfig,
   type BitMapEntry, type KeyMapEntry, type PeripheralConfig, type PortName,
@@ -1010,6 +1011,109 @@ function GreenhouseEnvPanel({ env, onScenario, onTargets }: {
   );
 }
 
+// ─────────────────────────── 虚实对照面板（proj04 拓展） ───────────────────────────
+/** 实体套件串口遥测 vs 虚拟环境模型：粘贴串口 JSON 日志→统计+一致性判定。纯前端解析，不留痕不入库。 */
+function RealComparePanel({ env }: {
+  env: { temperature: number; humidity: number };
+}) {
+  const [open, setOpen] = useState(false);
+  const [raw, setRaw] = useState('');
+  const [useVirtualRef, setUseVirtualRef] = useState(true);
+  const [report, setReport] = useState<ReturnType<typeof compareWithVirtual> | null>(null);
+  const [badLines, setBadLines] = useState(0);
+
+  const runCompare = () => {
+    const { samples, badLines: bad } = parseRealTelemetry(raw);
+    setBadLines(bad);
+    setReport(compareWithVirtual(
+      samples,
+      useVirtualRef ? env.temperature : null,
+      useVirtualRef ? env.humidity : null,
+    ));
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-11 items-center gap-1.5 self-start rounded-lg border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-2 text-[11px] text-cyan-100 hover:border-cyan-300/40"
+      >
+        <Scale className="h-3.5 w-3.5" /> 虚实对照（实体套件数据比对）
+      </button>
+    );
+  }
+
+  const verdictStyle = {
+    good: 'border-emerald-300/40 bg-emerald-300/[0.1] text-emerald-100',
+    ok: 'border-amber-300/40 bg-amber-300/[0.1] text-amber-100',
+    poor: 'border-red-300/40 bg-red-300/[0.1] text-red-100',
+    none: 'border-white/[0.1] bg-white/[0.04] text-slate-300',
+  } as const;
+
+  return (
+    <div className="flex w-full max-w-[420px] flex-col gap-2 rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <Scale className="h-4 w-4 text-cyan-300" />
+        <span className="text-[12px] font-medium text-cyan-100">虚实对照</span>
+        <button type="button" onClick={() => setOpen(false)} className="ml-auto text-[10px] text-slate-500 hover:text-slate-300">收起</button>
+      </div>
+
+      <p className="text-[10px] leading-4 text-slate-500">
+        在实体套件上烧录配套固件（DHT11→串口输出与 proj04 同款 JSON），把串口日志粘贴到下方；
+        建议先把工况切到与实测环境相近的场景，再比对。
+      </p>
+
+      <textarea
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        placeholder={'粘贴串口日志，每行一帧，如：\n{"temp":25.4,"humi":61,"alarm":0,"ts":2048}\n{"temp":25.6,"humi":60,"alarm":0,"ts":4072}'}
+        rows={4}
+        className="w-full rounded-md border border-white/[0.1] bg-black/30 px-2.5 py-2 font-mono text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none"
+      />
+
+      <label className="flex items-center gap-2 text-[10px] text-slate-400">
+        <input type="checkbox" checked={useVirtualRef} onChange={(e) => setUseVirtualRef(e.target.checked)} className="accent-cyan-300" />
+        与当前虚拟环境读数比对（{env.temperature.toFixed(1)}°C / {env.humidity.toFixed(0)}%）
+      </label>
+
+      <button
+        type="button"
+        onClick={runCompare}
+        disabled={!raw.trim()}
+        className="min-h-11 rounded-md bg-cyan-300 px-3 text-[12px] font-semibold text-[#001014] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        生成对照报告
+      </button>
+
+      {report && (
+        <div className="space-y-2 rounded-md border border-white/[0.08] bg-black/25 p-2.5">
+          <div className="flex items-baseline justify-between text-[10px] text-slate-400">
+            <span>有效帧 {report.count} · 丢弃坏帧 {badLines} · 报警帧 {report.alarmCount}</span>
+          </div>
+          {report.count > 0 && (
+            <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+              <div className="rounded border border-white/[0.08] px-2 py-1.5">
+                <div className="text-[9px] text-slate-500">实测温度</div>
+                <div className="text-slate-100">{report.tempAvg.toFixed(1)}°C（{report.tempMin.toFixed(1)}–{report.tempMax.toFixed(1)}）</div>
+                {report.tempDev !== null && <div className="text-[9px] text-slate-500">偏差 {report.tempDev.toFixed(1)}°C</div>}
+              </div>
+              <div className="rounded border border-white/[0.08] px-2 py-1.5">
+                <div className="text-[9px] text-slate-500">实测湿度</div>
+                <div className="text-slate-100">{report.humiAvg.toFixed(0)}%（{report.humiMin.toFixed(0)}–{report.humiMax.toFixed(0)}）</div>
+                {report.humiDev !== null && <div className="text-[9px] text-slate-500">偏差 {report.humiDev.toFixed(1)}%</div>}
+              </div>
+            </div>
+          )}
+          <div className={cn('rounded-md border px-2.5 py-2 text-[10px] leading-4', verdictStyle[report.verdict])}>
+            {report.verdictText}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────── 主组件 ───────────────────────────
 export function HyperExperimentCanvas({ simulatorState, isRunning = false, experimentId = null, inputEnabled = true, onSetPortBit: setPortBit, onPulsePortBit: pulsePortBit, onReceiveUartByte: receiveUartByte, onEnvironmentScenario, onEnvironmentTargets }: {
   simulatorState: SimulatorState | null;
@@ -1197,11 +1301,14 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
             {renderPeripheral()}
             {extraKeys}
             {simulatorState?.environment && typeof simulatorState.environment.temperature === 'number' && (
-              <GreenhouseEnvPanel
-                env={simulatorState.environment as { temperature: number; humidity: number; scenario: string; scenarioId: string; fanOn: boolean }}
-                onScenario={onEnvironmentScenario}
-                onTargets={onEnvironmentTargets}
-              />
+              <>
+                <GreenhouseEnvPanel
+                  env={simulatorState.environment as { temperature: number; humidity: number; scenario: string; scenarioId: string; fanOn: boolean }}
+                  onScenario={onEnvironmentScenario}
+                  onTargets={onEnvironmentTargets}
+                />
+                <RealComparePanel env={simulatorState.environment as { temperature: number; humidity: number }} />
+              </>
             )}
           </div>
         )}
