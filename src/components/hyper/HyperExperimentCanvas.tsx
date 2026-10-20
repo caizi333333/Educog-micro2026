@@ -1060,8 +1060,13 @@ function RealComparePanel({ env }: {
       </div>
 
       <p className="text-[10px] leading-4 text-slate-500">
-        在实体套件上烧录配套固件（DHT11→串口输出与 proj04 同款 JSON），把串口日志粘贴到下方；
+        在实体套件（Arduino Uno + DHT11）上烧录配套固件，把串口日志粘贴到下方；
         建议先把工况切到与实测环境相近的场景，再比对。
+        <a
+          href="/resources/experiments/proj04/greenhouse_uno_dht11.ino"
+          download
+          className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100"
+        >下载配套固件 .ino</a>
       </p>
 
       <textarea
