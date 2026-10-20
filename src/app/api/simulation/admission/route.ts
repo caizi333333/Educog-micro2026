@@ -10,10 +10,15 @@ import { admit, heartbeat, leave } from '@/lib/simulation-admission';
  */
 export async function POST(request: NextRequest) {
   const authorization = request.headers.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) {
+  let token = authorization?.startsWith('Bearer ') ? authorization.substring(7) : '';
+  // 浏览器端凭证已迁入 httpOnly cookie：拿到的是 'cookie-session' 占位标记，需回退读 cookie。
+  if (!token || token === 'cookie-session') {
+    token = request.cookies.get('accessToken')?.value ?? '';
+  }
+  if (!token) {
     return NextResponse.json({ error: '未授权' }, { status: 401 });
   }
-  const payload = await verifyToken(authorization.substring(7));
+  const payload = await verifyToken(token);
   if (!payload?.userId) {
     return NextResponse.json({ error: '令牌无效' }, { status: 401 });
   }
