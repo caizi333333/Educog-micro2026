@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 章 控制转移｜SJMP · AJMP · LJMP · DJNZ · CJNE（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+
+</style>
+<style>.kp-wrap{max-width:1360px}
+body{font-size:18px}
+body.z1{zoom:1.15} body.z2{zoom:1.3}
+.kp-eyebrow{font-size:14px}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.top .grow{flex:1 1 520px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.btn{cursor:pointer;min-height:38px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--slate100);font:500 15px var(--fs);transition:.15s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
+.btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
+.btn.mono{font-family:var(--fm);font-weight:700}
+.tabs{display:flex;gap:8px;margin:18px 0 14px;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.85)}
+.tab{flex:1;min-height:52px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.tab small{font-weight:400;font-size:14px;opacity:.8}
+.tab:hover{background:rgba(255,255,255,.07)}
+.tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
+.card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
+.h2{font-size:21px;font-weight:700;margin:2px 0 6px}
+.sub{font-size:15px;color:var(--muted-fg);margin-bottom:10px}
+.mono{font-family:var(--fm)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.talk{border-radius:9px;padding:10px 13px;background:hsl(184 82% 48% / .07);border:1px solid hsl(184 82% 48% / .22);font-size:17px;line-height:1.65;color:var(--cyan100);min-height:56px}
+.talk b{color:#fff}
+.say{margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(246,187,49,.07);border-left:3px solid var(--c3);color:var(--amber200);font-size:16px;line-height:1.6}
+.bigq{font-size:26px;font-weight:800;color:#fff;margin:4px 0 8px}.bigq em{font-style:normal;color:var(--amber300)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.opt{display:grid;gap:8px}
+.ob{text-align:left;font:600 16.5px var(--fs);color:var(--slate100);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:10px 12px;cursor:pointer}
+.ob b{display:inline-block;width:24px;color:var(--cyan100)}.ob:hover{background:rgba(255,255,255,.08)}
+.ob.pick{border-color:#f4b740;background:hsl(42 92% 58% / .12)}.ob.ok{border-color:hsl(150 60% 45%);background:hsl(150 60% 40% / .18)}.ob.no{border-color:hsl(350 70% 55%);background:hsl(350 70% 50% / .12)}
+.res{margin-top:10px;font-size:16.5px;line-height:1.6;color:var(--slate100);min-height:28px}.res b{color:var(--amber200)}
+.ans{margin-top:8px;font-size:16.5px;line-height:1.6;color:var(--cyan100);border-radius:9px;padding:10px 12px;background:hsl(184 82% 48% / .08);border:1px solid hsl(184 82% 48% / .3)}.ans b{color:#fff}
+.hide{display:none!important}
+/* RAM 视图 */
+.ram{display:grid;grid-template-columns:44px repeat(8,1fr);gap:2px;font:600 13px var(--fm)}
+.ram .ah{color:#64748b;text-align:right;padding-right:4px;line-height:26px}
+.ram .c{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);color:#94a3b8;position:relative;transition:background .3s}
+.ram .c.bk0{background:hsl(210 60% 50% / .14)}.ram .c.bk1{background:hsl(260 60% 60% / .14)}.ram .c.bk2{background:hsl(300 50% 55% / .12)}.ram .c.bk3{background:hsl(330 60% 55% / .12)}
+.ram .c.bit{background:hsl(150 50% 45% / .12)}
+.ram .c.v{color:#fff}
+.ram .c.sp{outline:2px solid #f4b740;z-index:2}
+.ram .c.hit{background:hsl(42 92% 58% / .55)!important;color:#141006}
+.ram .c.bad{background:hsl(350 70% 50% / .55)!important;color:#fff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--slate300);margin:6px 0}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.regs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.reg{border-radius:7px;padding:5px 10px;background:rgba(255,255,255,.05);font:600 15px var(--fm)}.reg b{color:var(--amber200)}.reg.sp b{color:#f4b740}.reg.chg{outline:2px solid #f4b740}
+.ops{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.micro{display:grid;gap:4px;margin-top:8px}.micro div{border-radius:7px;padding:6px 10px;background:rgba(255,255,255,.04);font-size:15.5px;opacity:.35;transition:opacity .3s}.micro div.on{opacity:1;background:hsl(42 92% 58% / .12)}
+.micro .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:#f4b740;color:#141006;text-align:center;font:800 13px/22px var(--fm);margin-right:8px}
+.stk{display:flex;flex-direction:column-reverse;gap:3px;min-height:150px;border:2px solid rgba(255,255,255,.15);border-top:none;border-radius:0 0 10px 10px;padding:6px;width:180px}
+.stk div{border-radius:6px;padding:5px 8px;background:hsl(184 82% 48% / .18);font:600 14px var(--fm);color:#fff;animation:kpFade .3s}
+.flow{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+textarea{width:100%;min-height:210px;background:#0b1117;color:#e2e8f0;border:1px solid rgba(255,255,255,.15);border-radius:8px;font:600 15px/1.55 var(--fm);padding:8px}
+.lines{font:600 15px/1.8 var(--fm)}.lines div{padding:0 8px;border-radius:5px}.lines div.cur{background:hsl(42 92% 58% / .2)}.lines div.err{background:hsl(350 70% 50% / .25)}
+.log{font-size:15px;line-height:1.6;margin-top:8px;min-height:48px}
+.warn{color:var(--rose300);font-weight:700}
+.qz{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.qq{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}.qq .t{font-size:16.5px;font-weight:700;margin-bottom:6px;line-height:1.5}
+.qq .o{display:block;width:100%;text-align:left;margin:4px 0;font:600 15px var(--fm);padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:none;color:var(--slate100);cursor:pointer}
+.qq .o.ok{background:hsl(150 60% 40%);color:#fff}.qq .o.no{background:hsl(350 70% 50%);color:#fff}
+.qq .e{font-size:15px;line-height:1.55;color:var(--cyan100);margin-top:6px}
+.note{font-size:13.5px;color:var(--slate400);margin-top:8px;line-height:1.55}
+.flow>div{flex:1 1 260px;min-width:0}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:5px 7px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}table.mt th{color:var(--slate300);font-weight:600}
+.cmpt{margin-top:10px;font-size:14.5px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+.lv{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.lv .btn.on{background:hsl(42 92% 58% / .9);color:#141006}
+.stage{min-height:230px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.07);padding:12px;display:flex;flex-direction:column;gap:10px}
+.cap{font-size:15.5px;color:var(--amber200);min-height:24px}
+.bx{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center}
+.cell{min-width:86px;border-radius:9px;padding:6px 10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);text-align:center;transition:all .35s}
+.cell small{display:block;font-size:12.5px;color:var(--slate400)}
+.cell b{display:block;font:700 20px var(--fm);color:#fff}
+.cell.hit{background:hsl(42 92% 58% / .28);border-color:#f4b740}
+.cell.bad{background:hsl(350 70% 50% / .3);border-color:hsl(350 70% 60%)}
+.cell.ok{background:hsl(150 60% 40% / .3);border-color:hsl(150 60% 50%)}
+.cell.rom{border-style:dashed}
+.arw{font:700 22px var(--fm);color:#f4b740}
+.why{margin-top:10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);padding:6px 12px;background:rgba(255,255,255,.02)}
+.why summary{cursor:pointer;color:var(--cyan100);font-weight:700;font-size:15.5px}
+.why div{font-size:15.5px;line-height:1.7;color:var(--slate100);margin:6px 0}
+.inf{display:inline-block;font-size:12px;padding:1px 6px;border-radius:4px;background:hsl(270 50% 50% / .25);color:#e9d5ff;margin-left:4px;vertical-align:1px}
+.bt{display:grid;grid-template-columns:110px 1fr 54px;gap:6px;align-items:center;font-size:14.5px;margin:3px 0}
+.bt .bar{height:14px;border-radius:4px;background:#f4b740;transition:width .5s}
+.bt .bar.c{background:hsl(184 82% 48%)}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:6px 8px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}
+table.mt th{color:var(--slate300);font-weight:600}
+.pick2{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+.pick2 .btn.on{background:hsl(184 82% 48% / .35);color:#fff}
+.nib{display:inline-flex;gap:3px}.nib span{display:inline-block;width:34px;text-align:center;border-radius:6px;padding:4px 0;background:rgba(255,255,255,.07);font:700 20px var(--fm);transition:all .4s}
+.nib span.mv{background:hsl(42 92% 58% / .5);color:#141006;transform:translateY(-4px)}
+svg text{font-family:var(--fs)}
+.mini{display:inline-block;width:60px;height:9px;border-radius:3px;background:rgba(255,255,255,.07);margin-right:6px;vertical-align:1px}.mini i{display:block;height:100%;border-radius:3px;background:#f4b740}.mini.c i{background:hsl(184 82% 48%)}
+.cmpt{margin-top:10px;font-size:14.5px}.cmpt td{padding:5px 7px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+/* 算术、逻辑两节补充样式 */
+.bits{display:grid;grid-template-columns:78px 46px repeat(8,44px);gap:3px;align-items:center;font:700 19px var(--fm);margin:6px 0}
+.bits .lab{font-size:14px;color:var(--slate300);text-align:right;padding-right:6px;font-family:var(--fs)}
+.bits .hd{font-size:12.5px;color:#64748b;text-align:center}
+.bits .bt0{height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);color:#94a3b8;transition:all .25s}
+.bits .bt0.one{background:hsl(184 82% 48% / .3);color:#fff}
+.bits .bt0.clk{cursor:pointer}.bits .bt0.clk:hover{outline:1px solid #94a3b8}
+.bits .bt0.chg{outline:2px solid #f4b740}
+.bits .cr{font-size:14px;color:#64748b;text-align:center;height:20px}
+.bits .cr.c1{color:#f4b740;font-weight:800}
+.bits .cr.mk{background:hsl(42 92% 58% / .22);border-radius:5px}
+.bits .sep{grid-column:1/-1;height:2px;background:rgba(255,255,255,.18)}
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin-top:10px}
+.fl{border-radius:9px;padding:8px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer}
+.fl .k{font:700 15px var(--fm);color:var(--amber200)}.fl b{font:800 24px var(--fm);color:#fff;margin-left:6px}
+.fl div{font-size:14.5px;color:var(--slate300);line-height:1.55;margin-top:3px}
+.fl.on{border-color:#f4b740;background:hsl(42 92% 58% / .1)}
+.fl.same b{color:#64748b}
+input.hx{width:92px;font:700 21px var(--fm);background:#0b1117;color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:7px;padding:4px 8px;text-transform:uppercase}
+input.hx.bad{border-color:hsl(350 70% 60%)}
+.big{font:800 26px var(--fm);color:#fff}
+.dec{font-size:14.5px;color:var(--slate300);margin-top:4px}
+.tt{border-collapse:collapse;font-size:17px;margin:6px 0}.tt td,.tt th{border:1px solid rgba(255,255,255,.12);padding:8px 14px;text-align:center}
+.tt th{color:var(--slate300);font-weight:600}.tt td.c{cursor:pointer}.tt td.on{background:hsl(42 92% 58% / .22)}
+.tt b{font-family:var(--fm);font-size:20px;color:#fff}.tt small{display:block;color:var(--amber200);font-size:13.5px}
+.psw{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-width:560px}.psw div{text-align:center;border-radius:6px;padding:6px 0;background:rgba(255,255,255,.05);font:700 16px var(--fm);cursor:pointer}
+.psw div.k{background:hsl(184 82% 48% / .25);color:#fff}.psw div.on{outline:2px solid #f4b740}
+.ln{display:grid;grid-template-columns:70px 120px 1fr;gap:6px;padding:2px 8px;border-radius:5px;font:600 15.5px/1.75 var(--fm)}
+.ln .ad{color:#64748b}.ln .mc{color:#94a3b8}.ln.cur{background:hsl(42 92% 58% / .22)}
+.steps{font:600 16px/1.9 var(--fm);margin-top:8px}.steps div{opacity:0;transition:opacity .4s}.steps div.on{opacity:1}
+.steps .bad{color:#fb7185}.steps .ok{color:#4ade80}
+.enc{display:grid;grid-template-columns:repeat(8,40px);gap:3px;font:700 17px var(--fm)}
+.enc div{height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);color:#cbd5e1}
+.enc div.a{background:hsl(42 92% 58% / .35);color:#fff}.enc div.f{background:hsl(184 82% 48% / .22);color:#fff}
+.enc small{grid-column:1/-1;font:500 13px var(--fs);color:var(--slate400)}
+select.hx{font:700 18px var(--fm);background:#0b1117;color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:7px;padding:5px 8px}
+.verdict{margin-top:8px;font-size:17px;font-weight:700;border-radius:8px;padding:8px 12px}
+.verdict.ok{background:hsl(150 60% 40% / .2);color:#86efac}.verdict.no{background:hsl(350 70% 50% / .2);color:#fda4af}
+.pg{position:relative;height:56px;margin:10px 0;border-radius:8px;background:rgba(255,255,255,.04)}
+.pg i{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.25)}
+.pg span{position:absolute;top:-2px;font:600 12px var(--fm);color:#64748b;transform:translateX(-50%)}
+.pg .pgOn{position:absolute;top:18px;height:22px;background:hsl(184 82% 48% / .25);border:1px solid hsl(184 82% 48% / .6);border-radius:4px}
+.pg .mk{position:absolute;top:14px;width:3px;height:30px;border-radius:2px;transform:translateX(-1px)}
+</style></head>
+<body><div class="kp-wrap">
+<div class="top"><div class="grow"><div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 控制转移</div><h1 class="kp-h1">控制转移：跳转的地址怎么给</h1></div>
+<div class="zoom">字号 <button class="btn sm on" data-z="0">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button></div></div>
+<div class="tabs" role="tablist">
+<button class="tab" data-p="dz" aria-selected="true">① 难题与对比<small>16 位 · 11 位 · 8 位偏移</small></button>
+<button class="tab" data-p="show">② 揭晓与原理<small>SJMP · AJMP · LJMP 编码</small></button>
+<button class="tab" data-p="hand">③ 动手练<small>rel 计算 · 跨页 · 循环单步</small></button>
+<button class="tab" data-p="qz">④ 小测<small>5 题</small></button></div>
+
+<section class="pane on" id="p-dz"><div class="card" id="dzBox"></div>
+<div class="card" style="margin-top:12px"><div class="h2">三种给法放在一起比</div>
+<table class="mt" id="cmpAll"><tr><th>给法</th><th>指令</th><th>字节</th><th>周期</th><th>能跳多远</th><th>整段程序搬到别的地址还能不能用</th></tr>
+<tr><td>给全 16 位地址</td><td class="mono">LJMP addr16</td><td>3</td><td>2</td><td>64KB 任意处</td><td>不能直接用，地址写死了，要重新汇编</td></tr>
+<tr><td>给 11 位页内地址</td><td class="mono">AJMP addr11</td><td>2</td><td>2</td><td>下一条指令所在的 2KB 页内</td><td>只有整段平移 2KB 的整数倍才能用</td></tr>
+<tr><td>给 8 位相对偏移</td><td class="mono">SJMP rel</td><td>2</td><td>2</td><td>下一条指令往后 127、往前 128 字节</td><td>能用，偏移只看两条指令的距离</td></tr></table>
+<div class="note">三种都是 2 个周期，省下的只是字节。8051 片内 ROM 只有 4KB，按 2KB 分页在当年很划算<span class="inf">教学推断</span>。</div></div></section>
+
+<section class="pane" id="p-show"><div class="card" id="rvBox"></div>
+<div class="card" style="margin-top:12px"><div class="h2">三条无条件转移的编码</div>
+<table class="mt"><tr><th>指令</th><th>第 1 字节（操作码）</th><th>第 2 字节</th><th>第 3 字节</th><th>新 PC</th></tr>
+<tr><td class="mono">SJMP rel</td><td class="mono">1000 0000（80H）</td><td class="mono">rel</td><td>—</td><td class="mono">PC+2+rel</td></tr>
+<tr><td class="mono">AJMP addr11</td><td class="mono"><b style="color:#f4b740">a10 a9 a8</b> 0 0001</td><td class="mono">a7～a0</td><td>—</td><td class="mono">(PC+2) 的高 5 位 ＋ addr11</td></tr>
+<tr><td class="mono">LJMP addr16</td><td class="mono">0000 0010（02H）</td><td class="mono">a15～a8</td><td class="mono">a7～a0</td><td class="mono">addr16</td></tr></table>
+<div class="row" style="gap:14px;align-items:flex-end;margin-top:12px"><label>AJMP 的目标地址<br><input class="hx" id="eT" value="2150"></label><button class="btn pri" id="eGo">拼出机器码</button></div>
+<div class="g2" style="margin-top:8px"><div><div class="enc" id="eOp"></div></div><div><div class="enc" id="eLo"></div></div></div>
+<div class="res" id="eR"></div>
+<div class="note">AJMP 的操作码低 5 位固定是 00001，高 3 位放 a10 a9 a8，所以 AJMP 一共有 8 个操作码：01H、21H、41H……E1H。</div></div>
+<div class="card" style="margin-top:12px"><div class="h2">PC 先加完指令长度，再加 rel</div>
+<div class="row"><button class="btn mono" data-a="0">2130H：SJMP NEXT（NEXT=2150H）</button><button class="btn mono" data-a="1">2130H：SJMP NEXT（NEXT=2100H）</button><button class="btn mono" data-a="2">1000H：SJMP 02（第 107 页）</button></div>
+<div class="stage" id="aSt" style="margin-top:10px"><div class="cap">点上面一条，看 PC 怎么变</div></div></div></section>
+
+<section class="pane" id="p-hand">
+<div class="card"><div class="h2">rel 计算器</div>
+<div class="row" style="gap:14px;align-items:flex-end">
+<label>转移指令地址<br><input class="hx" id="rS" value="2130"></label>
+<label>目标地址<br><input class="hx" id="rD" value="2150"></label>
+<label>指令长度<br><select class="hx" id="rL"><option value="2">2 字节（SJMP、JZ、JNZ、DJNZ Rn）</option><option value="3">3 字节（CJNE、DJNZ direct）</option></select></label>
+<button class="btn pri" id="rGo">算</button></div>
+<div class="row" style="margin-top:8px"><span class="note" style="margin:0">预设：</span><button class="btn sm" data-r="2130,2150,2">课件第 110 页</button><button class="btn sm" data-r="2130,2100,2">同型：目标 2100H</button><button class="btn sm" data-r="2130,2200,2">越界：目标 2200H</button><button class="btn sm" data-r="0006,0004,3">第 115 页 DJNZ 23H</button></div>
+<div class="steps" id="rOut"></div></div>
+
+<div class="card" style="margin-top:12px"><div class="h2">AJMP 跨页判断</div>
+<div class="row" style="gap:14px;align-items:flex-end">
+<label>AJMP 所在地址<br><input class="hx" id="jS" value="07FE"></label>
+<label>目标地址<br><input class="hx" id="jD" value="0700"></label>
+<button class="btn pri" id="jGo">判断</button>
+<span class="note" style="margin:0">预设：</span><button class="btn sm" data-pj="07FE,0700">07FEH → 0700H</button><button class="btn sm" data-pj="07FE,0900">07FEH → 0900H</button><button class="btn sm" data-pj="2130,2150">2130H → 2150H</button></div>
+<div class="pg" id="jPg"></div><div class="steps" id="jOut"></div></div>
+
+<div class="card" style="margin-top:12px"><div class="h2">DJNZ / CJNE 循环单步</div>
+<div class="row"><button class="btn sm on" data-g="d10">第 115 页：初值 #0AH</button><button class="btn sm" data-g="d5">同型：初值 #05H</button><button class="btn sm" data-g="c">CJNE 数到 5</button>
+<span style="flex:1"></span><button class="btn pri" id="gStep">单步 ▸</button><button class="btn" id="gRun">▶ 自动</button><button class="btn" id="gRe">复位</button></div>
+<div class="g2" style="margin-top:10px"><div><div id="gCode"></div><div class="note">地址按 ORG 0000H 排，机器码按 80C51 指令表。DJNZ 23H,LOOPX 的 rel = 0004H − 0009H = −5 = FBH；CJNE A,#05H,LOOP 的 rel = 0002H − 0006H = −4 = FCH。</div></div>
+<div><div class="regs" id="gReg"></div><div class="log" id="gLog"></div></div></div></div>
+</section>
+
+<section class="pane" id="p-qz"><div class="card"><div class="h2">小测</div><div class="qz" id="qzBox"></div><div class="log" id="qzS"></div></div></section>
+<div class="foot">字节、周期和编码按 80C51 指令手册；例题数值和课件 V4 第 107、110、115 页一致。标“教学推断”的是对设计原因的解释。</div>
+</div>
+
+<script>/* 第 3 章新页共用：页签、字号、键盘、设计难题、小测 */
+var K = (function () {
+  'use strict';
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function hx(v, n) { var s = v.toString(16).toUpperCase(); while (s.length < (n || 2)) s = '0' + s; return (/^[A-F]/.test(s) ? '0' : '') + s + 'H'; }
+  function hx2(v) { var s = (v & 255).toString(16).toUpperCase(); return (s.length < 2 ? '0' : '') + s + 'H'; }
+  $$('.zoom .btn').forEach(function (b) { b.onclick = function () { document.body.classList.remove('z1', 'z2'); if (b.dataset.z !== '0') document.body.classList.add('z' + b.dataset.z); $$('.zoom .btn').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  var PANES = $$('.tab').map(function (t) { return t.dataset.p; }), cur = PANES[0], steppers = {};
+  function showPane(k) { cur = k; $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); }); $$('.pane').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + k); }); }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
+  document.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
+    var i = PANES.indexOf(cur);
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPane(PANES[Math.min(PANES.length - 1, i + 1)]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPane(PANES[Math.max(0, i - 1)]); }
+    else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (steppers[cur]) steppers[cur](); }
+  });
+  /* 依次播放几帧：frames = [[说明, html], ...] */
+  function play(stage, frames, ms) {
+    if (stage._t) stage._t.forEach(clearTimeout); stage._t = [];
+    frames.forEach(function (f, i) { stage._t.push(setTimeout(function () { stage.innerHTML = '<div class="cap">' + f[0] + '</div>' + f[1]; }, i * (ms || 1100))); });
+  }
+  function cell(lab, val, cls) { return '<div class="cell ' + (cls || '') + '"><small>' + lab + '</small><b>' + val + '</b></div>'; }
+  function arw(t) { return '<span class="arw">' + (t || '→') + '</span>'; }
+  function bars(rows, maxB, maxT) {
+    return rows.map(function (r) { return '<div class="bt"><span>' + r[0] + '</span><span><div class="bar" style="width:' + (r[1] / maxB * 100) + '%"></div><div class="bar c" style="width:' + (r[2] / maxT * 100) + '%;margin-top:3px"></div></span><span class="mono">' + r[1] + 'B ' + r[2] + 'T</span></div>'; }).join('') + '<div class="note">黄条：字节数　青条：机器周期数（80C51 指令表）</div>';
+  }
+  /* 设计难题：① 难题与对比（root）＋ ② 揭晓与原理动画（rv）。
+     L = [{q, idle, opts:[{t, r, B, T, side, no, est, anim(stage)}], ans, why}] */
+  function cmp(D, mark, hide) {
+    var ok = D.opts.filter(function (o) { return o.ok; })[0], rows = D.opts.filter(function (o) { return o.B != null; });
+    var mb = Math.max.apply(null, rows.map(function (o) { return o.B; }).concat([1])), mt = Math.max.apply(null, rows.map(function (o) { return o.T; }).concat([1]));
+    return '<table class="mt cmpt"><tr><th>方案</th><th>字节</th><th>周期</th><th>副作用 / 代价</th></tr>' + D.opts.map(function (o, j) {
+      var c = (mark === j ? ' class="on"' : '') ;
+      return '<tr' + c + '><td style="text-align:left">' + 'ABCD'[j] + (o.ok && !hide ? ' <b style="color:#4ade80">80C51</b>' : '') + '</td>' +
+        (o.no ? '<td colspan="2" style="color:#fb7185">行不通</td>' : o.B == null ? '<td colspan="2">—</td>' :
+          '<td><div class="mini"><i style="width:' + (o.B / mb * 100) + '%"></i></div>' + o.B + (o.est ? '*' : '') + '</td><td><div class="mini c"><i style="width:' + (o.T / mt * 100) + '%"></i></div>' + o.T + (o.est ? '*' : '') + '</td>') +
+        '<td style="text-align:left">' + (o.side || '') + '</td></tr>';
+    }).join('') + '</table>' + (D.opts.some(function (o) { return o.est; }) ? '<div class="note">* 估算，见“为什么”。</div>' : '');
+  }
+  function design(root, L, rv) {
+    var st = { lv: 0, pick: null };
+    root.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="opt"></div><div class="res"></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn pri" data-k="show">揭晓 80C51 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    rv.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="ans"></div><details class="why" open><summary>为什么这样设计？</summary><div></div></details>' +
+      '<div class="row" style="margin-top:10px"><button class="btn" data-k="replay">↻ 再演一遍</button><button class="btn pri" data-k="next">下一题 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    function chips(el) { el.innerHTML = L.map(function (x, i) { return '<button class="btn sm' + (i === st.lv ? ' on' : '') + '" data-i="' + i + '">难题 ' + (i + 1) + '</button>'; }).join(''); $$('button', el).forEach(function (b) { b.onclick = function () { go(+b.dataset.i); }; }); }
+    function okOf(D) { var k = 0; D.opts.forEach(function (o, j) { if (o.ok) k = j; }); return k; }
+    function render() {
+      var D = L[st.lv];
+      chips($('.lv', root)); chips($('.lv', rv));
+      $('.bigq', root).innerHTML = D.q; $('.bigq', rv).innerHTML = D.q;
+      $('.opt', root).innerHTML = D.opts.map(function (o, j) { return '<button class="ob' + (st.pick === j ? ' pick' : '') + '" data-j="' + j + '"><b>' + 'ABCD'[j] + '</b>' + o.t + '</button>'; }).join('');
+      $$('.ob', root).forEach(function (b) { b.onclick = function () { st.pick = +b.dataset.j; render(); D.opts[st.pick].anim($('.stage', root)); }; });
+      var o = st.pick == null ? null : D.opts[st.pick];
+      $('.res', root).innerHTML = o ? '<b>后果：</b>' + o.r : '先选一个，右边演给你看，下面和别的方案比一比。';
+      $('.cmpw', root).innerHTML = o ? cmp(D, st.pick, 1) : '';
+      if (st.pick == null) $('.stage', root).innerHTML = '<div class="cap">等你选</div>' + (D.idle || '');
+      $('.ans', rv).innerHTML = '<b>80C51：</b>' + D.ans; $('div', $('.why', rv)).innerHTML = D.why;
+      $('.cmpw', rv).innerHTML = cmp(D, okOf(D));
+    }
+    function go(i) { st = { lv: i, pick: null }; render(); }
+    function playOk() { var D = L[st.lv]; D.opts[okOf(D)].anim($('.stage', rv)); }
+    $('[data-k=show]', root).onclick = function () { showPane(PANES[1]); playOk(); };
+    $('[data-k=replay]', rv).onclick = playOk;
+    $('[data-k=next]', rv).onclick = function () { go((st.lv + 1) % L.length); showPane(PANES[0]); };
+    render();
+    steppers[PANES[0]] = function () { if (st.pick == null) { st.pick = 0; render(); L[st.lv].opts[0].anim($('.stage', root)); } else { showPane(PANES[1]); playOk(); } };
+    steppers[PANES[1]] = function () { if (st.lv < L.length - 1) { go(st.lv + 1); showPane(PANES[0]); } };
+    return null;
+  }
+  function quiz(root, out, Q) {
+    var done = {};
+    root.innerHTML = Q.map(function (x, i) { return '<div class="qq"><div class="t">' + (i + 1) + '. ' + x.t + '</div>' + x.o.map(function (o, j) { return '<button class="o" data-i="' + i + '" data-j="' + j + '">' + o + '</button>'; }).join('') + '<div class="e hide"></div></div>'; }).join('');
+    $$('.o', root).forEach(function (b) { b.onclick = function () { var i = +b.dataset.i, j = +b.dataset.j, x = Q[i]; if (done[i] != null) return; done[i] = j === x.a; b.classList.add(j === x.a ? 'ok' : 'no'); $$('.o[data-i="' + i + '"]', root)[x.a].classList.add('ok'); var e = b.parentNode.querySelector('.e'); e.innerHTML = x.e; e.classList.remove('hide'); var n = 0, r = 0; for (var k in done) { n++; if (done[k]) r++; } out.textContent = '已答 ' + n + ' 题，对 ' + r + ' 题。'; }; });
+  }
+  return { $: $, $$: $$, hx: hx2, play: play, cell: cell, arw: arw, bars: bars, design: design, quiz: quiz, steppers: steppers, showPane: showPane };
+})();
+</script>
+<script>
+/*JUMP-BEGIN*/
+var JP = {
+  rel: function (src, dst, len) { var pc = (src + len) & 0xFFFF, d = dst - pc; return { pc: pc, d: d, b: d & 255, ok: d >= -128 && d <= 127 }; },
+  ajmp: function (src, dst) { var pc = (src + 2) & 0xFFFF, pg = pc & 0xF800; return { pc: pc, lo: pg, hi: pg + 0x7FF, ok: (dst & 0xF800) === pg, op: (((dst >> 8) & 7) << 5) | 1, b2: dst & 255 }; },
+  djnzSum: function (n) { var a = 0, k = n; do { a = (a + k) & 255; k = (k - 1) & 255; } while (k); return a; }
+};
+/*JUMP-END*/
+(function () {
+  var $ = K.$, $$ = K.$$, C = K.cell, A = K.arw;
+  function h4(v) { var t = (v & 0xFFFF).toString(16).toUpperCase(); while (t.length < 4) t = '0' + t; return (/^[A-F]/.test(t) ? '0' : '') + t + 'H'; }
+  function h2(v) { var t = (v & 255).toString(16).toUpperCase(); if (t.length < 2) t = '0' + t; return (/^[A-F]/.test(t) ? '0' : '') + t + 'H'; }
+  function rd(el, max) { var t = el.value.trim().replace(/[hH]$/, ''); var ok = /^[0-9a-fA-F]{1,4}$/.test(t) && parseInt(t, 16) <= (max || 0xFFFF); el.classList.toggle('bad', !ok); return ok ? parseInt(t, 16) : null; }
+  function sgn(d) { return d < 0 ? '−' + (-d) : '+' + d; }
+
+  /* ① ② 设计难题 */
+  var memRow = function (a, t, cls) { return C(h4(a), t, cls); };
+  var L = [
+    { q: '程序要跳到别处去，<em>跳转的地址</em>写进指令里该怎么给？',
+      idle: '<div class="bx">' + memRow(0x2130, '跳转指令') + A('？') + memRow(0x2150, 'NEXT') + '</div>',
+      opts: [
+        { t: '给全 16 位地址：哪儿都能到', B: 3, T: 2, side: '64KB 任意处；地址写死，程序整段搬家后要重新汇编', r: '最省心，但每条跳转都要 3 字节；而程序里大多数跳转只跳几十个字节。', anim: function (s) { K.play(s, [['操作码 + 高 8 位 + 低 8 位', '<div class="bx">' + C('第 1 字节', '02H') + C('第 2 字节', '21H') + C('第 3 字节', '50H') + '</div>'], ['PC ← 2150H，64KB 哪里都能到', '<div class="bx">' + C('PC', '2150H', 'ok') + '</div>']]); } },
+        { t: '只给低 11 位：高 5 位沿用当前 PC', B: 2, T: 2, side: '只能在当前 2KB 页内跳；搬家要整 2KB 倍数才不出错', r: '省 1 个字节，可目标必须和下一条指令在同一个 2KB 页里。', anim: function (s) { K.play(s, [['PC 先加 2：2132H，高 5 位 00100', '<div class="bx">' + C('PC+2', '2132H', 'hit') + '</div>'], ['高 5 位不变，低 11 位换成 150H', '<div class="bx">' + C('高 5 位', '00100') + A('+') + C('addr11', '001 0101 0000') + A() + C('PC', '2150H', 'ok') + '</div>']]); } },
+        { t: '给 8 位相对偏移：只说“往前或往后走几步”', B: 2, T: 2, side: '只能 −128～+127；整段搬家照样能用', r: '也是 2 字节，而且偏移只看两条指令的距离，程序放在哪都对。代价是跳不远。', anim: function (s) { K.play(s, [['PC 先加 2：2132H', '<div class="bx">' + C('PC+2', '2132H', 'hit') + '</div>'], ['再加 rel = 1EH', '<div class="bx">' + C('PC', '2132H') + A('+') + C('rel', '1EH') + A() + C('PC', '2150H', 'ok') + '</div>']]); } },
+        { t: '三种都留下，按跳多远来选', ok: 1, B: null, side: '指令多几种；写程序时用标号，汇编器去算', r: '80C51 就是这么做的：LJMP、AJMP、SJMP 三条都有。', anim: function (s) { K.play(s, [['近处用 SJMP，2 字节', '<div class="bx">' + C('SJMP', '2B 2T', 'ok') + '</div>'], ['同一页用 AJMP，2 字节', '<div class="bx">' + C('SJMP', '2B 2T', 'ok') + C('AJMP', '2B 2T', 'ok') + '</div>'], ['远处用 LJMP，3 字节；三条都是 2 周期', '<div class="bx">' + C('SJMP', '2B 2T', 'ok') + C('AJMP', '2B 2T', 'ok') + C('LJMP', '3B 2T', 'ok') + '</div>']]); } }
+      ],
+      ans: 'LJMP 给 16 位（3 字节），AJMP 给 11 位（2 字节，同一 2KB 页），SJMP 给 8 位补码偏移（2 字节，−128～+127）。三条都是 2 个周期。',
+      why: '执行时间一样，差别只在占多少 ROM。早期片内 ROM 只有 4KB，一个程序里跳转很多，每条省 1 个字节就很可观<span class="inf">教学推断</span>。相对偏移还有一个好处：程序整段搬家，偏移不用改。写程序时只写标号，选哪条、偏移是多少，交给汇编器。' },
+    { q: 'SJMP 的偏移 rel，是从<em>哪个地址</em>算起的？',
+      idle: '<div class="bx">' + memRow(0x2130, 'SJMP NEXT') + memRow(0x2132, '下一条') + memRow(0x2150, 'NEXT') + '</div>',
+      opts: [
+        { t: '从 SJMP 本身的地址 2130H 算起', B: null, side: '算出 20H，实际会跳到 2152H', r: '2150H − 2130H = 20H。可 CPU 取完这条指令时 PC 已经是 2132H，再加 20H 就到了 2152H，错过了目标。', anim: function (s) { K.play(s, [['按 2130H 算：rel = 20H', '<div class="bx">' + C('rel', '20H', 'hit') + '</div>'], ['执行时 PC 已是 2132H，2132H + 20H = 2152H', '<div class="bx">' + C('PC', '2152H', 'bad') + '</div>']]); } },
+        { t: '从下一条指令的地址 2132H 算起', ok: 1, B: null, side: '和硬件取指一致', r: '取完 2 个字节，PC 已经指向 2132H，硬件只要在这个基础上加 rel。', anim: function (s) { K.play(s, [['取指：PC 2130H → 2132H', '<div class="bx">' + C('PC', '2130H') + A() + C('PC', '2132H', 'hit') + '</div>'], ['rel = 2150H − 2132H = 1EH', '<div class="bx">' + C('PC', '2132H') + A('+') + C('rel', '1EH') + A() + C('PC', '2150H', 'ok') + '</div>']]); } },
+        { t: '从目标 2150H 往回算', B: null, side: '方向反了', r: '得到 −1EH，跳的方向反了。', anim: function (s) { K.play(s, [['rel = 2132H − 2150H = −1EH', '<div class="bx">' + C('PC', '2114H', 'bad') + '</div>']]); } }
+      ],
+      ans: 'rel = 目标地址 − (转移指令地址 + 指令字节数) = 目标地址 − PC 当前值。课件第 110 页：2150H − 2132H = 1EH。',
+      why: 'CPU 每取一个字节 PC 就加 1，指令取完时 PC 已经指向下一条。硬件只需一个加法器：PC ← PC + rel，不用再回头找这条指令从哪开始。所以条件转移也一样，按各自的指令长度先加完，再加 rel。' }
+  ];
+  K.design($('#dzBox'), L, $('#rvBox'));
+
+  /* ② AJMP 拼码 */
+  function bitsHtml(v, n, cls) { var h = ''; for (var i = n - 1; i >= 0; i--) h += '<div class="' + (cls ? cls(i) : '') + '">' + ((v >> i) & 1) + '</div>'; return h; }
+  function enc() {
+    var t = rd($('#eT')); if (t == null) return;
+    var op = (((t >> 8) & 7) << 5) | 1, lo = t & 255;
+    $('#eOp').innerHTML = bitsHtml(op, 8, function (i) { return i >= 5 ? 'a' : 'f'; }) + '<small>第 1 字节：a10 a9 a8 ＋ 00001 = ' + h2(op) + '</small>';
+    $('#eLo').innerHTML = bitsHtml(lo, 8) + '<small>第 2 字节：a7～a0 = ' + h2(lo) + '</small>';
+    $('#eR').innerHTML = '目标 ' + h4(t) + ' 的低 11 位是 ' + ((t & 0x7FF) >> 8).toString(2).padStart(3, '0') + ' ' + lo.toString(2).padStart(8, '0') + 'B，机器码 <b>' + h2(op).replace(/H$/, '') + ' ' + h2(lo).replace(/H$/, '') + '</b>（十六进制）。高 5 位 ' + (t >> 11).toString(2).padStart(5, '0') + ' 不进指令，执行时沿用 PC+2 的高 5 位。';
+  }
+  $('#eGo').onclick = enc; $('#eT').onchange = enc; enc();
+
+  /* ② PC 动画 */
+  var AN = [[0x2130, 0x2150], [0x2130, 0x2100], [0x1000, 0x1004]];
+  $$('[data-a]').forEach(function (b) { b.onclick = function () {
+    $$('[data-a]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    var s = AN[+b.dataset.a][0], d = AN[+b.dataset.a][1], r = JP.rel(s, d, 2);
+    K.play($('#aSt'), [
+      ['① 取指前：PC 指向 SJMP', '<div class="bx">' + C('PC', h4(s), 'hit') + '</div>'],
+      ['② 取第 1 字节 80H，PC 加 1', '<div class="bx">' + C('PC', h4(s + 1), 'hit') + C('已取', '80H') + '</div>'],
+      ['③ 取第 2 字节 rel，PC 再加 1：PC 先加完指令长度', '<div class="bx">' + C('PC', h4(r.pc), 'hit') + C('rel', h2(r.b)) + '</div>'],
+      ['④ 执行：PC ← PC + rel（rel 是补码，' + h2(r.b) + ' = ' + sgn(r.d) + '）', '<div class="bx">' + C('PC', h4(r.pc)) + A('+') + C('rel', sgn(r.d)) + A() + C('新 PC', h4(d), 'ok') + '</div>']
+    ], 1300);
+  }; });
+
+  /* ③ rel 计算器 */
+  function relCalc() {
+    var s = rd($('#rS')), d = rd($('#rD')), n = +$('#rL').value; if (s == null || d == null) return;
+    var r = JP.rel(s, d, n), o = $('#rOut');
+    var lines = [
+      '① PC 当前值 = ' + h4(s) + ' + ' + n + ' = ' + h4(r.pc),
+      '② rel = 目标 − PC 当前值 = ' + h4(d) + ' − ' + h4(r.pc) + ' = ' + (r.d < 0 ? '−' + h2(-r.d).replace(/^0(?=[A-F])/, '') + '（−' + (-r.d) + '）' : h2(r.d) + '（+' + r.d + '）'),
+      r.ok ? '③ ' + String(r.d).replace('-', '−') + ' 在 −128～+127 之内 <span class="ok">✓ 能跳</span>' : '<span class="bad">③ ' + r.d + ' 超出 −128～+127，SJMP 够不着，汇编时报错；要改用 AJMP（同一页时）或 LJMP</span>',
+      r.ok ? '④ 写成 8 位补码：rel = <b>' + h2(r.b) + '</b>' + (r.d < 0 ? '（256 − ' + (-r.d) + ' = ' + r.b + '）' : '') : '<span class="bad">④ 如果硬把低 8 位 ' + h2(r.b) + ' 填进去，CPU 会把它当成 ' + (r.b > 127 ? '−' + (256 - r.b) : r.b) + '，跳到 ' + h4(r.pc + (r.b > 127 ? r.b - 256 : r.b)) + '，不是目标</span>'
+    ];
+    o.innerHTML = lines.map(function (t) { return '<div>' + t + '</div>'; }).join('');
+    $$('div', o).forEach(function (x, i) { setTimeout(function () { x.classList.add('on'); }, 350 * i); });
+  }
+  $('#rGo').onclick = relCalc;
+  $$('[data-r]').forEach(function (b) { b.onclick = function () { var v = b.dataset.r.split(','); $('#rS').value = v[0]; $('#rD').value = v[1]; $('#rL').value = v[2]; relCalc(); }; });
+  relCalc();
+
+  /* ③ AJMP 跨页 */
+  function pageCalc() {
+    var s = rd($('#jS')), d = rd($('#jD')); if (s == null || d == null) return;
+    var r = JP.ajmp(s, d), lo = Math.max(0, Math.min(r.lo, d & 0xF800) - 0x800), hi = Math.min(0x10000, Math.max(r.hi, d | 0x7FF) + 1 + 0x800), W = hi - lo;
+    function x(a) { return ((a - lo) / W * 100) + '%'; }
+    var h = '';
+    for (var p = lo; p <= hi; p += 0x800) h += '<i style="left:' + x(p) + '"></i><span style="left:' + x(p) + '">' + h4(p) + '</span>';
+    h += '<div class="pgOn" style="left:' + x(r.lo) + ';width:' + (0x800 / W * 100) + '%"></div>';
+    h += '<div class="mk" style="left:' + x(s) + ';background:#94a3b8" title="AJMP"></div><div class="mk" style="left:' + x(r.pc) + ';background:#f4b740" title="PC+2"></div><div class="mk" style="left:' + x(d) + ';background:' + (r.ok ? '#4ade80' : '#fb7185') + '" title="目标"></div>';
+    $('#jPg').innerHTML = h;
+    var o = $('#jOut');
+    o.innerHTML = ['① PC+2 = ' + h4(s) + ' + 2 = ' + h4(r.pc) + '（灰：AJMP 所在；黄：PC+2）',
+      '② PC+2 的高 5 位决定页：' + h4(r.lo) + '～' + h4(r.hi) + '（青色框）',
+      '③ 目标 ' + h4(d) + ' 在页 ' + h4(d & 0xF800) + '～' + h4((d & 0xF800) + 0x7FF),
+      r.ok ? '<span class="ok">④ 同一页，能跳：机器码 ' + h2(r.op).replace(/H$/, '') + ' ' + h2(r.b2).replace(/H$/, '') + '</span>' : '<span class="bad">④ 不在同一页，AJMP 跳不过去' + ((s & 0xF800) === (d & 0xF800) ? '：AJMP 本身和目标同在 ' + h4(s & 0xF800) + ' 页，可 PC+2 已经进了下一页' : '') + '。改用 LJMP 或 SJMP（距离 ' + String(d - r.pc).replace('-', '−') + '，'.replace('，','，') + (d - r.pc >= -128 && d - r.pc <= 127 ? '在' : '不在') + ' SJMP 范围内）</span>'
+    ].map(function (t) { return '<div class="on">' + t + '</div>'; }).join('');
+  }
+  $('#jGo').onclick = pageCalc;
+  $$('[data-pj]').forEach(function (b) { b.onclick = function () { var v = b.dataset.pj.split(','); $('#jS').value = v[0]; $('#jD').value = v[1]; pageCalc(); }; });
+  pageCalc();
+
+  /* ③ 循环单步 */
+  var PR = {
+    d: function (n) { return { code: [
+      [0x0000, '75 23 ' + ('0' + n.toString(16).toUpperCase()).slice(-2), '      MOV  23H,#' + h2(n)],
+      [0x0003, 'E4', '      CLR  A'],
+      [0x0004, '25 23', 'LOOPX: ADD  A,23H'],
+      [0x0006, 'D5 23 FB', '      DJNZ 23H,LOOPX'],
+      [0x0009, '80 FE', '      SJMP $']], init: function () { return { A: 0, m: 0, C: 0, pc: 0, n: 0 }; },
+      exec: function (S, i) {
+        if (i === 0) { S.m = n; return '23H ← ' + h2(n); }
+        if (i === 1) { S.A = 0; return 'A ← 0'; }
+        if (i === 2) { S.A = (S.A + S.m) & 255; S.n++; return '第 ' + S.n + ' 圈：A ← A + (23H) = ' + h2(S.A); }
+        if (i === 3) { S.m = (S.m - 1) & 255; if (S.m) { S.next = 2; return '(23H) 减 1 得 ' + h2(S.m) + '，不为 0：PC = 0009H + (−5) = 0004H，回到 LOOPX'; } return '(23H) 减 1 得 00H，为 0：不跳，PC = 0009H，往下走'; }
+        S.done = 1; return '结束：A = <b>' + h2(S.A) + '</b>（' + S.A + '），循环了 ' + S.n + ' 圈。SJMP $ 原地等待。';
+      } }; },
+    c: { code: [
+      [0x0000, '74 00', '      MOV  A,#00H'],
+      [0x0002, '04', 'LOOP: INC  A'],
+      [0x0003, 'B4 05 FC', '      CJNE A,#05H,LOOP'],
+      [0x0006, '80 FE', '      SJMP $']], init: function () { return { A: 0, C: 0, n: 0 }; },
+      exec: function (S, i) {
+        if (i === 0) { S.A = 0; return 'A ← 00H'; }
+        if (i === 1) { S.A = (S.A + 1) & 255; S.n++; return '第 ' + S.n + ' 圈：A ← ' + h2(S.A) + '（INC 不影响 CY）'; }
+        if (i === 2) { S.C = S.A < 5 ? 1 : 0; if (S.A !== 5) { S.next = 1; return 'A = ' + h2(S.A) + ' ≠ 05H：C = ' + S.C + '（A 小于 05H），PC = 0006H + (−4) = 0002H'; } return 'A = 05H，相等：不跳，C = 0，PC = 0006H'; }
+        S.done = 1; return '结束：A = <b>05H</b>，循环了 ' + S.n + ' 圈。CJNE 只比较，不改 A。';
+      } }
+  };
+  var G, S, cur, timer = null;
+  function gLoad(k) { G = k === 'c' ? PR.c : PR.d(k === 'd5' ? 5 : 10); S = G.init(); cur = 0; S.log = []; if (timer) { clearInterval(timer); timer = null; $('#gRun').textContent = '▶ 自动'; } gDraw(); $('#gLog').innerHTML = '点“单步”从第一条开始。'; }
+  function gDraw() {
+    $('#gCode').innerHTML = G.code.map(function (l, i) { return '<div class="ln' + (i === cur && !S.done ? ' cur' : '') + '"><span class="ad">' + h4(l[0]).replace(/^0(?=[A-F])/, '') + '</span><span class="mc">' + l[1] + '</span><span>' + l[2].replace(/ /g, '&nbsp;') + '</span></div>'; }).join('');
+    var r = '<div class="reg">A <b>' + h2(S.A) + '</b></div>';
+    if (S.m != null) r += '<div class="reg">(23H) <b>' + h2(S.m) + '</b></div>';
+    if (G === PR.c) r += '<div class="reg">C <b>' + S.C + '</b></div>';
+    r += '<div class="reg">圈数 <b>' + S.n + '</b></div><div class="reg">PC <b>' + h4(S.done ? G.code[G.code.length - 1][0] : G.code[cur][0]) + '</b></div>';
+    $('#gReg').innerHTML = r;
+  }
+  function gStep() { if (S.done) return false; S.next = null; var t = G.exec(S, cur); S.log.unshift(t); $('#gLog').innerHTML = S.log.slice(0, 4).map(function (x, i) { return '<div style="opacity:' + (1 - i * .22) + '">' + x + '</div>'; }).join(''); if (!S.done) cur = S.next != null ? S.next : cur + 1; gDraw(); return !S.done; }
+  $$('[data-g]').forEach(function (b) { b.onclick = function () { $$('[data-g]').forEach(function (x) { x.classList.toggle('on', x === b); }); gLoad(b.dataset.g); }; });
+  $('#gStep').onclick = gStep;
+  $('#gRe').onclick = function () { gLoad(($$('[data-g].on')[0] || {}).dataset ? $$('[data-g].on')[0].dataset.g : 'd10'); };
+  $('#gRun').onclick = function () { if (timer) { clearInterval(timer); timer = null; this.textContent = '▶ 自动'; return; } var me = this; me.textContent = '❚❚ 暂停'; timer = setInterval(function () { if (!gStep()) { clearInterval(timer); timer = null; me.textContent = '▶ 自动'; } }, 700); };
+  gLoad('d10');
+  K.steppers.hand = gStep;
+
+  /* ④ 小测 */
+  K.quiz($('#qzBox'), $('#qzS'), [
+    { t: '2130H 处 SJMP NEXT，NEXT 在 2100H，rel = ？', o: ['30H', '0CEH', '0D0H'], a: 1, e: 'PC 当前值 2132H，2100H − 2132H = −32H = −50，补码 256 − 50 = 206 = 0CEH。' },
+    { t: 'LJMP、AJMP、SJMP 各要几个机器周期？', o: ['3、2、2', '2、2、2', '2、1、1'], a: 1, e: '三条都是 2 个周期。LJMP 多 1 个字节，执行时间一样。' },
+    { t: 'AJMP 放在 07FEH，能不能跳到 0700H？', o: ['能，同在 0000H～07FFH', '不能，PC+2 = 0800H，已在 0800H～0FFFH 页'], a: 1, e: 'AJMP 认的是 PC+2 所在的页，不是指令本身所在的页。' },
+    { t: '第 115 页把 MOV 23H,#0AH 改成 #05H，执行后 A = ？', o: ['05H', '0FH', '15H'], a: 1, e: '5+4+3+2+1 = 15 = 0FH，循环 5 圈。' },
+    { t: 'A = 25H，执行 CJNE A,#30H,rel 后：', o: ['跳，C = 1', '跳，C = 0', '不跳，C = 0'], a: 0, e: '25H ≠ 30H 所以跳；A 小于 30H，借位，C = 1。A 本身不变。' }
+  ]);
+})();
+</script>
+</body></html>

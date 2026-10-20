@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>第 3 章 寻址方式｜告诉 CPU 数在哪</title>
+<style>/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+</style>
+<style>
+/* ============================================================
+   第 3 章 · 机器周期（接第 2 章“时钟与时序”）
+   四个页签：① 四种周期套娃 ② 同一个 30H 七种拿法 ③ 指令并排时间轴 ④ 猜周期
+   键盘：← → 翻页签；空格 单步（当前页签里的“下一步”）
+   口径：80C51，1 机器周期 = 6 状态 S1~S6 = 12 振荡周期；12 MHz 时 1 µs
+   ============================================================ */
+.kp-wrap{max-width:1360px}
+body{font-size:18px}
+body.z1{zoom:1.15} body.z2{zoom:1.3}
+.kp-eyebrow{font-size:14px}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.top .grow{flex:1 1 520px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.btn{cursor:pointer;min-height:38px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--slate100);font:500 15px var(--fs);transition:.15s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
+.btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
+.btn.mono{font-family:var(--fm);font-weight:700}
+.tabs{display:flex;gap:8px;margin:18px 0 14px;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.85)}
+.tab{flex:1;min-height:52px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.tab small{font-weight:400;font-size:14px;opacity:.8}
+.tab:hover{background:rgba(255,255,255,.07)}
+.tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
+.card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
+.h2{font-size:21px;font-weight:700;margin:2px 0 6px}
+.sub{font-size:15px;color:var(--muted-fg);margin-bottom:10px}
+.mono{font-family:var(--fm)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.talk{border-radius:9px;padding:10px 13px;background:hsl(184 82% 48% / .07);border:1px solid hsl(184 82% 48% / .22);font-size:17px;line-height:1.65;color:var(--cyan100);min-height:56px}
+.talk b{color:#fff}
+.say{margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(246,187,49,.07);border-left:3px solid var(--c3);color:var(--amber200);font-size:16px;line-height:1.6}
+.say .src{display:block;font-size:14px;color:var(--slate400);margin-top:3px}
+.hint{font-size:14px;color:var(--slate400);margin-top:8px}
+kbd{font:600 13px var(--fm);border:1px solid rgba(255,255,255,.25);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--slate100)}
+/* ---------- ① 套娃 ---------- */
+.lv{display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:10px;align-items:center;margin:8px 0;opacity:.18;transition:opacity .4s}
+.lv.on{opacity:1}
+.lv .nm{font-weight:700;font-size:17px}
+.lv .nm small{display:block;font-weight:400;font-size:14px;color:var(--muted-fg)}
+.lv .val{font:700 18px var(--fm);color:var(--amber200);text-align:right}
+.strip{display:grid;gap:3px;min-width:0}
+.strip .c{min-width:0;overflow:hidden}
+.strip .c{height:38px;border-radius:4px;display:flex;align-items:center;justify-content:center;font:700 14px var(--fm);color:#0b0f14}
+.osc .c{background:hsl(210 80% 62% / .85)}
+.st .c{background:hsl(184 82% 48% / .85)}
+.mc .c{background:hsl(42 92% 58% / .9)}
+.ic .c{background:hsl(154 62% 48% / .85)}
+.wave{height:40px;width:100%;display:block}
+.wave path{fill:none;stroke:var(--c4);stroke-width:2.5}
+.freq{display:flex;gap:6px;align-items:center}
+/* ---------- ② 寻址 ---------- */
+.modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.modes button{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--slate300);font:600 15px var(--fs);padding:8px 12px;border-radius:7px;cursor:pointer}
+.modes button[aria-pressed=true]{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.insbig{font:800 30px var(--fm);color:#fff;margin:4px 0}
+.insbig .op{color:var(--amber300)}
+.facts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
+.fact{border-radius:6px;padding:4px 10px;background:rgba(255,255,255,.05);font-size:15px}
+.fact b{font-family:var(--fm);color:var(--amber200)}
+svg.path{width:100%;height:auto;display:block;background:rgba(0,0,0,.18);border-radius:10px;border:1px solid rgba(255,255,255,.06)}
+.bx rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.22);stroke-width:1.5;rx:8}
+.bx text{fill:var(--slate300);font:600 16px var(--fs);text-anchor:middle}
+.bx text.v{font:700 16px var(--fm);fill:var(--amber200)}
+.bx.hot rect{fill:hsl(42 92% 58% / .16);stroke:var(--c3);stroke-width:2.5}
+.bx.dim{opacity:.35}
+.ar{fill:none;stroke:rgba(255,255,255,.12);stroke-width:3;marker-end:url(#mk0)}
+.ar.f{stroke:var(--c4);marker-end:url(#mkf);stroke-dasharray:9 6;animation:dash 1s linear infinite}
+.ar.d{stroke:var(--c3);marker-end:url(#mkd);stroke-dasharray:9 6;animation:dash 1s linear infinite}
+.ar.x{stroke:var(--c2);marker-end:url(#mkx)}
+@keyframes dash{to{stroke-dashoffset:-15}}
+.cnt{display:flex;gap:10px;margin:8px 0}
+.cnt div{flex:1;border-radius:8px;padding:6px 10px;background:rgba(255,255,255,.04);text-align:center;font-size:14px;color:var(--slate300)}
+.cnt b{display:block;font:800 26px var(--fm);color:#fff}
+.cnt .f b{color:var(--c4)} .cnt .d b{color:var(--c3)}
+.brk{font:700 20px var(--fm);margin:6px 0;color:var(--slate300)}
+.brk span{padding:2px 6px;border-radius:5px}
+.brk span.on{background:hsl(42 92% 58% / .25);color:#fff}
+table.t{width:100%;border-collapse:collapse;font-size:15.5px;margin-top:10px}
+table.t th,table.t td{border-bottom:1px solid rgba(255,255,255,.07);padding:6px 8px;text-align:left}
+table.t th{color:var(--muted-fg);font-weight:600;font-size:14px}
+table.t td.m{font-family:var(--fm);white-space:nowrap}
+table.t tr.cur td{background:hsl(42 92% 58% / .1)}
+/* ---------- 时间轴（②③共用） ---------- */
+.tl{display:grid;gap:3px;align-items:stretch}
+.tl .hd{font:700 14px var(--fm);color:var(--muted-fg);text-align:center;padding:2px 0}
+.tl .hd.mcn{color:var(--amber200);border-bottom:2px solid hsl(42 92% 58% / .5)}
+.tl .lab{font:700 15px var(--fm);color:#fff;display:flex;flex-direction:column;justify-content:center;padding-right:6px;line-height:1.25}
+.tl .lab small{font:500 13px var(--fs);color:var(--muted-fg)}
+.tl .s{min-height:48px;min-width:0;border-radius:4px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.05);font-size:13px;word-break:keep-all;line-height:1.2;
+  padding:2px 3px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:transparent;transition:background .3s,color .3s}
+.tl .s.na{background:transparent;border-color:transparent}
+.tl .s.lit{color:#0b0f14;font-weight:600}
+.tl .s.lit.f{background:hsl(210 80% 62% / .9)}
+.tl .s.lit.dm{background:hsl(210 30% 50% / .45);color:#dbe4ee}
+.tl .s.lit.d{background:hsl(42 92% 58% / .92)}
+.tl .s.lit.x{background:hsl(154 62% 48% / .8)}
+.tl .s.lit.e{background:hsl(348 72% 62% / .85)}
+.tl .s.lit.o{background:rgba(255,255,255,.13);color:var(--slate300)}
+.tl .s.now{outline:2px solid #fff}
+.tl .sum{font:700 15px var(--fm);color:var(--amber200);display:flex;align-items:center;padding-left:6px;white-space:nowrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--slate300);margin:6px 0}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.pick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pick label{display:inline-flex;align-items:center;gap:5px;font:600 14.5px var(--fm);padding:5px 9px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer}
+.pick input{accent-color:#f6bb31}
+.why{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.why .card b{color:var(--amber200)}
+/* ---------- ④ 猜周期 ---------- */
+.qz{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.qins{font:800 34px var(--fm);color:#fff;margin:6px 0 10px}
+.opts{display:flex;gap:8px}
+.opts button{font:800 22px var(--fm);min-width:76px;min-height:56px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:#fff;cursor:pointer}
+.opts button.pick{border-color:var(--c3);background:hsl(42 92% 58% / .18)}
+.opts button.ok{background:hsl(154 62% 48% / .85);color:#06140d}
+.opts button.no{background:hsl(348 72% 62% / .5)}
+.score{font:700 16px var(--fm);color:var(--amber200)}
+.qlist{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.qlist span{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 14px var(--fm);background:rgba(255,255,255,.06);cursor:pointer}
+.qlist span.cur{outline:2px solid var(--c3)} .qlist span.r{background:hsl(154 62% 48% / .7);color:#06140d} .qlist span.w{background:hsl(348 72% 62% / .6)}
+.foot{margin-top:24px;font-size:14px;color:var(--muted-fg);text-align:center}
+
+/* ---------- ⓪ 为什么学寻址 ---------- */
+.bigq{font-size:26px;font-weight:800;color:#fff;margin:4px 0 6px}
+.bigq em{font-style:normal;color:var(--amber300)}
+.needs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.needs button{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--slate300);font:600 15.5px var(--fs);padding:8px 12px;border-radius:7px;cursor:pointer}
+.needs button[aria-pressed=true]{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.ways{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:8px}
+.way{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.025);display:flex;flex-direction:column}
+.way.lit{border-color:var(--c3);background:hsl(42 92% 58% / .06)}
+.way h4{font-size:17px;margin-bottom:6px;color:var(--cyan100)}
+.way table{border-collapse:collapse;width:100%;font:600 15.5px var(--fm)}
+.way td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.05)}
+.way td.n{text-align:right;color:var(--slate300);width:64px}
+.way tr.wh td{font:600 12.5px var(--fs);color:var(--slate400,#94a3b8)}
+.way tr.wr{cursor:pointer}.way tr.wr:hover td,.way tr.wr.op td{background:hsl(190 80% 50% / .08)}
+.way .car{display:inline-block;width:14px;color:var(--cyan100)}
+.way tr.wd td{font:400 14px/1.55 var(--fs);color:var(--slate100);padding:6px 6px 8px;background:hsl(190 80% 50% / .05)}
+.way tr.wd p{margin:4px 0 0}.way tr.wd p b{color:var(--amber200)}
+.mcx{display:flex;flex-wrap:wrap;gap:6px}.mcx span{border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:2px 7px;font-size:13px}
+.mcx span b{font-family:var(--fm);color:var(--cyan100);margin-right:6px;font-size:15px}
+.wkey{margin-top:6px;font-size:15.5px;line-height:1.55;color:var(--slate300);border-left:3px solid var(--c3);padding:4px 10px}.wkey b{color:var(--amber200)}
+#wTalk p{margin:3px 0}
+.slwrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;grid-column:1/-1}
+.sl2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sl2 .wt{display:block;color:var(--slate100);font-size:14.5px;margin-bottom:4px}
+.slpanel{grid-column:1/-1}.slpanel input{width:300px;vertical-align:middle;accent-color:#f4b740}
+.slgrid{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:center}
+.slc{width:100%;font:12px var(--fm);fill:#94a3b8}
+.slh{font-size:15px;color:var(--cyan100);margin-top:6px}.slh small{color:var(--slate300);margin-left:6px}
+.slb{display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;font-size:14px;margin:3px 0}
+.slb i{display:block;height:14px;border-radius:4px;transition:width .2s}.slb b{font-family:var(--fm);color:var(--amber200);font-size:14px}
+.way .tot{margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:4px}
+.way .tot div{border-radius:6px;padding:3px 9px;background:rgba(255,255,255,.06);font-size:15px}
+.way .tot b{font-family:var(--fm);color:var(--amber200);font-size:15.5px}
+.way .tot.hide b{color:transparent;background:rgba(255,255,255,.12);border-radius:3px}
+.way .bar{height:12px;border-radius:6px;background:var(--c3);margin-top:6px;transition:width .5s}
+.way .wn{font-size:14.5px;color:var(--slate300);margin-top:6px;line-height:1.5}
+.tag{display:inline-block;font-size:13px;font-weight:700;border-radius:4px;padding:0 6px;margin-left:6px;background:rgba(255,255,255,.1);color:var(--slate300);vertical-align:2px}
+.rules{display:grid;gap:10px;margin-top:8px}
+.rules .card{font-size:18px;line-height:1.6}
+.rules .card b{color:var(--amber200)}
+.rules .card .mono{color:var(--cyan100)}
+
+/* ---------- 逐拍时序 ---------- */
+.tl .s.lit.u{background:repeating-linear-gradient(45deg,rgba(255,255,255,.18) 0 6px,rgba(255,255,255,.06) 6px 12px);color:#dbe4ee}
+.tl .s.lit.n{background:rgba(255,255,255,.13);color:var(--slate300)}
+.tl .nt{min-height:24px;border-radius:4px;font-size:13px;display:flex;align-items:center;justify-content:center;color:transparent;background:rgba(255,255,255,.02);text-align:center;padding:1px 4px;line-height:1.25}
+.tl .nt.na{background:transparent}
+.tl .nt.lit{color:#0b0f14;font-weight:600}
+.tl .nt.lit.d{background:hsl(42 92% 58% / .85)} .tl .nt.lit.x{background:hsl(154 62% 48% / .75)} .tl .nt.lit.e{background:hsl(348 72% 62% / .8)}
+.defs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.defs .card{font-size:15.5px;line-height:1.55}
+.defs b{color:var(--amber200)}
+.bins{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.bins button{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--slate100);font:700 15px var(--fm);padding:6px 10px;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start}
+.bins button small{font:500 13px var(--fs);color:var(--muted-fg)}
+.bins button[aria-pressed=true]{background:hsl(42 92% 58% / .9);color:#141006}
+.bins button[aria-pressed=true] small{color:#3a2a00}
+.bhead{font:800 24px var(--fm);color:#fff}
+.bhead span{font:500 15px var(--fs);color:var(--muted-fg);margin-left:12px}
+.defs3{display:grid;gap:2px;font-size:15px;line-height:1.5;color:var(--slate300);margin-bottom:8px;border-left:3px solid var(--c3);padding:4px 10px}.defs3 b{color:var(--amber200)}
+.bwhy{margin-top:6px;font-size:16px;line-height:1.6;color:var(--slate100);background:hsl(190 80% 50% / .06);border-radius:8px;padding:8px 12px}.bwhy b{color:var(--amber200)}
+#bBands{max-height:430px;overflow:auto;margin-top:8px;display:grid;gap:10px}
+.band{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:stretch;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:6px 8px}
+.band .bl{font-weight:700;color:var(--cyan100);display:flex;align-items:center}
+.bw{width:100%;height:48px;display:block}.bw .base{stroke:rgba(255,255,255,.15)}.bw .wv{fill:none;stroke:#64748b;stroke-width:2}.bw .wv.on{stroke:#f4b740}.bw .wv.skip{stroke:#f87171;stroke-dasharray:4 3}
+.bw .wl{font:12px var(--fm);fill:#94a3b8}.bw .wt{font:12px var(--fs);fill:#cbd5e1}.bw .wt.sk{fill:#f87171}
+.wnote{display:grid;grid-template-columns:1fr 1fr;font-size:12.5px;color:#f87171;font-weight:700}.wnote span{padding-left:4px}
+.sg{display:grid;grid-template-columns:repeat(6,1fr);font:12px var(--fm);color:#64748b;text-align:center;border-top:1px dashed rgba(255,255,255,.1);margin-top:2px}
+.bc{display:grid;grid-template-columns:1fr 2fr 1fr 2fr;gap:4px;margin-top:2px}
+.bs{border-radius:7px;padding:5px 6px;font-size:13px;line-height:1.4;opacity:.38;transition:opacity .2s}
+.bs.on{opacity:1}.bs.now{outline:2px solid #f4b740}
+.bs.md{background:rgba(148,163,184,.08);color:var(--slate300);text-align:center;display:flex;flex-direction:column;justify-content:center}.bs.md .mt{font:12px var(--fm);color:#64748b}.bs.md .ms{font-size:11.5px;color:#94a3b8}.bs.md b{color:var(--slate100)}.bs.md .mx{color:#fbbf24;font-weight:700}
+.bs.rd{border:2px solid var(--cyan300);background:hsl(190 80% 50% / .1);text-align:center}
+.rd .rdm{font-weight:800;color:var(--cyan100);font-size:13px}.rd .rb{font:700 17px var(--fm);color:#fff}.rd .ru{font-weight:700}.rd .rp{font:11.5px var(--fm);color:var(--slate300)}
+.rd.k-op .ru{color:var(--cyan300)}.rd.k-adr .ru{color:var(--emerald200)}.rd.k-dm{border-color:var(--rose300);background:hsl(350 80% 60% / .08)}.rd.k-dm .ru{color:var(--rose300)}.rd.k-dm .rb{font-size:13px}
+.rd.k-u{border-style:dashed;border-color:var(--amber200)}.rd.k-u .ru{color:var(--amber200)}.rd.k-u .rb{font-size:13px}
+.rd.k-no{border-style:dashed;border-color:#64748b;background:none}.rd.k-no .rdm{color:#94a3b8}.rd.k-no .rb{font-size:14px;color:#94a3b8}
+.hgrid{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-top:8px;align-items:start}
+#hMap{width:100%;display:block}
+#hMap .chip{fill:none;stroke:rgba(255,255,255,.18);stroke-dasharray:6 4}
+#hMap .cpu{fill:hsl(190 80% 50% / .06);stroke:hsl(190 80% 60% / .5)}
+#hMap .hb rect{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.25)}
+#hMap .hb.rom rect{fill:hsl(42 92% 58% / .07);stroke:hsl(42 92% 58% / .5)}
+#hMap .hb.xr rect{fill:hsl(350 80% 60% / .06);stroke:hsl(350 80% 60% / .45)}
+#hMap .t1{font:700 14px var(--fs);fill:#e2e8f0}#hMap .t2{font:12px var(--fs);fill:#94a3b8}
+#hMap .bus{stroke:#94a3b8;stroke-width:3}#hMap .far{stroke:#64748b;stroke-width:1.5}
+#hMap .trip{fill:none;stroke:#f4b740;stroke-width:3.5;opacity:.55}
+#hMap .trip.now{opacity:1;stroke-dasharray:600;stroke-dashoffset:600;animation:hDraw .9s ease-out forwards}
+@keyframes hDraw{to{stroke-dashoffset:0}}
+#hMap .tn{fill:#f4b740}#hMap .tnn{font:800 13px var(--fm);fill:#141006}
+.hfacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.hlay{display:grid;gap:8px}.hlay .ly{border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 12px;background:rgba(255,255,255,.02)}
+.hlay h4{color:var(--amber200);font-size:16px;margin-bottom:3px}.hlay p{font-size:15.5px;line-height:1.6;color:var(--slate100);margin:0}
+.dzq{display:flex;gap:6px;flex-wrap:wrap}
+.dzt{font-size:20px;font-weight:700;line-height:1.5;color:#fff;margin:4px 0 10px}.dzt .dzn{display:inline-block;font-size:13px;background:var(--c3);color:#141006;border-radius:4px;padding:1px 7px;margin-right:8px;vertical-align:3px}
+.dzo{display:grid;gap:8px}
+.dzb{text-align:left;font:600 16.5px var(--fs);color:var(--slate100);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:10px 12px;cursor:pointer}
+.dzb b{display:inline-block;width:24px;color:var(--cyan100)}
+.dzb:hover{background:rgba(255,255,255,.08)}.dzb.pick{border-color:#f4b740;background:hsl(42 92% 58% / .12)}
+.dzb.ok{border-color:hsl(150 60% 45%);background:hsl(150 60% 40% / .18)}.dzb.no{border-color:hsl(350 70% 55%);background:hsl(350 70% 50% / .12)}
+.dzr{margin-top:10px;font-size:16.5px;line-height:1.6;color:var(--slate100);min-height:28px}.dzr b{color:var(--amber200)}
+.dzx{margin-top:8px;font-size:16.5px;line-height:1.6;color:var(--cyan100);border-radius:9px;padding:0 12px;max-height:0;overflow:hidden;transition:all .3s}
+.dzx.on{max-height:300px;padding:10px 12px;background:hsl(184 82% 48% / .08);border:1px solid hsl(184 82% 48% / .3)}.dzx b{color:#fff}
+#dzBars .slb{grid-template-columns:76px 1fr auto}
+.dzno{margin-top:8px;color:var(--rose300);font-size:15px}
+.dzsum{margin-top:12px;font-size:16px;color:var(--slate300);opacity:.35;transition:opacity .3s}.dzsum.on{opacity:1}.dzsum b{color:var(--amber200)}
+#hMap .tg{opacity:0;animation:hFade .3s ease-out forwards}@keyframes hFade{to{opacity:1}}
+#hMap .trip.now{animation-fill-mode:both}
+
+.hh{font-size:19px;color:var(--cyan100);margin-bottom:8px}
+.hidea{display:grid;gap:7px;font-size:16px;line-height:1.6;color:var(--slate100)}.hidea b{color:var(--amber200)}.hidea .q{color:var(--cyan100);font-weight:700}
+.hrule{display:grid;gap:4px;font-size:16px;line-height:1.6;color:var(--slate100);border-left:3px solid var(--c3);padding:4px 10px}.hrule b{color:var(--amber200)}
+.pk{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-top:10px}
+.pq{border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:8px 10px;font-size:14.5px}
+.pq .pa{font:700 17px var(--fm);color:#fff;margin-bottom:4px}.pq .pr{margin:3px 0;color:var(--slate300)}
+.po{font:700 14px var(--fm);min-width:34px;margin-left:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(255,255,255,.18);background:none;color:var(--slate100);cursor:pointer}
+.po.pick{background:hsl(42 92% 58% / .85);color:#141006}.po.ok{background:hsl(150 60% 40%);color:#fff}.po.no{background:hsl(350 70% 50%);color:#fff}
+.pq .pd{margin-top:5px;line-height:1.55;color:var(--slate100)}.pq .pd b{color:var(--rose300)}.pq .pshow{margin-top:4px}
+.basis{font-size:14px;color:var(--slate400);line-height:1.6;margin-top:10px}
+.basis b{color:var(--slate300)}
+@media(max-width:1100px){.grid2,.qz,.why{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="kp-wrap">
+  <div class="top">
+    <div class="grow">
+      <div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 寻址方式与机器周期</div>
+      <h1 class="kp-h1">寻址方式：告诉 CPU 数在哪</h1>
+    </div>
+    <div class="zoom">字号
+      <button class="btn sm on" data-z="0" aria-pressed="true">标准</button>
+      <button class="btn sm" data-z="1">大</button>
+      <button class="btn sm" data-z="2">特大</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-p="dz" aria-selected="true">① 难题与对比<small>告诉 CPU 数在哪，有几种办法</small></button>
+    <button class="tab" role="tab" data-p="why">② 揭晓与原理<small>路线 · 搬 1 个 vs 10 个</small></button>
+    <button class="tab" role="tab" data-p="calc">③ 动手练<small>自己推字节和周期</small></button>
+    <button class="tab" role="tab" data-p="qz">④ 小测<small>几个机器周期</small></button>
+  </div>
+
+  <!-- ================= ① 你来当设计者 ================= -->
+  <section class="pane on" id="p-dz">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="dzq" id="dzStage"></div>
+        <div class="row"><button class="btn" id="dPrev">◀ 上一关</button><button class="btn pri" id="dStep">揭晓 80C51 ▶</button></div>
+      </div>
+      <div class="hgrid">
+        <div>
+          <div class="sub" style="margin:0 0 4px">七种寻址就是七种“告诉 CPU 数在哪”的办法。每关先当设计者，再和 80C51 比字节、周期。</div><div class="dzt" id="dzT"></div>
+          <div class="dzo" id="dzO"></div>
+          <div class="dzr" id="dzR"></div>
+          <div class="dzx" id="dzX"></div>
+        </div>
+        <div><svg id="hMap" viewBox="0 0 660 380"></svg><div id="dzBars"></div></div>
+      </div>
+      <div class="dzsum" id="dzSum"><b>设计思想</b>　越近越短越快 · 常用的编进操作码 · 地址放寄存器才能加 1 · 表用“基址 + 偏移” · 跳转存“离这儿多远” · 能只动一位就别动整字节</div>
+    </div>
+  </section>
+
+  <!-- ================= ② 为什么学七种寻址 ================= -->
+  <section class="pane" id="p-why">
+    <div class="card">
+      <div class="bigq">同一件事，几种写法：<em>哪种短？哪种快？</em></div>
+      <div class="sub" style="font-size:16px">先猜，再按 <kbd>空格</kbd> 揭晓。点指令看它为什么是这些字节和周期。</div>
+      <div class="row" style="justify-content:space-between">
+        <div class="needs" id="wNeeds"></div>
+        <div class="row"><button class="btn" id="wReset">盖住</button><button class="btn pri" id="wStep">揭晓下一种 ▶</button></div>
+      </div>
+      <div class="sub" id="wDesc" style="color:var(--slate100);font-size:17px;margin:4px 0 0"></div>
+      <div class="wkey">字节、周期都查 80C51 指令表；耗时 = 周期数 × 1 µs（12 MHz）。</div>
+      <div class="ways" id="wWays"></div>
+      <div class="talk" id="wTalk" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- ================= ② 套娃 ================= -->
+  <section class="pane" id="p-time">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="h2">四种周期是一层套一层</div>
+          <div class="sub">2 个振荡周期 = 1 个状态；6 个状态 = 1 个机器周期；1~4 个机器周期 = 1 条指令。</div></div>
+        <div class="row">
+          <span class="freq">晶振 <button class="btn sm mono on" data-f="12">12 MHz</button><button class="btn sm mono" data-f="6">6 MHz</button></span>
+          <button class="btn" id="nReset">重来</button>
+          <button class="btn pri" id="nStep">下一步 ▶</button>
+        </div>
+      </div>
+      <div class="lv" id="lv0"><div class="nm">振荡周期<small>晶振一拍 P</small></div>
+        <div><svg class="wave" viewBox="0 0 1200 40" preserveAspectRatio="none"><path id="wavep"/></svg><div class="strip osc" id="sOsc" style="grid-template-columns:repeat(12,1fr)"></div></div>
+        <div class="val" id="vOsc"></div></div>
+      <div class="lv" id="lv1"><div class="nm">状态周期<small>2 拍：P1、P2</small></div>
+        <div class="strip st" id="sSt" style="grid-template-columns:repeat(6,1fr)"></div><div class="val" id="vSt"></div></div>
+      <div class="lv" id="lv2"><div class="nm">机器周期<small>6 个状态 S1~S6</small></div>
+        <div class="strip mc" style="grid-template-columns:1fr"><div class="c">1 个机器周期 = S1 S2 S3 S4 S5 S6 = 12 个振荡周期</div></div><div class="val" id="vMc"></div></div>
+      <div class="lv" id="lv3"><div class="nm">指令周期<small>1、2 或 4 个机器周期（本行按机器周期画）</small></div>
+        <div style="display:grid;gap:4px">
+          <div class="strip ic" style="grid-template-columns:repeat(4,1fr)"><div class="c">MOV A,R0　1 个</div><div></div><div></div><div></div></div>
+          <div class="strip ic" style="grid-template-columns:repeat(4,1fr)"><div class="c" style="grid-column:span 2">MOVX A,@DPTR　2 个</div><div></div><div></div></div>
+          <div class="strip ic" style="grid-template-columns:repeat(4,1fr)"><div class="c" style="grid-column:span 4">MUL AB　4 个</div></div>
+        </div><div class="val" id="vIc"></div></div>
+      <div class="talk" id="nTalk"></div>
+      <div class="hint">按 <kbd>空格</kbd> 单步，<kbd>←</kbd> <kbd>→</kbd> 换页签。</div>
+    </div>
+  <div class="card" style="margin-top:12px">
+    <div class="row" style="justify-content:space-between">
+      <div><div class="h2">几条指令并排跑</div>
+      <div class="sub">每格一个状态。每个机器周期在 S1、S4 各读一次程序存储器。</div></div>
+      <div class="row"><span class="mono" id="lClock" style="color:var(--amber200)"></span><button class="btn" id="lReset">重来</button><button class="btn" id="lAll">一次放完</button><button class="btn pri" id="lStep">下一拍 ▶</button></div>
+    </div>
+    <div class="pick" id="lPick"></div>
+    <div class="legend"><span><i style="background:hsl(210 80% 62%)"></i>取指令字节</span><span><i style="background:hsl(210 30% 50% / .6)"></i>读了丢弃（PC 不加 1）</span><span><i style="background:hsl(42 92% 58%)"></i>为操作数访存</span><span><i style="background:hsl(154 62% 48%)"></i>片内执行</span><span><i style="background:hsl(348 72% 62%)"></i>乘除运算</span><span><i style="background:rgba(255,255,255,.2)"></i>不取指（MOVX）</span><span><i style="background:rgba(255,255,255,.12)"></i>手册未逐拍给出</span></div>
+    <div class="tl" id="lTl"></div>
+    <div class="talk" id="lTalk" style="margin-top:10px"></div>
+    
+</div>
+  </section>
+
+
+  <!-- ================= ④ 逐拍时序 ================= -->
+  <section class="pane" id="p-beat">
+    <div class="defs3">
+      <div><b>取指</b>：按 PC 从程序存储器读 1 个字节；每个机器周期在 S1、S4 各读一次，读到本条的字节就收下，PC 加 1。</div>
+      <div><b>丢弃</b>：读了但不用。本条已经取全，S4 照样读，读到下一条的首字节，先不收，PC 不加 1，下一条从这里重新读。像翻开下一页看一眼又合上，书签不动。</div>
+      <div><b>寻址</b>：找到操作数并拿到它。直接、间接、变址寻址要先拿到地址，再按地址去存储器读一趟。</div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div class="bins" id="bIns"></div>
+      <div class="row"><button class="btn" id="bReset">重来</button><button class="btn" id="bAll">一次放完</button><button class="btn pri" id="bStep">下一拍 ▶</button></div>
+    </div>
+    <div class="bhead" id="bHead"></div>
+    <div class="bwhy" id="bWhy"></div>
+    <div id="bBands"></div>
+    <div class="talk" id="bTalk" style="margin-top:10px"></div>
+    <div class="basis"><b>依据</b>：Intel《MCS-51 Microcontroller Family User's Manual》CPU 时序一节：每个机器周期两次取指；单字节指令在 S4 的那次读被忽略、PC 不加 1；执行在 S6P2 结束；MOVX 的第二个机器周期不取指，是唯一跳过取指的情况。80C51 数据手册：ALE 以振荡频率的 1/6 输出，访问外部数据存储器时跳过一个 ALE 脉冲，所以 MOVX 第二周期只跳过 S1 的 ALE，S4 的 ALE 照常，PSEN 两次都不出现。字节数、周期数按 80C51 指令表。
+      <br><b>说明</b>：手册只给到执行在 S6 结束，CPU 内部动作（译码、执行、片内 RAM 读写、运算）不拆到具体某一拍，所以 S2–S3、S5–S6 各画成一段；“认指令（译码）”“做指令（执行）”是讲解说法。波形是简化画法，只表示有没有、在哪一段。PSEN 按片外程序存储器画；用片内 ROM（EA 接高电平）时，取指照样在 S1、S4 进行，PSEN 引脚不出脉冲。MOVC 的表格字节占 S1 还是 S4 的读位，手册未标，画成虚框。</div>
+  </section>
+
+
+
+  <!-- ================= ④ 猜周期 ================= -->
+  <section class="pane" id="p-calc">
+    <div class="card" style="margin-bottom:12px"><div class="h2">不用背：按规则推</div>
+      <div class="hrule">
+        <div><b>字节</b>：操作码 1 个字节；A、Rn、@Ri 编在操作码里，不占字节；每带一个 direct 或 #data 加 1；16 位地址或立即数加 2；相对偏移 rel 加 1。</div>
+        <div><b>周期</b>：1~2 字节一般 1 个周期；3 字节、跳转类、MOVC、MOVX、INC DPTR 是 2 个；MUL、DIV 是 4 个。有例外，以 80C51 指令表为准。</div>
+      </div>
+      <div class="pk" id="pk"></div></div>
+  </section>
+  <section class="pane" id="p-qz">
+    <div class="qz">
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><div class="h2">再猜：几个机器周期？</div><div class="score" id="qScore"></div></div>
+        <div class="qlist" id="qList"></div>
+        <div class="qins" id="qIns"></div>
+        <div class="sub" id="qCtx"></div>
+        <div class="opts" id="qOpts"></div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="qPrev">◀ 上一题</button><button class="btn pri" id="qShow">揭晓（空格）</button><button class="btn" id="qNext">下一题 ▶</button></div>
+        <div class="hint">先让全班举手：1、2 还是 4？再点揭晓。</div>
+      </div>
+      <div>
+        <div class="talk" id="qWhy">先猜，再揭晓。</div>
+        <div class="tl" id="qTl" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="foot"><button class="btn sm" id="bakBeat" style="float:right">备用：逐拍时序 ▸</button>80C51 口径：1 个机器周期 = 6 个状态 = 12 个振荡周期；12 MHz 时 1 µs。字节数、周期数均按 80C51 指令表。</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+
+  /* ---------- 字号 ---------- */
+  $$('.zoom .btn').forEach(function (b) {
+    b.onclick = function () {
+      document.body.classList.remove('z1', 'z2');
+      if (b.dataset.z !== '0') document.body.classList.add('z' + b.dataset.z);
+      $$('.zoom .btn').forEach(function (x) { x.setAttribute('aria-pressed', x === b); x.classList.toggle('on', x === b); });
+    };
+  });
+
+  /* ---------- 页签 ---------- */
+  var PANES = ['dz', 'why', 'calc', 'qz'], GROUP = { why: ['why', 'time'] };
+  var cur = 'dz';
+  function showPane(k) {
+    cur = k;
+    $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); });
+    var g = GROUP[k] || [k]; $$('.pane').forEach(function (p) { p.classList.toggle('on', g.indexOf(p.id.slice(2)) >= 0); });
+    try { history.replaceState(null, '', '#' + k); } catch (e) {}
+  }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
+
+  /* ============ 指令时间轴数据（80C51 指令表 + MCS-51 用户手册取指时序） ============
+     手册：每个机器周期固定在 S1、S4 各读一次程序存储器；本条用不上的那次读“丢弃”，PC 不加 1。
+     只有 MOVX 的第二个机器周期不取指。片内 RAM 读写、运算在哪一拍发生，手册没有逐拍给出，
+     所以只写进“本周期内完成”的说明行（notes），不画到具体某个 S。
+     mk(字节, 周期, 取指覆盖, 每周期说明)：覆盖键写作“周期.状态”，只用于 S1、S4。 */
+  function mk(B, T, ov, notes) {
+    var cyc = [], k = 0;
+    for (var c = 1; c <= T; c++) {
+      var row = [];
+      for (var s = 1; s <= 6; s++) {
+        var v = ['o', ''];
+        if (s === 1 || s === 4) {
+          v = k < B ? ['f', k === 0 ? '操作码' : '字节 ' + (k + 1)] : ['dm', '丢弃'];
+          k++;
+        }
+        if (ov && ov[c + '.' + s]) v = ov[c + '.' + s];
+        row.push(v);
+      }
+      cyc.push(row);
+    }
+    return { cyc: cyc, notes: notes || [] };
+  }
+  function I(a, B, T, mc, ov, notes) { var m = mk(B, T, ov, notes); return { a: a, B: B, T: T, mc: mc, cyc: m.cyc, notes: m.notes }; }
+  var INS = {
+    r0:   I('MOV A,R0', 1, 1, 'E8', null, [['x', '本周期内：R0 送 A，不为操作数访存']]),
+    r1:   I('MOV A,R1', 1, 1, 'E9', null, [['x', '本周期内：R1 送 A，不为操作数访存']]),
+    r5:   I('MOV A,R5', 1, 1, 'ED', null, [['x', '本周期内：R5 送 A']]),
+    imm:  I('MOV A,#30H', 2, 1, '74 30', { '1.4': ['f', '30H（数）'] }, [['x', '本周期内：30H 送 A，数随指令进来，不再访存']]),
+    imm55:I('MOV A,#55H', 2, 1, '74 55', { '1.4': ['f', '55H（数）'] }, [['x', '本周期内：55H 送 A']]),
+    dir:  I('MOV A,30H', 2, 1, 'E5 30', { '1.4': ['f', '30H（地址）'] }, [['d', '本周期内：按地址 30H 读片内 RAM，送 A']]),
+    ind:  I('MOV A,@R0', 1, 1, 'E6', null, [['d', '本周期内：读 R0 得地址，再按地址读片内 RAM，送 A']]),
+    ind1: I('MOV A,@R1', 1, 1, 'E7', null, [['d', '本周期内：读 R1 得地址，再读片内 RAM，送 A']]),
+    bit:  I('MOV C,30H', 2, 1, 'A2 30', { '1.4': ['f', '30H（位地址）'] }, [['d', '本周期内：读位 26H.0，送 C']]),
+    idx:  I('MOVC A,@A+DPTR', 1, 2, '93', { '2.1': ['u', '见说明'], '2.4': ['u', '见说明'] }, [['x', '本周期内：算 A+DPTR'], ['d', '本周期内：按 A+DPTR 读程序存储器（读表），送 A']]),
+    idxpc:I('MOVC A,@A+PC', 1, 2, '83', { '2.1': ['u', '见说明'], '2.4': ['u', '见说明'] }, [['x', '本周期内：算 A+PC'], ['d', '本周期内：按 A+PC 读程序存储器，送 A']]),
+    movx: I('MOVX A,@DPTR', 1, 2, 'E0', { '2.1': ['n', '不取指'], '2.4': ['n', '不取指'] }, [['d', 'S4 之后：P0、P2 送出 DPTR 地址'], ['d', '本周期：不取指、PSEN 不出现，RD 有效，读外部 RAM 送 A']]),
+    rel:  I('SJMP rel', 2, 2, '80 rel', { '1.4': ['f', 'rel'] }, [['x', ''], ['x', '本周期内：PC + rel 写回 PC']]),
+    mdd:  I('MOV 30H,40H', 3, 2, '85 40 30', null, [['x', ''], ['d', '本周期内：读 (40H)，写入 30H']]),
+    mdd2: I('MOV 40H,30H', 3, 2, '85 30 40', { '1.4': ['f', '30H（源地址）'], '2.1': ['f', '40H（目的地址）'] }, [['x', ''], ['d', '本周期内：读 (30H)，写入 40H']]),
+    mdr:  I('MOV 30H,R2', 2, 2, '8A 30', null, [['x', ''], ['d', '本周期内：R2 写入 30H']]),
+    mrd:  I('MOV R1,30H', 2, 2, 'A9 30', null, [['x', ''], ['d', '本周期内：读 (30H)，写入 R1']]),
+    dptr: I('MOV DPTR,#1234H', 3, 2, '90 12 34', null, [['x', ''], ['x', '本周期内：12H 装 DPH，34H 装 DPL']]),
+    incd: I('INC DPTR', 1, 2, 'A3', null, [['x', ''], ['x', '本周期内：DPTR 加 1 完成']]),
+    mul:  I('MUL AB', 1, 4, 'A4', null, [['e', '乘法运算'], ['e', '乘法运算'], ['e', '乘法运算'], ['e', '本周期末：积的高 8 位送 B，低 8 位送 A']]),
+    div:  I('DIV AB', 1, 4, '84', null, [['e', '除法运算'], ['e', '除法运算'], ['e', '除法运算'], ['e', '本周期末：商送 A，余数送 B']])
+  };
+  window.__INS = INS;
+
+  /* 时间轴渲染：每条指令两行——上行 S1~S6（只在 S1、S4 标取指），下行按机器周期写“本周期内完成”的事 */
+  function tlBuild(el, rows, nCyc, labW) {
+    el.style.gridTemplateColumns = (labW || 170) + 'px repeat(' + nCyc * 6 + ',minmax(0,1fr)) 92px';
+    var h = '<div></div>';
+    for (var c = 1; c <= nCyc; c++) h += '<div class="hd mcn" style="grid-column:span 6">第 ' + c + ' 个机器周期</div>';
+    h += '<div></div><div></div>';
+    for (c = 1; c <= nCyc; c++) for (var s = 1; s <= 6; s++) h += '<div class="hd">S' + s + '</div>';
+    h += '<div></div>';
+    rows.forEach(function (k) {
+      var X = INS[k];
+      h += '<div class="lab">' + X.a + '<small>' + X.B + ' 字节 · ' + X.T + ' 个机器周期</small></div>';
+      for (c = 1; c <= nCyc; c++) for (s = 1; s <= 6; s++) {
+        var v = c <= X.T ? X.cyc[c - 1][s - 1] : null;
+        h += v ? '<div class="s ' + v[0] + '" data-t="' + ((c - 1) * 6 + s - 1) + '">' + v[1] + '</div>' : '<div class="s na" data-t="' + ((c - 1) * 6 + s - 1) + '"></div>';
+      }
+      h += '<div class="sum" data-sum="' + k + '"></div><div></div>';
+      for (c = 1; c <= nCyc; c++) {
+        var n = c <= X.T ? X.notes[c - 1] : null;
+        h += '<div class="nt' + (n && n[1] ? ' ' + n[0] : ' na') + '" data-c="' + c + '" style="grid-column:span 6">' + (n ? n[1] : '') + '</div>';
+      }
+      h += '<div></div>';
+    });
+    el.innerHTML = h;
+  }
+  function tlLight(el, upto) {
+    $$('.s', el).forEach(function (d) {
+      var t = +d.dataset.t;
+      d.classList.toggle('lit', t <= upto && !d.classList.contains('na'));
+      d.classList.toggle('now', t === upto && !d.classList.contains('na'));
+    });
+    $$('.nt', el).forEach(function (d) { d.classList.toggle('lit', upto >= +d.dataset.c * 6 - 1 && !d.classList.contains('na')); });
+    $$('.sum', el).forEach(function (d) {
+      var X = INS[d.dataset.sum];
+      d.textContent = upto >= X.T * 6 - 1 ? '完成 · ' + X.T + ' 个机器周期' : '';
+    });
+  }
+
+  /* ================= ① 你来当设计者 =================
+     每关：设计难题 → 学生选方案 → 看后果（字节、周期、路线）→ 揭晓 80C51 做法。
+     字节、周期按 80C51 指令表；标“假想”的方案在 80C51 里没有对应指令，数字按规则推。 */
+  var HP = { A: [144, 92], DEC: [144, 250], PC: [144, 318], R: [222, 75], RAM: [222, 170], SFR: [222, 268], ROM: [392, 120], XR: [546, 280] };
+  function hBox(x, y, w, h, t, s, cls) { return '<g class="hb ' + (cls || '') + '"><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="8"/><text x="' + (x + w / 2) + '" y="' + (y + (s ? h / 2 - 4 : h / 2 + 5)) + '" text-anchor="middle" class="t1">' + t + '</text>' + (s ? '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 14) + '" text-anchor="middle" class="t2">' + s + '</text>' : '') + '</g>'; }
+  function hMapBase() {
+    var g = '<rect x="6" y="20" width="510" height="330" rx="12" class="chip"/><text x="16" y="38" class="t2">80C51 芯片内部</text>';
+    g += '<rect x="22" y="48" width="140" height="292" rx="10" class="cpu"/><text x="92" y="68" text-anchor="middle" class="t1">CPU</text>';
+    g += hBox(40, 76, 104, 32, 'A 累加器') + hBox(40, 150, 104, 32, 'ALU 运算器') + hBox(40, 234, 104, 32, '译码器') + hBox(40, 302, 104, 32, 'PC');
+    g += hBox(222, 52, 140, 46, 'R0–R7', '工作寄存器 00H–1FH') + hBox(222, 146, 140, 48, '片内 RAM', '20H–7FH（其余）') + hBox(222, 244, 140, 48, 'SFR', '80H–FFH，含 DPTR');
+    g += hBox(392, 60, 120, 120, '程序存储器', 'ROM（片内 4 KB）', 'rom');
+    g += '<line x1="516" y1="280" x2="546" y2="280" class="bus"/><text x="531" y="270" text-anchor="middle" class="t2">外部总线</text>' + hBox(546, 244, 104, 72, '片外 RAM', '用 MOVX 访问', 'xr');
+    g += '<line x1="40" y1="368" x2="640" y2="368" class="far" marker-end="url(#hArr)"/><text x="40" y="362" class="t2">近</text><text x="610" y="362" class="t2">远</text>';
+    return '<defs><marker id="hArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker><marker id="hArr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f4b740"/></marker></defs>' + g;
+  }
+  function hRoute(trips) {
+    var g = hMapBase();
+    (trips || []).forEach(function (tp, k) {
+      var p = HP[tp[0]], q = HP[tp[1]], mx = (p[0] + q[0]) / 2 + (k % 2 ? 14 : -14), my = (p[1] + q[1]) / 2 - 30 + k * 12;
+      g += '<path d="M' + p[0] + ',' + p[1] + ' Q' + mx + ',' + my + ' ' + q[0] + ',' + q[1] + '" class="trip now" style="animation-delay:' + (k * 0.7) + 's" marker-end="url(#hArr2)"/>';
+      g += '<g class="tg" style="animation-delay:' + (k * 0.7) + 's"><circle cx="' + mx + '" cy="' + (my + 9) + '" r="11" class="tn"/><text x="' + mx + '" y="' + (my + 14) + '" text-anchor="middle" class="tnn">' + (k + 1) + '</text></g>';
+    });
+    $('#hMap').innerHTML = g;
+  }
+  var DZ = [
+    { k: '寄存器', q: '最常用的 8 个数，想让 <span class="mono">MOV A,?</span> 最短最快。你怎么设计？',
+      o: [{ t: '指令后面带上它的 8 位地址', B: 2, T: 1, tr: [['ROM', 'DEC'], ['RAM', 'A']], r: '能用，但每条多 1 个字节。天天用的数，积少成多。' },
+        { t: '把这 8 个单元的编号直接编进操作码', B: 1, T: 1, ok: 1, tr: [['ROM', 'DEC'], ['R', 'A']], r: '8 个号只要 3 位，操作码里放得下：1 个字节就够。' },
+        { t: '先把地址装进指针，再按指针取', B: 3, T: 2, tr: [['ROM', 'DEC'], ['ROM', 'R'], ['R', 'DEC'], ['RAM', 'A']], r: '要两条指令（2+1 字节，1+1 周期），取个常用数太绕。' }],
+      ans: '<span class="mono">MOV A,Rn</span> 的操作码是 E8–EF，低 3 位就是寄存器号（R1 → E9）。常用的路最短；四组寄存器靠 PSW 的 RS1、RS0 切换，写法不变。' },
+    { k: '立即', q: '程序里要一个固定的常数 30H。它放在哪，用起来最省事？',
+      o: [{ t: '先存进片内 RAM，用时按地址取', B: 5, T: 3, tr: [['ROM', 'RAM'], ['ROM', 'DEC'], ['RAM', 'A']], r: '先 MOV 40H,#30H（3 字节 2 周期）再 MOV A,40H（2 字节 1 周期），多一条。' },
+        { t: '紧跟在操作码后面，和指令放在一起', B: 2, T: 1, ok: 1, tr: [['ROM', 'DEC'], ['DEC', 'A']], r: '取指时顺手就读进来了，不用另找。' },
+        { t: '放到片外 RAM', B: 4, T: 4, tr: [['ROM', 'SFR'], ['ROM', 'DEC'], ['SFR', 'XR'], ['XR', 'A']], r: '要先装 DPTR（3 字节 2 周期）再 MOVX（1 字节 2 周期），还没算先写进去。' }],
+      ans: '<span class="mono">MOV A,#30H</span> = 74 30，2 个字节、1 个周期。常数不会变，本来就该跟程序一起放在 ROM 里。' },
+    { k: '直接', q: '数在片内某个单元，可能是 256 个地址里的任意一个（比如 30H）。指令怎么告诉 CPU？',
+      o: [{ t: '每个单元配一个专用操作码', r: '操作码只有 8 位，一共 256 种。全给 MOV A 用，别的指令就没码可用了。', no: 1 },
+        { t: '操作码后面带 1 个字节的地址', B: 2, T: 1, ok: 1, tr: [['ROM', 'DEC'], ['RAM', 'A']], r: '8 位地址正好 00H–FFH：低 128 字节 RAM 加全部 SFR。' },
+        { t: '操作码后面带 2 个字节的地址', B: 3, T: 2, fake: 1, tr: [['ROM', 'DEC'], ['RAM', 'A']], r: '片内地址只要 8 位，多带的 1 个字节白占地方。（假想方案，周期按“3 字节 2 周期”推）' }],
+      ans: '<span class="mono">MOV A,30H</span> = E5 30。多 1 个字节，换来能指到任意一个片内单元；片内不走外部总线，仍是 1 个周期。' },
+    { k: '间接', q: '要把 30H 起的 10 个数一个个拿来处理，地址每次加 1。怎么设计？',
+      o: [{ t: '每个数写一条直接寻址指令', B: 30, T: 20, r: '10 个数 10 条（按“搬 10 个”算：30 字节、20 周期），数越多程序越长。' },
+        { t: '地址放进 R0，指令只说“按 R0 去取”，R0 加 1 再循环', B: 12, T: 63, ok: 1, tr: [['ROM', 'DEC'], ['R', 'DEC'], ['RAM', 'A']], r: '程序只有 12 字节，个数变了也不变长；代价是更慢（3+6×10=63 周期）。' },
+        { t: '运行时改写指令里的地址', r: '程序在 ROM 里，运行时改不了。', no: 1 }],
+      ans: '<span class="mono">MOV A,@R0</span> = E6，1 个字节、1 个周期；只有 R0、R1 能当指针。8052 等型号的高 128 字节 RAM 只能这样访问。数越多越该用指针（页签②可拖动 n 看）。' },
+    { k: '变址', q: 'ROM 里有一张 10 项的表，要按 A 里的序号 x 取第 x 项。怎么设计？',
+      o: [{ t: '逐个比较 x，每种情况各写一句取数', B: 70, T: 23, tr: [['ROM', 'DEC'], ['DEC', 'PC']], r: '估算 70 字节：每项 CJNE（3B2T）+ MOV A,#值（2B1T）+ SJMP（2B2T）；表一改程序就得改。（估算）' },
+        { t: '表头装进 DPTR，x 当偏移：地址 = DPTR + A', B: 1, T: 2, ok: 1, tr: [['ROM', 'DEC'], ['SFR', 'ROM'], ['ROM', 'A']], r: '一条 MOVC A,@A+DPTR，表多长都一样。' },
+        { t: '表头地址写死在指令里，再加 x', r: '表一挪地方就要改所有指令，80C51 也没有这种编码。', no: 1 }],
+      ans: '<span class="mono">MOVC A,@A+DPTR</span> = 93，1 字节 2 周期（要去 ROM 再读一次）。“基址 + 偏移”：表头可换，序号就在 A 里，查完结果回到 A。' },
+    { k: '相对', q: '跳转指令里存什么：<em>目标的绝对地址</em>，还是<em>离这儿多远</em>？',
+      o: [{ t: '存 16 位绝对地址', B: 3, T: 2, tr: [['ROM', 'DEC'], ['DEC', 'PC']], r: '哪里都能跳（LJMP，3 字节 2 周期）；但整段程序搬到别的地址，每个跳转都要改。' },
+        { t: '存 8 位偏移：目标 = 下一条地址 + rel', B: 2, T: 2, ok: 1, tr: [['ROM', 'DEC'], ['DEC', 'PC']], r: '短 1 个字节；程序整体搬家，偏移不变，照样跳对。代价：只能跳 −128～+127。' },
+        { t: '存 11 位页内地址', B: 2, T: 2, tr: [['ROM', 'DEC'], ['DEC', 'PC']], r: 'AJMP 也是 2 字节 2 周期，但只能在同一个 2KB 页内；搬家跨了页就错。' }],
+      ans: '<span class="mono">SJMP rel</span> = 80 rel，2 字节 2 周期。存“离这儿多远”，指令短，程序搬到哪里都能用；远跳再用 LJMP。' },
+    { k: '位', q: 'P1.0 接一盏灯，要<em>只点亮它</em>，P1 其他 7 位不能动。怎么设计？',
+      o: [{ t: 'MOV P1,#01H 整字节写', B: 3, T: 2, tr: [['ROM', 'DEC'], ['DEC', 'SFR']], r: '灯亮了，可 P1.1–P1.7 全被写成 0：误伤别的 7 位。' },
+        { t: 'ORL P1,#01H 只或上这一位', B: 3, T: 2, tr: [['ROM', 'DEC'], ['SFR', 'DEC'], ['DEC', 'SFR']], r: '不误伤，但要 3 字节 2 周期，还要自己算掩码。' },
+        { t: '给每一位一个位地址，直接置 1', B: 2, T: 1, ok: 1, tr: [['ROM', 'DEC'], ['DEC', 'SFR']], r: 'SETB P1.0：2 字节 1 周期，只动这一位。' }],
+      ans: '<span class="mono">SETB P1.0</span> = D2 90，2 字节 1 周期。P1 的 8 位各有位地址（90H–97H），控制一盏灯、看一个开关，用位操作最直接。' }
+  ];
+  var DS = { i: 0, pick: null, show: false };
+  function dBars(o, ok) {
+    if (!o || o.B == null) return '';
+    var mb = Math.max(o.B, ok.B), mt = Math.max(o.T, ok.T);
+    var bar = function (lab, v, m, c) { return '<div class="slb"><span>' + lab + '</span><i style="width:' + Math.max(3, v / m * 100) + '%;background:' + c + '"></i><b>' + v + '</b></div>'; };
+    var same = o === ok;
+    return '<div class="slbars"><div class="slh">字节</div>' + bar('你的方案', o.B, mb, '#f4b740') + (same ? '' : bar('80C51', ok.B, mb, '#38bdf8')) +
+      '<div class="slh">机器周期</div>' + bar('你的方案', o.T, mt, '#f4b740') + (same ? '' : bar('80C51', ok.T, mt, '#38bdf8')) + '</div>';
+  }
+  function dRender() {
+    var d = DZ[DS.i], ok = d.o.filter(function (x) { return x.ok; })[0];
+    $('#dzStage').innerHTML = DZ.map(function (x, i) { return '<button class="btn sm' + (i === DS.i ? ' on' : '') + '" data-i="' + i + '">' + (i + 1) + ' ' + x.k + '</button>'; }).join('');
+    $$('#dzStage button').forEach(function (b) { b.onclick = function () { DS.i = +b.dataset.i; DS.pick = null; DS.show = false; dRender(); }; });
+    $('#dzT').innerHTML = '<span class="dzn">第 ' + (DS.i + 1) + ' 关</span>你是设计者：' + d.q;
+    $('#dzO').innerHTML = d.o.map(function (o, j) {
+      var c = DS.pick === j ? ' pick' : ''; if (DS.show) c += o.ok ? ' ok' : (DS.pick === j ? ' no' : '');
+      return '<button class="dzb' + c + '" data-j="' + j + '"><b>' + 'ABC'[j] + '</b>' + o.t + '</button>';
+    }).join('');
+    $$('#dzO .dzb').forEach(function (b) { b.onclick = function () { DS.pick = +b.dataset.j; dRender(); }; });
+    var o = DS.pick == null ? null : d.o[DS.pick];
+    $('#dzR').innerHTML = o ? '<b>后果：</b>' + o.r : '先选一个方案，看看后果。';
+    $('#dzX').innerHTML = DS.show ? '<b>80C51 的做法：</b>' + d.ans : '';
+    $('#dzX').classList.toggle('on', DS.show);
+    var show = DS.show ? ok : o;
+    hRoute(show && show.tr ? show.tr : []);
+    $('#dzBars').innerHTML = o ? (o.no ? '<div class="dzno">这个方案行不通，没有字节和周期可比。</div>' : dBars(o, ok)) : '';
+    $('#dzSum').classList.toggle('on', DS.i === DZ.length - 1 && DS.show);
+    $('#dStep').textContent = DS.show ? (DS.i < DZ.length - 1 ? '下一关 ▶' : '已是最后一关') : '揭晓 80C51 ▶';
+    $('#dStep').disabled = DS.show && DS.i >= DZ.length - 1;
+    $('#dPrev').disabled = DS.i === 0;
+  }
+  $('#dStep').onclick = function () { if (!DS.show) DS.show = true; else if (DS.i < DZ.length - 1) { DS.i++; DS.pick = null; DS.show = false; } dRender(); };
+  $('#dPrev').onclick = function () { if (DS.i > 0) { DS.i--; DS.pick = null; DS.show = false; dRender(); } };
+  dRender();
+
+  var PK = [
+    { a: 'MOV R3,#20H', mc: '7B 20', B: 2, T: 1, d: '操作码 1 + #data 1 = 2 字节（R3 编在操作码里）；2 字节，1 个周期。' },
+    { a: 'ADD A,R2', mc: '2A', B: 1, T: 1, d: 'A、R2 都编在操作码里，1 字节；1 个周期。' },
+    { a: 'MOV 30H,#55H', mc: '75 30 55', B: 3, T: 2, d: '操作码 1 + direct 1 + #data 1 = 3 字节；3 字节，2 个周期。' },
+    { a: 'MOV DPTR,#1234H', mc: '90 12 34', B: 3, T: 2, d: '操作码 1 + 16 位立即数 2 = 3 字节；3 字节，2 个周期。' },
+    { a: 'INC DPTR', mc: 'A3', B: 1, T: 2, d: '1 字节，但 INC DPTR 按规则是 2 个周期（16 位加 1）。' },
+    { a: 'SJMP LOOP', mc: '80 rel', B: 2, T: 2, d: '操作码 1 + rel 1 = 2 字节；跳转类，2 个周期。' },
+    { a: 'MOV R1,30H', mc: 'A9 30', B: 2, T: 2, x: 1, d: '操作码 1 + direct 1 = 2 字节。<b>例外</b>：按规则猜 1 个周期，指令表是 2 个。直接地址和 Rn 之间互传（MOV Rn,direct、MOV direct,Rn）都是 2 字节 2 周期，对照 MOV A,30H 只要 1 个。' },
+    { a: 'DIV AB', mc: '84', B: 1, T: 4, d: '1 字节；除法，4 个周期。' }
+  ];
+  var PKS = PK.map(function () { return { b: null, t: null, sh: false }; });
+  function pkRender() {
+    $('#pk').innerHTML = PK.map(function (q, i) {
+      var s = PKS[i];
+      var opt = function (k, arr) { return arr.map(function (v) { var c = s[k] === v ? ' pick' : ''; if (s.sh) c = v === q[k === 'b' ? 'B' : 'T'] ? ' ok' : (s[k] === v ? ' no' : ''); return '<button class="po' + c + '" data-i="' + i + '" data-k="' + k + '" data-v="' + v + '">' + v + '</button>'; }).join(''); };
+      return '<div class="pq' + (s.sh ? ' sh' : '') + '"><div class="pa">' + q.a + (q.x && s.sh ? ' <span class="tag">例外</span>' : '') + '</div><div class="pr">字节 ' + opt('b', [1, 2, 3]) + '</div><div class="pr">周期 ' + opt('t', [1, 2, 4]) + '</div>' +
+        (s.sh ? '<div class="pd">机器码 <span class="mono">' + q.mc + '</span>：' + q.B + ' 字节，' + q.T + ' 个周期。' + q.d + '</div>' : '<button class="btn sm pshow" data-i="' + i + '">揭晓</button>') + '</div>';
+    }).join('');
+    $$('#pk .po').forEach(function (b) { b.onclick = function () { var s = PKS[+b.dataset.i]; if (s.sh) return; s[b.dataset.k] = +b.dataset.v; pkRender(); }; });
+    $$('#pk .pshow').forEach(function (b) { b.onclick = function () { PKS[+b.dataset.i].sh = true; pkRender(); }; });
+  }
+  pkRender();
+
+  /* ================= ② 为什么学七种寻址：同一需求几种写法 =================
+     每条 [指令, 字节数, 机器周期数, 是否循环体]，均按 80C51 指令表。 */
+  var OPN = '操作码', R1 = '一个机器周期在 S1、S4 能读两个字节，这条指令的字节在第 1 个周期就读完，操作也在这个周期内做完，所以 1 个机器周期。';
+  function dd(op, a1, a2) { return { mc: [[op, '操作码']].concat(a1 ? [a1] : []).concat(a2 ? [a2] : []) }; }
+  var WHY = {
+    'MOV A,30H': { mc: [['E5', '操作码（MOV A,direct；目的 A 已编在操作码里）'], ['30', '地址字节：源单元 30H']], b: 'A 编在操作码里不占字节；30H 是直接地址，要多带 1 个地址字节，所以 1+1=2 字节。', t: '指令表这一行：MOV A,direct　2 字节　1 周期。' + R1 },
+    'MOV 40H,A': { mc: [['F5', '操作码（MOV direct,A；源 A 编在操作码里）'], ['40', '地址字节：目的单元 40H']], b: 'A 编在操作码里；40H 多带 1 个地址字节，1+1=2 字节。', t: '指令表这一行：MOV direct,A　2 字节　1 周期。' + R1 },
+    'MOV 40H,30H': { mc: [['85', '操作码（MOV direct,direct）'], ['30', '地址字节：源 30H'], ['40', '地址字节：目的 40H']], b: '源和目的都是直接地址，各带 1 个地址字节，1+1+1=3 字节。注意机器码里源在前、目的在后。', t: '指令表这一行：MOV direct,direct　3 字节　2 周期。为什么：多读一个字节。一个周期最多读 2 个字节，第 3 个字节要到第 2 个周期才读到。' },
+    'MOV 41H,31H': { mc: [['85', '操作码'], ['31', '地址字节：源 31H'], ['41', '地址字节：目的 41H']], b: '和 MOV 40H,30H 同一种：1+1+1=3 字节。', t: '同上，3 字节 2 周期：第 3 个字节要到第 2 个周期才读到。' },
+    'MOV 47H,37H': { mc: [['85', '操作码'], ['37', '地址字节：源 37H'], ['47', '地址字节：目的 47H']], b: '同上：1+1+1=3 字节。', t: '同上，3 字节 2 周期。' },
+    'MOV R0,#30H': { mc: [['78', '操作码（MOV Rn,#data，n=0 编在低 3 位）'], ['30', '立即数：30H 这个数本身']], b: 'R0 编在操作码里；#30H 是立即数，多带 1 个数据字节，1+1=2 字节。', t: '指令表这一行：MOV Rn,#data　2 字节　1 周期。' + R1 },
+    'MOV R1,#40H': { mc: [['79', '操作码（MOV Rn,#data，n=1）'], ['40', '立即数：40H']], b: 'R1 编在操作码里，立即数多带 1 字节，1+1=2 字节。', t: '指令表：MOV Rn,#data　2 字节　1 周期。' + R1 },
+    'MOV R7,#08H': { mc: [['7F', '操作码（MOV Rn,#data，n=7）'], ['08', '立即数：循环次数 8']], b: 'R7 编在操作码里，立即数多带 1 字节，1+1=2 字节。', t: '指令表：MOV Rn,#data　2 字节　1 周期。' + R1 },
+    'MOV A,@R0': { mc: [['E6', '操作码（MOV A,@Ri，i=0 编在最低位）']], b: 'A 和 R0 都编在操作码里，没有地址字节，只有 1 字节。地址在 R0 里，运行时才去取。', t: '指令表：MOV A,@Ri　1 字节　1 周期。先读 R0 得地址，再读片内 RAM，都在本周期内做完。' },
+    'LOOP: MOV A,@R0': { ref: 'MOV A,@R0' },
+    'MOV @R1,A': { mc: [['F7', '操作码（MOV @Ri,A，i=1）']], b: 'R1 和 A 都编在操作码里，1 字节。', t: '指令表：MOV @Ri,A　1 字节　1 周期，在本周期内做完。' },
+    'INC R0': { mc: [['08', '操作码（INC Rn，n=0）']], b: 'R0 编在操作码里，1 字节。', t: '指令表：INC Rn　1 字节　1 周期，在本周期内做完。' },
+    'INC R1': { mc: [['09', '操作码（INC Rn，n=1）']], b: 'R1 编在操作码里，1 字节。', t: '指令表：INC Rn　1 字节　1 周期，在本周期内做完。' },
+    'DJNZ R7,LOOP': { mc: [['DF', '操作码（DJNZ Rn,rel，n=7）'], ['rel', '相对偏移：从下一条地址跳回 LOOP 的距离，本例为 FAH（−6）']], b: 'R7 编在操作码里；跳到哪里用 1 个偏移字节表示，1+1=2 字节。', t: '指令表：DJNZ Rn,rel　2 字节　2 周期。为什么：除了取 2 个字节，还要把 R7 减 1、判断是否为 0、改写 PC，指令表给的是 2 个周期（这一句是讲解用的解释，手册只给周期数）。' },
+    'MOV R2,#n': { mc: [['7A', '操作码（MOV Rn,#data，n=2）'], ['n', '立即数：要搬的个数']], b: 'R2 编在操作码里，立即数多带 1 字节，1+1=2 字节。个数变了只改这一个字节。', t: '指令表：MOV Rn,#data　2 字节　1 周期。' + R1 },
+    'DJNZ R2,LOOP': { mc: [['DA', '操作码（DJNZ Rn,rel，n=2）'], ['FA', '相对偏移 −6：跳回循环体开头 LOOP']], b: 'R2 编在操作码里，跳转距离 1 个偏移字节，1+1=2 字节。', t: '指令表：DJNZ Rn,rel　2 字节　2 周期。除了取 2 个字节，还要把 R2 减 1、判断是否为 0、改写 PC（这一句是讲解用的解释，手册只给周期数）。' },
+    'MOV DPTR,#2400H': { mc: [['90', '操作码（MOV DPTR,#data16）'], ['24', '立即数高 8 位 → DPH'], ['00', '立即数低 8 位 → DPL']], b: 'DPTR 编在操作码里；16 位立即数要 2 个字节，1+2=3 字节。', t: '指令表：MOV DPTR,#data16　3 字节　2 周期。为什么：多读一个字节，第 3 个字节要到第 2 个周期才读到。' },
+    'MOVC A,@A+DPTR': { mc: [['93', '操作码（MOVC A,@A+DPTR）']], b: 'A、DPTR 都编在操作码里，1 字节。', t: '指令表：1 字节　2 周期。为什么：要拿 A+DPTR 当地址，再去 ROM（程序存储器）多跑一趟取表格字节，这一趟在第 2 个周期。' },
+    'ADD A,#50H': { mc: [['24', '操作码（ADD A,#data）'], ['50', '立即数：表的起始地址 50H']], b: 'A 编在操作码里，立即数多带 1 字节，1+1=2 字节。', t: '指令表：ADD A,#data　2 字节　1 周期。' + R1 },
+    'MOV R0,A': { mc: [['F8', '操作码（MOV Rn,A，n=0）']], b: 'R0、A 都编在操作码里，1 字节。', t: '指令表：MOV Rn,A　1 字节　1 周期，在本周期内做完。' }
+  };
+  function why(k) { var w = WHY[k]; return w && w.ref ? WHY[w.ref] : w; }
+  var NEEDS = [
+    { n: '复制一个数 30H→40H', tag: '补例', desc: '把片内 RAM 30H 单元的数复制到 40H 单元（和课件第 43 页 MOV 38H,60H 同一类）。',
+      ways: [
+        { h: '经 A 中转（直接寻址）', ins: [['MOV A,30H', 2, 1], ['MOV 40H,A', 2, 1]], note: '两条都是直接寻址，A 里顺手留了一份。' },
+        { h: '直接到直接', ins: [['MOV 40H,30H', 3, 2]], note: '一条指令 3 个字节，不经过 A。' },
+        { h: '用指针（寄存器间接）', ins: [['MOV R0,#30H', 2, 1], ['MOV R1,#40H', 2, 1], ['MOV A,@R0', 1, 1], ['MOV @R1,A', 1, 1]], note: '只搬一个数时最慢：光装两个指针就花了 2 个周期。数多了情况就反过来，见下一组。' }
+      ],
+      con: [
+        ['结果', 'A、B 一样快（2 µs）；C 光装指针就多花 2 个周期。'],
+        ['怎么选', '只搬一个数用直接寻址；指针的长处在数多的时候，看下一组。']
+      ] },
+    { n: '搬 1 个 vs 搬 10 个：30H 起→40H 起', tag: '拖动 n', slide: true, desc: '把片内 RAM 30H 起的 n 个字节复制到 40H 起。同一个需求，n=1 和 n=10 两种写法各要多少？再拖动 n（1~100）看变化。',
+      con: [
+        ['结果', '直接写：字节 3n、周期 2n；循环：字节始终 12、周期 3+6n。n≥5 循环更短，但每个 n 都更慢。'],
+        ['为什么', '地址放在 R0 里能加 1，一段程序循环处理一串数据；代价是每个数多跑 INC、DJNZ。'],
+        ['怎么选', '少量用直接寻址，一串数据用指针。']
+      ] },
+    { n: '查表：按 A 中编号取一项', tag: '据课件第 26 页改写', desc: 'A 中是编号（如 0FH），取表中对应的一项送 A。课件第 26 页：DPTR=2400H，A=0FH，查得 88H。',
+      ways: [
+        { h: '表在程序存储器（变址寻址）', ins: [['MOV DPTR,#2400H', 3, 2], ['MOVC A,@A+DPTR', 1, 2]], note: 'MOVC 去程序存储器取数，要 2 个周期。表固化在 ROM 里，掉电不丢。' },
+        { h: '表在片内 RAM 50H 起（寄存器间接）', ins: [['ADD A,#50H', 2, 1], ['MOV R0,A', 1, 1], ['MOV A,@R0', 1, 1]], note: '快 1 个周期；但表要先写进 RAM，占用片内 128 字节，掉电就没了。' }
+      ],
+      con: [
+        ['结果', '字节一样（4），表在 RAM 快 1 µs；MOVC 要去 ROM 多跑一趟。'],
+        ['怎么选', '固定的表放 ROM 用 MOVC，掉电不丢；会变的小表放片内 RAM 用 @Ri。']
+      ] }
+  ];
+  function wayTot(w) {
+    if (w.rep) return { B: w.rep[0] * w.rep[1], T: w.rep[0] * w.rep[2], bs: w.rep[1] + '×' + w.rep[0] + '=' + w.rep[0] * w.rep[1], ts: w.rep[2] + '×' + w.rep[0] + '=' + w.rep[0] * w.rep[2] };
+    var B = 0, T = 0, bi = [], ti = [], bl = [], tl = [];
+    w.ins.forEach(function (r) {
+      if (r[1] == null) return; B += r[1];
+      if (r[3] && w.loop) { bl.push(r[1]); tl.push(r[2]); T += r[2] * w.loop; } else { bi.push(r[1]); ti.push(r[2]); T += r[2]; }
+    });
+    var bs, ts;
+    if (w.loop) {
+      var t0 = ti.reduce(function (a, b) { return a + b; }, 0), t1 = tl.reduce(function (a, b) { return a + b; }, 0);
+      bs = bi.join('+') + '+(' + bl.join('+') + ')=' + B + '（循环体只写一遍）';
+      ts = '初始化 ' + ti.join('+') + '=' + t0 + '；循环体 (' + tl.join('+') + ')×' + w.loop + '=' + t1 + '×' + w.loop + '=' + t1 * w.loop + '；合计 ' + t0 + '+' + t1 * w.loop + '=' + T;
+    } else { bs = bi.join('+') + '=' + B; ts = ti.join('+') + '=' + T; }
+    return { B: B, T: T, bs: bs, ts: ts };
+  }
+  var W = { i: 0, shown: 0, open: null };
+  var LOOPW = [['MOV R0,#30H', 2, 1], ['MOV R1,#40H', 2, 1], ['MOV R2,#n', 2, 1], ['LOOP: MOV A,@R0', 1, 1, 1], ['MOV @R1,A', 1, 1, 1], ['INC R0', 1, 1, 1], ['INC R1', 1, 1, 1], ['DJNZ R2,LOOP', 2, 2, 1]];
+  var SL = { n: 10 };
+  function hexb(v) { return (v < 16 ? '0' : '') + v.toString(16).toUpperCase() + 'H'; }
+  function slCalc(n) {
+    return { dB: 3 * n, dT: 2 * n, lB: 12, lT: 3 + 6 * n,
+      dBs: '3×' + n + '=' + 3 * n, dTs: '2×' + n + '=' + 2 * n,
+      lBs: '2+2+2+(1+1+1+1+2)=12', lTs: '(1+1+1)+(1+1+1+1+2)×' + n + '=3+6×' + n + '=' + (3 + 6 * n) };
+  }
+  function slTable(n, lit) {
+    var c = slCalc(n), dl = n === 1 ? ['MOV 40H,30H'] : n === 10 ? ['MOV 40H,30H', 'MOV 41H,31H', '……（共 10 条）', 'MOV 49H,39H'] : [];
+    var dRows = dl.map(function (x, i) { var real = x.indexOf('…') < 0; return '<tr><td>' + x + '</td><td class="n">' + (real ? 3 : '') + '</td><td class="n">' + (real ? 2 : '') + '</td></tr>'; }).join('');
+    var lRows = LOOPW.map(function (r, i) {
+      var key = 's' + n + '-' + i, op = W.open === key;
+      return '<tr class="wr' + (op ? ' op' : '') + '" data-k="' + key + '"><td><span class="car">' + (op ? '▾' : '▸') + '</span>' + r[0].replace('#n', '#' + hexb(n)) + (r[3] ? ' <span style="color:var(--c3)">×' + n + '</span>' : '') + '</td><td class="n">' + r[1] + '</td><td class="n">' + r[2] + '</td></tr>' + (op ? detail(r[0]) : '');
+    }).join('');
+    var hd = '<tr class="wh"><td>指令</td><td class="n">占几个字节</td><td class="n">要几个机器周期</td></tr>';
+    return '<div class="way' + (lit ? ' lit' : '') + '"><h4>n = ' + n + '（30H~' + hexb(0x30 + n - 1) + ' → 40H~' + hexb(0x40 + n - 1) + '）</h4>' +
+      '<div class="sl2"><div><b class="wt">直接写 MOV direct,direct</b><table>' + hd + dRows + '</table>' +
+      '<div class="tot"><div>字节：<b>' + c.dBs + '</b></div><div>机器周期：<b>' + c.dTs + '</b></div><div>耗时：<b>' + c.dT + '×1 µs=' + c.dT + ' µs</b></div></div></div>' +
+      '<div><b class="wt">@Ri 指针加循环</b><table>' + hd + lRows + '</table>' +
+      '<div class="tot"><div>字节：<b>' + c.lBs + '</b></div><div>机器周期：<b>' + c.lTs + '</b></div><div>耗时：<b>' + c.lT + '×1 µs=' + c.lT + ' µs</b></div></div></div></div></div>';
+  }
+  function slChart(n) {
+    var W0 = 520, H0 = 190, L = 44, R = 12, T = 12, B = 30, xm = 100, ym = 300;
+    var X = function (v) { return L + (v - 1) / (xm - 1) * (W0 - L - R); }, Y = function (v) { return T + (1 - v / ym) * (H0 - T - B); };
+    var g = '';
+    [0, 100, 200, 300].forEach(function (v) { g += '<line x1="' + L + '" x2="' + (W0 - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="rgba(255,255,255,.08)"/><text x="' + (L - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + v + '</text>'; });
+    [1, 25, 50, 75, 100].forEach(function (v) { g += '<text x="' + X(v) + '" y="' + (H0 - 10) + '" text-anchor="middle">' + v + '</text>'; });
+    g += '<line x1="' + X(1) + '" y1="' + Y(3) + '" x2="' + X(100) + '" y2="' + Y(300) + '" stroke="#f4b740" stroke-width="2.5"/>';
+    g += '<line x1="' + X(1) + '" y1="' + Y(12) + '" x2="' + X(100) + '" y2="' + Y(12) + '" stroke="#38bdf8" stroke-width="2.5"/>';
+    g += '<circle cx="' + X(4) + '" cy="' + Y(12) + '" r="5" fill="#fff"/><text x="' + (X(4) + 8) + '" y="' + (Y(12) - 10) + '" fill="#fff">交叉点 n=4：都是 12 字节</text>';
+    g += '<line x1="' + X(n) + '" x2="' + X(n) + '" y1="' + T + '" y2="' + (H0 - B) + '" stroke="rgba(255,255,255,.5)" stroke-dasharray="4 3"/>';
+    return '<svg viewBox="0 0 ' + W0 + ' ' + H0 + '" class="slc"><text x="' + L + '" y="10" fill="#cbd5e1">字节数随 n 变化</text>' + g + '<text x="' + (W0 - R) + '" y="' + (Y(300) + 14) + '" text-anchor="end" fill="#f4b740">直接写 3n</text><text x="' + (W0 - R) + '" y="' + (Y(12) - 6) + '" text-anchor="end" fill="#38bdf8">循环 12</text></svg>';
+  }
+  function slBars(n) {
+    var c = slCalc(n), mb = Math.max(c.dB, c.lB), mt = Math.max(c.dT, c.lT);
+    var bar = function (lab, v, m, col, s) { return '<div class="slb"><span>' + lab + '</span><i style="width:' + Math.max(1.5, v / m * 100) + '%;background:' + col + '"></i><b>' + s + '</b></div>'; };
+    var vb = n < 4 ? '直接写更短' : n === 4 ? '两种一样长（交叉点）' : '循环更短，省 ' + (c.dB - 12) + ' 字节';
+    return '<div class="slbars"><div class="slh">字节　<small>' + vb + '</small></div>' + bar('直接写', c.dB, mb, '#f4b740', c.dBs) + bar('循环', c.lB, mb, '#38bdf8', '12') +
+      '<div class="slh">机器周期　<small>循环每次都更慢，多 ' + (c.lT - c.dT) + ' 个周期</small></div>' + bar('直接写', c.dT, mt, '#f4b740', c.dTs) + bar('循环', c.lT, mt, '#38bdf8', '3+6×' + n + '=' + c.lT) + '</div>';
+  }
+  function slRender(N) {
+    var on = W.shown > 0, all = W.shown >= 2;
+    $('#wWays').innerHTML = '<div class="slwrap">' + slTable(1, on) + (W.shown >= 2 ? slTable(10, true) : '<div class="way"><h4>n = 10</h4><div class="wn">按空格揭晓</div></div>') + '</div>' +
+      (all ? '<div class="way lit slpanel"><h4>拖动 n：<input type="range" id="slN" min="1" max="100" value="' + SL.n + '"> <b class="mono" id="slV">n = ' + SL.n + '</b></h4><div class="slgrid">' + slChart(SL.n) + slBars(SL.n) + '</div>' +
+      '<div class="wn">算式：直接写 字节 3n、周期 2n；循环 字节恒为 12、周期 3+6n。字节交叉点 3n=12 → n=4：n≤3 直接写短，n=4 一样长，n≥5 循环短。周期 2n 永远小于 3+6n，没有交叉点。</div></div>' : '');
+    $$('#wWays tr.wr').forEach(function (tr) { tr.onclick = function () { W.open = W.open === tr.dataset.k ? null : tr.dataset.k; slRender(N); }; });
+    var r = $('#slN'); if (r) r.oninput = function () { SL.n = +r.value; $('#slV').textContent = 'n = ' + SL.n; $('.slgrid').innerHTML = slChart(SL.n) + slBars(SL.n); };
+    $('#wTalk').innerHTML = all ? N.con.map(function (c) { return '<p><b>结论 · ' + c[0] + '：</b>' + c[1] + '</p>'; }).join('') : '先猜：搬 1 个数哪种短、哪种快？换成 10 个呢？想好了按空格揭晓。';
+    $('#wStep').disabled = false;
+  }
+
+  $('#wNeeds').innerHTML = NEEDS.map(function (n, i) { return '<button data-i="' + i + '">' + n.n + '<span class="tag">' + n.tag + '</span></button>'; }).join('');
+  $$('#wNeeds button').forEach(function (b) { b.onclick = function () { W.i = +b.dataset.i; W.shown = 0; W.open = null; wRender(); }; });
+  function detail(k) {
+    var d = why(k); if (!d) return '';
+    return '<tr class="wd"><td colspan="3"><div class="mcx">' + d.mc.map(function (m) { return '<span><b>' + m[0] + '</b>' + m[1] + '</span>'; }).join('') + '</div>' +
+      '<p><b>为什么这么多字节：</b>' + d.b + '</p><p><b>为什么这么多周期：</b>' + d.t + '</p></td></tr>';
+  }
+  function wRender() {
+    var N = NEEDS[W.i];
+    $$('#wNeeds button').forEach(function (b, i) { b.setAttribute('aria-pressed', i === W.i); });
+    $('#wDesc').textContent = N.desc;
+    if (N.slide) { slRender(N); return; }
+    var maxT = Math.max.apply(null, N.ways.map(function (w) { return wayTot(w).T; }));
+    $('#wWays').innerHTML = N.ways.map(function (w, j) {
+      var t = wayTot(w), on = j < W.shown;
+      var rows = w.ins.map(function (r, i) {
+        var key = j + '-' + i, can = r[1] != null, op = W.open === key;
+        return '<tr' + (can ? ' class="wr' + (op ? ' op' : '') + '" data-k="' + key + '" title="点开看来由"' : '') + '><td>' + (can ? '<span class="car">' + (op ? '▾' : '▸') + '</span>' : '') + r[0] + (r[3] && w.loop ? ' <span style="color:var(--c3)">×' + w.loop + '</span>' : '') + '</td><td class="n">' + (can ? r[1] : '') + '</td><td class="n">' + (can ? r[2] : '') + '</td></tr>' + (op ? detail(r[0]) : '');
+      }).join('');
+      return '<div class="way' + (on ? ' lit' : '') + '"><h4>写法 ' + 'ABC'[j] + '：' + w.h + '</h4><table><tr class="wh"><td>指令（点开看来由）</td><td class="n">占几个字节</td><td class="n">要几个机器周期</td></tr>' + rows + '</table>' +
+        '<div class="wn">' + w.note + '</div>' +
+        '<div class="tot' + (on ? '' : ' hide') + '"><div>字节：<b>' + t.bs + '</b></div><div>机器周期：<b>' + t.ts + '</b></div><div>耗时：<b>' + t.T + '×1 µs=' + t.T + ' µs</b></div></div>' +
+        '<div class="bar" style="width:' + (on ? Math.max(4, t.T / maxT * 100) : 0) + '%"></div></div>';
+    }).join('');
+    $$('#wWays tr.wr').forEach(function (tr) { tr.onclick = function () { W.open = W.open === tr.dataset.k ? null : tr.dataset.k; wRender(); }; });
+    $('#wTalk').innerHTML = W.shown >= N.ways.length ? N.con.map(function (c) { return '<p><b>结论 · ' + c[0] + '：</b>' + c[1] + '</p>'; }).join('') : '先猜：哪种写法字节最少？哪种最快？想好了按空格揭晓。';
+    $('#wStep').disabled = W.shown >= N.ways.length && W.i >= NEEDS.length - 1;
+  }
+  $('#wStep').onclick = function () {
+    if (W.shown < (NEEDS[W.i].slide ? 2 : NEEDS[W.i].ways.length)) W.shown++;
+    else if (W.i < NEEDS.length - 1) { W.i++; W.shown = 0; W.open = null; }
+    wRender();
+  };
+  $('#wReset').onclick = function () { W.shown = 0; W.open = null; wRender(); };
+  wRender();
+
+
+  /* ================= ③ 逐拍时序（按 MCS-51 用户手册 CPU 时序；时间带画法） ================= */
+  function R(b, use, k, pc, say) { return { r: 1, b: b, use: use, k: k, pc: pc, say: say }; }
+  function M(say, extra) { return { r: 0, say: say, extra: extra || '' }; }
+  var DM = function (pc) { return R('下一条首字节', '读了但丢弃', 'dm', 'PC 不变（' + pc + '）', '第二次读，读到的是下一条指令的首字节，丢弃：本条已经取全，这个字节属于下一条，所以不收；PC 不加 1，否则下一条的第一个字节就被跳过；下一条开始时从 ' + pc + ' 重新读。像翻书时顺手翻开下一页看一眼又合上，书签不动。（解释和比方是讲解说法）'); };
+  var MD1 = M('S2–S3：认指令（译码）：看是什么指令、用哪个寄存器、要不要去存储器。（讲解说法）'), MD2 = M('S5–S6：做指令（执行），本周期在 S6 结束。');
+  var BEAT = [
+    { k: 'r1', why: '只有 1 个字节，第一次读就拿全了；第二次读到的是下一条指令，先不收，PC 不加 1；R1 送 A 在 CPU 内部完成，不用再跑存储器。所以 1 个机器周期。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('E9', '操作码', 'op', 'PC 0100→0101', '第一次读：按 PC=0100 读到 E9，是操作码 MOV A,R1。R1 的编号就编在这个字节里，整条指令拿全了。PC 加 1。'), M('S2–S3：认指令（译码）：认出这是“R1 送 A”，不用去存储器。'), DM('0101'), M('S5–S6：做指令（执行）：R1 的内容送 A，在 CPU 内部完成，不用再跑存储器。本周期结束，指令完成。', 'R1 送 A')] }] },
+    { k: 'dir', why: '2 个字节，一个周期正好读两次：第一次读到操作码，第二次读拿到地址 30H，再按这个地址去片内 RAM 取数，这一步就是“寻址”。片内 RAM 不用走外部总线，本周期内取完，所以 1 个机器周期。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('E5', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 E5，是操作码 MOV A,direct。CPU 知道后面还跟着 1 个地址字节。PC 加 1。'), MD1, R('30', '地址', 'adr', 'PC 0101→0102', '第二次读：拿到 30H。它是本条的第 2 个字节，收下，PC 加 1。注意 30H 是地址，不是要送 A 的数。'), M('S5–S6：做指令（执行）：按地址 30H 去片内 RAM 取数，送 A。这一步就是“寻址”（直接寻址）。在本周期内完成，手册不拆到具体某一拍。')] }] },
+    { k: 'ind', why: '只有 1 个字节，第一次读就拿全；第二次读到下一条，先不收。地址不在指令里，而在 R0 里：先读 R0 拿到地址，再按地址去片内 RAM 取数，比直接寻址多走一趟。两趟都在片内，本周期内做完，所以仍是 1 个机器周期。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('E6', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 E6，是操作码 MOV A,@R0。R0 也编在这个字节里，指令拿全了。PC 加 1。'), MD1, DM('0101'), M('S5–S6：做指令（执行）：先读 R0，拿到的是地址；再按这个地址去片内 RAM 取数，送 A。这就是间接多走的一趟，都在片内，本周期内完成。')] }] },
+    { k: 'mdd2', why: '3 个字节（85 30 40），一个周期只读两次，第 3 个字节 40H 要等到第 2 个周期才读到，所以要 2 个机器周期。读 (30H)、写到 40H 在 CPU 内部完成。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('85', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 85，是操作码 MOV direct,direct，后面还有 2 个字节。PC 加 1。'), MD1, R('30', '地址（源）', 'adr', 'PC 0101→0102', '第二次读：拿到源地址 30H，收下，PC 加 1。机器码里源在前、目的在后，和汇编写法顺序相反。'), M('S5–S6：这个周期的两次读用完了，指令还差 1 个字节。')] },
+            { ale: [1, 1], psen: [1, 1], seg: [R('40', '地址（目的）', 'adr', 'PC 0102→0103', '第 2 个周期第一次读：才拿到第 3 个字节，目的地址 40H。PC 加 1。指令取全了。'), MD1, DM('0103'), M('S5–S6：本周期内读出 (30H)、写进 40H，本周期结束，指令完成。片内读写在哪一拍，手册不拆开。')] }] },
+    { k: 'idx', why: '只有 1 个字节，第一次读就拿全；但表格在程序存储器里，要按 A+DPTR 再去 ROM 读一趟。多跑这一趟就多一个周期，所以 2 个机器周期。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('93', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 93，是操作码 MOVC A,@A+DPTR，1 个字节就拿全了。PC 加 1。'), M('S2–S3：认指令（译码），算出 A+DPTR，就是要读的表格地址。'), DM('0101'), MD2] },
+            { ale: [1, 1], psen: [1, 1], seg: [R('表格字节', '数据（表里的数）', 'u', 'PC 不变（0101）', '第 2 个周期按 A+DPTR 去程序存储器读一次，读到的是表里的数（变址寻址在这里取数）。手册只说读程序存储器，没标这次读占 S1 还是 S4，所以两个读位都画成虚框。'), MD1, R('表格字节', '数据（表里的数）', 'u', 'PC 不变（0101）', '同上：表格字节由这两个读位中的一个读进来，手册未标是哪一个。另一次读不用于本条。'), M('S5–S6：表格字节送 A，本周期结束，指令完成。')] }] },
+    { k: 'movx', why: '只有 1 个字节，但数在片外 RAM：第 1 个周期取完指令、送出 DPTR 地址；第 2 个周期停下取指，PSEN 不出现，RD 有效，从片外 RAM 读数。走外部总线多一个周期，所以 2 个机器周期。',
+      cyc: [{ ale: [1, 1], psen: [1, 1], seg: [R('E0', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 E0，是操作码 MOVX A,@DPTR，1 个字节就拿全了。PC 加 1。'), MD1, DM('0101'), M('S5–S6：P0 送出 DPL、P2 送出 DPH，就是要访问的片外 RAM 地址。', 'P0、P2 送出 DPTR')] },
+            { ale: [0, 1], psen: [0, 0], seg: [R('不取指', '不读程序存储器', 'no', 'PC 不变（0101）', '第 2 个周期不取指：S1 的 ALE 跳过（每次访问片外数据存储器跳过一个 ALE 脉冲），PSEN 不出现。这是 80C51 唯一不取指的情况。'), M('S2–S3：这个周期内 RD 有效，片外 RAM 按 DPTR 地址把数据放到 P0。RD 的起止拍这里不细画。', 'RD 有效'), R('不取指', '不读程序存储器', 'no', 'PC 不变（0101）', 'S4 的 ALE 照常出现，但仍不取指，PSEN 不出现。'), M('S5–S6：RD 仍有效，读进来的数送 A，本周期结束，指令完成。', 'RD 有效')] }] },
+    { k: 'mul', why: '只有 1 个字节，也不访存，但 8 位乘 8 位要在运算器里一步一步算，指令表给的是 4 个机器周期。这期间每次读到的都是下一条，全部丢弃，PC 一直不动。',
+      cyc: [1, 2, 3, 4].map(function (c) {
+        var s0 = c === 1 ? R('A4', '操作码', 'op', 'PC 0100→0101', '第一次读：读到 A4，是操作码 MUL AB，1 个字节就拿全了。PC 加 1。') : R('下一条首字节', '读了但丢弃', 'dm', 'PC 不变（0101）', '第 ' + c + ' 个周期：照样每周期读两次，读到的都是下一条首字节，丢弃，PC 不加 1。');
+        return { ale: [1, 1], psen: [1, 1], seg: [s0, M('S2–S3：在做乘法。手册不给乘法内部每一拍做什么。'), DM('0101'), M(c === 4 ? 'S5–S6：第 4 个周期结束：积的高 8 位在 B，低 8 位在 A，指令完成。' : 'S5–S6：乘法继续。')] };
+      }) }
+  ];
+  var BT = { i: 0, t: -1 };
+  function bWave(cy, c, lit) {
+    var w = 600, x = function (s) { return (s - 1) * w / 6; }, cw = w / 6, svg = '';
+    var ale = '', ps = '';
+    // ALE：每次读之前一个高脉冲（S1、S4 起始处，简化）
+    [[0, 1], [1, 4]].forEach(function (p) {
+      var on = cy.ale[p[0]], x0 = x(p[1]) + cw * 0.15, x1 = x0 + cw * 0.5;
+      ale += on ? '<path d="M' + x0 + ',22 V6 H' + x1 + ' V22" class="wv' + (lit ? ' on' : '') + '" vector-effect="non-scaling-stroke"/>' : '<path d="M' + x0 + ',22 V6 H' + x1 + ' V22" class="wv skip"/>';
+      var p0 = x(p[1]) + cw * 0.55, p1 = x(p[1]) + cw * 2.6;
+      ps += cy.psen[p[0]] ? '<path d="M' + p0 + ',30 V44 H' + p1 + ' V30" class="wv' + (lit ? ' on' : '') + '" vector-effect="non-scaling-stroke"/>' : '';
+    });
+    svg += '<line x1="0" x2="' + w + '" y1="22" y2="22" class="base"/><line x1="0" x2="' + w + '" y1="30" y2="30" class="base"/>' + ale + ps;
+    return '<svg viewBox="-60 0 ' + (w + 60) + ' 48" preserveAspectRatio="none" class="bw"><text x="-56" y="18" class="wl">ALE</text><text x="-56" y="44" class="wl">PSEN</text>' + svg + '</svg>';
+  }
+  $('#bIns').innerHTML = BEAT.map(function (b, i) { var X = INS[b.k]; return '<button data-i="' + i + '">' + X.a + '<small>' + X.B + ' 字节 · ' + X.T + ' 个机器周期</small></button>'; }).join('');
+  $$('#bIns button').forEach(function (b) { b.onclick = function () { BT.i = +b.dataset.i; BT.t = -1; bRender(); }; });
+  function bSegs(b) { var a = []; b.cyc.forEach(function (cy, c) { cy.seg.forEach(function (s, j) { a.push({ c: c, j: j, s: s }); }); }); return a; }
+  function bRender() {
+    var b = BEAT[BT.i], X = INS[b.k], segs = bSegs(b), n = 0;
+    $$('#bIns button').forEach(function (x, i) { x.setAttribute('aria-pressed', i === BT.i); });
+    $('#bHead').innerHTML = X.a + '<span>机器码 ' + X.mc + ' · ' + X.B + ' 字节 · ' + X.T + ' 个机器周期 · 设本条放在 0100H</span>';
+    $('#bWhy').innerHTML = '<b>为什么是 ' + X.T + ' 个机器周期：</b>' + b.why;
+    $('#bBands').innerHTML = b.cyc.map(function (cy, c) {
+      var lit0 = n <= BT.t;
+      var cells = cy.seg.map(function (s, j) {
+        var idx = n++, on = idx <= BT.t, now = idx === BT.t, cls = (on ? ' on' : '') + (now ? ' now' : '');
+        if (s.r) return '<div class="bs rd k-' + s.k + cls + '"><div class="rdm">读 · S' + (j === 0 ? 1 : 4) + '</div><div class="rb">' + s.b + '</div><div class="ru">' + s.use + '</div><div class="rp">' + s.pc + '</div></div>';
+        return '<div class="bs md' + cls + '"><div class="mt">S' + (j === 1 ? '2–S3' : '5–S6') + '</div>' + (j === 1 ? '<div><b>认指令</b>（译码）</div><div class="ms">看是什么指令、用哪个寄存器、要不要去存储器</div>' : '<div><b>做指令</b>（执行）</div>') + (s.extra ? '<div class="mx">' + s.extra + '</div>' : '') + '</div>';
+      }).join('');
+      return '<div class="band"><div class="bl">周期 ' + (c + 1) + '</div><div class="bm">' + bWave(cy, c, lit0) +
+        (cy.ale[0] && cy.psen[0] && cy.psen[1] ? '' : '<div class="wnote"><span>' + (cy.ale[0] ? 'ALE 照常' : 'ALE 跳过') + '　PSEN ' + (cy.psen[0] ? '有' : '不出现') + '</span><span>' + (cy.ale[1] ? 'ALE 照常' : 'ALE 跳过') + '　PSEN ' + (cy.psen[1] ? '有' : '不出现') + '</span></div>') + '<div class="sg"><span>S1</span><span>S2</span><span>S3</span><span>S4</span><span>S5</span><span>S6</span></div><div class="bc">' + cells + '</div></div></div>';
+    }).join('');
+    var cur = segs[BT.t];
+    $('#bTalk').innerHTML = BT.t < 0 ? '按空格一段一段走：每个周期分 4 段，S1 读、S2–S3、S4 读、S5–S6。' : '<b class="mono">周期 ' + (cur.c + 1) + '</b>　' + cur.s.say;
+    $('#bStep').disabled = BT.t >= segs.length - 1;
+    var nw = $('#bBands .now'); if (nw) { var box = $('#bBands'); box.scrollTop = Math.max(0, nw.closest('.band').offsetTop - box.offsetTop - 10); }
+  }
+  $('#bStep').onclick = function () { BT.t++; bRender(); };
+  $('#bAll').onclick = function () { BT.t = bSegs(BEAT[BT.i]).length - 1; bRender(); };
+  $('#bReset').onclick = function () { BT.t = -1; bRender(); };
+  bRender();
+
+  /* ================= ② 套娃 ================= */
+  var N = { step: 0, f: 12 };
+  (function () {
+    var p = '', w = 1200 / 12;
+    for (var i = 0; i < 12; i++) p += (i ? 'L' : 'M') + (i * w) + ',34 L' + (i * w) + ',6 L' + (i * w + w / 2) + ',6 L' + (i * w + w / 2) + ',34 ';
+    $('#wavep').setAttribute('d', p + 'L1200,34');
+    var o = '', st = '';
+    for (i = 0; i < 12; i++) o += '<div class="c">P' + (i % 2 + 1) + '</div>';
+    for (i = 1; i <= 6; i++) st += '<div class="c">S' + i + '</div>';
+    $('#sOsc').innerHTML = o; $('#sSt').innerHTML = st;
+  })();
+  function fmt(ns) { return ns >= 1000 ? (+(ns / 1000).toFixed(3)) + ' µs' : (Math.round(ns * 10) / 10) + ' ns'; }
+  var NTALK = [
+    '从最小的一层开始。点“下一步”或按空格。',
+    '<b>振荡周期</b>：晶振振一下就是一拍。fosc = {f} MHz 时，一拍 = 1 / {f} µs ≈ <b>{o}</b>。',
+    '<b>状态周期</b>：两拍合成一个状态，前一拍叫 P1，后一拍叫 P2。一个状态 = 2 个振荡周期 = <b>{s}</b>。',
+    '<b>机器周期</b>：6 个状态 S1~S6 排成一个机器周期，6 × 2 = <b>12 个振荡周期</b>。{f} MHz 时正好是 <b>{m}</b>。',
+    '<b>指令周期</b>：执行一条指令所用的时间，按机器周期数：MOV A,R0 是 1 个，MOVX A,@DPTR 是 2 个，MUL AB 是 4 个，即 <b>{i}</b>。',
+    '四层是套着的，一层装下一层：2 拍一个状态，6 个状态一个机器周期，1~4 个机器周期一条指令。下一页看：同样都要取指令，为什么有的指令 1 个机器周期就够，有的要 2 个。'
+  ];
+  function nRender() {
+    var f = N.f, o = 1000 / f;
+    var r = { f: f, o: fmt(o), s: fmt(2 * o), m: fmt(12 * o), i: f === 12 ? '1~4 µs' : '2~8 µs' };
+    $('#vOsc').textContent = r.o; $('#vSt').textContent = r.s; $('#vMc').textContent = r.m; $('#vIc').textContent = r.i;
+    for (var i = 0; i < 4; i++) $('#lv' + i).classList.toggle('on', N.step > i);
+    $('#nTalk').innerHTML = NTALK[N.step].replace(/\{(\w)\}/g, function (_, k) { return r[k]; });
+    $('#nStep').disabled = N.step >= NTALK.length - 1;
+  }
+  $('#nStep').onclick = function () { if (N.step < NTALK.length - 1) N.step++; nRender(); };
+  $('#nReset').onclick = function () { N.step = 0; nRender(); };
+  $$('[data-f]').forEach(function (b) {
+    b.onclick = function () { N.f = +b.dataset.f; $$('[data-f]').forEach(function (x) { x.classList.toggle('on', x === b); }); nRender(); };
+  });
+  nRender();
+
+  /* ================= ③ 并排时间轴 ================= */
+  var LALL = ['r0', 'imm', 'dir', 'ind', 'movx', 'idx', 'mdd', 'dptr', 'incd', 'rel', 'mul'];
+  var LON = { r0: 1, dir: 1, movx: 1, mdd: 1, mul: 1 };
+  var L = { t: -1 };
+  $('#lPick').innerHTML = LALL.map(function (k) { return '<label><input type="checkbox" value="' + k + '"' + (LON[k] ? ' checked' : '') + '>' + INS[k].a + '</label>'; }).join('');
+  $$('#lPick input').forEach(function (c) { c.onchange = function () { LON[c.value] = c.checked; lBuild(); }; });
+  function lRows() { return LALL.filter(function (k) { return LON[k]; }); }
+  function lBuild() { tlBuild($('#lTl'), lRows(), 4, 180); lLight(); }
+  function lLight() {
+    tlLight($('#lTl'), L.t);
+    var rows = lRows(), t = L.t;
+    var c = Math.floor(t / 6) + 1, s = t % 6 + 1;
+    $('#lClock').textContent = t < 0 ? '12 MHz：1 个机器周期 = 1 µs' : '第 ' + c + ' 个机器周期 S' + s + '　·　已过 ' + (+((t + 1) / 6).toFixed(2)) + ' µs';
+    var msg;
+    if (t < 0) msg = '同时起跑。每按一次空格走一个状态，看谁在第几个机器周期结束时做完。';
+    else if (t === 5) {
+      var d1 = rows.filter(function (k) { return INS[k].T === 1; }).map(function (k) { return INS[k].a; });
+      var d2 = rows.filter(function (k) { return INS[k].T > 1; }).map(function (k) { return INS[k].a; });
+      msg = '第 1 个机器周期结束。' + (d1.length ? '<b>' + d1.join('、') + '</b> 已经做完。' : '') +
+        (d2.length ? '<b>' + d2.join('、') + '</b> 要用到第 2 个机器周期。' : '') +
+        '';
+    } else if (t === 11) msg = '第 2 个机器周期结束：2 个周期的指令都完成了。三字节指令的第 3 个字节在第 2 个周期 S1 才读到；MOVX、MOVC 第 2 个周期在为操作数访存，MOVX 这一周期不取指。' + (LON.mul ? '只剩 <b>MUL AB</b> 还在算。' : '');
+    else if (t === 23) msg = (LON.mul ? '<b>MUL AB</b> 只有 1 个字节、不访存，照样用满 4 个机器周期——慢在运算本身。' : '全部完成。') + ' 12 MHz 下：1 个周期 1 µs，2 个 2 µs，4 个 4 µs。';
+    else {
+      var bits = rows.map(function (k) { var I = INS[k]; if (t >= I.T * 6) return ''; var v = I.cyc[c - 1][s - 1]; return v && v[1] ? I.a + '：' + v[1] : ''; }).filter(Boolean);
+      if (s === 6) bits = bits.concat(rows.map(function (k) { var X = INS[k], n = c <= X.T ? X.notes[c - 1] : null; return n && n[1] ? X.a + '：' + n[1] : ''; }).filter(Boolean));
+      msg = bits.length ? bits.join('；') : '这一拍手册没有给出取指以外的动作。';
+    }
+    $('#lTalk').innerHTML = msg;
+    $('#lStep').disabled = t >= 23;
+  }
+  $('#lStep').onclick = function () { if (L.t < 23) L.t++; lLight(); };
+  $('#lAll').onclick = function () { L.t = 23; lLight(); };
+  $('#lReset').onclick = function () { L.t = -1; lLight(); };
+  lBuild();
+
+  /* ================= ④ 猜周期 ================= */
+  var QZ = [
+    { k: 'r5', ctx: '寄存器寻址，送 A', why: '1 个字节，R5 的编号就编在操作码里；数在 CPU 里，不用为操作数访存。1 个机器周期。' },
+    { k: 'ind1', ctx: '寄存器间接寻址，片内 RAM', why: '间接寻址也可以是 1 个：先读 R1 得地址，再读一次片内 RAM，这一趟在 S6 前做完。1 字节 1 个机器周期。' },
+    { k: 'imm55', ctx: '立即寻址', why: '2 个字节，S1 取操作码，S4 取 55H，一个机器周期正好读两次。执行时不用访存。1 个机器周期。' },
+    { k: 'movx', ctx: '读片外', why: '只有 1 个字节，但要用外部总线读片外 RAM：第 1 个周期送出地址，第 2 个周期才拿到数。2 个机器周期。' },
+    { k: 'mdd', ctx: '直接地址送直接地址', why: '3 个字节，一个机器周期最多读 2 个字节，光取指令就跨进第 2 个周期；还要先读 40H 再写 30H。2 个机器周期。' },
+    { k: 'mdr', ctx: '寄存器送直接地址', why: '2 字节 2 个机器周期。课件第 40 页这一条印的是 1，按 80C51 指令表是 2。对照：MOV 30H,A 是 2 字节 1 个周期。' },
+    { k: 'mrd', ctx: '直接地址送寄存器', why: '2 字节 2 个机器周期。同样读 (30H)：送 A 是 1 个周期（MOV A,30H），送 R1 是 2 个。源和目的都不经过 A 的片内传送，指令表里多是 2 个周期。' },
+    { k: 'mul', ctx: '乘法', why: '1 个字节，不访存，但乘法在运算器里要一步一步做，4 个机器周期。12 MHz 下 4 µs。' },
+    { k: 'incd', ctx: '16 位加 1', why: '1 个字节。DPTR 是 16 位，低 8 位加 1 之后还要把进位加到高 8 位，按指令表是 2 个机器周期。对照 INC A 只要 1 个。' },
+    { k: 'idxpc', ctx: '查表，变址寻址', why: '1 个字节，要拿 A+PC 当地址再读一次程序存储器，这一趟排到第 2 个周期。2 个机器周期。' },
+    { k: 'dptr', ctx: '16 位立即数', why: '3 个字节（90H 12H 34H），取指令就要跨两个周期。2 个机器周期。' },
+    { k: 'div', ctx: '除法', why: '和 MUL AB 一样，1 个字节、4 个机器周期，慢在运算本身。' },
+    { k: 'rel', ctx: '相对转移', why: '2 字节 2 个机器周期：取完 rel 还要算 PC + rel 并改写 PC。' }
+  ];
+  var Q = { i: 0, pick: {}, shown: {} };
+  function qRender() {
+    var q = QZ[Q.i], I = INS[q.k], p = Q.pick[Q.i], sh = Q.shown[Q.i];
+    $('#qList').innerHTML = QZ.map(function (x, i) {
+      var c = i === Q.i ? 'cur' : ''; if (Q.shown[i] && Q.pick[i] != null) c += Q.pick[i] === INS[x.k].T ? ' r' : ' w';
+      return '<span class="' + c + '" data-i="' + i + '">' + (i + 1) + '</span>';
+    }).join('');
+    $$('#qList span').forEach(function (s) { s.onclick = function () { Q.i = +s.dataset.i; qRender(); }; });
+    $('#qIns').textContent = I.a;
+    $('#qCtx').textContent = q.ctx + (sh ? '　·　' + I.B + ' 字节，机器码 ' + I.mc : '');
+    $('#qOpts').innerHTML = [1, 2, 4].map(function (n) {
+      var c = p === n ? 'pick' : ''; if (sh) c = n === I.T ? 'ok' : (p === n ? 'no' : '');
+      return '<button class="' + c + '" data-n="' + n + '">' + n + '</button>';
+    }).join('');
+    $$('#qOpts button').forEach(function (b) { b.onclick = function () { if (!Q.shown[Q.i]) { Q.pick[Q.i] = +b.dataset.n; qRender(); } }; });
+    var right = 0, done = 0;
+    QZ.forEach(function (x, i) { if (Q.shown[i]) { done++; if (Q.pick[i] === INS[x.k].T) right++; } });
+    $('#qScore').textContent = '已揭晓 ' + done + ' / ' + QZ.length + '　猜对 ' + right;
+    if (sh) {
+      $('#qWhy').innerHTML = '<b>' + I.T + ' 个机器周期。</b>' + (p == null ? '' : p === I.T ? '猜对了。' : '猜的是 ' + p + '。') + '<br>' + q.why;
+      tlBuild($('#qTl'), [q.k], I.T, 150); tlLight($('#qTl'), I.T * 6 - 1);
+    } else { $('#qWhy').innerHTML = '先猜：1、2 还是 4？想一想它有几个字节、要不要去程序存储器或片外拿数、运算难不难。'; $('#qTl').innerHTML = ''; }
+    $('#qPrev').disabled = Q.i === 0; $('#qNext').disabled = Q.i === QZ.length - 1;
+  }
+  $('#qShow').onclick = function () { if (Q.shown[Q.i] && Q.i < QZ.length - 1) Q.i++; else Q.shown[Q.i] = true; qRender(); };
+  $('#qPrev').onclick = function () { if (Q.i > 0) Q.i--; qRender(); };
+  $('#qNext').onclick = function () { if (Q.i < QZ.length - 1) Q.i++; qRender(); };
+  qRender();
+
+  /* ---------- 键盘 ---------- */
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'checkbox') return;
+    var i = PANES.indexOf(cur);
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPane(PANES[Math.min(PANES.length - 1, i + 1)]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPane(PANES[Math.max(0, i - 1)]); }
+    else if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      var b = { dz: '#dStep', why: ($('#wStep').disabled ? ($('#nStep').disabled ? '#lStep' : '#nStep') : '#wStep'), qz: '#qShow', beat: '#bStep' }[cur];
+      if (b && !$(b).disabled) $(b).click();
+    }
+  });
+  var h = (location.hash || '').slice(1);
+  if (PANES.indexOf(h) >= 0 || h === 'beat') showPane(h);
+  $('#bakBeat').onclick = function () { showPane('beat'); };
+})();
+</script></body></html>

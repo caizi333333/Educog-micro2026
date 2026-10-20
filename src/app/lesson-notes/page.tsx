@@ -65,14 +65,8 @@ const U2_NOTES: readonly LessonNote[] = [
 
 const U3_NOTES: readonly LessonNote[] = [
   { file: 'u3-video', title: '讲解视频', sub: '寻址收官：变址·相对·位，11 分 49 秒', pointId: '3.1', pointName: '寻址方式' },
-  { file: 'u3-isa-map', title: '指令全景', sub: '111 条指令一张图看全', pointId: '3', pointName: '指令系统' },
-  { file: 'u3-addressing', title: '寻址方式', sub: '同一个 30H，四种身份', pointId: '3.1' },
-  { file: 'u3-transfer', title: '数据传送', sub: '29 条，一张路线表', pointId: '3.2' },
-  { file: 'u3-arith', title: '算术运算', sub: '三面旗，盯着三根进位线', pointId: '3.3' },
-  { file: 'u3-logic', title: '逻辑运算', sub: '与 0 清、或 1 置、异或 1 翻', pointId: '3.4' },
-  { file: 'u3-jump', title: '控制转移', sub: '改写 PC，四种算法', pointId: '3.5' },
-  { file: 'u3-bit', title: '位操作', sub: 'C 是位累加器', pointId: '3.6' },
-  { file: 'u3-classroom', title: '课堂互动台', sub: '寻址收官（变址·相对·位）+ 数据传送开篇', pointId: '3.1', pointName: '寻址方式' },
+  { file: 'u3-overview', title: '第 3 章交互总览', sub: '主线：数在哪 → 怎么搬 → 怎么算 → 怎么跳；每节 难题与对比 · 揭晓 · 动手练 · 小测', pointId: '3', pointName: '指令系统' },
+  // 原单页（u3-isa-map、u3-addressing、u3-transfer、u3-arith、u3-logic、u3-jump、u3-bit、u3-classroom、u3-machine-cycle、u3-stack-push-pop）文件仍在 u3/ 目录，已并入总览，入口不再单列
 ] as const;
 
 const U4_NOTES: readonly LessonNote[] = [
@@ -101,10 +95,10 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     notes: U3_NOTES,
     bannerMid: (
       <>
-        一张全景图加六个知识点，111 条指令<b className="font-semibold text-amber-100">逐条可查、可单步仿真</b>
+        一个总览按课件小节排好：<b className="font-semibold text-amber-100">先当设计者，再看 80C51 怎么做</b>
       </>
     ),
-    intro: '指令系统难在"看不见"：数从哪取、往哪去、哪面标志跟着变。这一批把教材第 3 章按知识点拆开，先看全景，再逐节单步仿真、自己写一段、当场自测。',
+    intro: '指令系统难在“看不见”：数从哪取、往哪去、为什么要这样设计。第 3 章交互总览按课件小节排列，每节先抛一个设计难题，你选了方案再看后果和 80C51 的做法，最后动手练、当场小测。',
     figures: '表 3-2~3-6 / 3-13 / 3-14，例 3-1~3-26',
   },
   {
@@ -132,6 +126,15 @@ function findNote(file: string): { unit: LessonUnit; note: LessonNote } | undefi
   return undefined;
 }
 
+// 第 3 章原单页已并入总览：旧链接（?note=u3-classroom、页内跳转）改开总览对应一节
+const NOTE_ALIAS: Readonly<Record<string, string>> = {
+  // 整合后：七种寻址、课堂互动台、机器周期并入“寻址方式与机器周期”；29 条总表并入 MOV（原页在总览“备用资料”）
+  'u3-isa-map': '#isa-map', 'u3-isa-design': '#isa-map', 'u3-addressing': '#addressing', 'u3-addressing-design': '#addressing',
+  'u3-classroom': '#addressing', 'u3-machine-cycle': '#addressing', 'u3-transfer': '#transfer', 'u3-stack-push-pop': '#stack',
+  'u3-mov-design': '#transfer', 'u3-movx-movc': '#movx-movc', 'u3-xch': '#xch',
+  'u3-arith': '#arith', 'u3-logic': '#logic', 'u3-jump': '#jump', 'u3-bit': '#bit',
+};
+
 // 讲解页传来的 hash 只用于页内定位（如 #m=bit、#i=…），格式不对就丢掉
 const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
 
@@ -146,7 +149,10 @@ export default function LessonNotesPage(): React.JSX.Element {
   const [lastInUnit, setLastInUnit] = useState<Readonly<Record<number, string>>>({});
   const frames = useRef(new Map<string, HTMLIFrameElement>());
 
-  const openNote = useCallback((file: string, hash = ''): void => {
+  const openNote = useCallback((rawFile: string, rawHash = ''): void => {
+    const aliasHash = NOTE_ALIAS[rawFile];
+    const file = aliasHash ? 'u3-overview' : rawFile;
+    const hash = aliasHash ?? rawHash;
     const hit = findNote(file);
     if (!hit) return;
     setActiveFile(file);
@@ -197,7 +203,7 @@ export default function LessonNotesPage(): React.JSX.Element {
     const params = new URLSearchParams(window.location.search);
     const note = params.get('note');
     const unit = LESSON_UNITS.find((item) => String(item.id) === params.get('unit'));
-    if (note && findNote(note)) openNote(note);
+    if (note && (findNote(note) || NOTE_ALIAS[note])) openNote(note);
     else if (unit) openNote(unit.notes[0]!.file);
   }, [openNote]);
 

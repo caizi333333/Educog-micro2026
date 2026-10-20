@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>第 3 章 堆栈｜PUSH 与 POP</title>
+<style>/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+</style>
+<style>
+.kp-wrap{max-width:1360px}
+body{font-size:18px}
+body.z1{zoom:1.15} body.z2{zoom:1.3}
+.kp-eyebrow{font-size:14px}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.top .grow{flex:1 1 520px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.btn{cursor:pointer;min-height:38px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--slate100);font:500 15px var(--fs);transition:.15s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
+.btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
+.btn.mono{font-family:var(--fm);font-weight:700}
+.tabs{display:flex;gap:8px;margin:18px 0 14px;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.85)}
+.tab{flex:1;min-height:52px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.tab small{font-weight:400;font-size:14px;opacity:.8}
+.tab:hover{background:rgba(255,255,255,.07)}
+.tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
+.card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
+.h2{font-size:21px;font-weight:700;margin:2px 0 6px}
+.sub{font-size:15px;color:var(--muted-fg);margin-bottom:10px}
+.mono{font-family:var(--fm)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.talk{border-radius:9px;padding:10px 13px;background:hsl(184 82% 48% / .07);border:1px solid hsl(184 82% 48% / .22);font-size:17px;line-height:1.65;color:var(--cyan100);min-height:56px}
+.talk b{color:#fff}
+.say{margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(246,187,49,.07);border-left:3px solid var(--c3);color:var(--amber200);font-size:16px;line-height:1.6}
+
+.bigq{font-size:26px;font-weight:800;color:#fff;margin:4px 0 8px}.bigq em{font-style:normal;color:var(--amber300)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.opt{display:grid;gap:8px}
+.ob{text-align:left;font:600 16.5px var(--fs);color:var(--slate100);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:10px 12px;cursor:pointer}
+.ob b{display:inline-block;width:24px;color:var(--cyan100)}.ob:hover{background:rgba(255,255,255,.08)}
+.ob.pick{border-color:#f4b740;background:hsl(42 92% 58% / .12)}.ob.ok{border-color:hsl(150 60% 45%);background:hsl(150 60% 40% / .18)}.ob.no{border-color:hsl(350 70% 55%);background:hsl(350 70% 50% / .12)}
+.res{margin-top:10px;font-size:16.5px;line-height:1.6;color:var(--slate100);min-height:28px}.res b{color:var(--amber200)}
+.ans{margin-top:8px;font-size:16.5px;line-height:1.6;color:var(--cyan100);border-radius:9px;padding:10px 12px;background:hsl(184 82% 48% / .08);border:1px solid hsl(184 82% 48% / .3)}.ans b{color:#fff}
+.hide{display:none!important}
+/* RAM 视图 */
+.ram{display:grid;grid-template-columns:44px repeat(8,1fr);gap:2px;font:600 13px var(--fm)}
+.ram .ah{color:#64748b;text-align:right;padding-right:4px;line-height:26px}
+.ram .c{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);color:#94a3b8;position:relative;transition:background .3s}
+.ram .c.bk0{background:hsl(210 60% 50% / .14)}.ram .c.bk1{background:hsl(260 60% 60% / .14)}.ram .c.bk2{background:hsl(300 50% 55% / .12)}.ram .c.bk3{background:hsl(330 60% 55% / .12)}
+.ram .c.bit{background:hsl(150 50% 45% / .12)}
+.ram .c.v{color:#fff}
+.ram .c.sp{outline:2px solid #f4b740;z-index:2}
+.ram .c.hit{background:hsl(42 92% 58% / .55)!important;color:#141006}
+.ram .c.bad{background:hsl(350 70% 50% / .55)!important;color:#fff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--slate300);margin:6px 0}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.regs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.reg{border-radius:7px;padding:5px 10px;background:rgba(255,255,255,.05);font:600 15px var(--fm)}.reg b{color:var(--amber200)}.reg.sp b{color:#f4b740}.reg.chg{outline:2px solid #f4b740}
+.ops{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.micro{display:grid;gap:4px;margin-top:8px}.micro div{border-radius:7px;padding:6px 10px;background:rgba(255,255,255,.04);font-size:15.5px;opacity:.35;transition:opacity .3s}.micro div.on{opacity:1;background:hsl(42 92% 58% / .12)}
+.micro .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:#f4b740;color:#141006;text-align:center;font:800 13px/22px var(--fm);margin-right:8px}
+.stk{display:flex;flex-direction:column-reverse;gap:3px;min-height:150px;border:2px solid rgba(255,255,255,.15);border-top:none;border-radius:0 0 10px 10px;padding:6px;width:180px}
+.stk div{border-radius:6px;padding:5px 8px;background:hsl(184 82% 48% / .18);font:600 14px var(--fm);color:#fff;animation:kpFade .3s}
+.flow{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+textarea{width:100%;min-height:210px;background:#0b1117;color:#e2e8f0;border:1px solid rgba(255,255,255,.15);border-radius:8px;font:600 15px/1.55 var(--fm);padding:8px}
+.lines{font:600 15px/1.8 var(--fm)}.lines div{padding:0 8px;border-radius:5px}.lines div.cur{background:hsl(42 92% 58% / .2)}.lines div.err{background:hsl(350 70% 50% / .25)}
+.log{font-size:15px;line-height:1.6;margin-top:8px;min-height:48px}
+.warn{color:var(--rose300);font-weight:700}
+.qz{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.qq{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}.qq .t{font-size:16.5px;font-weight:700;margin-bottom:6px;line-height:1.5}
+.qq .o{display:block;width:100%;text-align:left;margin:4px 0;font:600 15px var(--fm);padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:none;color:var(--slate100);cursor:pointer}
+.qq .o.ok{background:hsl(150 60% 40%);color:#fff}.qq .o.no{background:hsl(350 70% 50%);color:#fff}
+.qq .e{font-size:15px;line-height:1.55;color:var(--cyan100);margin-top:6px}
+.note{font-size:13.5px;color:var(--slate400);margin-top:8px;line-height:1.55}
+.flow>div{flex:1 1 260px;min-width:0}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:5px 7px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}table.mt th{color:var(--slate300);font-weight:600}
+.cmpt{margin-top:10px;font-size:14.5px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+
+</style>
+</head>
+<body>
+<div class="kp-wrap">
+  <div class="top">
+    <div class="grow">
+      <div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 数据传送 · 堆栈</div>
+      <h1 class="kp-h1">堆栈：临时放一下，原样拿回来</h1>
+    </div>
+    <div class="zoom">字号
+      <button class="btn sm on" data-z="0" aria-pressed="true">标准</button>
+      <button class="btn sm" data-z="1">大</button>
+      <button class="btn sm" data-z="2">特大</button>
+    </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-p="dz" aria-selected="true">① 难题与对比<small>临时放一下，原样拿回来</small></button>
+    <button class="tab" role="tab" data-p="pp">② 揭晓与原理<small>PUSH/POP · SP 放哪 · 保护现场</small></button>
+    <button class="tab" role="tab" data-p="run">③ 动手练<small>自己写，单步看</small></button>
+    <button class="tab" role="tab" data-p="qz">④ 小测<small>4 题</small></button>
+  </div>
+
+  <section class="pane on" id="p-dz">
+    <div class="card">
+      <div class="bigq">程序做到一半，要把 A 里的数<em>临时放一下</em>，用完<em>原样拿回来</em>。你会怎么设计？</div>
+      <div class="g2">
+        <div><div class="opt" id="dzO"></div><div class="res" id="dzR">先选一个方案。</div>
+          <div class="row" style="margin-top:10px"><button class="btn pri" id="dzShow">揭晓 80C51 ▶</button></div>
+          <div class="ans hide" id="dzA"><b>80C51：</b>专门用一个指针 SP 指着“最上面那格”。<span class="mono">PUSH</span> 先把 SP 加 1 再存，<span class="mono">POP</span> 先取出再把 SP 减 1。像一摞盘子：后放的在上面，先拿走。</div></div>
+        <div><div class="flow" id="dzV"></div><div class="log" id="dzL"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane" id="p-pp">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="h2">PUSH 先加 1 再存；POP 先取再减 1</div><div class="sub">复位后 SP=07H。依次点下面四条，看 SP 和 RAM 怎么动。</div></div>
+        <button class="btn" id="ppReset">重来</button>
+      </div>
+      <div class="ops" id="ppOps"></div>
+      <div class="g2">
+        <div><div class="regs" id="ppRegs"></div><div class="micro" id="ppMicro"></div><div class="note">PUSH direct、POP direct 都是 2 个字节、2 个机器周期（80C51 指令表）。</div></div>
+        <div class="flow"><div><div class="ram" id="ppRam"></div></div><div><div class="sub" style="margin:0 0 4px">像一摞盘子</div><div class="stk" id="ppStk"></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane" id="p-sp">
+    <div class="card">
+      <div class="h2">SP 初值设成多少？选一个，连续 PUSH 3 次看看</div>
+      <div class="ops" id="spOps"></div>
+      <div class="g2">
+        <div><div class="legend"><span><i style="background:hsl(210 60% 50% / .5)"></i>第 0 组 R0–R7</span><span><i style="background:hsl(260 60% 60% / .5)"></i>第 1 组</span><span><i style="background:hsl(300 50% 55% / .5)"></i>第 2 组</span><span><i style="background:hsl(330 60% 55% / .5)"></i>第 3 组</span><span><i style="background:hsl(150 50% 45% / .5)"></i>位寻址区 20H–2FH</span><span><i style="background:rgba(255,255,255,.12)"></i>一般 RAM 30H–7FH</span></div>
+          <div class="log" id="spL">先选一个 SP 初值。</div>
+          <div class="ans hide" id="spA"><b>结论：</b>复位 SP=07H，第一次 PUSH 就进 08H，正是第 1 组工作寄存器。所以程序开头先 <span class="mono">MOV SP,#xxH</span> 把栈挪到 30H 以上（课件第 61 页：一般设在 30H–7FH）。</div></div>
+        <div class="ram" id="spRam"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane" id="p-why">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="h2">中断来了：先保护现场，回去前原样恢复</div><div class="sub">主程序里 A=12H、PSW=00H。按空格一步步走；到恢复那一步，你来选 POP 的顺序。</div></div>
+        <div class="row"><button class="btn" id="whyReset">重来</button><button class="btn pri" id="whyStep">下一步 ▶</button></div>
+      </div>
+      <div class="g2">
+        <div><div class="lines" id="whyLines"></div><div class="ops hide" id="whyPick"></div><div class="log" id="whyL"></div></div>
+        <div class="flow"><div><div class="sub" style="margin:0 0 4px">栈（上面是栈顶）</div><div class="stk" id="whyStk"></div></div><div class="regs" id="whyRegs" style="flex-direction:column"></div></div>
+      </div>
+      <div class="note">中断响应时硬件只自动压入 PC（2 个字节，返回用）；A、PSW 要程序自己 PUSH。子程序套子程序也一样：后调用的先返回，返回地址后进先出。</div>
+    </div>
+  </section>
+
+  <section class="pane" id="p-run">
+    <div class="card">
+      <div class="h2">自己写一串 PUSH / POP，单步看</div>
+      <div class="sub">每行一条。可用：MOV SP,#xxH　MOV A,#xxH　MOV B,#xxH　MOV 30H,#xxH　PUSH 直接地址　POP 直接地址（ACC、B、PSW、DPL、DPH 或 00H–7FH）。</div>
+      <div class="g2">
+        <div><textarea id="runSrc" spellcheck="false">MOV SP,#2FH
+MOV A,#12H
+MOV B,#34H
+PUSH ACC
+PUSH B
+MOV A,#00H
+POP B
+POP ACC</textarea>
+          <div class="row" style="margin-top:6px"><button class="btn" id="runReset">从头</button><button class="btn pri" id="runStep">单步 ▶</button><button class="btn" id="runAll">跑完</button><button class="btn" id="runBad">试试 PUSH A</button></div>
+          <div class="regs" id="runRegs"></div><div class="log" id="runL"></div></div>
+        <div><div class="lines" id="runLines"></div><div class="ram" id="runRam" style="margin-top:8px"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane" id="p-qz">
+    <div class="card"><div class="h2">小测</div><div class="qz" id="qzBox"></div><div class="log" id="qzS"></div></div>
+  </section>
+
+  <div class="foot">80C51 口径：SP 是 8 位特殊功能寄存器（81H），复位为 07H，栈向地址增大方向长；PUSH/POP 只能带直接地址，2 字节 2 周期。</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function hx(v) { return (v < 16 ? '0' : '') + v.toString(16).toUpperCase() + 'H'; }
+  $$('.zoom .btn').forEach(function (b) { b.onclick = function () { document.body.classList.remove('z1', 'z2'); if (b.dataset.z !== '0') document.body.classList.add('z' + b.dataset.z); $$('.zoom .btn').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  var PANES = ['dz', 'pp', 'run', 'qz'], GROUP = { pp: ['pp', 'sp', 'why'] }, cur = 'dz';
+  function showPane(k) { cur = k; $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); }); var g = GROUP[k] || [k]; $$('.pane').forEach(function (p) { p.classList.toggle('on', g.indexOf(p.id.slice(2)) >= 0); }); try { history.replaceState(null, '', '#' + k); } catch (e) {} }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
+  function region(a) { return a < 8 ? 'bk0' : a < 16 ? 'bk1' : a < 24 ? 'bk2' : a < 32 ? 'bk3' : a < 48 ? 'bit' : ''; }
+  function regName(a) { if (a < 32) return '第 ' + (a >> 3) + ' 组 R' + (a & 7); if (a < 48) return '位寻址区 ' + hx(a); return '一般 RAM ' + hx(a); }
+  function ramHtml(ram, lo, hi, sp, hits, bads) {
+    var h = '';
+    for (var r = lo; r <= hi; r += 8) {
+      h += '<div class="ah">' + hx(r) + '</div>';
+      for (var c = 0; c < 8; c++) { var a = r + c, v = ram[a]; h += '<div class="c ' + region(a) + (v != null ? ' v' : '') + (a === sp ? ' sp' : '') + (hits && hits.indexOf(a) >= 0 ? ' hit' : '') + (bads && bads.indexOf(a) >= 0 ? ' bad' : '') + '" title="' + regName(a) + '">' + (v != null ? hx(v).slice(0, 2) : '') + '</div>'; }
+    }
+    return h;
+  }
+
+  /* ---------- ① 你来设计 ---------- */
+  var DZO = [
+    { t: '每次都放到同一个固定单元（比如 30H）', B: 4, T: 2, side: '一嵌套就被冲掉', r: '放第二个数时把第一个冲掉了。程序里一处套一处（子程序里又用），先放的那个就拿不回来。', v: 'fix' },
+    { t: '每次在指令里写明这回放到哪个单元', B: 4, T: 2, side: '地址要人记，容易撞车', r: '能用，但地址全靠程序员自己记。子程序、中断一多，两处用了同一个单元就撞车。', v: 'own' },
+    { t: '用一个指针指着“最上面那格”：放一个，指针先加 1 再放；拿一个，先拿再减 1', ok: 1, B: 4, T: 4, side: '不会互相覆盖；要先设好 SP；慢一点', r: '放多少个都不会互相覆盖，也不用记地址；最后放的最先拿回。', v: 'sp' }
+  ];
+  var DZ = { pick: null, show: false };
+  function dzCmp() {
+    return '<table class="mt cmpt"><tr><th>方案（放 + 取一次）</th><th>字节</th><th>周期</th><th>副作用 / 代价</th></tr>' + DZO.map(function (o, j) {
+      return '<tr' + (DZ.pick === j ? ' class="on"' : '') + '><td style="text-align:left">' + 'ABC'[j] + (DZ.show && o.ok ? ' <b style="color:#4ade80">80C51</b>' : '') + '</td><td>' + o.B + '</td><td>' + o.T + '</td><td style="text-align:left">' + o.side + '</td></tr>';
+    }).join('') + '</table><div class="note">A、B：MOV 30H,A + MOV A,30H（各 2B1T）；C：PUSH ACC + POP ACC（各 2B2T）。栈法反而慢一点，换来的是嵌套也不会乱。</div>';
+  }
+  function dzRender() {
+    $('#dzO').innerHTML = DZO.map(function (o, j) { var c = DZ.pick === j ? ' pick' : ''; if (DZ.show) c += o.ok ? ' ok' : (DZ.pick === j ? ' no' : ''); return '<button class="ob' + c + '" data-j="' + j + '"><b>' + 'ABC'[j] + '</b>' + o.t + '</button>'; }).join('');
+    $$('#dzO .ob').forEach(function (b) { b.onclick = function () { DZ.pick = +b.dataset.j; dzRender(); dzAnim(); }; });
+    var o = DZ.pick == null ? null : DZO[DZ.pick];
+    $('#dzR').innerHTML = (o ? '<b>后果：</b>' + o.r : '先选一个方案。') + (o ? dzCmp() : '');
+    $('#dzA').classList.toggle('hide', !DZ.show);
+  }
+  var dzT = [];
+  function dzAnim() {
+    dzT.forEach(clearTimeout); dzT = [];
+    var o = DZO[DZ.pick], seq;
+    if (o.v === 'fix') seq = [['放 12H', { '30H': '12H' }], ['再放 34H', { '30H': '34H' }], ['拿回第一个', { '30H': '34H' }, '拿到的是 34H，12H 丢了']];
+    else if (o.v === 'own') seq = [['主程序放到 30H', { '30H': '12H' }], ['子程序也挑了 30H', { '30H': '56H' }], ['主程序拿回', { '30H': '56H' }, '拿到 56H，撞车了']];
+    else seq = [['放 12H', ['12H']], ['放 34H', ['12H', '34H']], ['拿一个', ['12H'], '先拿回 34H'], ['再拿一个', [], '再拿回 12H，一个不丢']];
+    seq.forEach(function (s, k) {
+      dzT.push(setTimeout(function () {
+        var v = s[1], h;
+        if (Array.isArray(v)) h = '<div><div class="sub" style="margin:0 0 4px">指针指着最上面</div><div class="stk">' + v.map(function (x, i) { return '<div>' + x + (i === v.length - 1 ? '　← 指针' : '') + '</div>'; }).join('') + '</div></div>';
+        else h = Object.keys(v).map(function (a) { return '<div class="reg">' + a + '：<b>' + v[a] + '</b></div>'; }).join('');
+        $('#dzV').innerHTML = h;
+        $('#dzL').innerHTML = '<b>' + (k + 1) + '. ' + s[0] + '</b>' + (s[2] ? '　<span class="' + (o.ok ? '' : 'warn') + '">' + s[2] + '</span>' : '');
+      }, k * 900));
+    });
+  }
+  $('#dzShow').onclick = function () { DZ.show = true; dzRender(); };
+  dzRender();
+
+  /* ---------- ② PUSH/POP ---------- */
+  var PP;
+  function ppInit() { PP = { sp: 7, ram: {}, r: { ACC: 0x12, B: 0x34 }, stk: [], micro: [], k: -1, busy: false }; ppRender(); }
+  var PPOPS = [['PUSH ACC', 'push', 'ACC'], ['PUSH B', 'push', 'B'], ['POP B', 'pop', 'B'], ['POP ACC', 'pop', 'ACC']];
+  $('#ppOps').innerHTML = PPOPS.map(function (o, i) { return '<button class="btn mono" data-i="' + i + '">' + o[0] + '</button>'; }).join('');
+  function ppRender(hit) {
+    $('#ppRegs').innerHTML = '<div class="reg sp">SP <b>' + hx(PP.sp) + '</b></div><div class="reg">A(ACC) <b>' + hx(PP.r.ACC) + '</b></div><div class="reg">B <b>' + hx(PP.r.B) + '</b></div>';
+    $('#ppRam').innerHTML = ramHtml(PP.ram, 0, 15, PP.sp, hit ? [hit] : []);
+    $('#ppStk').innerHTML = PP.stk.map(function (x, i) { return '<div>' + x + (i === PP.stk.length - 1 ? '　← SP' : '') + '</div>'; }).join('');
+    $('#ppMicro').innerHTML = PP.micro.map(function (m, i) { return '<div class="' + (i <= PP.k ? 'on' : '') + '"><span class="n">' + (i + 1) + '</span>' + m + '</div>'; }).join('');
+  }
+  $$('#ppOps button').forEach(function (b) {
+    b.onclick = function () {
+      if (PP.busy) return; var o = PPOPS[+b.dataset.i], d = o[2]; PP.busy = true;
+      if (o[1] === 'push') {
+        var ns = PP.sp + 1, v = PP.r[d];
+        PP.micro = ['SP 加 1：' + hx(PP.sp) + ' → ' + hx(ns) + '（先腾出新的一格）', '把 ' + d + ' 的 ' + hx(v) + ' 存进 ' + hx(ns) + ' 单元'];
+        PP.k = -1; ppRender();
+        setTimeout(function () { PP.sp = ns; PP.k = 0; ppRender(ns); }, 500);
+        setTimeout(function () { PP.ram[ns] = v; PP.stk.push(hx(v) + '（' + d + '）'); PP.k = 1; ppRender(ns); PP.busy = false; }, 1300);
+      } else {
+        if (PP.sp <= 7) { PP.micro = ['栈里没有东西可取了（SP 已回到 07H）。']; PP.k = 0; ppRender(); PP.busy = false; return; }
+        var a = PP.sp, w = PP.ram[a] == null ? 0 : PP.ram[a];
+        PP.micro = ['从 SP 指的 ' + hx(a) + ' 单元取出 ' + hx(w) + '，送进 ' + d, 'SP 减 1：' + hx(a) + ' → ' + hx(a - 1)];
+        PP.k = -1; ppRender(a);
+        setTimeout(function () { PP.r[d] = w; PP.k = 0; ppRender(a); }, 500);
+        setTimeout(function () { PP.sp = a - 1; PP.stk.pop(); PP.k = 1; ppRender(); PP.busy = false; }, 1300);
+      }
+    };
+  });
+  $('#ppReset').onclick = ppInit; ppInit();
+
+  /* ---------- ③ SP 放哪 ---------- */
+  var SPV = [0x07, 0x1F, 0x2F, 0x5F];
+  $('#spOps').innerHTML = SPV.map(function (v) { return '<button class="btn mono" data-v="' + v + '">MOV SP,#' + hx(v) + (v === 7 ? '（复位值，不改）' : '') + '</button>'; }).join('');
+  var spT = [];
+  function spRun(v) {
+    spT.forEach(clearTimeout); spT = [];
+    var ram = {}, sp = v, hits = [], bads = [];
+    $('#spRam').innerHTML = ramHtml(ram, 0, 127, sp); $('#spL').innerHTML = 'SP = ' + hx(v) + '，开始 PUSH……'; $('#spA').classList.add('hide');
+    [0x11, 0x22, 0x33].forEach(function (x, k) {
+      spT.push(setTimeout(function () {
+        sp++; ram[sp] = x; (sp < 48 ? bads : hits).push(sp);
+        $('#spRam').innerHTML = ramHtml(ram, 0, 127, sp, hits, bads);
+        if (k === 2) {
+          var bad = bads.map(regName);
+          $('#spL').innerHTML = '三次 PUSH 写进 ' + hx(v + 1) + '–' + hx(v + 3) + '。' + (bads.length ? '<span class="warn">冲掉了：' + bad.join('、') + '。</span>' : '都落在一般 RAM，不碰寄存器区和位区。');
+          $('#spA').classList.remove('hide');
+        }
+      }, 600 * (k + 1)));
+    });
+  }
+  $$('#spOps button').forEach(function (b) { b.onclick = function () { $$('#spOps button').forEach(function (x) { x.classList.toggle('on', x === b); }); spRun(+b.dataset.v); }; });
+  $('#spRam').innerHTML = ramHtml({}, 0, 127, 7);
+
+  /* ---------- ④ 保护现场 ---------- */
+  var WL = ['主程序：A=12H，PSW=00H（第 0 组寄存器）', '中断来了：硬件把返回地址 PC 压栈（2 个字节）', 'PUSH ACC', 'PUSH PSW', '中断程序里改了 A、PSW：A=99H，PSW=80H（CY=1）', '恢复：选 POP 的顺序', 'RETI：弹出返回地址，回到主程序'];
+  var W;
+  function wInit() { W = { s: -1, A: 0x12, PSW: 0, stk: [], order: null }; wRender(''); }
+  function wRender(msg) {
+    $('#whyLines').innerHTML = WL.map(function (t, i) { return '<div class="' + (i === W.s ? 'cur' : '') + '">' + (i + 1) + '. ' + t + '</div>'; }).join('');
+    $('#whyStk').innerHTML = W.stk.map(function (x, i) { return '<div>' + x + (i === W.stk.length - 1 ? '　← SP' : '') + '</div>'; }).join('');
+    $('#whyRegs').innerHTML = '<div class="reg">A <b>' + hx(W.A) + '</b></div><div class="reg">PSW <b>' + hx(W.PSW) + '</b></div>';
+    $('#whyL').innerHTML = msg || '';
+    $('#whyPick').classList.toggle('hide', W.s !== 5 || W.order != null);
+    $('#whyStep').disabled = W.s >= WL.length - 1 || (W.s === 5 && W.order == null);
+  }
+  $('#whyPick').innerHTML = '<button class="btn mono" data-o="0">POP PSW → POP ACC</button><button class="btn mono" data-o="1">POP ACC → POP PSW</button>';
+  $$('#whyPick button').forEach(function (b) {
+    b.onclick = function () {
+      W.order = +b.dataset.o;
+      var top = W.stk.pop(), nxt = W.stk.pop();
+      if (W.order === 0) { W.PSW = 0; W.A = 0x12; wRender('先弹出的是栈顶的 PSW 值 00H，再弹出 A 的 12H：<b>原样恢复</b>。后放的先拿，顺序和 PUSH 正好相反。'); }
+      else { W.A = 0x00; W.PSW = 0x12; wRender('<span class="warn">A 拿到的是 PSW 的 00H，PSW 拿到 12H：RS1=1，工作寄存器换到第 2 组了。</span>顺序反了，现场就乱了。'); }
+    };
+  });
+  $('#whyStep').onclick = function () {
+    W.s++; var m = '';
+    if (W.s === 1) { W.stk.push('PC 低 8 位'); W.stk.push('PC 高 8 位'); m = '这一步是硬件自动做的。'; }
+    if (W.s === 2) { W.stk.push(hx(W.A) + '（ACC）'); }
+    if (W.s === 3) { W.stk.push(hx(W.PSW) + '（PSW）'); }
+    if (W.s === 4) { W.A = 0x99; W.PSW = 0x80; m = '中断程序要用 A 和标志位，不保护就把主程序的数弄丢了。'; }
+    if (W.s === 5) { m = '栈顶现在是 PSW。你选哪个顺序？'; }
+    if (W.s === 6) { W.stk = []; m = W.order === 0 ? '回到主程序，A=12H、PSW=00H，和中断前一样。' : '回到主程序，但 A、PSW 已经不对了。'; }
+    wRender(m);
+  };
+  $('#whyReset').onclick = wInit; wInit();
+
+  /* ---------- ⑤ 自己写 ---------- */
+  var SFR = { ACC: 0xE0, B: 0xF0, PSW: 0xD0, SP: 0x81, DPL: 0x82, DPH: 0x83 }, SFRN = {};
+  Object.keys(SFR).forEach(function (k) { SFRN[SFR[k]] = k; });
+  var R;
+  function parseNum(s) { s = s.trim().toUpperCase(); var m = /^([0-9A-F]+)H$/.exec(s) || /^([0-9]+)$/.exec(s); if (!m) return null; var v = s.slice(-1) === 'H' ? parseInt(m[1], 16) : parseInt(m[1], 10); return v; }
+  function dirOf(s) {
+    s = s.trim().toUpperCase();
+    if (s === 'A') return { err: '不能写 PUSH A / POP A：PUSH、POP 只能带直接地址，A 要写成 ACC（直接地址 E0H）。' };
+    if (/^R[0-7]$/.test(s)) return { err: '不能写 ' + s + '：PUSH、POP 只能带直接地址。要保存第 0 组的 ' + s + '，写它的地址 ' + hx(+s[1]) + '。' };
+    if (s[0] === '#') return { err: 'PUSH、POP 不能带立即数。' };
+    if (s[0] === '@') return { err: 'PUSH、POP 只能带直接地址，不能用 @Ri。' };
+    if (SFR[s] != null) return { a: SFR[s] };
+    var v = parseNum(s); if (v == null || v > 0xFF) return { err: '看不懂“' + s + '”。' };
+    if (v > 0x7F && SFRN[v] == null) return { err: hx(v) + ' 在 SFR 区，本页只模拟 ACC、B、PSW、SP、DPL、DPH。' };
+    return { a: v };
+  }
+  function rd(a) { return a > 0x7F ? (a === 0x81 ? R.sp : R.sfr[a] || 0) : (R.ram[a] == null ? 0 : R.ram[a]); }
+  function wr(a, v) { if (a > 0x7F) { if (a === 0x81) R.sp = v; else R.sfr[a] = v; } else R.ram[a] = v; }
+  function rInit() { R = { pc: 0, sp: 7, ram: {}, sfr: { 0xE0: 0, 0xF0: 0, 0xD0: 0, 0x82: 0, 0x83: 0 }, hit: [], bad: [], err: null, log: '' }; R.lines = $('#runSrc').value.split('\n').filter(function (x) { return x.trim(); }); rRender(); }
+  function step() {
+    if (R.pc >= R.lines.length || R.err != null) return false;
+    var L = R.lines[R.pc].trim().toUpperCase().replace(/\s+/g, ' '), m, msg = '';
+    R.hit = []; R.bad = [];
+    if ((m = /^MOV (SP|A|ACC|B|[0-9A-F]+H?),\s*#(.+)$/.exec(L))) {
+      var v = parseNum(m[2]); if (v == null || v > 255) { R.err = R.pc; R.log = '立即数要在 00H–FFH 之间。'; return false; }
+      var d = m[1] === 'SP' ? 0x81 : (m[1] === 'A' || m[1] === 'ACC') ? 0xE0 : m[1] === 'B' ? 0xF0 : parseNum(m[1]);
+      if (d == null || (d > 0x7F && SFRN[d] == null)) { R.err = R.pc; R.log = '目的地址看不懂。'; return false; }
+      wr(d, v); msg = (SFRN[d] || hx(d)) + ' ← ' + hx(v); if (d <= 0x7F) R.hit = [d];
+    } else if ((m = /^(PUSH|POP) (.+)$/.exec(L))) {
+      var t = dirOf(m[2]); if (t.err) { R.err = R.pc; R.log = '<span class="warn">' + t.err + '</span>'; return false; }
+      if (m[1] === 'PUSH') {
+        var ns = (R.sp + 1) & 0xFF; R.sp = ns;
+        if (ns > 0x7F) { R.err = R.pc; R.log = '<span class="warn">SP 到了 ' + hx(ns) + '，超出 80C51 片内 128 字节 RAM。</span>'; return false; }
+        var val = rd(t.a); R.ram[ns] = val; msg = 'SP 先加 1 → ' + hx(ns) + '；再把 ' + (SFRN[t.a] || hx(t.a)) + ' 的 ' + hx(val) + ' 存进 ' + hx(ns);
+        (ns < 0x30 ? R.bad : R.hit).push(ns);
+        if (ns < 0x30) msg += '　<span class="warn">注意：' + hx(ns) + ' 是' + regName(ns) + '</span>';
+      } else {
+        var a = R.sp, w = R.ram[a] == null ? 0 : R.ram[a]; wr(t.a, w); R.sp = (a - 1) & 0xFF; R.hit = [a];
+        msg = '先从 ' + hx(a) + ' 取出 ' + hx(w) + ' 送 ' + (SFRN[t.a] || hx(t.a)) + '；SP 再减 1 → ' + hx(R.sp);
+      }
+    } else { R.err = R.pc; R.log = '<span class="warn">这一行本页不支持。</span>'; return false; }
+    R.log = '<b>' + R.lines[R.pc].trim() + '</b>：' + msg; R.pc++; return true;
+  }
+  function rRender() {
+    $('#runLines').innerHTML = R.lines.map(function (t, i) { return '<div class="' + (i === R.err ? 'err' : i === R.pc ? 'cur' : '') + '">' + (i + 1) + '　' + t + '</div>'; }).join('');
+    $('#runRegs').innerHTML = '<div class="reg sp">SP <b>' + hx(R.sp) + '</b></div><div class="reg">A <b>' + hx(R.sfr[0xE0]) + '</b></div><div class="reg">B <b>' + hx(R.sfr[0xF0]) + '</b></div><div class="reg">PSW <b>' + hx(R.sfr[0xD0]) + '</b></div>';
+    $('#runRam').innerHTML = ramHtml(R.ram, 0, 127, R.sp, R.hit, R.bad);
+    $('#runL').innerHTML = R.log || '按“单步”。';
+    $('#runStep').disabled = R.pc >= R.lines.length || R.err != null;
+  }
+  $('#runReset').onclick = rInit;
+  $('#runSrc').oninput = rInit;
+  $('#runStep').onclick = function () { step(); rRender(); };
+  $('#runAll').onclick = function () { while (step()) {} rRender(); };
+  $('#runBad').onclick = function () { $('#runSrc').value = 'MOV SP,#2FH\nMOV A,#12H\nPUSH A'; rInit(); };
+  rInit();
+
+  /* ---------- ⑥ 小测 ---------- */
+  var QZ = [
+    { t: '1. SP=30H，A=5AH。执行 PUSH ACC 后，SP=？哪个单元是 5AH？', o: ['SP=30H，(30H)=5AH', 'SP=31H，(31H)=5AH', 'SP=2FH，(30H)=5AH'], a: 1, e: 'PUSH 先把 SP 加 1 变成 31H，再把 A 存进 31H。' },
+    { t: '2. 哪一条能通过汇编？', o: ['PUSH A', 'PUSH ACC', 'PUSH R0', 'POP #30H'], a: 1, e: 'PUSH、POP 只带直接地址。A 的直接地址名是 ACC（E0H）；R0 要写 00H（第 0 组时）。' },
+    { t: '3. 复位后不改 SP 就 PUSH，数会写进哪里？', o: ['30H，一般 RAM', '08H，第 1 组的 R0', '07H，第 0 组的 R7'], a: 1, e: '复位 SP=07H，先加 1 再存，写进 08H，就是第 1 组的 R0。所以先 MOV SP,#xxH 挪到 30H 以上。' },
+    { t: '4. 先 PUSH ACC 再 PUSH B，要把 A、B 原样恢复，应该：', o: ['POP ACC，再 POP B', 'POP B，再 POP ACC', '顺序无所谓'], a: 1, e: '后进先出：栈顶是 B 的值，先 POP B，再 POP ACC。' }
+  ];
+  var QA = {};
+  function qRender() {
+    $('#qzBox').innerHTML = QZ.map(function (q, i) {
+      return '<div class="qq"><div class="t">' + q.t + '</div>' + q.o.map(function (o, j) { var c = ''; if (QA[i] != null) c = j === q.a ? ' ok' : (QA[i] === j ? ' no' : ''); return '<button class="o' + c + '" data-i="' + i + '" data-j="' + j + '">' + o + '</button>'; }).join('') + (QA[i] != null ? '<div class="e">' + q.e + '</div>' : '') + '</div>';
+    }).join('');
+    $$('#qzBox .o').forEach(function (b) { b.onclick = function () { var i = +b.dataset.i; if (QA[i] == null) { QA[i] = +b.dataset.j; qRender(); } }; });
+    var n = Object.keys(QA).length, r = Object.keys(QA).filter(function (i) { return QA[i] === QZ[i].a; }).length;
+    $('#qzS').innerHTML = n ? '已答 ' + n + ' 题，对 ' + r + ' 题。' : '点选项作答，答完即显示理由。';
+  }
+  qRender();
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    var i = PANES.indexOf(cur);
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPane(PANES[Math.min(PANES.length - 1, i + 1)]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPane(PANES[Math.max(0, i - 1)]); }
+    else if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      var b = { dz: '#dzShow', pp: '#whyStep', run: '#runStep' }[cur];
+      if (b && !$(b).disabled) $(b).click();
+    }
+  });
+  var h = (location.hash || '').slice(1); if (PANES.indexOf(h) >= 0) showPane(h);
+})();
+
+</script></body></html>

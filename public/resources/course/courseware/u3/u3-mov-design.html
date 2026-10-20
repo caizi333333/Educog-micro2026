@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 章 MOV｜数从哪来，到哪去</title>
+<style>/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+</style>
+<style>.kp-wrap{max-width:1360px}
+body{font-size:18px}
+body.z1{zoom:1.15} body.z2{zoom:1.3}
+.kp-eyebrow{font-size:14px}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.top .grow{flex:1 1 520px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.btn{cursor:pointer;min-height:38px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--slate100);font:500 15px var(--fs);transition:.15s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
+.btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
+.btn.mono{font-family:var(--fm);font-weight:700}
+.tabs{display:flex;gap:8px;margin:18px 0 14px;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.85)}
+.tab{flex:1;min-height:52px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.tab small{font-weight:400;font-size:14px;opacity:.8}
+.tab:hover{background:rgba(255,255,255,.07)}
+.tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
+.card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
+.h2{font-size:21px;font-weight:700;margin:2px 0 6px}
+.sub{font-size:15px;color:var(--muted-fg);margin-bottom:10px}
+.mono{font-family:var(--fm)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.talk{border-radius:9px;padding:10px 13px;background:hsl(184 82% 48% / .07);border:1px solid hsl(184 82% 48% / .22);font-size:17px;line-height:1.65;color:var(--cyan100);min-height:56px}
+.talk b{color:#fff}
+.say{margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(246,187,49,.07);border-left:3px solid var(--c3);color:var(--amber200);font-size:16px;line-height:1.6}
+.bigq{font-size:26px;font-weight:800;color:#fff;margin:4px 0 8px}.bigq em{font-style:normal;color:var(--amber300)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.opt{display:grid;gap:8px}
+.ob{text-align:left;font:600 16.5px var(--fs);color:var(--slate100);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:10px 12px;cursor:pointer}
+.ob b{display:inline-block;width:24px;color:var(--cyan100)}.ob:hover{background:rgba(255,255,255,.08)}
+.ob.pick{border-color:#f4b740;background:hsl(42 92% 58% / .12)}.ob.ok{border-color:hsl(150 60% 45%);background:hsl(150 60% 40% / .18)}.ob.no{border-color:hsl(350 70% 55%);background:hsl(350 70% 50% / .12)}
+.res{margin-top:10px;font-size:16.5px;line-height:1.6;color:var(--slate100);min-height:28px}.res b{color:var(--amber200)}
+.ans{margin-top:8px;font-size:16.5px;line-height:1.6;color:var(--cyan100);border-radius:9px;padding:10px 12px;background:hsl(184 82% 48% / .08);border:1px solid hsl(184 82% 48% / .3)}.ans b{color:#fff}
+.hide{display:none!important}
+/* RAM 视图 */
+.ram{display:grid;grid-template-columns:44px repeat(8,1fr);gap:2px;font:600 13px var(--fm)}
+.ram .ah{color:#64748b;text-align:right;padding-right:4px;line-height:26px}
+.ram .c{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);color:#94a3b8;position:relative;transition:background .3s}
+.ram .c.bk0{background:hsl(210 60% 50% / .14)}.ram .c.bk1{background:hsl(260 60% 60% / .14)}.ram .c.bk2{background:hsl(300 50% 55% / .12)}.ram .c.bk3{background:hsl(330 60% 55% / .12)}
+.ram .c.bit{background:hsl(150 50% 45% / .12)}
+.ram .c.v{color:#fff}
+.ram .c.sp{outline:2px solid #f4b740;z-index:2}
+.ram .c.hit{background:hsl(42 92% 58% / .55)!important;color:#141006}
+.ram .c.bad{background:hsl(350 70% 50% / .55)!important;color:#fff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--slate300);margin:6px 0}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.regs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.reg{border-radius:7px;padding:5px 10px;background:rgba(255,255,255,.05);font:600 15px var(--fm)}.reg b{color:var(--amber200)}.reg.sp b{color:#f4b740}.reg.chg{outline:2px solid #f4b740}
+.ops{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.micro{display:grid;gap:4px;margin-top:8px}.micro div{border-radius:7px;padding:6px 10px;background:rgba(255,255,255,.04);font-size:15.5px;opacity:.35;transition:opacity .3s}.micro div.on{opacity:1;background:hsl(42 92% 58% / .12)}
+.micro .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:#f4b740;color:#141006;text-align:center;font:800 13px/22px var(--fm);margin-right:8px}
+.stk{display:flex;flex-direction:column-reverse;gap:3px;min-height:150px;border:2px solid rgba(255,255,255,.15);border-top:none;border-radius:0 0 10px 10px;padding:6px;width:180px}
+.stk div{border-radius:6px;padding:5px 8px;background:hsl(184 82% 48% / .18);font:600 14px var(--fm);color:#fff;animation:kpFade .3s}
+.flow{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+textarea{width:100%;min-height:210px;background:#0b1117;color:#e2e8f0;border:1px solid rgba(255,255,255,.15);border-radius:8px;font:600 15px/1.55 var(--fm);padding:8px}
+.lines{font:600 15px/1.8 var(--fm)}.lines div{padding:0 8px;border-radius:5px}.lines div.cur{background:hsl(42 92% 58% / .2)}.lines div.err{background:hsl(350 70% 50% / .25)}
+.log{font-size:15px;line-height:1.6;margin-top:8px;min-height:48px}
+.warn{color:var(--rose300);font-weight:700}
+.qz{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.qq{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}.qq .t{font-size:16.5px;font-weight:700;margin-bottom:6px;line-height:1.5}
+.qq .o{display:block;width:100%;text-align:left;margin:4px 0;font:600 15px var(--fm);padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:none;color:var(--slate100);cursor:pointer}
+.qq .o.ok{background:hsl(150 60% 40%);color:#fff}.qq .o.no{background:hsl(350 70% 50%);color:#fff}
+.qq .e{font-size:15px;line-height:1.55;color:var(--cyan100);margin-top:6px}
+.note{font-size:13.5px;color:var(--slate400);margin-top:8px;line-height:1.55}
+.flow>div{flex:1 1 260px;min-width:0}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:5px 7px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}table.mt th{color:var(--slate300);font-weight:600}
+.cmpt{margin-top:10px;font-size:14.5px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+.lv{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.lv .btn.on{background:hsl(42 92% 58% / .9);color:#141006}
+.stage{min-height:230px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.07);padding:12px;display:flex;flex-direction:column;gap:10px}
+.cap{font-size:15.5px;color:var(--amber200);min-height:24px}
+.bx{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center}
+.cell{min-width:86px;border-radius:9px;padding:6px 10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);text-align:center;transition:all .35s}
+.cell small{display:block;font-size:12.5px;color:var(--slate400)}
+.cell b{display:block;font:700 20px var(--fm);color:#fff}
+.cell.hit{background:hsl(42 92% 58% / .28);border-color:#f4b740}
+.cell.bad{background:hsl(350 70% 50% / .3);border-color:hsl(350 70% 60%)}
+.cell.ok{background:hsl(150 60% 40% / .3);border-color:hsl(150 60% 50%)}
+.cell.rom{border-style:dashed}
+.arw{font:700 22px var(--fm);color:#f4b740}
+.why{margin-top:10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);padding:6px 12px;background:rgba(255,255,255,.02)}
+.why summary{cursor:pointer;color:var(--cyan100);font-weight:700;font-size:15.5px}
+.why div{font-size:15.5px;line-height:1.7;color:var(--slate100);margin:6px 0}
+.inf{display:inline-block;font-size:12px;padding:1px 6px;border-radius:4px;background:hsl(270 50% 50% / .25);color:#e9d5ff;margin-left:4px;vertical-align:1px}
+.bt{display:grid;grid-template-columns:110px 1fr 54px;gap:6px;align-items:center;font-size:14.5px;margin:3px 0}
+.bt .bar{height:14px;border-radius:4px;background:#f4b740;transition:width .5s}
+.bt .bar.c{background:hsl(184 82% 48%)}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:6px 8px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}
+table.mt th{color:var(--slate300);font-weight:600}
+.pick2{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+.pick2 .btn.on{background:hsl(184 82% 48% / .35);color:#fff}
+.nib{display:inline-flex;gap:3px}.nib span{display:inline-block;width:34px;text-align:center;border-radius:6px;padding:4px 0;background:rgba(255,255,255,.07);font:700 20px var(--fm);transition:all .4s}
+.nib span.mv{background:hsl(42 92% 58% / .5);color:#141006;transform:translateY(-4px)}
+svg text{font-family:var(--fs)}
+.mini{display:inline-block;width:60px;height:9px;border-radius:3px;background:rgba(255,255,255,.07);margin-right:6px;vertical-align:1px}.mini i{display:block;height:100%;border-radius:3px;background:#f4b740}.mini.c i{background:hsl(184 82% 48%)}
+.cmpt{margin-top:10px;font-size:14.5px}.cmpt td{padding:5px 7px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+</style></head>
+<body><div class="kp-wrap">
+<div class="top"><div class="grow"><div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 数据传送 · MOV</div><h1 class="kp-h1">MOV：数从哪来，到哪去</h1></div>
+<div class="zoom">字号 <button class="btn sm on" data-z="0">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button></div></div>
+<div class="tabs" role="tablist">
+<button class="tab" data-p="dz" aria-selected="true">① 难题与对比<small>三道设计题</small></button>
+<button class="tab" data-p="show">② 揭晓与原理<small>80C51 怎么做、为什么</small></button>
+<button class="tab" data-p="rt">③ 动手练<small>路线表</small></button>
+<button class="tab" data-p="qz">④ 小测<small>4 题</small></button></div>
+<section class="pane on" id="p-dz"><div class="card" id="dzBox"></div></section>
+<section class="pane" id="p-show"><div class="card" id="rvBox"></div></section>
+<section class="pane" id="p-rt"><div class="card">
+<div class="h2">选“源”和“目的”，看 80C51 有没有这条 MOV</div>
+<div class="pick2"><span class="sub" style="margin:0">源：</span><span id="rtS"></span></div>
+<div class="pick2"><span class="sub" style="margin:0">目的：</span><span id="rtD"></span></div>
+<div class="g2" style="margin-top:8px"><div><div class="res" id="rtR"></div><div id="rtBars"></div></div><div class="stage" id="rtV"></div></div>
+<details class="why"><summary>为什么有些格子不通？</summary><div>不通的格子集中在“Rn、@Ri 之间”。它们的寄存器号都编在操作码的低几位里，一个操作码只放得下一个号，所以两头都是寄存器的组合没有编码。<span class="inf">教学推断</span>实在要 Rn 到 Rn，也可以把源写成直接地址：第 0 组 R2 就是 02H，<span class="mono">MOV R1,02H</span> 一条（2 字节 2 周期）。</div></details>
+</div></section>
+<section class="pane" id="p-qz"><div class="card"><div class="h2">小测</div><div class="qz" id="qzBox"></div><div class="log" id="qzS"></div></div></section>
+<div class="foot">字节数、周期数按 80C51 指令表；标“教学推断”的是对设计原因的解释，不是手册原话。</div>
+
+</div>
+<script>/* 第 3 章新页共用：页签、字号、键盘、设计难题、小测 */
+var K = (function () {
+  'use strict';
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function hx(v, n) { var s = v.toString(16).toUpperCase(); while (s.length < (n || 2)) s = '0' + s; return (/^[A-F]/.test(s) ? '0' : '') + s + 'H'; }
+  function hx2(v) { var s = (v & 255).toString(16).toUpperCase(); return (s.length < 2 ? '0' : '') + s + 'H'; }
+  $$('.zoom .btn').forEach(function (b) { b.onclick = function () { document.body.classList.remove('z1', 'z2'); if (b.dataset.z !== '0') document.body.classList.add('z' + b.dataset.z); $$('.zoom .btn').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  var PANES = $$('.tab').map(function (t) { return t.dataset.p; }), cur = PANES[0], steppers = {};
+  function showPane(k) { cur = k; $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); }); $$('.pane').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + k); }); }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
+  document.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
+    var i = PANES.indexOf(cur);
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPane(PANES[Math.min(PANES.length - 1, i + 1)]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPane(PANES[Math.max(0, i - 1)]); }
+    else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (steppers[cur]) steppers[cur](); }
+  });
+  /* 依次播放几帧：frames = [[说明, html], ...] */
+  function play(stage, frames, ms) {
+    if (stage._t) stage._t.forEach(clearTimeout); stage._t = [];
+    frames.forEach(function (f, i) { stage._t.push(setTimeout(function () { stage.innerHTML = '<div class="cap">' + f[0] + '</div>' + f[1]; }, i * (ms || 1100))); });
+  }
+  function cell(lab, val, cls) { return '<div class="cell ' + (cls || '') + '"><small>' + lab + '</small><b>' + val + '</b></div>'; }
+  function arw(t) { return '<span class="arw">' + (t || '→') + '</span>'; }
+  function bars(rows, maxB, maxT) {
+    return rows.map(function (r) { return '<div class="bt"><span>' + r[0] + '</span><span><div class="bar" style="width:' + (r[1] / maxB * 100) + '%"></div><div class="bar c" style="width:' + (r[2] / maxT * 100) + '%;margin-top:3px"></div></span><span class="mono">' + r[1] + 'B ' + r[2] + 'T</span></div>'; }).join('') + '<div class="note">黄条：字节数　青条：机器周期数（80C51 指令表）</div>';
+  }
+  /* 设计难题：① 难题与对比（root）＋ ② 揭晓与原理动画（rv）。
+     L = [{q, idle, opts:[{t, r, B, T, side, no, est, anim(stage)}], ans, why}] */
+  function cmp(D, mark, hide) {
+    var ok = D.opts.filter(function (o) { return o.ok; })[0], rows = D.opts.filter(function (o) { return o.B != null; });
+    var mb = Math.max.apply(null, rows.map(function (o) { return o.B; }).concat([1])), mt = Math.max.apply(null, rows.map(function (o) { return o.T; }).concat([1]));
+    return '<table class="mt cmpt"><tr><th>方案</th><th>字节</th><th>周期</th><th>副作用 / 代价</th></tr>' + D.opts.map(function (o, j) {
+      var c = (mark === j ? ' class="on"' : '') ;
+      return '<tr' + c + '><td style="text-align:left">' + 'ABCD'[j] + (o.ok && !hide ? ' <b style="color:#4ade80">80C51</b>' : '') + '</td>' +
+        (o.no ? '<td colspan="2" style="color:#fb7185">行不通</td>' : o.B == null ? '<td colspan="2">—</td>' :
+          '<td><div class="mini"><i style="width:' + (o.B / mb * 100) + '%"></i></div>' + o.B + (o.est ? '*' : '') + '</td><td><div class="mini c"><i style="width:' + (o.T / mt * 100) + '%"></i></div>' + o.T + (o.est ? '*' : '') + '</td>') +
+        '<td style="text-align:left">' + (o.side || '') + '</td></tr>';
+    }).join('') + '</table>' + (D.opts.some(function (o) { return o.est; }) ? '<div class="note">* 估算，见“为什么”。</div>' : '');
+  }
+  function design(root, L, rv) {
+    var st = { lv: 0, pick: null };
+    root.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="opt"></div><div class="res"></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn pri" data-k="show">揭晓 80C51 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    rv.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="ans"></div><details class="why" open><summary>为什么这样设计？</summary><div></div></details>' +
+      '<div class="row" style="margin-top:10px"><button class="btn" data-k="replay">↻ 再演一遍</button><button class="btn pri" data-k="next">下一题 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    function chips(el) { el.innerHTML = L.map(function (x, i) { return '<button class="btn sm' + (i === st.lv ? ' on' : '') + '" data-i="' + i + '">难题 ' + (i + 1) + '</button>'; }).join(''); $$('button', el).forEach(function (b) { b.onclick = function () { go(+b.dataset.i); }; }); }
+    function okOf(D) { var k = 0; D.opts.forEach(function (o, j) { if (o.ok) k = j; }); return k; }
+    function render() {
+      var D = L[st.lv];
+      chips($('.lv', root)); chips($('.lv', rv));
+      $('.bigq', root).innerHTML = D.q; $('.bigq', rv).innerHTML = D.q;
+      $('.opt', root).innerHTML = D.opts.map(function (o, j) { return '<button class="ob' + (st.pick === j ? ' pick' : '') + '" data-j="' + j + '"><b>' + 'ABCD'[j] + '</b>' + o.t + '</button>'; }).join('');
+      $$('.ob', root).forEach(function (b) { b.onclick = function () { st.pick = +b.dataset.j; render(); D.opts[st.pick].anim($('.stage', root)); }; });
+      var o = st.pick == null ? null : D.opts[st.pick];
+      $('.res', root).innerHTML = o ? '<b>后果：</b>' + o.r : '先选一个，右边演给你看，下面和别的方案比一比。';
+      $('.cmpw', root).innerHTML = o ? cmp(D, st.pick, 1) : '';
+      if (st.pick == null) $('.stage', root).innerHTML = '<div class="cap">等你选</div>' + (D.idle || '');
+      $('.ans', rv).innerHTML = '<b>80C51：</b>' + D.ans; $('div', $('.why', rv)).innerHTML = D.why;
+      $('.cmpw', rv).innerHTML = cmp(D, okOf(D));
+    }
+    function go(i) { st = { lv: i, pick: null }; render(); }
+    function playOk() { var D = L[st.lv]; D.opts[okOf(D)].anim($('.stage', rv)); }
+    $('[data-k=show]', root).onclick = function () { showPane(PANES[1]); playOk(); };
+    $('[data-k=replay]', rv).onclick = playOk;
+    $('[data-k=next]', rv).onclick = function () { go((st.lv + 1) % L.length); showPane(PANES[0]); };
+    render();
+    steppers[PANES[0]] = function () { if (st.pick == null) { st.pick = 0; render(); L[st.lv].opts[0].anim($('.stage', root)); } else { showPane(PANES[1]); playOk(); } };
+    steppers[PANES[1]] = function () { if (st.lv < L.length - 1) { go(st.lv + 1); showPane(PANES[0]); } };
+    return null;
+  }
+  function quiz(root, out, Q) {
+    var done = {};
+    root.innerHTML = Q.map(function (x, i) { return '<div class="qq"><div class="t">' + (i + 1) + '. ' + x.t + '</div>' + x.o.map(function (o, j) { return '<button class="o" data-i="' + i + '" data-j="' + j + '">' + o + '</button>'; }).join('') + '<div class="e hide"></div></div>'; }).join('');
+    $$('.o', root).forEach(function (b) { b.onclick = function () { var i = +b.dataset.i, j = +b.dataset.j, x = Q[i]; if (done[i] != null) return; done[i] = j === x.a; b.classList.add(j === x.a ? 'ok' : 'no'); $$('.o[data-i="' + i + '"]', root)[x.a].classList.add('ok'); var e = b.parentNode.querySelector('.e'); e.innerHTML = x.e; e.classList.remove('hide'); var n = 0, r = 0; for (var k in done) { n++; if (done[k]) r++; } out.textContent = '已答 ' + n + ' 题，对 ' + r + ' 题。'; }; });
+  }
+  return { $: $, $$: $$, hx: hx2, play: play, cell: cell, arw: arw, bars: bars, design: design, quiz: quiz, steppers: steppers, showPane: showPane };
+})();
+</script>
+<script>(function () {
+  var $ = K.$, $$ = K.$$, C = K.cell, A = K.arw;
+  var L = [
+    { q: '想把 R1 指的单元复制到 R0 指的单元。<em>MOV @R0,@R1</em> 这条指令，你给不给？',
+      idle: '<div class="bx">' + C('R1', '40H') + C('RAM[40H]', '5AH') + C('R0', '30H') + C('RAM[30H]', '??') + '</div>',
+      opts: [
+        { t: '给。一条指令搞定，最方便', no: 1, side: '操作码只剩 A5H 一个空格，放不下 4 种组合', r: '操作码要同时编两个寄存器号，256 个操作码 80C51 已经用掉 255 个，放不下这一组（共 4 种组合）；执行时还要在一条指令里先后读两次指针、读写两次 RAM。', anim: function (s) { K.play(s, [['要编码：目的 @R0/@R1 × 源 @R0/@R1 = 4 个操作码', '<div class="bx">' + C('目的', '@R0 / @R1', 'hit') + C('源', '@R0 / @R1', 'hit') + '</div>'], ['操作码表：256 格已用 255 格', '<div class="bx">' + C('已用', '255', 'bad') + C('空着', '1（A5H）') + '</div>']]); } },
+        { t: '不给。先读进 A，再从 A 写出去', ok: 1, B: 2, T: 2, side: 'A 被改写', r: '两条：<span class="mono">MOV A,@R1</span>、<span class="mono">MOV @R0,A</span>，共 2 字节 2 周期，代价很小。', anim: function (s) { K.play(s, [['第 1 条：MOV A,@R1', '<div class="bx">' + C('RAM[40H]', '5AH', 'hit') + A() + C('A', '5AH', 'hit') + C('RAM[30H]', '??') + '</div>'], ['第 2 条：MOV @R0,A', '<div class="bx">' + C('RAM[40H]', '5AH') + C('A', '5AH', 'hit') + A() + C('RAM[30H]', '5AH', 'ok') + '</div>'], ['完成：2 字节、2 个机器周期', '<div class="bx">' + C('RAM[30H]', '5AH', 'ok') + '</div>']]); } }
+      ],
+      ans: '没有 <span class="mono">MOV @R0,@R1</span>。两头都是间接寻址时，经 A 中转两条完成。',
+      why: '80C51 的操作码一个字节，256 个只空了 A5H 一个。<span class="mono">MOV A,@Ri</span>（E6H、E7H）和 <span class="mono">MOV @Ri,A</span>（F6H、F7H）各 1 字节 1 周期，两条加起来和一条专用指令差不了多少。<span class="inf">教学推断</span>把格子留给更常用的指令更划算。' },
+    { q: '有人想写 <em>MOV #30H,A</em>：把 A 的值存进“立即数”里。你会设计这条指令吗？',
+      idle: '<div class="bx">' + C('程序存储器', '74 30', 'rom') + C('A', '5AH') + '</div>',
+      opts: [
+        { t: '会，立即数也是个地方，能写', no: 1, side: '程序存储器运行时只读', r: '立即数就是指令本身的一个字节，放在程序存储器里。程序运行时写不进去；就算能写，也是把程序改掉了。', anim: function (s) { K.play(s, [['#30H 在哪？在指令字节里', '<div class="bx">' + C('ROM 2000H', '74', 'rom') + C('ROM 2001H', '30（#30H）', 'rom hit') + '</div>'], ['想把 A 写进去……', '<div class="bx">' + C('A', '5AH', 'hit') + A() + C('ROM 2001H', '30', 'rom bad') + '</div>'], ['程序存储器运行时只读：写不进', '<div class="bx">' + C('ROM 2001H', '30（没变）', 'rom bad') + '</div>']]); } },
+        { t: '不会，立即数只能当源', ok: 1, B: 2, T: 1, side: '无（MOV A,#30H）', r: '对。立即数是“数”，不是“地方”，只能拿来用，不能往里存。', anim: function (s) { K.play(s, [['立即数只做源：MOV A,#30H', '<div class="bx">' + C('指令里的 #30H', '30H', 'rom hit') + A() + C('A', '30H', 'ok') + '</div>']]); } }
+      ],
+      ans: '指令表里所有 MOV 的目的都是 A、Rn、direct、@Ri 或 DPTR，没有 #data。',
+      why: '目的操作数必须是能存数的地方。#data 和操作码一起放在程序存储器里，CPU 运行时只从那里读指令，不往里写。' },
+    { q: '寄存器之间要互相复制。<em>每两个都能直接互传</em>，还是<em>都跟一个“中心”打交道</em>？',
+      idle: '<div class="bx">' + C('R0', '') + C('R1', '') + C('…', '') + C('R7', '') + C('A', '', 'hit') + '</div>',
+      opts: [
+        { t: '每两个都能直接传：MOV R3,R5 这种都有', B: 1, T: 1, est: 1, side: '要 64 个操作码（假想方案，按 1 字节 1 周期估）', r: '8 个 Rn 两两组合就是 8×8=64 种，要 64 个操作码；再加上 @Ri 更多。', anim: function (s) { var g = ''; for (var i = 0; i < 64; i++) g += '<span style="display:inline-block;width:14px;height:14px;margin:1px;border-radius:3px;background:hsl(350 70% 55% / .7)"></span>'; K.play(s, [['Rn → Rn：64 个操作码', '<div style="width:136px;margin:auto;line-height:0">' + g + '</div>']]); } },
+        { t: '让 A 当中心：Rn ↔ A 都有，别的组合经 A', ok: 1, B: 2, T: 2, side: '只用 16 个操作码；R3→R5 要两条，A 被改写', r: '<span class="mono">MOV A,Rn</span> 8 个、<span class="mono">MOV Rn,A</span> 8 个，一共 16 个操作码就够。', anim: function (s) { var g = ''; for (var i = 0; i < 16; i++) g += '<span style="display:inline-block;width:14px;height:14px;margin:1px;border-radius:3px;background:hsl(150 60% 45% / .8)"></span>'; K.play(s, [['A ↔ Rn：16 个操作码（E8H–EFH、F8H–FFH）', '<div style="width:136px;margin:auto;line-height:0">' + g + '</div>'], ['R3 → R5：MOV A,R3；MOV R5,A', '<div class="bx">' + C('R3', '12H', 'hit') + A() + C('A', '12H', 'hit') + A() + C('R5', '12H', 'ok') + '</div>']]); } }
+      ],
+      ans: 'A 是中转站：算术、逻辑、MOVX、MOVC 的结果都落在 A，很多传送也围着 A。',
+      why: '指令里写了 A，就不用再编 A 的地址，所以 <span class="mono">MOV A,Rn</span> 只要 1 字节 1 周期。<span class="inf">教学推断</span>只用一个中心寄存器，操作码省、ALU 的连线也简单，代价是有时要多一条中转。' }
+  ];
+  K.design($('#dzBox'), L, $('#rvBox'));
+
+  /* 路线表：数据来自 80C51 指令表 [字节, 周期, 操作码] */
+  var S = ['A', 'Rn', 'direct', '@Ri', '#data'], D = ['A', 'Rn', 'direct', '@Ri', '#data'];
+  var T = { 'A|Rn': [1, 1, 'E8–EF'], 'A|direct': [2, 1, 'E5'], 'A|@Ri': [1, 1, 'E6–E7'], 'A|#data': [2, 1, '74'],
+    'Rn|A': [1, 1, 'F8–FF'], 'Rn|direct': [2, 2, 'A8–AF'], 'Rn|#data': [2, 1, '78–7F'],
+    'direct|A': [2, 1, 'F5'], 'direct|Rn': [2, 2, '88–8F'], 'direct|direct': [3, 2, '85'], 'direct|@Ri': [2, 2, '86–87'], 'direct|#data': [3, 2, '75'],
+    '@Ri|A': [1, 1, 'F6–F7'], '@Ri|direct': [2, 2, 'A6–A7'], '@Ri|#data': [2, 1, '76–77'] };
+  var src = '@Ri', dst = 'Rn';
+  function rt() {
+    $('#rtS').innerHTML = S.map(function (x) { return '<button class="btn sm mono' + (x === src ? ' on' : '') + '" data-s="' + x + '">' + x + '</button>'; }).join('');
+    $('#rtD').innerHTML = D.map(function (x) { return '<button class="btn sm mono' + (x === dst ? ' on' : '') + '" data-d="' + x + '">' + x + '</button>'; }).join('');
+    $$('#rtS .btn').forEach(function (b) { b.onclick = function () { src = b.dataset.s; rt(); }; });
+    $$('#rtD .btn').forEach(function (b) { b.onclick = function () { dst = b.dataset.d; rt(); }; });
+    var k = dst + '|' + src, t = T[k], V = $('#rtV'), C = K.cell, A = K.arw;
+    if (dst === '#data') { $('#rtR').innerHTML = '<b class="warn">没有这种指令</b>：立即数不能当目的。'; $('#rtBars').innerHTML = ''; V.innerHTML = '<div class="cap">立即数在程序存储器里，只读</div><div class="bx">' + C('#data', '?', 'rom bad') + '</div>'; return; }
+    if (src === dst && src === 'A') { $('#rtR').innerHTML = 'A 到 A 没有意义。'; $('#rtBars').innerHTML = ''; V.innerHTML = ''; return; }
+    if (t) {
+      $('#rtR').innerHTML = '<b>一条就到：</b><span class="mono">MOV ' + dst + ',' + src + '</span>，操作码 ' + t[2] + 'H。';
+      $('#rtBars').innerHTML = K.bars([['MOV ' + dst + ',' + src, t[0], t[1]]], 4, 4);
+      K.play(V, [['一条指令', '<div class="bx">' + C('源', src, 'hit') + A() + C('目的', dst, 'ok') + '</div>']]);
+    } else {
+      var a = T['A|' + src], b = T[dst + '|A'], B = a[0] + b[0], Cy = a[1] + b[1];
+      $('#rtR').innerHTML = '<b class="warn">没有一条直达</b>，经 A 两条：<span class="mono">MOV A,' + src + '</span>；<span class="mono">MOV ' + dst + ',A</span>。';
+      $('#rtBars').innerHTML = K.bars([['MOV A,' + src, a[0], a[1]], ['MOV ' + dst + ',A', b[0], b[1]], ['合计', B, Cy]], 4, 4);
+      K.play(V, [['第 1 条：进 A', '<div class="bx">' + C('源', src, 'hit') + A() + C('A', '中转', 'hit') + C('目的', dst) + '</div>'], ['第 2 条：出 A', '<div class="bx">' + C('源', src) + C('A', '中转', 'hit') + A() + C('目的', dst, 'ok') + '</div>']]);
+    }
+  }
+  rt();
+  K.steppers.rt = function () { var i = S.indexOf(src); src = S[(i + 1) % S.length]; rt(); };
+
+  K.quiz($('#qzBox'), $('#qzS'), [
+    { t: 'MOV R1,R2 为什么汇编报错？', o: ['R2 不能读', '两头都是工作寄存器，没有这种编码', '要先清零'], a: 1, e: '一个操作码只放得下一个寄存器号。可以经 A，或者写 MOV R1,02H（第 0 组）。' },
+    { t: 'MOV #40H,A 对不对？', o: ['对', '错：立即数不能当目的'], a: 1, e: '#40H 在程序存储器里，只能当源。' },
+    { t: '把 @R1 指的单元复制到 @R0 指的单元，最少几条？', o: ['1 条', '2 条', '3 条'], a: 1, e: 'MOV A,@R1；MOV @R0,A，共 2 字节 2 周期。' },
+    { t: 'MOV direct,direct 几字节几周期？', o: ['2 字节 1 周期', '3 字节 2 周期', '3 字节 1 周期'], a: 1, e: '操作码 85H 加两个地址字节，2 个机器周期。' }
+  ]);
+})();
+</script>
+</body></html>
