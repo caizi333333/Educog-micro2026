@@ -22,6 +22,59 @@ const PREP_LIMITS = { instruction: 2000, submission: 6000, title: 160, content: 
 const PREP_KIND_LABELS = { case: '教学案例', exercise: '练习建议', review: '批改建议' } as const;
 const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
+// ── AI 调用配额闸 ────────────────────────────────────────────────
+// 外部模型按调用计费：学生问答与教师备课生成分别按人按日限额，外加全站日总量安全阀。
+// 计数复用既有留痕表（学生问答→LearningEvent.AI_CHAT；备课生成→UserActivity.TEACHER_PREP_GENERATION），
+// 不新增表。超限时返回 429，前端自动回落本地课程检索模板，功能不塌。
+const AI_CHAT_DAILY_LIMIT = Math.max(1, Number(process.env.AI_CHAT_DAILY_LIMIT) || 20);
+const AI_CHAT_MONTHLY_LIMIT = Math.max(1, Number(process.env.AI_CHAT_MONTHLY_LIMIT) || 120);
+const AI_CHAT_GLOBAL_DAILY_LIMIT = Math.max(1, Number(process.env.AI_CHAT_GLOBAL_DAILY_LIMIT) || 500);
+const AI_PREP_DAILY_LIMIT = Math.max(1, Number(process.env.AI_PREP_DAILY_LIMIT) || 30);
+
+// 配额按北京时间自然日重置（学生可理解的"每天"口径）
+function beijingDayStart(now = new Date()): Date {
+  const bj = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return new Date(Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate()) - 8 * 60 * 60 * 1000);
+}
+
+function quotaExceeded(message: string, quota: Record<string, number>) {
+  return NextResponse.json(
+    { error: message, quota },
+    { status: 429, headers: { ...PRIVATE_HEADERS, 'Retry-After': '3600' } },
+  );
+}
+
+async function checkStudentChatQuota(userId: string): Promise<NextResponse | null> {
+  const dayStart = beijingDayStart();
+  const monthStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [usedToday, usedMonth, globalToday] = await Promise.all([
+    prisma.learningEvent.count({ where: { userId, eventType: 'AI_CHAT', createdAt: { gte: dayStart } } }),
+    prisma.learningEvent.count({ where: { userId, eventType: 'AI_CHAT', createdAt: { gte: monthStart } } }),
+    prisma.learningEvent.count({ where: { eventType: 'AI_CHAT', createdAt: { gte: dayStart } } }),
+  ]);
+  if (usedToday >= AI_CHAT_DAILY_LIMIT) {
+    return quotaExceeded(`今日 AI 助教额度已用完（每人每天 ${AI_CHAT_DAILY_LIMIT} 次），明日重置；可先查看本地课程检索结果`, { dailyLimit: AI_CHAT_DAILY_LIMIT, usedToday });
+  }
+  if (usedMonth >= AI_CHAT_MONTHLY_LIMIT) {
+    return quotaExceeded(`近30天 AI 助教额度已用完（每人 ${AI_CHAT_MONTHLY_LIMIT} 次）；如需更多请联系任课教师`, { monthlyLimit: AI_CHAT_MONTHLY_LIMIT, usedMonth });
+  }
+  if (globalToday >= AI_CHAT_GLOBAL_DAILY_LIMIT) {
+    return quotaExceeded('平台今日 AI 服务总量已达上限，请明日再试；可先查看本地课程检索结果', { globalDailyLimit: AI_CHAT_GLOBAL_DAILY_LIMIT });
+  }
+  return null;
+}
+
+async function checkPrepQuota(userId: string): Promise<NextResponse | null> {
+  const dayStart = beijingDayStart();
+  const usedToday = await prisma.userActivity.count({
+    where: { userId, action: PREP_GENERATION_ACTION, createdAt: { gte: dayStart } },
+  });
+  if (usedToday >= AI_PREP_DAILY_LIMIT) {
+    return quotaExceeded(`今日备课生成额度已用完（每人每天 ${AI_PREP_DAILY_LIMIT} 次），明日重置`, { dailyLimit: AI_PREP_DAILY_LIMIT, usedToday });
+  }
+  return null;
+}
+
 const prepBaseSchema = z.object({
   mode: z.literal('teacher-prep'),
   expectedUserId: z.string().trim().min(1, '请先确认当前备课账号').max(128, '账号编号无效'),
@@ -345,6 +398,10 @@ export async function POST(request: NextRequest) {
     const mode = (rawBody as { mode?: unknown }).mode;
     if (mode === 'teacher-prep') {
       if (payload.role !== 'TEACHER' && payload.role !== 'ADMIN') return prepError('仅教师或管理员可使用备课工作区', 'FORBIDDEN', 403);
+      if ((rawBody as { action?: unknown }).action === 'generate') {
+        const quotaBlock = await checkPrepQuota(payload.userId);
+        if (quotaBlock) return quotaBlock;
+      }
       try {
         return await teacherPrep(rawBody, payload.userId);
       } catch {
@@ -373,6 +430,21 @@ export async function POST(request: NextRequest) {
           return content.length > 0 ? [{ role: item.role, content }] : [];
         })
       : undefined;
+
+    const quotaBlock = await checkStudentChatQuota(payload.userId);
+    if (quotaBlock) {
+      // 被拒调用单独记 AI_CHAT_REJECTED：保留审计痕迹，但不计入配额分子（未消耗 token）
+      await prisma.learningEvent.create({
+        data: {
+          userId: payload.userId,
+          eventType: 'AI_CHAT_REJECTED',
+          targetType: 'AI_ASSISTANT',
+          targetId: 'ai-tutor',
+          metadata: JSON.stringify({ questionLength: question.length }),
+        },
+      }).catch(() => {});
+      return quotaBlock;
+    }
 
     const result = await aiStudyAssistant({ question, history });
 

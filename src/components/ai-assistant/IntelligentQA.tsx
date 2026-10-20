@@ -434,6 +434,7 @@ const IntelligentQA: React.FC = memo(() => {
     history: Message[],
     signal: AbortSignal,
   ): Promise<Message> => {
+    let quotaNotice: string | undefined;
     try {
       throwIfRequestAborted(signal);
       const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
@@ -480,6 +481,10 @@ const IntelligentQA: React.FC = memo(() => {
               sourceDetail: describeAnswerSource(sourceType, answer, relatedNodes),
             };
           }
+        } else if (res.status === 429) {
+          // 配额超限：取服务端提示文案，本地回落照常进行但向学生说明原因
+          const body = await res.json().catch(() => null);
+          if (isRecord(body) && typeof body.error === 'string') quotaNotice = body.error;
         }
       }
     } catch (err) {
@@ -666,6 +671,9 @@ void timer0_isr() interrupt 1 {
       };
     }
 
+    if (quotaNotice) {
+      response.sourceDetail = quotaNotice;
+    }
     return response;
   }, []);
 
