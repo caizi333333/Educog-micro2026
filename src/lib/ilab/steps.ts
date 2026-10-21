@@ -166,9 +166,12 @@ export function buildIlabSteps(
   return records;
 }
 
-/** ai_data 构建：按实验窗口内真实 AI 调用信标计数；模型/提供方如实上报当前接入方。 */
+/** ai_data 构建：按实验窗口内真实 AI 调用留痕计数；模型/提供方/token 用量如实上报。 */
 export function buildAiData(input: {
   aiCallCount: number;
+  aiInputTokens?: number;
+  aiOutputTokens?: number;
+  aiRemark?: string;
   scenarios?: string[];
 }): import('./client').IlabAiData {
   const models: import('./client').IlabAiModelUsed[] = [];
@@ -193,5 +196,10 @@ export function buildAiData(input: {
       input.aiCallCount > 0
         ? (input.scenarios ?? ['智能导学', '仿真状态诊断', '代码诊断与智能反馈', 'AI代码评价'])
         : [],
+    ...(input.aiCallCount > 0 ? {
+      ai_input_token_count: input.aiInputTokens ?? 0,
+      ai_output_token_count: input.aiOutputTokens ?? 0,
+      ai_remark: input.aiRemark ?? '',
+    } : {}),
   };
 }

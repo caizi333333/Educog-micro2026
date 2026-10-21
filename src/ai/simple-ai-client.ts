@@ -31,6 +31,8 @@ export interface ChatHistoryMessage {
 
 export class SimpleAiClient {
   private modelClient: ZhipuClient;
+  /** 最近一次真实模型调用的 token 用量（回退/失败时为 undefined） */
+  public lastUsage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
   
   constructor() {
     this.modelClient = new ZhipuClient(
@@ -62,6 +64,7 @@ export class SimpleAiClient {
       ];
 
       const response = await this.modelClient.chat(messages, resolveZhipuModel());
+      this.lastUsage = response.usage;
       const responseContent = response.choices[0]?.message?.content;
       const answer = responseContent?.trim();
 

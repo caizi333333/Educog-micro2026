@@ -63,6 +63,11 @@ const AiStudyAssistantOutputSchema = z.object({
       href: z.string(), excerpt: z.string(),
       readingNotes: z.array(z.object({ text: z.string(), title: z.string(), url: z.string() })).optional(),
     })).optional().describe('Actual course PDF page text supplied for reference, not proof of a generated claim.'),
+    usage: z.object({
+      prompt_tokens: z.number(),
+      completion_tokens: z.number(),
+      total_tokens: z.number(),
+    }).optional().describe('Token usage of the underlying model call; absent for local fallback answers.'),
 });
 export type AiStudyAssistantOutput = z.infer<typeof AiStudyAssistantOutputSchema>;
 
@@ -123,6 +128,7 @@ async function aiStudyAssistantFlow(input: AiStudyAssistantInput): Promise<AiStu
         }));
 
     return AiStudyAssistantOutputSchema.parse({
+      usage: pageFallback ? undefined : aiClient.lastUsage,
       answer: pageFallback?.answer ?? response.answer,
       source: pageFallback?.source ?? response.source,
       mode: pageFallback?.mode ?? response.mode,

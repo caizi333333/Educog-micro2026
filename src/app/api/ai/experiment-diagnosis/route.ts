@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
         targetType: 'experiment',
         targetId: experimentId,
         experimentId,
+        metadata: JSON.stringify({ model: resolveZhipuModel(), pt: response.usage?.prompt_tokens ?? 0, ct: response.usage?.completion_tokens ?? 0 }),
       },
     });
 

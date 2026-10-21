@@ -455,7 +455,7 @@ export async function POST(request: NextRequest) {
         eventType: 'AI_CHAT',
         targetType: 'AI_ASSISTANT',
         targetId: 'ai-tutor',
-        metadata: JSON.stringify({ questionLength: question.length }),
+        metadata: JSON.stringify({ questionLength: question.length, pt: result.usage?.prompt_tokens ?? 0, ct: result.usage?.completion_tokens ?? 0 }),
       },
     }).catch(() => {});
 

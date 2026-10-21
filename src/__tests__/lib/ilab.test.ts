@@ -105,4 +105,13 @@ describe('buildAiData', () => {
     }
     expect(d.ai_usage_scenarios.length).toBeGreaterThan(0);
   });
+
+  it('有调用时上报 token 用量与备注，无调用则不输出 token 字段', () => {
+    const d = buildAiData({ aiCallCount: 4, aiInputTokens: 2400, aiOutputTokens: 900, aiRemark: '仿真诊断×2、代码评价×1、AI助教对话×1' });
+    expect(d.ai_input_token_count).toBe(2400);
+    expect(d.ai_output_token_count).toBe(900);
+    expect(d.ai_remark).toContain('仿真诊断');
+    const zero = buildAiData({ aiCallCount: 0, aiInputTokens: 0, aiOutputTokens: 0 });
+    expect('ai_input_token_count' in zero).toBe(false);
+  });
 });

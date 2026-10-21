@@ -211,13 +211,29 @@ export async function maybeUploadToIlab(
 
     // ai_call_count 只数真实模型调用（LearningEvent.AI_*，剔除配额拒绝记录）；
     // ai_* 步骤信标是行为证据，计入 steps[] 但不计入调用次数。
-    const aiEvents = await prisma.learningEvent.count({
+    // token 用量取各次调用落库的 metadata.pt/ct（智谱返回的 usage），无记录按 0。
+    const aiEvents = await prisma.learningEvent.findMany({
       where: {
         userId,
         eventType: { startsWith: 'AI', not: { endsWith: '_REJECTED' } },
         createdAt: { gte: new Date(windowStart - 5 * 60_000), lte: new Date(windowEnd + 60_000) },
       },
+      select: { eventType: true, metadata: true },
     });
+    let aiInputTokens = 0;
+    let aiOutputTokens = 0;
+    const aiScenarioCounts = new Map<string, number>();
+    for (const ev of aiEvents) {
+      aiScenarioCounts.set(ev.eventType, (aiScenarioCounts.get(ev.eventType) ?? 0) + 1);
+      try {
+        const meta = ev.metadata ? (JSON.parse(ev.metadata) as { pt?: number; ct?: number }) : {};
+        aiInputTokens += typeof meta.pt === 'number' ? meta.pt : 0;
+        aiOutputTokens += typeof meta.ct === 'number' ? meta.ct : 0;
+      } catch { /* 元数据非 JSON 的旧记录按 0 计 */ }
+    }
+    const aiRemark = [...aiScenarioCounts.entries()]
+      .map(([t, n]) => `${({ AI_DIAGNOSIS: '仿真诊断', AI_CODE_REVIEW: '代码评价', AI_CHAT: 'AI助教对话' } as Record<string, string>)[t] ?? t}×${n}`)
+      .join('、');
 
     const payload: IlabResultPayload = {
       username: session.ilabUsername,
@@ -232,7 +248,7 @@ export async function maybeUploadToIlab(
       originId,
       steps,
       ext_data: { platform: '芯智育才', experiment_id: experimentId },
-      ai_data: buildAiData({ aiCallCount: aiEvents }),
+      ai_data: buildAiData({ aiCallCount: aiEvents.length, aiInputTokens, aiOutputTokens, aiRemark }),
     };
 
     const token = await refreshIlabTokenIfNeeded(session);
