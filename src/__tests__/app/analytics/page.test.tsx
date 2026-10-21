@@ -128,7 +128,9 @@ describe('AnalyticsPage role and data states', () => {
     expect(screen.getByText('暂无学习进度记录')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /查看学习任务/ })).toHaveAttribute('href', '/tasks');
     expect(screen.getByRole('link', { name: '进入自主测评' })).toHaveAttribute('href', '/quiz');
-    expect(mockFetch).not.toHaveBeenCalled();
+    // 学生视图只拉自己的 AI 求助过程指标（ability-profile），不触碰任何教师端接口
+    const calledUrls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(calledUrls.every((u: string) => !u.includes('teacher'))).toBe(true);
   });
 
   it('routes a student with low recorded mastery to weak-point review without changing results', () => {

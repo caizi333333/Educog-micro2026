@@ -5,6 +5,7 @@ import { Sparkles, Loader2, AlertCircle, AlertTriangle, CheckCircle2, BookOpen, 
 import { cn } from '@/lib/utils';
 import { validateAssemblyCode, type ValidationResult } from '@/lib/syntax-validator';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { emitIlabStep } from '@/lib/ilab/beacon-client';
 import type { SimulatorState } from '@/lib/simulator';
 import type { DiagnosisResult } from '@/lib/experiment-diagnosis';
 import type { AiCodeReview } from '@/lib/ai-code-review';
@@ -63,6 +64,7 @@ export default function AiDiagnostics({ code, fault, experimentTitle, experiment
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
       setReview(json);
+      emitIlabStep('ai_review');
     } catch (e) {
       setReviewError(e instanceof Error ? e.message : '评价请求失败');
     } finally {

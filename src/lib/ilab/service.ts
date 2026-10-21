@@ -209,14 +209,15 @@ export async function maybeUploadToIlab(
     const evidence = collectStepEvidence(record, beacons);
     const steps = buildIlabSteps(evidence, windowStart, windowEnd);
 
+    // ai_call_count 只数真实模型调用（LearningEvent.AI_*，剔除配额拒绝记录）；
+    // ai_* 步骤信标是行为证据，计入 steps[] 但不计入调用次数。
     const aiEvents = await prisma.learningEvent.count({
       where: {
         userId,
-        eventType: { startsWith: 'AI' },
+        eventType: { startsWith: 'AI', not: { endsWith: '_REJECTED' } },
         createdAt: { gte: new Date(windowStart - 5 * 60_000), lte: new Date(windowEnd + 60_000) },
       },
     });
-    const aiBeaconCount = beacons.filter((b: { stepId: string }) => b.stepId.startsWith('ai_')).length;
 
     const payload: IlabResultPayload = {
       username: session.ilabUsername,
@@ -231,7 +232,7 @@ export async function maybeUploadToIlab(
       originId,
       steps,
       ext_data: { platform: '芯智育才', experiment_id: experimentId },
-      ai_data: buildAiData({ aiCallCount: aiEvents + aiBeaconCount }),
+      ai_data: buildAiData({ aiCallCount: aiEvents }),
     };
 
     const token = await refreshIlabTokenIfNeeded(session);

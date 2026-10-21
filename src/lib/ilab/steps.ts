@@ -9,6 +9,7 @@
  * - 步骤表与申报书 §3-6 的 24 步赋分表对齐（同一 catalog）。
  */
 import type { IlabStepRecord } from './client';
+import { resolveZhipuModel } from '@/ai/model-client';
 
 /** 申报书步骤目录（与《申报书》3-6 节一致；phase 对应 proj04 五里程碑） */
 export interface CanonicalStep {
@@ -165,19 +166,18 @@ export function buildIlabSteps(
   return records;
 }
 
-/** ai_data 构建：按实验窗口内真实 AI 调用信标计数。 */
+/** ai_data 构建：按实验窗口内真实 AI 调用信标计数；模型/提供方如实上报当前接入方。 */
 export function buildAiData(input: {
   aiCallCount: number;
-  deepseekModel?: string;
   scenarios?: string[];
 }): import('./client').IlabAiData {
   const models: import('./client').IlabAiModelUsed[] = [];
   if (input.aiCallCount > 0) {
     models.push({
-      model: input.deepseekModel ?? 'DeepSeek-V3',
-      version: process.env.DEEPSEEK_MODEL_VERSION ?? 'deepseek-chat',
+      model: resolveZhipuModel(),
+      version: process.env.ZHIPU_MODEL_VERSION ?? 'glm-4.5-flash',
       deployment: '公有云服务',
-      provider: '深度求索',
+      provider: '智谱AI',
     });
     models.push({
       model: '8051-asm-static-diagnosis',
@@ -191,7 +191,7 @@ export function buildAiData(input: {
     ai_models_used: models,
     ai_usage_scenarios:
       input.aiCallCount > 0
-        ? (input.scenarios ?? ['智能导学', '代码诊断与智能反馈', '实验报告辅助生成'])
+        ? (input.scenarios ?? ['智能导学', '仿真状态诊断', '代码诊断与智能反馈', 'AI代码评价'])
         : [],
   };
 }

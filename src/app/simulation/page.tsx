@@ -319,6 +319,7 @@ export default function SimulationPage(): React.JSX.Element {
 
   // 实验空间来源会话：遥测帧首次核验成功时上报步骤信标（服务端去重计时）。
   const telemetryBeaconSentRef = React.useRef(false);
+  const aiTabBeaconSentRef = React.useRef(false);
   useEffect(() => {
     if (proj04TelemetryObserved && !telemetryBeaconSentRef.current) {
       telemetryBeaconSentRef.current = true;
@@ -875,7 +876,7 @@ export default function SimulationPage(): React.JSX.Element {
               ]).map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => { setActiveRightTab(tab.key); if (tab.key === 'ai') emitIlabStep('ai_fix'); }}
+                  onClick={() => { setActiveRightTab(tab.key); if (tab.key === 'ai' && !aiTabBeaconSentRef.current) { aiTabBeaconSentRef.current = true; emitIlabStep('ai_fix'); } }}
                   aria-label={`切换到${tab.label}面板`}
                   aria-pressed={activeRightTab === tab.key}
                   className={cn(
