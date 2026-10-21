@@ -9,6 +9,7 @@ import { emitIlabStep } from '@/lib/ilab/beacon-client';
 import type { SimulatorState } from '@/lib/simulator';
 import type { DiagnosisResult } from '@/lib/experiment-diagnosis';
 import type { AiCodeReview } from '@/lib/ai-code-review';
+import type { VariantTask } from '@/lib/variant-task';
 
 interface Props {
   code: string;
@@ -46,6 +47,9 @@ export default function AiDiagnostics({ code, fault, experimentTitle, experiment
   const [reviewLoading, setReviewLoading] = useState(false);
   const [review, setReview] = useState<(AiCodeReview & { cached?: boolean }) | null>(null);
   const [reviewError, setReviewError] = useState('');
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variant, setVariant] = useState<(VariantTask & { cached?: boolean }) | null>(null);
+  const [variantError, setVariantError] = useState('');
 
   const requestReview = async () => {
     if (!experimentId) return;
@@ -69,6 +73,30 @@ export default function AiDiagnostics({ code, fault, experimentTitle, experiment
       setReviewError(e instanceof Error ? e.message : '评价请求失败');
     } finally {
       setReviewLoading(false);
+    }
+  };
+
+  const requestVariant = async (refresh = false) => {
+    if (!experimentId) return;
+    setVariantError('');
+    setVariantLoading(true);
+    try {
+      const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
+      const res = await fetch('/api/experiments/variant-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ experimentId, refresh }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
+      setVariant(json);
+    } catch (e) {
+      setVariantError(e instanceof Error ? e.message : '变体任务请求失败');
+    } finally {
+      setVariantLoading(false);
     }
   };
 
@@ -264,6 +292,23 @@ export default function AiDiagnostics({ code, fault, experimentTitle, experiment
             {reviewLoading ? 'AI 评审中…' : review ? '刷新 AI 代码评价' : '获取 AI 代码评价（须已提交）'}
           </button>
         )}
+
+        {/* 个性化变体任务：AI 依据薄弱证据出题（只出题不判定） */}
+        {experimentId && (
+          <button
+            onClick={() => requestVariant(Boolean(variant))}
+            disabled={variantLoading}
+            className={cn(
+              'mt-2 flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all',
+              variantLoading
+                ? 'cursor-not-allowed bg-white/[0.05] text-[#6c7086]'
+                : 'bg-[#a6e3a1]/15 text-[#a6e3a1] ring-1 ring-[#a6e3a1]/25 hover:bg-[#a6e3a1]/25',
+            )}
+          >
+            {variantLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+            {variantLoading ? 'AI 出题中…' : variant ? '换一道变体任务' : 'AI 个性化变体任务'}
+          </button>
+        )}
       </div>
 
       {/* 内容区 */}
@@ -362,6 +407,43 @@ export default function AiDiagnostics({ code, fault, experimentTitle, experiment
               </ul>
             )}
             <p className="text-[9px] italic text-[#585b70]">AI 辅助评价已存入实验记录，最终成绩以教师评定为准。</p>
+          </div>
+        )}
+
+        {variantError && (
+          <div className="flex items-start gap-2 rounded-md border border-[#f38ba8]/20 bg-[#f38ba8]/5 p-2.5 text-[11px] text-[#f38ba8]">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>{variantError}</span>
+          </div>
+        )}
+
+        {/* AI 个性化变体任务结果 */}
+        {variant && (
+          <div className="space-y-2 rounded-md border border-[#a6e3a1]/20 bg-[#a6e3a1]/[0.04] p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-[#a6e3a1]">个性化变体任务</span>
+              <span className="text-[9px] text-[#6c7086]">{variant.source === 'fallback' ? '本地变体池' : variant.cached ? '已生成' : 'AI 生成'}</span>
+            </div>
+            <div className="text-[11px] font-semibold leading-snug text-[#cdd6f4]">{variant.title}</div>
+            {variant.scenario && (
+              <p className="text-[10px] leading-relaxed text-[#a6adc8]">{variant.scenario}</p>
+            )}
+            <div>
+              <div className="mb-0.5 text-[9px] font-semibold text-[#f9e2af]">要求</div>
+              <ol className="list-decimal space-y-1 pl-4 text-[10px] leading-relaxed text-[#cdd6f4]">
+                {variant.requirements.map((r, i) => <li key={i}>{r}</li>)}
+              </ol>
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-semibold text-[#89b4fa]">自查点</div>
+              <ul className="list-disc space-y-0.5 pl-4 text-[9px] leading-relaxed text-[#a6adc8]">
+                {variant.selfChecks.map((s, i) => <li key={i}>{s}</li>)}
+              </ul>
+            </div>
+            {variant.rationale && (
+              <p className="text-[9px] italic leading-relaxed text-[#585b70]">出题依据：{variant.rationale}</p>
+            )}
+            <p className="text-[9px] italic text-[#585b70]">变体任务供自主进阶，不参与实验判定与赋分；每人变体不同，请独立完成。</p>
           </div>
         )}
 

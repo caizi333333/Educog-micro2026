@@ -232,7 +232,7 @@ export async function maybeUploadToIlab(
       } catch { /* 元数据非 JSON 的旧记录按 0 计 */ }
     }
     const aiRemark = [...aiScenarioCounts.entries()]
-      .map(([t, n]) => `${({ AI_DIAGNOSIS: '仿真诊断', AI_CODE_REVIEW: '代码评价', AI_CHAT: 'AI助教对话' } as Record<string, string>)[t] ?? t}×${n}`)
+      .map(([t, n]) => `${({ AI_DIAGNOSIS: '仿真诊断', AI_CODE_REVIEW: '代码评价', AI_CHAT: 'AI助教对话', AI_VARIANT_TASK: '变体任务生成' } as Record<string, string>)[t] ?? t}×${n}`)
       .join('、');
 
     const payload: IlabResultPayload = {
