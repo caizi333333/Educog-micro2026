@@ -1067,6 +1067,11 @@ function RealComparePanel({ env }: {
           download
           className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100"
         >下载配套固件 .ino</a>
+        <a
+          href="/resources/experiments/proj04/guide_proj04_greenhouse.docx"
+          download
+          className="ml-2 text-cyan-200 underline underline-offset-2 hover:text-cyan-100"
+        >实验指导书 .docx</a>
       </p>
 
       <textarea
