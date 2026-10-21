@@ -74,6 +74,11 @@ interface AbilityProfileData {
   levelEvidence: string;
   nextLevel: { level: number; name: string; evidence: string } | null;
   completedExperiments: number;
+  aiProcess?: {
+    diagnosisCount: number | null;
+    reviewCount: number | null;
+    selfReliance: number | null;
+  };
   asOf: string;
 }
 
@@ -780,6 +785,20 @@ export function HyperAnalyticsPage() {
                   {abilityData.nextLevel && (
                     <div className="rounded-md border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-xs leading-5 text-slate-400">
                       下一等级 <span className="font-semibold text-slate-200">{abilityData.nextLevel.name}</span>：{abilityData.nextLevel.evidence}
+                    </div>
+                  )}
+                  {abilityData.aiProcess && abilityData.aiProcess.diagnosisCount !== null && (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-4 py-2.5 text-[11px] leading-5 text-slate-400">
+                      <span className="font-semibold text-slate-300">AI 求助过程指标</span>
+                      <span>仿真诊断求助 <span className="font-mono text-cyan-100">{abilityData.aiProcess.diagnosisCount}</span> 次</span>
+                      <span>AI 代码评价 <span className="font-mono text-cyan-100">{abilityData.aiProcess.reviewCount ?? 0}</span> 次</span>
+                      <span>
+                        自主度{' '}
+                        <span className="font-mono text-cyan-100">
+                          {abilityData.aiProcess.selfReliance === null ? 'N/A' : `${abilityData.aiProcess.selfReliance}%`}
+                        </span>
+                      </span>
+                      <span className="text-slate-500">自主度=完成实验数÷(完成数+求助次数)，过程指标不参与维度评分</span>
                     </div>
                   )}
                 </div>

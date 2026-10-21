@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     if (!payload) return NextResponse.json({ error: '令牌无效' }, { status: 401 });
 
     const asOf = new Date();
-    const [experiments, quizAgg] = await Promise.all([
+    const [experiments, quizAgg, diagnosisCount, reviewCount] = await Promise.all([
       prisma.userExperiment.findMany({
         where: { userId: payload.userId, createdAt: { lte: asOf } },
         select: { experimentId: true, status: true, score: true },
@@ -22,11 +22,14 @@ export async function GET(request: NextRequest) {
         where: { userId: payload.userId, completedAt: { lte: asOf } },
         _avg: { score: true },
       }),
+      prisma.learningEvent.count({ where: { userId: payload.userId, eventType: 'AI_DIAGNOSIS' } }),
+      prisma.learningEvent.count({ where: { userId: payload.userId, eventType: 'AI_CODE_REVIEW' } }),
     ]);
 
     const profile = computeAbilityProfile({
       experiments,
       quizAverage: quizAgg._avg.score === null ? null : Math.round(quizAgg._avg.score),
+      aiUsage: { diagnosisCount, reviewCount },
     });
 
     return NextResponse.json({ ...profile, asOf: asOf.toISOString() });

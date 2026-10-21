@@ -84,6 +84,8 @@ export interface AbilityInput {
   experiments: ExperimentRecord[];
   /** 最近一次测验均分（0–100），无测验记录时为 null */
   quizAverage: number | null;
+  /** AI 求助行为计数（过程性指标，不参与维度评分），缺省视为无记录 */
+  aiUsage?: { diagnosisCount: number; reviewCount: number };
 }
 
 export interface DimensionScore {
@@ -104,6 +106,13 @@ export interface AbilityProfile {
   levelEvidence: string;
   nextLevel: { level: number; name: string; evidence: string } | null;
   completedExperiments: number;
+  /** AI 求助行为过程指标：诊断/评价调用次数与自主度；无记录时各字段为 null */
+  aiProcess: {
+    diagnosisCount: number | null;
+    reviewCount: number | null;
+    /** 自主度 = 完成实验数 ÷（完成数 + 诊断求助次数），0–100；无数据为 null */
+    selfReliance: number | null;
+  };
 }
 
 function countCompleted(s: AbilityInput, ids: string[]): number {
@@ -151,6 +160,19 @@ export function computeAbilityProfile(input: AbilityInput): AbilityProfile {
     ? ABILITY_LEVELS.find((l) => l.level === achieved.level + 1) ?? null
     : ABILITY_LEVELS[0];
 
+  const completedExperiments = input.experiments.filter((e) => e.status === 'COMPLETED').length;
+  const ai = input.aiUsage;
+  const aiProcess: AbilityProfile['aiProcess'] = ai
+    ? {
+        diagnosisCount: ai.diagnosisCount,
+        reviewCount: ai.reviewCount,
+        selfReliance:
+          completedExperiments + ai.diagnosisCount > 0
+            ? Math.round((completedExperiments / (completedExperiments + ai.diagnosisCount)) * 100)
+            : null,
+      }
+    : { diagnosisCount: null, reviewCount: null, selfReliance: null };
+
   return {
     dimensions,
     level: achieved?.level ?? 0,
@@ -159,6 +181,7 @@ export function computeAbilityProfile(input: AbilityInput): AbilityProfile {
     nextLevel: nextLevel && nextLevel !== achieved
       ? { level: nextLevel.level, name: nextLevel.name, evidence: nextLevel.evidence }
       : null,
-    completedExperiments: input.experiments.filter((e) => e.status === 'COMPLETED').length,
+    completedExperiments,
+    aiProcess,
   };
 }

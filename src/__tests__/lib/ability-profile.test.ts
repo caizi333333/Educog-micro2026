@@ -59,4 +59,22 @@ describe('computeAbilityProfile', () => {
     expect(new Set(all).size).toBe(all.length); // 无重复映射
     expect(all).toContain('proj04');
   });
+
+  it('AI 求助行为计入过程指标：自主度=完成/(完成+求助)', () => {
+    const p = computeAbilityProfile({
+      experiments: [exp('exp01'), exp('exp02')],
+      quizAverage: null,
+      aiUsage: { diagnosisCount: 2, reviewCount: 1 },
+    });
+    expect(p.aiProcess.diagnosisCount).toBe(2);
+    expect(p.aiProcess.reviewCount).toBe(1);
+    expect(p.aiProcess.selfReliance).toBe(50); // 2完成/(2+2求助)
+  });
+
+  it('无 aiUsage 输入时过程指标为 null，不影响维度评分', () => {
+    const p = computeAbilityProfile({ experiments: [exp('exp01')], quizAverage: null });
+    expect(p.aiProcess.diagnosisCount).toBeNull();
+    expect(p.aiProcess.selfReliance).toBeNull();
+    expect(p.dimensions.find((d) => d.id === 'fundamentals')!.score).toBe(50);
+  });
 });
