@@ -372,8 +372,9 @@ describe('HyperExperimentCanvas serial and car controls', () => {
   });
 
   it('accepts one printable ASCII character and displays the actual echo after execution', () => {
+    // 9600bit/s（12MHz 下约 10417bit/s）真实发送：欢迎帧 14 字符约需 1.3 万机器周期
     const simulator = new Simulator(getExperimentConfig('exp09')!.code);
-    simulator.stepBatch(1000);
+    simulator.stepBatch(20000);
     render(<ConnectedCanvas simulator={simulator} experimentId="exp09" />);
     const input = screen.getByRole('textbox', { name: '串口接收字符（一个可打印 ASCII 字符）' });
     fireEvent.change(input, { target: { value: '中' } });
@@ -382,7 +383,7 @@ describe('HyperExperimentCanvas serial and car controls', () => {
     fireEvent.click(screen.getByRole('button', { name: '输入并回显' }));
     expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n');
     expect(input).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
+    for (let batch = 0; batch < 3; batch++) fireEvent.click(screen.getByRole('button', { name: '执行观测批次' }));
     expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n~');
     expect(input).toBeEnabled();
   });

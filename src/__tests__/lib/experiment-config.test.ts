@@ -93,13 +93,14 @@ describe('Original experiment programs with available canvas inputs', () => {
   });
 
   it('exp09 displays welcome text and echoes actual received characters exactly once', () => {
+    // 12MHz、TH1=0FDH：每字符约 960 机器周期，14 字符的欢迎帧约 13.4ms
     const simulator = new Simulator(getExperimentConfig('exp09')!.code);
-    simulator.stepBatch(1000);
+    simulator.stepBatch(20000);
     expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\n');
     for (const character of ['A', '0', '~', ' ']) {
       expect(simulator.receiveUartByte(character.charCodeAt(0))).toBe(true);
       expect(simulator.receiveUartByte(66)).toBe(false);
-      simulator.stepBatch(1000);
+      simulator.stepBatch(3000);
     }
     expect(simulator.getState().uart.transmitBuffer).toBe('HELLO WORLD!\r\nA0~ ');
     expect(simulator.getState().uart.receiveBuffer).toBe('A0~ ');
@@ -523,7 +524,7 @@ describe('Experiment Configuration', () => {
       const experiment = getExperimentConfig('exp09')!;
       const simulator = new Simulator();
       simulator.updateCode(experiment.code);
-      for (let step = 0; step < 6000 && !simulator.state.uart.transmitBuffer.includes('HELLO WORLD!\r\n'); step += 1) {
+      for (let step = 0; step < 30000 && !simulator.state.uart.transmitBuffer.includes('HELLO WORLD!\r\n'); step += 1) {
         simulator.step();
       }
       expect(simulator.state.uart.transmitBuffer).toContain('HELLO WORLD!\r\n');

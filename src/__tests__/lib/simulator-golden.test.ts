@@ -185,7 +185,8 @@ END`;
     const sim = new Simulator();
     sim.updateCode(intProgram);
     const seenSp = new Set<number>();
-    for (let i = 0; i < 2000; i++) {
+    // 600 步约 75 次中断（每 16 机器周期一次），不让 8 位计数器 30H 绕回
+    for (let i = 0; i < 600; i++) {
       sim.stepBatch(1);
       seenSp.add(sim.state.registers.SP);
       if (sim.state.terminated) break;

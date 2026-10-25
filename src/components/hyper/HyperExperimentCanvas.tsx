@@ -642,7 +642,7 @@ function CarInputs({ state, onReceiveUartByte, onSetPortBit, onPulsePortBit }: {
             onClick={() => { for (let bit = 0; bit < 3; bit++) onSetPortBit?.('P1', bit, ((Number(value) >> bit) & 1) === 1); }}>{label}</button>
         ))}
       </div>
-      <p className="text-[10px] leading-4 text-slate-400">先运行，再选择模式与输入；仅模拟串口字节和红外电平，真实蓝牙、车速与循迹稳定性需实物验证。中断按指令推进，不表示实际响应时间。</p>
+      <p className="text-[10px] leading-4 text-slate-400">先运行，再选择模式与输入；仅模拟串口字节和红外电平，真实蓝牙、车速与循迹稳定性需实物验证。中断按机器周期计时（12MHz 模型），画面速度可调，不代表实物响应时间。</p>
       {message && <p role="status" className="text-[10px] leading-4 text-amber-200">{message}</p>}
     </div>
   );

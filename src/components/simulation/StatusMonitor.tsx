@@ -101,6 +101,25 @@ function PSWFlags({ psw, prevPsw }: { psw?: PSWType; prevPsw?: PSWType }) {
   );
 }
 
+/* ── Timer / UART / interrupt SFRs ── */
+function peripheralSfrs(state: SimulatorState): [string, number][] {
+  const { timers: t, uart: u, interrupts: it } = state;
+  return [
+    ['TMOD', t.TMOD], ['TCON', t.TCON], ['TH0', t.TH0], ['TL0', t.TL0], ['TH1', t.TH1], ['TL1', t.TL1],
+    ['SCON', u.SCON], ['SBUF', u.SBUF], ['PCON', u.PCON ?? 0], ['IE', it.IE], ['IP', it.IP],
+  ];
+}
+
+function describePeripherals(state: SimulatorState): string {
+  const { timers: t, uart: u } = state;
+  const timer = (n: 0 | 1) => {
+    const ctl = (t.TMOD >> (n * 4)) & 0x0f;
+    return `T${n} 方式${ctl & 0x03}${ctl & 0x04 ? '计数' : '定时'}${ctl & 0x08 ? '·GATE' : ''}${(n === 0 ? t.TR0 : t.TR1) ? '·运行' : '·停止'}`;
+  };
+  const mode = (u.SCON >> 6) & 0x03;
+  return `${timer(0)}｜${timer(1)}｜串口方式${mode} ${u.baudRate} bit/s（按12MHz）`;
+}
+
 /* ── LED panel ── */
 function LEDPanel({ value }: { value: number }) {
   return (
@@ -285,6 +304,26 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({
           </div>
           <PSWFlags psw={simulatorState?.psw} prevPsw={prev?.psw} />
         </section>
+
+        {/* Timer / UART / Interrupt SFRs */}
+        {simulatorState && (
+          <section>
+            <div className="text-[9px] font-bold text-[#6c7086] uppercase tracking-[0.15em] mb-1.5 px-1">
+              定时器 / 串口 / 中断
+            </div>
+            <div className="grid grid-cols-2 gap-[2px] bg-[#181825] rounded-lg p-1 border border-[#313244]/50">
+              {peripheralSfrs(simulatorState).map(([name, value]) => {
+                const old = prev ? peripheralSfrs(prev).find(([n]) => n === name)?.[1] : undefined;
+                const changed = old !== undefined && old !== value;
+                return (
+                  <RegCell key={name} name={name} value={`${fmt(value)}h`} changed={changed}
+                    oldValue={changed ? `${fmt(old!)}h` : undefined} compact />
+                );
+              })}
+            </div>
+            <p className="mt-1 px-1 text-[10px] leading-4 text-[#a6adc8]">{describePeripherals(simulatorState)}</p>
+          </section>
+        )}
 
         {/* LED */}
         <section>

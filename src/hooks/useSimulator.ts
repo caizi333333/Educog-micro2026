@@ -752,12 +752,15 @@ D2: DJNZ R6, D2
     P3: '0x' + s.portValues.P3.toString(16).toUpperCase().padStart(2, '0'),
   });
 
-  // 程序自然终止（遇到 END / PC 越界）时收尾
+  // 程序自然终止（遇到 END / PC 越界）时收尾；装配失败如实报"汇编失败"
   const finalizeRun = useCallback((finalState: SimulatorState): void => {
     setPaused(false);
+    const asmErrs = finalState.assemblyErrors ?? [];
     setResult({
-      success: true,
-      output: '仿真执行成功',
+      success: asmErrs.length === 0,
+      output: asmErrs.length > 0
+        ? `汇编失败（${asmErrs.length} 处错误）：第${asmErrs[0].line}行 ${asmErrs[0].message}`
+        : '仿真执行成功',
       registers: { ...finalState.registers },
       portValues: portValuesHex(finalState),
       leds: Array.from({ length: 8 }, (_, i) => ((finalState.portValues.P1 >> i) & 1) === 0),
@@ -942,11 +945,14 @@ D2: DJNZ R6, D2
       resumableRef.current = !newState.terminated;
       setPaused(!newState.terminated);
 
-      // 如果程序已终止，通知用户
+      // 如果程序已终止，通知用户（装配失败时如实报"汇编失败"，不冒充"执行完毕"）
       if (newState.terminated) {
+        const asmErrs = newState.assemblyErrors ?? [];
         setResult({
-          success: true,
-          output: '程序执行完毕',
+          success: asmErrs.length === 0,
+          output: asmErrs.length > 0
+            ? `汇编失败（${asmErrs.length} 处错误）：第${asmErrs[0].line}行 ${asmErrs[0].message}`
+            : '程序执行完毕',
           portValues: {
             P0: '0x' + newState.portValues.P0.toString(16).toUpperCase().padStart(2, '0'),
             P1: '0x' + newState.portValues.P1.toString(16).toUpperCase().padStart(2, '0'),
@@ -1154,11 +1160,13 @@ D2: DJNZ R6, D2
     const proj04ObservationReady = experimentId === 'proj04'
       && executedSteps >= PROJ04_MIN_OBSERVATION_STEPS
       && hasProj04TelemetryFrame(uartTail);
-    const executionReady = experimentId === 'proj04'
+    // 装配失败也算 terminated，不能当"执行完毕"——错误存在时一律不算完成
+    const assemblyFailed = (finalSimulatorState?.assemblyErrors?.length ?? 0) > 0;
+    const executionReady = !assemblyFailed && (experimentId === 'proj04'
       ? proj04ObservationReady
       : experimentId === 'exp02'
         ? finalSimulatorState?.terminated === true || exp02ObservationReady
-        : validateExperimentObservation(experimentId, observationRef.current).ok;
+        : validateExperimentObservation(experimentId, observationRef.current).ok);
     if (!result?.success || !finalSimulatorState || !executionReady || fault) {
       throw new Error(experimentId === 'proj04'
         ? '请先无故障运行至出现完整 temp/humi 遥测帧，再手动停止观测；持续循环无需执行到 END'
@@ -2429,7 +2437,8 @@ D2: DJNZ R6, D2
             { pin: 'P1.7', frequency: 0, dutyCycle: 0, enabled: false, currentLevel: false }
           ]
         },
-        terminated: false
+        terminated: false,
+        assemblyErrors: []
       };
     }
     return simulatorState;

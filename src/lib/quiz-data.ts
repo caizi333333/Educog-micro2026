@@ -441,7 +441,7 @@ ___
   {
     id: 39,
     type: 'code-completion',
-    questionText: '补全代码，将P3口设置为高阻态输入，以读取外部信号。',
+    questionText: '补全代码：P3为带内部上拉的准双向口，作输入前须先向锁存器写1（引脚由上拉保持高电平、可被外部拉低），以便读取外部信号。',
     code: `INIT_P3:
     ___
     RET`,
@@ -1278,7 +1278,7 @@ PUSH PSW`,
   {
     id: 121,
     type: 'code-completion',
-    questionText: '补全代码，设置PSW寄存器选择第2组工作寄存器（R16-R23）。',
+    questionText: '补全代码，设置PSW寄存器选择第2组工作寄存器（内部RAM 10H–17H）。',
     code: `; 选择第2组工作寄存器
 MOV PSW, #___   ; RS1=1, RS0=0`,
     correctAnswer: '10H',
@@ -2008,8 +2008,8 @@ SJMP WAIT_EOC`,
   {
     id: 187,
     type: 'code-completion',
-    questionText: '补全代码，实现简单的看门狗功能。',
-    code: `; 看门狗喂狗
+    questionText: '经典8051片内没有看门狗，需外接看门狗芯片（如MAX813L，WDI接WDT_PIN）。补全代码，输出一个喂狗脉冲。',
+    code: `; 外部看门狗喂狗
 WATCHDOG_FEED:
 ___  WDT_PIN   ; 输出脉冲喂狗
 CALL DELAY_1MS
@@ -2031,15 +2031,15 @@ RET`,
   {
     id: 189,
     type: 'code-completion',
-    questionText: '补全代码，实现系统复位功能。',
-    code: `; 软件复位
-SOFT_RESET:
-MOV SP, #07H     ; 重置堆栈指针
-MOV PSW, #00H    ; 清除状态字
-___  MAIN        ; 跳转到主程序`,
-    correctAnswer: 'LJMP',
+    questionText: '8051复位后PC=0000H。补全复位入口的伪指令地址，使复位后先跳过中断向量区再进入主程序。',
+    code: `ORG ___H        ; 复位入口
+    LJMP MAIN
+ORG 0030H       ; 主程序避开 0003H–0023H 中断向量区
+MAIN:`,
+    correctAnswer: '0000',
     ka: '2.5',
     chapter: 2,
+    explanation: '复位使PC=0000H、SP=07H、各SFR回到初值。注意：在程序里执行 LJMP 0000H 并不等同于硬件复位——SFR不会恢复初值，若在中断服务程序中跳转，中断优先级状态也不会被清除。',
   },
   {
     id: 190,
@@ -2536,11 +2536,12 @@ RET`,
   {
     id: 239,
     type: 'multiple-choice',
-    questionText: '8051 共有几个中断源？',
-    options: ['3 个', '4 个', '5 个', '8 个'],
-    correctAnswer: '5 个',
+    questionText: '8051 的 5 个中断源中，哪一个的中断请求标志在 CPU 响应后不会被硬件自动清除，必须由服务程序软件清除？',
+    options: ['定时器0溢出（TF0）', '定时器1溢出（TF1）', '边沿触发的外部中断0（IE0）', '串行口中断（TI/RI）'],
+    correctAnswer: '串行口中断（TI/RI）',
     ka: '5.2',
     chapter: 5,
+    explanation: 'TF0、TF1 与边沿触发的 IE0/IE1 在转向中断入口时由硬件清除；TI、RI 共用一个中断入口，硬件无法判断是哪个事件，必须由软件判别并清除，否则退出后会再次进入中断。',
   },
   {
     id: 240,
@@ -6558,13 +6559,13 @@ RET`,
     "options": [
       "可以，任何运行速度都等于实物时间",
       "可以，只要浏览器窗口足够大",
-      "不能，当前仿真按指令推进且速度可调",
+      "不能，仿真按机器周期计时但画面速度可调，墙钟时间不等于模型时间",
       "可以，用截图文件大小换算时间"
     ],
-    "correctAnswer": "不能，当前仿真按指令推进且速度可调",
+    "correctAnswer": "不能，仿真按机器周期计时但画面速度可调，墙钟时间不等于模型时间",
     "ka": "8.2.3",
     "chapter": 8,
-    "explanation": "指导区分指令周期计算与仿真墙钟时间。可调速执行改变屏幕上的耗时，不能据此验证实物消抖延时。",
+    "explanation": "仿真按机器周期计时（12MHz、12T 下 1 机器周期 = 1μs），可用定时器读数核对这段延时的 20313 个机器周期；但画面运行速度可调，屏幕上的墙钟耗时不能作为实物消抖延时的依据。",
     "source": {
       "kind": "guide",
       "title": "实验5网页指导",

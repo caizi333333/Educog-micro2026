@@ -25,6 +25,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   lastTrace,
 }) => {
   const getDiag = () => {
+    const asmErrs = simulatorState?.assemblyErrors?.length ?? 0;
+    if (asmErrs > 0) {
+      return {
+        type: 'error' as const,
+        title: `汇编失败（${asmErrs} 处错误）`,
+        desc: `第${simulatorState!.assemblyErrors[0].line}行: ${simulatorState!.assemblyErrors[0].message}`,
+      };
+    }
     if (!error && result && simulatorState && !simulatorState.terminated) {
       return { type: 'info' as const, title: '已停止', desc: '已手动停止，可复核本轮执行记录或继续单步。' };
     }
@@ -80,7 +88,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   }
 
-  if (simulatorState?.terminated) {
+  if (simulatorState?.assemblyErrors?.length) {
+    consoleLines.push({ text: '--- 汇编失败，程序未执行 ---', type: 'error' });
+    for (const e of simulatorState.assemblyErrors.slice(0, 8)) {
+      consoleLines.push({ text: `  第${e.line}行: ${e.message}`, type: 'error' });
+    }
+    if (simulatorState.assemblyErrors.length > 8) {
+      consoleLines.push({ text: `  …共 ${simulatorState.assemblyErrors.length} 处错误`, type: 'error' });
+    }
+  } else if (simulatorState?.terminated) {
     consoleLines.push({ text: '--- 程序终止 ---', type: 'dim' });
   }
 

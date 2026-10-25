@@ -6,8 +6,8 @@
  * CPU 写锁存器（SETB/CLR/MOV P3.x），器件通过 PinDrive 拉低线；
  * 双方各管各的，谁拉低线就是低，程序读端口读到 resolved。
  *
- * 时间轴：仿真器 instrCount，教学模型 1 条指令 ≈ 1µs（12MHz / 12T）。
- * 器件的所有协议时序（复位脉宽、读/写时隙、应答脉冲）都按指令计数判定。
+ * 时间轴：仿真器累计机器周期数，12MHz / 12T 下 1 机器周期 = 1µs。
+ * 器件的所有协议时序（复位脉宽、读/写时隙、应答脉冲）都按机器周期判定。
  */
 
 export type PortName = 'P0' | 'P1' | 'P2' | 'P3';
@@ -21,7 +21,7 @@ export interface SimDevice {
   /**
    * CPU 锁存电平在本器件引脚上变化时回调。
    * level=true 表示主机释放/置高，false 表示主机拉低。
-   * now = 指令计数（≈µs）。
+   * now = 累计机器周期（µs）。
    */
   onMasterDrive(level: boolean, now: number): void;
   /** 每条指令执行后推进内部状态机 */

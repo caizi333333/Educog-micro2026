@@ -1,4 +1,5 @@
 import type { SimDevice, SimEnvironment, PortName } from './sim-devices';
+import { checkOperandLegality } from './operand-rules';
 
 export interface SimulatorState {
   registers: {
@@ -37,6 +38,7 @@ export interface SimulatorState {
   uart: {
     SCON: number;    // 串口控制寄存器
     SBUF: number;    // 串口缓冲器
+    PCON?: number;   // 电源控制寄存器（D7=SMOD 波特率加倍）
     TI: boolean;     // 发送中断标志
     RI: boolean;     // 接收中断标志
     transmitBuffer: string;  // 发送缓冲区
@@ -136,6 +138,11 @@ export interface SimulatorState {
   terminated: boolean;
   /** 挂接的虚拟环境模型状态快照（如大棚温湿度），无环境时为 null */
   environment: Record<string, unknown> | null;
+  /**
+   * 装配错误（与真实汇编器一致：非法指令形式/未定义符号/转移超范围 → 不产生可执行程序）。
+   * 非空时 step/stepBatch/simulate 拒绝执行并置 terminated，行号为 1 基。
+   */
+  assemblyErrors: { line: number; message: string }[];
 }
 
 export interface Instruction {
@@ -169,9 +176,19 @@ export class Simulator {
   private xram: Uint8Array = new Uint8Array(65536).fill(0xFF);
   private pcHistory: number[] = []; // PC历史记录用于循环检测
   private stepCount: number = 0;
-  private inInterrupt: boolean = false; // 是否正处于中断服务程序内（阻止重入，RETI 清除）
-  private instrCount: number = 0; // 累计已执行指令数（教学模型：1条指令≈1个机器周期≈1µs @12MHz）
-  private lastBuzzerToggleAt: number = -1; // 蜂鸣器引脚上一次电平翻转时的指令计数
+  // 正在服务的中断优先级栈（0=低、1=高）。MCS-51 两级优先级：高级可打断低级，同级/低级不能打断。
+  private activeIrqLevels: number[] = [];
+  // RETI 或写 IE/IP 之后，须再执行一条指令才响应新中断（MCS-51 中断响应规则）
+  private irqHoldOff: boolean = false;
+  // 累计机器周期数。12MHz、12 分频下 1 机器周期 = 1µs，器件时序与蜂鸣器频率均以此为模型时间。
+  private instrCount: number = 0;
+  // 计数模式（C/T=1）用：上一次采样的 T0(P3.4)/T1(P3.5) 引脚电平，用于检测下降沿
+  private counterPinPrev: [boolean, boolean] = [true, true];
+  // 串口发送进行中的剩余量：方式1/3 以 T1 溢出次数计，方式0/2 以振荡周期计
+  private txRemaining: number = 0;
+  private txUsesTimer1: boolean = false;
+  private txChar: number | null = null;
+  private lastBuzzerToggleAt: number = -1; // 蜂鸣器引脚上一次电平翻转时的机器周期计数
   private buzzerPin: string | null = null; // 实验声明的蜂鸣器输出引脚（如 P2.0），跨 reset 保持
   // 瞬时按键的待恢复队列：拉低若干条指令（模型时间）后自动回高
   private pendingPulses: { port: 'P0' | 'P1' | 'P2' | 'P3'; bit: number; remaining: number }[] = [];
@@ -213,11 +230,12 @@ export class Simulator {
   }
 
   public reset(): void {
+    const preservedErrors = this.state.assemblyErrors; // reset 不重解析代码，装配错误保持
     this.state = this.getInitialState();
+    this.state.assemblyErrors = preservedErrors;
     this.pcHistory = [];
     this.stepCount = 0;
-    this.inInterrupt = false;
-    this.instrCount = 0;
+    this.resetCpuTiming();
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
     this.receivedSbuf = null;
@@ -237,8 +255,7 @@ export class Simulator {
     this.symbols.clear();
     this.codeMemory.fill(0);
     this.pcHistory = []; // 重置PC历史记录
-    this.inInterrupt = false;
-    this.instrCount = 0;
+    this.resetCpuTiming();
     this.lastBuzzerToggleAt = -1;
     this.pendingPulses = [];
     this.receivedSbuf = null;
@@ -250,6 +267,16 @@ export class Simulator {
     for (const d of this.devices) d.reset?.();
     if (this.buzzerPin) this.state.buzzer.outputPin = this.buzzerPin;
     this.parseCode();
+  }
+
+  private resetCpuTiming(): void {
+    this.activeIrqLevels = [];
+    this.irqHoldOff = false;
+    this.instrCount = 0;
+    this.counterPinPrev = [true, true];
+    this.txRemaining = 0;
+    this.txUsesTimer1 = false;
+    this.txChar = null;
   }
 
   private getInitialState(): SimulatorState {
@@ -269,6 +296,7 @@ export class Simulator {
       uart: {
         SCON: 0x00,
         SBUF: 0x00,
+        PCON: 0x00,
         TI: false,
         RI: false,
         transmitBuffer: '',
@@ -365,7 +393,19 @@ export class Simulator {
         ],
       },
       terminated: false,
+      assemblyErrors: [],
     };
+  }
+
+  /** 标号写入：与 A51 一样大小写不敏感（SJMP loop 与 LOOP: 视为同一标号） */
+  private setLabel(name: string, addr: number): void {
+    this.labels.set(name, addr);
+    this.labels.set(name.toUpperCase(), addr);
+  }
+
+  /** 标号查询：先按原文找，找不到再按大写找 */
+  private labelAddr(name: string): number | undefined {
+    return this.labels.get(name) ?? this.labels.get(name.toUpperCase());
   }
 
   private isWorkingRegisterName(operand: string): boolean {
@@ -429,16 +469,16 @@ export class Simulator {
       case 'SP': return this.state.registers.SP;
       case 'DPL': return this.state.registers.DPL;
       case 'DPH': return this.state.registers.DPH;
-      case 'PCON': return 0;
-      case 'TCON': return this.state.timers.TCON;
+      case 'PCON': return this.state.uart.PCON ?? 0;
+      case 'TCON': return this.composeTCON();
       case 'TMOD': return this.state.timers.TMOD;
       case 'TL0': return this.state.timers.TL0;
       case 'TL1': return this.state.timers.TL1;
       case 'TH0': return this.state.timers.TH0;
       case 'TH1': return this.state.timers.TH1;
-      case 'SCON': return this.state.uart.SCON;
+      case 'SCON': return this.composeSCON();
       case 'SBUF': return this.receivedSbuf ?? this.state.uart.SBUF;
-      case 'IE': return this.state.interrupts.IE;
+      case 'IE': return this.composeIE();
       case 'IP': return this.state.interrupts.IP;
       case 'PSW': return this.getPSWValue();
       case 'ACC': return this.state.registers.A;
@@ -464,7 +504,7 @@ export class Simulator {
       case 'SP': this.state.registers.SP = byteValue; return true;
       case 'DPL': this.state.registers.DPL = byteValue; return true;
       case 'DPH': this.state.registers.DPH = byteValue; return true;
-      case 'PCON': return true;
+      case 'PCON': this.state.uart.PCON = byteValue; return true;
       case 'TMOD': this.state.timers.TMOD = byteValue; return true;
       case 'TCON':
         this.state.timers.TCON = byteValue;
@@ -491,8 +531,9 @@ export class Simulator {
         this.state.interrupts.EX1 = (byteValue & 0x04) !== 0;
         this.state.interrupts.ET0 = (byteValue & 0x02) !== 0;
         this.state.interrupts.EX0 = (byteValue & 0x01) !== 0;
+        this.irqHoldOff = true;
         return true;
-      case 'IP': this.state.interrupts.IP = byteValue; return true;
+      case 'IP': this.state.interrupts.IP = byteValue; this.irqHoldOff = true; return true;
       case 'PSW': this.setPSWValue(byteValue); return true;
       case 'ACC':
         this.state.registers.A = byteValue;
@@ -510,6 +551,49 @@ export class Simulator {
     }
   }
 
+  private composeTCON(): number {
+    const t = this.state.timers;
+    return (t.TF1 ? 0x80 : 0) | (t.TR1 ? 0x40 : 0) | (t.TF0 ? 0x20 : 0) | (t.TR0 ? 0x10 : 0) | (t.TCON & 0x0F);
+  }
+
+  private composeSCON(): number {
+    const u = this.state.uart;
+    return (u.SCON & 0xFC) | (u.TI ? 0x02 : 0) | (u.RI ? 0x01 : 0);
+  }
+
+  private composeIE(): number {
+    const it = this.state.interrupts;
+    return (it.EA ? 0x80 : 0) | (it.IE & 0x60) | (it.ES ? 0x10 : 0) | (it.ET1 ? 0x08 : 0)
+      | (it.EX1 ? 0x04 : 0) | (it.ET0 ? 0x02 : 0) | (it.EX0 ? 0x01 : 0);
+  }
+
+  /** 把由标志位驱动的 SFR 字节回写到状态快照，保证界面看到的字节与位一致 */
+  private syncSfrMirrors(): void {
+    this.state.timers.TCON = this.composeTCON();
+    this.state.uart.SCON = this.composeSCON();
+    this.state.interrupts.IE = this.composeIE();
+    this.state.uart.baudRate = this.computeBaudRate();
+  }
+
+  /** 按当前 SCON/PCON/T1 配置计算串口波特率（fosc=12MHz） */
+  private computeBaudRate(): number {
+    const u = this.state.uart;
+    const t = this.state.timers;
+    const smod = ((u.PCON ?? 0) & 0x80) !== 0;
+    const mode = (u.SCON >> 6) & 0x03;
+    if (mode === 0) return 1_000_000;
+    if (mode === 2) return smod ? 375_000 : 187_500;
+    if (((t.TMOD >> 4) & 0x03) !== 2) return u.baudRate;
+    return Math.round(((smod ? 2 : 1) / 32) * (1_000_000 / (256 - t.TH1)));
+  }
+
+  /** 无专门布尔状态的命名位：IP 优先级位、SCON 方式位、P3 第二功能引脚 */
+  private static readonly NAMED_SFR_BITS: Record<string, string> = {
+    PX0: 'IP.0', PT0: 'IP.1', PX1: 'IP.2', PT1: 'IP.3', PS: 'IP.4',
+    RB8: 'SCON.2', TB8: 'SCON.3', REN: 'SCON.4', SM2: 'SCON.5', SM1: 'SCON.6', SM0: 'SCON.7',
+    RXD: 'P3.0', TXD: 'P3.1', INT0: 'P3.2', INT1: 'P3.3', T0: 'P3.4', T1: 'P3.5', WR: 'P3.6', RD: 'P3.7',
+  };
+
   private isBitOperand(operand: string | undefined): boolean {
     if (!operand) return false;
     const resolved = this.resolveSymbol(operand);
@@ -526,7 +610,7 @@ export class Simulator {
       'TI', 'RI', 'TR0', 'TR1', 'TF0', 'TF1',
       'EA', 'ET0', 'ET1', 'EX0', 'EX1', 'ES',
       'IT0', 'IE0', 'IT1', 'IE1',
-    ].includes(upper)) {
+    ].includes(upper) || upper in Simulator.NAMED_SFR_BITS) {
       return true;
     }
 
@@ -580,8 +664,8 @@ export class Simulator {
     lines.forEach((line) => {
       const cleaned = line.replace(/;.*$/, '').trim();
       if (!cleaned) return;
-      // Match: NAME EQU value | NAME BIT addr | NAME DATA addr
-      const symMatch = cleaned.match(/^([A-Z_]\w*)\s+(?:EQU|BIT|DATA)\s+(.+)$/i);
+      // Match: NAME EQU value | NAME BIT addr | NAME DATA addr | NAME SFR/SBIT/SET/CODE/XDATA/IDATA ...
+      const symMatch = cleaned.match(/^([A-Z_]\w*)\s+(?:EQU|SET|BIT|DATA|SFR|SBIT|CODE|XDATA|IDATA)\s+(.+)$/i);
       if (symMatch) {
         this.symbols.set(symMatch[1].toUpperCase(), symMatch[2].trim());
       }
@@ -591,13 +675,13 @@ export class Simulator {
       const cleanedLine = line.replace(/;.*$/, '').trim(); // Remove comments and trim
       if (!cleanedLine) return;
 
-      // Skip EQU/BIT/DATA definitions (already handled in pass 0)
-      if (/^[A-Z_]\w*\s+(?:EQU|BIT|DATA)\s+/i.test(cleanedLine)) return;
+      // Skip EQU/SET/BIT/DATA/SFR/SBIT/CODE/XDATA/IDATA definitions (already handled in pass 0)
+      if (/^[A-Z_]\w*\s+(?:EQU|SET|BIT|DATA|SFR|SBIT|CODE|XDATA|IDATA)\s+/i.test(cleanedLine)) return;
 
       // Handle lines that contain only a label (e.g., "MAIN:")
       if (/^\w+:$/.test(cleanedLine)) {
         const soloLabel = cleanedLine.slice(0, -1); // Remove trailing ':'
-        this.labels.set(soloLabel, currentAddress);
+        this.setLabel(soloLabel, currentAddress);
         return; // No instruction on this line
       }
 
@@ -623,7 +707,7 @@ export class Simulator {
       // DB directive — store bytes in code memory
       if (dirUpper === 'DB') {
         if (label) {
-          this.labels.set(label.slice(0, -1), currentAddress);
+          this.setLabel(label.slice(0, -1), currentAddress);
         }
         // Parse DB operands: hex, decimal, binary numbers, character literals, strings
         const rawData = operandsStr || '';
@@ -637,7 +721,7 @@ export class Simulator {
       // DW directive — store 16-bit words in code memory (big-endian)
       if (dirUpper === 'DW') {
         if (label) {
-          this.labels.set(label.slice(0, -1), currentAddress);
+          this.setLabel(label.slice(0, -1), currentAddress);
         }
         for (const op of operands) {
           const val = this.parseNumber(op);
@@ -651,7 +735,7 @@ export class Simulator {
       // DS directive — reserve space
       if (dirUpper === 'DS') {
         if (label) {
-          this.labels.set(label.slice(0, -1), currentAddress);
+          this.setLabel(label.slice(0, -1), currentAddress);
         }
         const parsedSize = operands[0] ? this.parseNumber(operands[0]) : 1;
         const size = Number.isNaN(parsedSize) || parsedSize < 0 ? 1 : parsedSize;
@@ -659,10 +743,18 @@ export class Simulator {
         return;
       }
 
+      // A51/Keil 风格伪指令（分段、寄存器组选择、链接声明等）：不产生指令，学生粘贴 Keil 工程代码时不应报"未知指令"
+      if (['USING', 'SEGMENT', 'RSEG', 'CSEG', 'DSEG', 'BSEG', 'XSEG', 'ISEG', 'PUBLIC', 'EXTRN', 'EXTERN', 'NAME', 'INCLUDE', 'NOLIST', 'LIST'].includes(dirUpper)) {
+        if (label) {
+          this.setLabel(label.slice(0, -1), currentAddress);
+        }
+        return;
+      }
+
       // END directive marks end of source – but we still need to track it as an instruction
       if (dirUpper === 'END') {
         if (label) {
-          this.labels.set(label.slice(0, -1), currentAddress);
+          this.setLabel(label.slice(0, -1), currentAddress);
         }
         
         const instruction = {
@@ -682,20 +774,25 @@ export class Simulator {
       }
 
       if (label) {
-        this.labels.set(label.slice(0, -1), currentAddress);
+        this.setLabel(label.slice(0, -1), currentAddress);
       }
       
       // Determine instruction length more accurately
       let instructionLength = 1; // Default to 1 byte (for single-byte instructions)
 
-      if (['NOP', 'RET', 'RETI', 'ACALL', 'LCALL', 'AJMP', 'LJMP', 'SJMP', 'JMP', 'JZ', 'JNZ', 'JC', 'JNC', 'JB', 'JNB', 'JBC', 'DJNZ', 'CJNE', 'DA', 'SWAP', 'XCH', 'XCHD', 'ADD', 'ADDC', 'SUBB', 'ANL', 'ORL', 'XRL', 'CLR', 'CPL', 'RL', 'RLC', 'RR', 'RRC', 'INC', 'DEC', 'MUL', 'DIV', 'MOV', 'PUSH', 'POP', 'SETB', 'MOVX'].includes(dirUpper)) {
+      if (['NOP', 'RET', 'RETI', 'ACALL', 'LCALL', 'CALL', 'AJMP', 'LJMP', 'SJMP', 'JMP', 'JZ', 'JNZ', 'JC', 'JNC', 'JB', 'JNB', 'JBC', 'DJNZ', 'CJNE', 'DA', 'SWAP', 'XCH', 'XCHD', 'ADD', 'ADDC', 'SUBB', 'ANL', 'ORL', 'XRL', 'CLR', 'CPL', 'RL', 'RLC', 'RR', 'RRC', 'INC', 'DEC', 'MUL', 'DIV', 'MOV', 'PUSH', 'POP', 'SETB', 'MOVX'].includes(dirUpper)) {
         switch (dirUpper) {
           case 'ACALL':
             instructionLength = 2;
             break;
           case 'LCALL':
+          case 'CALL': // 非标准别名，按 LCALL 处理
           case 'LJMP':
             instructionLength = 3;
+            break;
+          case 'JMP':
+            // JMP @A+DPTR 为 1 字节；本平台兼容 JMP 标号（按 LJMP 3 字节）
+            instructionLength = (operands[0] || '').toUpperCase() === '@A+DPTR' ? 1 : 3;
             break;
           case 'AJMP':
           case 'SJMP':
@@ -793,7 +890,7 @@ export class Simulator {
       for (let oi = 0; oi < operands.length; oi++) {
         if (operands[oi] === '$') {
           const autoLabel = `__SELF_${currentAddress}__`;
-          this.labels.set(autoLabel, currentAddress);
+          this.setLabel(autoLabel, currentAddress);
           operands[oi] = autoLabel;
         }
       }
@@ -821,6 +918,66 @@ export class Simulator {
     } else {
       this.state.pc = 0;
     }
+
+    this.validateParsedProgram();
+  }
+
+  /**
+   * 装配期校验（对齐真实汇编器）：未知助记符、非法操作数组合、未定义符号、
+   * 相对转移超出 -128~+127、AJMP/ACALL 超出 2KB 页。任何错误都写入 state.assemblyErrors，
+   * 仿真执行被拒（见 stepRaw）——非法代码不再"静默地跑"。
+   */
+  private validateParsedProgram(): void {
+    const errors = this.state.assemblyErrors;
+    const ctx = {
+      resolveSymbol: (n: string) => this.symbols.get(n) ?? this.symbols.get(n.toUpperCase()),
+      isDefinedSymbol: (n: string) =>
+        this.symbols.has(n) || this.symbols.has(n.toUpperCase()) ||
+        this.labels.has(n) || this.labels.has(n.toUpperCase()),
+    };
+    // 各助记符的"目标地址"操作数下标与指令长度（相对转移范围/AJMP 2KB 页检查用）
+    const jumpTargetIdx: Record<string, number> = {
+      SJMP: 0, JZ: 0, JNZ: 0, JC: 0, JNC: 0,
+      AJMP: 0, ACALL: 0, LJMP: 0, LCALL: 0, CALL: 0, JMP: 0,
+      JB: 1, JNB: 1, JBC: 1, DJNZ: 1, CJNE: 2,
+    };
+    for (const instr of this.instructions) {
+      const m = instr.mnemonic;
+      if (m === 'END') continue;
+      const err = checkOperandLegality(m, instr.operands, ctx);
+      if (err) {
+        errors.push({ line: instr.line + 1, message: err });
+        continue;
+      }
+      const ti = jumpTargetIdx[m];
+      if (ti === undefined) continue;
+      const raw = instr.operands[ti] ?? '';
+      const resolved = this.resolveSymbol(raw).toUpperCase();
+      if (resolved === '@A+DPTR') continue;
+      let target = this.parseNumber(resolved);
+      if (Number.isNaN(target)) target = this.labelAddr(resolved) ?? Number.NaN;
+      if (Number.isNaN(target)) {
+        errors.push({ line: instr.line + 1, message: `未定义的符号 "${raw}"` });
+        continue;
+      }
+      // 相对转移范围：偏移量 = 目标 - 下一条指令地址，须在 -128~+127
+      const relLen = ['SJMP', 'JZ', 'JNZ', 'JC', 'JNC'].includes(m) ? 2
+        : ['JB', 'JNB', 'JBC', 'CJNE'].includes(m) ? 3
+        : m === 'DJNZ' ? (/^R[0-7]$/i.test(this.resolveSymbol(instr.operands[0] || '')) ? 2 : 3)
+        : 0;
+      if (relLen > 0) {
+        const offset = target - (instr.address + relLen);
+        if (offset < -128 || offset > 127) {
+          errors.push({ line: instr.line + 1, message: `${m} 相对转移超出范围（偏移 ${offset}，须在 -128~+127）` });
+        }
+      }
+      // AJMP/ACALL：目标必须与"下一条指令"同处 2KB 页
+      if (m === 'AJMP' || m === 'ACALL') {
+        if ((target & 0xF800) !== ((instr.address + 2) & 0xF800)) {
+          errors.push({ line: instr.line + 1, message: `${m} 目标 0x${target.toString(16).toUpperCase()} 超出 2KB 页（与下一条指令不同页）` });
+        }
+      }
+    }
   }
 
   public step(): SimulatorState {
@@ -834,6 +991,12 @@ export class Simulator {
    */
   private stepRaw(): void {
     if (this.state.terminated) {
+      return;
+    }
+
+    // 装配错误存在时不执行——与真实工具链一致：汇编失败就没有可执行程序
+    if (this.state.assemblyErrors.length > 0) {
+      this.state.terminated = true;
       return;
     }
 
@@ -868,8 +1031,9 @@ export class Simulator {
           this.state.pc = nearestPC;
           const nearestInstr = this.instructionMap.get(nearestPC);
           if (nearestInstr) {
+            const cycles = this.getMachineCycles(nearestInstr);
             this.execute(nearestInstr);
-            this.afterInstruction();
+            this.afterInstruction(cycles);
             return;
           }
         }
@@ -878,8 +1042,47 @@ export class Simulator {
         return;
     }
 
+    const cycles = this.getMachineCycles(instr);
     this.execute(instr);
-    this.afterInstruction();
+    this.afterInstruction(cycles);
+  }
+
+  /**
+   * 指令的机器周期数（MCS-51 指令表）：MUL/DIV 4 周期；转移/调用/返回、MOVC/MOVX、
+   * PUSH/POP、INC DPTR、MOV DPTR、位逻辑 ANL/ORL C 及若干直接寻址传送为 2 周期；其余 1 周期。
+   */
+  private getMachineCycles(instr: Instruction): number {
+    const ops = instr.operands.map(o => this.resolveSymbol(o).toUpperCase());
+    switch (instr.mnemonic.toUpperCase()) {
+      case 'MUL': case 'DIV':
+        return 4;
+      case 'ACALL': case 'LCALL': case 'CALL': case 'AJMP': case 'LJMP': case 'SJMP': case 'JMP':
+      case 'RET': case 'RETI': case 'JZ': case 'JNZ': case 'JC': case 'JNC':
+      case 'JB': case 'JNB': case 'JBC': case 'CJNE': case 'DJNZ':
+      case 'MOVC': case 'MOVX': case 'PUSH': case 'POP':
+        return 2;
+      case 'INC':
+        return ops[0] === 'DPTR' ? 2 : 1;
+      case 'ANL': case 'ORL': case 'XRL':
+        if (ops[0] === 'C') return 2;
+        return ops[0] !== 'A' && (ops[1] ?? '').startsWith('#') ? 2 : 1;
+      case 'MOV':
+        return this.getMovCycles(ops[0] ?? '', ops[1] ?? '');
+      default:
+        return 1;
+    }
+  }
+
+  private getMovCycles(dst: string, src: string): number {
+    if (dst === 'DPTR' || src === 'C') return 2;
+    if (dst === 'A' || dst === 'C') return 1;
+    const kind = (o: string) => o === 'A' ? 'A'
+      : /^R[0-7]$/.test(o) ? 'Rn'
+      : /^@R[01]$/.test(o) ? 'Ri'
+      : o.startsWith('#') ? 'imm' : 'direct';
+    const d = kind(dst), s = kind(src);
+    if (d === 'direct') return s === 'A' ? 1 : 2;
+    return s === 'direct' ? 2 : 1;
   }
 
   /**
@@ -912,29 +1115,39 @@ export class Simulator {
    * 每执行完一条指令后调用：推进定时器、按需派发中断。
    * 让定时器/中断类实验（方波、数码管动态扫描、定时中断）真正产生可观察的行为。
    */
-  private afterInstruction(): void {
-    this.instrCount++;
-    // 蜂鸣器停振判定：超过 50ms（模型时间，50000 条指令）无翻转即视为静音
+  private afterInstruction(cycles: number): void {
+    this.advanceClock(cycles);
+    this.syncSfrMirrors();
+    this.dispatchInterrupts();
+  }
+
+  /** 推进 cycles 个机器周期：定时器/计数器、串口移位、按键脉冲、虚拟器件 */
+  private advanceClock(cycles: number): void {
+    this.instrCount += cycles;
+    // 蜂鸣器停振判定：超过 50ms（模型时间 50000 机器周期）无翻转即视为静音
     if (this.state.buzzer.active && this.instrCount - this.lastBuzzerToggleAt > 50000) {
       this.state.buzzer.active = false;
       this.state.buzzer.frequency = 0;
     }
     // 瞬时按键计时：到时自动回高
     if (this.pendingPulses.length > 0) {
-      for (const p of this.pendingPulses) p.remaining--;
+      for (const p of this.pendingPulses) p.remaining -= cycles;
       const expired = this.pendingPulses.filter(p => p.remaining <= 0);
       if (expired.length > 0) {
         for (const p of expired) this.setPortBit(p.port, p.bit, true);
         this.pendingPulses = this.pendingPulses.filter(p => p.remaining > 0);
       }
     }
-    // 虚拟器件与环境模型逐指令推进（协议状态机、环境演化按模型时间）
+    // 虚拟器件与环境模型推进（协议状态机、环境演化按模型时间）
     if (this.devices.length > 0 || this.environments.length > 0) {
       for (const env of this.environments) env.tick(this.instrCount);
       for (const d of this.devices) d.tick(this.instrCount);
     }
-    this.tickTimers();
-    this.dispatchInterrupts();
+    this.advanceTimers(cycles);
+    if (this.txChar !== null && !this.txUsesTimer1) {
+      this.txRemaining -= cycles * 12;
+      if (this.txRemaining <= 0) this.finishTransmit();
+    }
   }
 
   /**
@@ -1047,7 +1260,7 @@ export class Simulator {
   public receiveUartByte(value: number): boolean {
     const uart = this.state.uart;
     if (!Number.isInteger(value) || value < 0 || value > 255 || this.state.terminated
-      || !(uart.SCON & 0x10) || uart.RI || this.inInterrupt) return false;
+      || !(uart.SCON & 0x10) || uart.RI || this.activeIrqLevels.length > 0) return false;
     uart.SBUF = value;
     this.receivedSbuf = value;
     uart.RI = true;
@@ -1063,8 +1276,8 @@ export class Simulator {
   }
 
   /**
-   * 蜂鸣器引脚电平翻转记录：由相邻两次翻转的指令间隔推算方波频率。
-   * 教学模型 1 条指令≈1µs（12MHz、12分频），故 f = 1e6 / (2×间隔)。间隔是真实
+   * 蜂鸣器引脚电平翻转记录：由相邻两次翻转的机器周期间隔推算方波频率。
+   * 12MHz、12 分频下 1 机器周期 = 1µs，故 f = 1e6 / (2×间隔)。间隔是真实
    * 仿真执行的产物（定时器溢出→中断→CPL 引脚），不是预设值。
    */
   private recordBuzzerToggle(): void {
@@ -1079,56 +1292,111 @@ export class Simulator {
   }
 
   /**
-   * 写 SBUF = 启动一次发送：字符进入发送缓冲区、发送完成置 TI（教学简化：立即完成）。
-   * 这让轮询 JNB TI 的发送子程序能正常推进，终端视图直接渲染 transmitBuffer。
-   * 注：只置 TI 标志（JNB/JB TI 走命名位读取），不回写 SCON.1 镜像位，
-   * 保持 MOV SBUF 对 SCON 字节的既有语义（存量用例依赖）。
+   * 写 SBUF = 启动一次发送。发送耗时按真实帧长与波特率计：
+   * 方式0 每位 1 机器周期（8 位）；方式2 每位 64/32 个振荡周期（SMOD=0/1，11 位）；
+   * 方式1/3 每位 32/16 次 T1 溢出（10/11 位）——T1 不运行则 TI 永不置位，与硬件一致。
+   * 方式0 在第 8 位末置 TI；方式1–3 在停止位开始时置 TI（Intel MCS-51 手册），字符同时进入终端缓冲区。
    */
   private transmitSbuf(value: number): void {
     const u = this.state.uart;
     u.SBUF = value & 0xFF;
-    u.transmitBuffer += String.fromCharCode(value & 0xFF);
-    if (u.transmitBuffer.length > 4000) u.transmitBuffer = u.transmitBuffer.slice(-4000);
-    u.TI = true;
+    const mode = (u.SCON >> 6) & 0x03;
+    const smod = ((u.PCON ?? 0) & 0x80) !== 0;
+    const frameBits = mode === 0 ? 8 : mode === 1 ? 9 : 10; // 到 TI 置位为止的位数
+    this.txChar = value & 0xFF;
+    this.txUsesTimer1 = mode === 1 || mode === 3;
+    this.txRemaining = this.txUsesTimer1
+      ? frameBits * (smod ? 16 : 32)
+      : frameBits * (mode === 0 ? 12 : smod ? 32 : 64);
     u.dataTransmitting = true;
   }
 
-  /**
-   * 定时器按"每条指令 1 个计数"近似推进（教学用简化模型，非周期精确）。
-   * 支持方式1（16位）与方式2（8位自动重装）；溢出置 TFx，供轮询或中断使用。
-   */
-  private tickTimers(): void {
-    const t = this.state.timers;
-    if (t.TR0) this.tickTimer(0, t.TMOD & 0x03);
-    if (t.TR1) this.tickTimer(1, (t.TMOD >> 4) & 0x03);
+  private finishTransmit(): void {
+    const u = this.state.uart;
+    if (this.txChar === null) return;
+    u.transmitBuffer += String.fromCharCode(this.txChar);
+    if (u.transmitBuffer.length > 4000) u.transmitBuffer = u.transmitBuffer.slice(-4000);
+    this.txChar = null;
+    this.txRemaining = 0;
+    u.TI = true;
+    u.dataTransmitting = false;
   }
 
-  private tickTimer(n: 0 | 1, mode: number): void {
+  /** GATE=0 时由 TRx 控制；GATE=1 时须 TRx=1 且 INTx 引脚为高 */
+  private timerGateOpen(n: 0 | 1): boolean {
+    const t = this.state.timers;
+    if (!(n === 0 ? t.TR0 : t.TR1)) return false;
+    if (!((t.TMOD >> (n * 4)) & 0x08)) return true;
+    return (this.state.portValues.P3 & (1 << (n + 2))) !== 0;
+  }
+
+  /**
+   * 定时器/计数器按机器周期推进（C/T=0 计机器周期，C/T=1 计 T0/T1 引脚下降沿）。
+   * 支持方式0（13位）、方式1（16位）、方式2（8位自动重装）、方式3（T0 拆成两个8位，
+   * TH0 借用 TR1/TF1；此时 T1 仍可作波特率发生器但不置 TF1）。
+   */
+  private advanceTimers(cycles: number): void {
+    const t = this.state.timers;
+    const pins = [(this.state.portValues.P3 & 0x10) !== 0, (this.state.portValues.P3 & 0x20) !== 0];
+    const edges = [0, 1].map(n => (this.counterPinPrev[n] && !pins[n] ? 1 : 0));
+    this.counterPinPrev = [pins[0], pins[1]];
+    const counts = (n: 0 | 1) => ((t.TMOD >> (n * 4)) & 0x04 ? edges[n] : cycles);
+    const mode0 = t.TMOD & 0x03;
+    const mode1 = (t.TMOD >> 4) & 0x03;
+
+    if (mode0 === 3) {
+      if (this.timerGateOpen(0)) this.countTimer(0, 3, counts(0), true);
+      if (t.TR1) this.countTH0Mode3(cycles);
+      if (mode1 !== 3) this.countTimer(1, mode1, counts(1), false);
+      return;
+    }
+    if (this.timerGateOpen(0)) this.countTimer(0, mode0, counts(0), true);
+    if (mode1 !== 3 && this.timerGateOpen(1)) this.countTimer(1, mode1, counts(1), true);
+  }
+
+  private countTimer(n: 0 | 1, mode: number, counts: number, setsFlag: boolean): void {
     const t = this.state.timers;
     const THk = n === 0 ? 'TH0' : 'TH1';
     const TLk = n === 0 ? 'TL0' : 'TL1';
-    if (mode === 2) {
-      // 方式2：8位自动重装，TL 溢出后从 TH 重装
-      const next = t[TLk] + 1;
-      if (next > 0xff) {
-        t[TLk] = t[THk] & 0xff;
-        this.setTimerOverflow(n);
+    for (let i = 0; i < counts; i++) {
+      let overflow = false;
+      if (mode === 0) {
+        // 13 位：TL 低 5 位作预分频，TH 为高 8 位
+        let v = ((t[THk] << 5) | (t[TLk] & 0x1f)) + 1;
+        if (v > 0x1fff) { v = 0; overflow = true; }
+        t[THk] = (v >> 5) & 0xff;
+        t[TLk] = (t[TLk] & 0xe0) | (v & 0x1f);
+      } else if (mode === 1) {
+        let v = ((t[THk] << 8) | t[TLk]) + 1;
+        if (v > 0xffff) { v = 0; overflow = true; }
+        t[THk] = (v >> 8) & 0xff;
+        t[TLk] = v & 0xff;
+      } else if (mode === 2) {
+        const next = t[TLk] + 1;
+        if (next > 0xff) { t[TLk] = t[THk]; overflow = true; } else t[TLk] = next;
       } else {
-        t[TLk] = next & 0xff;
+        // 方式3 下 TL0 为独立 8 位计数器
+        const next = t.TL0 + 1;
+        if (next > 0xff) { t.TL0 = 0; overflow = true; } else t.TL0 = next;
       }
-    } else {
-      // 方式0/1：按16位计数（方式0的13位在教学里按16位近似处理）
-      let val = ((t[THk] << 8) | t[TLk]) & 0xffff;
-      val += 1;
-      if (val > 0xffff) {
-        t[THk] = 0;
-        t[TLk] = 0;
-        this.setTimerOverflow(n);
-      } else {
-        t[THk] = (val >> 8) & 0xff;
-        t[TLk] = val & 0xff;
-      }
+      if (!overflow) continue;
+      if (setsFlag) this.setTimerOverflow(n);
+      if (n === 1) this.onTimer1Overflow();
     }
+  }
+
+  private countTH0Mode3(cycles: number): void {
+    const t = this.state.timers;
+    for (let i = 0; i < cycles; i++) {
+      const next = t.TH0 + 1;
+      if (next > 0xff) { t.TH0 = 0; this.setTimerOverflow(1); } else t.TH0 = next;
+    }
+  }
+
+  /** T1 溢出是方式1/3 串口的位时钟 */
+  private onTimer1Overflow(): void {
+    if (this.txChar === null || !this.txUsesTimer1) return;
+    if (--this.txRemaining <= 0) this.finishTransmit();
   }
 
   private setTimerOverflow(n: 0 | 1): void {
@@ -1138,34 +1406,50 @@ export class Simulator {
   }
 
   /**
-   * 中断派发：在指令边界检查已使能且已挂起的中断，压入 PC 并跳转到中断向量。
-   * 简化模型：不支持中断嵌套（inInterrupt 阻止重入），优先级按固定自然顺序。
-   * 定时器中断被响应时自动清除对应 TFx（与硬件一致）。
+   * 中断派发（MCS-51 两级优先级）：IP 置位的源为高优先级。高优先级请求可打断正在
+   * 执行的低优先级服务程序，同级或低级不能打断；同级同时请求按自然顺序
+   * 外部0 → 定时器0 → 外部1 → 定时器1 → 串口。RETI 或写 IE/IP 后须再执行一条指令。
+   * 定时器中断与边沿触发外部中断在响应时由硬件清标志；RI/TI 须软件清除。
    */
   private dispatchInterrupts(): void {
+    if (this.irqHoldOff) { this.irqHoldOff = false; return; }
     const it = this.state.interrupts;
     const t = this.state.timers;
-    if (!it.EA || this.inInterrupt) return;
+    if (!it.EA) return;
+    const current = this.activeIrqLevels.length ? this.activeIrqLevels[this.activeIrqLevels.length - 1] : -1;
+    if (current >= 1) return;
 
-    // 自然优先级：外部0 → 定时器0 → 外部1 → 定时器1 → 串口。
-    // 下降沿触发在受理时清标志；低电平触发在输入保持低时可再次受理。
     const externalPending = (number: 0 | 1): boolean => {
       const modeBit = number === 0 ? 0x01 : 0x04;
       return (t.TCON & modeBit) !== 0
         ? (t.TCON & (modeBit << 1)) !== 0
         : (this.state.portValues.P3 & (1 << (number + 2))) === 0;
     };
-    if (it.EX0 && externalPending(0)) { t.TCON &= ~0x02; this.enterInterrupt(0x0003); return; }
-    if (it.ET0 && t.TF0) { t.TF0 = false; this.enterInterrupt(0x000b); return; }
-    if (it.EX1 && externalPending(1)) { t.TCON &= ~0x08; this.enterInterrupt(0x0013); return; }
-    if (it.ET1 && t.TF1) { t.TF1 = false; this.enterInterrupt(0x001b); return; }
-    if (it.ES && (this.state.uart.RI || this.state.uart.TI)) this.enterInterrupt(0x0023);
+    const sources = [
+      { ip: 0x01, vector: 0x0003, ready: () => it.EX0 && externalPending(0), ack: () => { t.TCON &= ~0x02; } },
+      { ip: 0x02, vector: 0x000b, ready: () => it.ET0 && t.TF0, ack: () => { t.TF0 = false; } },
+      { ip: 0x04, vector: 0x0013, ready: () => it.EX1 && externalPending(1), ack: () => { t.TCON &= ~0x08; } },
+      { ip: 0x08, vector: 0x001b, ready: () => it.ET1 && t.TF1, ack: () => { t.TF1 = false; } },
+      { ip: 0x10, vector: 0x0023, ready: () => it.ES && (this.state.uart.RI || this.state.uart.TI), ack: () => {} },
+    ];
+    for (const level of [1, 0]) {
+      if (level <= current) continue;
+      const src = sources.find(s => ((it.IP & s.ip) ? 1 : 0) === level && s.ready());
+      if (src) {
+        src.ack();
+        this.enterInterrupt(src.vector, level);
+        return;
+      }
+    }
   }
 
-  private enterInterrupt(vector: number): void {
-    this.pushToStack16(this.state.pc); // 压入返回地址（当前 PC）
-    this.inInterrupt = true;
+  /** 硬件 LCALL 到中断向量：压入返回地址，耗时 2 个机器周期 */
+  private enterInterrupt(vector: number, level: number): void {
+    this.pushToStack16(this.state.pc);
+    this.activeIrqLevels.push(level);
     this.state.pc = vector & 0xffff;
+    this.advanceClock(2);
+    this.syncSfrMirrors();
   }
 
   /** Step with full diff trace for execution visualization */
@@ -1355,6 +1639,7 @@ export class Simulator {
         this.executeLJMP(instr.operands);
         break;
       case 'LCALL':
+      case 'CALL': // 非标准别名，按 LCALL 执行（此前落到 default 静默跳过，调用根本不发生）
         this.executeLCALL(instr.operands);
         break;
       case 'AJMP':
@@ -1475,6 +1760,8 @@ export class Simulator {
       case 'IT1': return (this.state.timers.TCON & 0x04) !== 0;
       case 'IE1': return (this.state.timers.TCON & 0x08) !== 0;
       default: {
+        const alias = Simulator.NAMED_SFR_BITS[upper];
+        if (alias) return this.getBitValue(alias);
         // Numeric bit address: 00H-7FH → RAM 20H-2FH, 80H-FFH → bit-addressable SFRs
         const bitNum = this.parseNumber(upper);
         if (!Number.isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
@@ -1552,13 +1839,14 @@ export class Simulator {
       case 'IE0': value ? (this.state.timers.TCON |= 0x02) : (this.state.timers.TCON &= ~0x02); break;
       case 'IT1': value ? (this.state.timers.TCON |= 0x04) : (this.state.timers.TCON &= ~0x04); break;
       case 'IE1': value ? (this.state.timers.TCON |= 0x08) : (this.state.timers.TCON &= ~0x08); break;
-      case 'EA': this.state.interrupts.EA = value; value ? (this.state.interrupts.IE |= 0x80) : (this.state.interrupts.IE &= ~0x80); break;
-      case 'ET0': this.state.interrupts.ET0 = value; value ? (this.state.interrupts.IE |= 0x02) : (this.state.interrupts.IE &= ~0x02); break;
-      case 'ET1': this.state.interrupts.ET1 = value; value ? (this.state.interrupts.IE |= 0x08) : (this.state.interrupts.IE &= ~0x08); break;
-      case 'EX0': this.state.interrupts.EX0 = value; value ? (this.state.interrupts.IE |= 0x01) : (this.state.interrupts.IE &= ~0x01); break;
-      case 'EX1': this.state.interrupts.EX1 = value; value ? (this.state.interrupts.IE |= 0x04) : (this.state.interrupts.IE &= ~0x04); break;
-      case 'ES': this.state.interrupts.ES = value; value ? (this.state.interrupts.IE |= 0x10) : (this.state.interrupts.IE &= ~0x10); break;
+      case 'EA': case 'ET0': case 'ET1': case 'EX0': case 'EX1': case 'ES': {
+        const mask = { EA: 0x80, ES: 0x10, ET1: 0x08, EX1: 0x04, ET0: 0x02, EX0: 0x01 }[upper]!;
+        this.setSfrValueByName('IE', value ? (this.composeIE() | mask) : (this.composeIE() & ~mask));
+        break;
+      }
       default: {
+        const alias = Simulator.NAMED_SFR_BITS[upper];
+        if (alias) { this.setBitValue(alias, value); return; }
         // Numeric bit address: 8051 bit addressing scheme.
         const bitNum = this.parseNumber(upper);
         if (!Number.isNaN(bitNum) && bitNum >= 0 && bitNum <= 0x7F) {
@@ -1693,7 +1981,11 @@ export class Simulator {
         const charVal = this.parseCharLiteral(inner);
         if (charVal !== null) return charVal;
         const parsed = this.parseNumber(inner);
-        return Number.isNaN(parsed) ? 0 : parsed;
+        if (!Number.isNaN(parsed)) return parsed;
+        // #LABEL：A51 取标号地址低字节（此前未解析标号，静默得 0）
+        const lab = this.labelAddr(inner);
+        if (lab !== undefined) return lab & 0xFF;
+        return 0;
     }
     
     // Indirect addressing (@R0, @R1)
@@ -1919,7 +2211,7 @@ export class Simulator {
     if (destUpper === 'DPTR' && src.startsWith('#')) {
       let inner = src.substring(1);
       // Resolve symbol (e.g., #TAB → label address)
-      const labelAddr = this.labels.get(inner);
+      const labelAddr = this.labelAddr(inner);
       let val16: number;
       if (labelAddr !== undefined) {
         val16 = labelAddr;
@@ -1953,7 +2245,7 @@ export class Simulator {
       this.state.pc += 2;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const targetPC = this.labelAddr(targetLabel);
     if (targetPC !== undefined) {
       this.pushToStack16(this.state.pc + 2); // Push return address (PC + 2 for ACALL)
       this.state.pc = targetPC;
@@ -1986,7 +2278,7 @@ export class Simulator {
     const instructionLength = /^R[0-7]$/i.test(operand) ? 2 : 3; // DJNZ Rn,rel is 2 bytes; DJNZ direct,rel is 3 bytes
 
     if (value !== 0) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2017,7 +2309,7 @@ export class Simulator {
     this.state.psw.CY = val1 < val2;
 
     if (val1 !== val2) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2234,7 +2526,7 @@ export class Simulator {
       this.state.pc += 2;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const targetPC = this.labelAddr(targetLabel);
     if (targetPC !== undefined) {
       this.state.pc = targetPC;
     } else {
@@ -2252,7 +2544,7 @@ export class Simulator {
       this.state.pc += 3;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const targetPC = this.labelAddr(targetLabel);
     if (targetPC !== undefined) {
       this.state.pc = targetPC;
     } else {
@@ -2312,7 +2604,7 @@ export class Simulator {
       this.state.pc = (a + dptr) & 0xFFFF;
       return;
     }
-    const targetPC = this.labels.get(target);
+    const targetPC = this.labelAddr(target);
     if (targetPC !== undefined) {
       this.state.pc = targetPC;
     } else {
@@ -2331,7 +2623,7 @@ export class Simulator {
       return;
     }
     if (this.state.registers.A === 0) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2353,7 +2645,7 @@ export class Simulator {
       return;
     }
     if (this.state.registers.A !== 0) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2375,7 +2667,7 @@ export class Simulator {
       return;
     }
     if (this.state.psw.CY) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2397,7 +2689,7 @@ export class Simulator {
       return;
     }
     if (!this.state.psw.CY) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       if (targetPC !== undefined) {
         this.state.pc = targetPC;
       } else {
@@ -2415,7 +2707,7 @@ export class Simulator {
     if (!bitOperand || !targetLabel) { this.state.pc += 3; return; }
 
     if (this.getBitValue(bitOperand)) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
     } else {
       this.state.pc += 3;
@@ -2431,7 +2723,7 @@ export class Simulator {
     if (!bitOperand || !targetLabel) { this.state.pc += 3; return; }
 
     if (!this.getBitValue(bitOperand)) {
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
     } else {
       this.state.pc += 3;
@@ -2691,7 +2983,7 @@ export class Simulator {
       this.state.pc += 3;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const targetPC = this.labelAddr(targetLabel);
     if (targetPC !== undefined) {
       this.pushToStack16(this.state.pc + 3); // Push return address (PC + 3 for LCALL)
       this.state.pc = targetPC;
@@ -2710,7 +3002,7 @@ export class Simulator {
       this.state.pc += 2;
       return;
     }
-    const targetPC = this.labels.get(targetLabel);
+    const targetPC = this.labelAddr(targetLabel);
     if (targetPC !== undefined) {
       this.state.pc = targetPC;
     } else {
@@ -2722,10 +3014,11 @@ export class Simulator {
     this.state.terminated = true;
   }
 
-  /** RETI — return from interrupt: pop PC 并解除中断态，允许后续中断再次派发 */
+  /** RETI：弹出 PC，退出当前优先级的服务状态；其后须再执行一条指令才响应新中断 */
   private executeRETI(): void {
-    this.inInterrupt = false; // 重新允许中断响应（本简化模型不支持嵌套）
-    this.executeRET(); // Pop PC from stack, same behavior as RET
+    this.activeIrqLevels.pop();
+    this.irqHoldOff = true;
+    this.executeRET();
   }
 
   /** JBC bit, rel — jump if bit set AND clear bit (3 bytes) */
@@ -2736,7 +3029,7 @@ export class Simulator {
     const bitValue = this.getBitValue(bitOp);
     if (bitValue) {
       this.setBitValue(bitOp, false); // Clear the bit
-      const targetPC = this.labels.get(targetLabel);
+      const targetPC = this.labelAddr(targetLabel);
       this.state.pc = targetPC !== undefined ? targetPC : this.state.pc + 3;
     } else {
       this.state.pc += 3;

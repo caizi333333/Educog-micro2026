@@ -492,7 +492,7 @@ SUM_LOOP:
     ACALL DELAY
     LJMP MAIN            ; 清零后重新逐段填充，循环演示
 
-; 段间延时子程序（约40ms模型时间，1条指令≈1μs）
+; 段间延时子程序（12MHz：160×(1+250×2+2)μs≈80.5ms）
 DELAY:
     PUSH ACC             ; 保护现场
     MOV R6, #160         ; 外层160次
@@ -976,7 +976,7 @@ NO_SINGLE_KEY:
     RET
 
 ; 理论延时：12MHz、每机器周期12个晶振周期时，含ACALL约20.313ms
-; 当前仿真按指令推进，不以界面运行速度验证实物消抖时间
+; 仿真按机器周期计时，可用定时器读数核对；界面运行速度可调，不能用墙钟验证实物消抖时间
 DELAY_20MS:
     PUSH 06H          ; 保存组0的R6、R7；A和其他寄存器不变
     PUSH 07H
@@ -2504,7 +2504,7 @@ UI_EXIT:
     RETI
 
 ; 名称沿用模板；本循环125753机器周期（不含ACALL），经典12T/11.0592MHz约136.451ms。
-; 平台按指令推进，不能用播放速度判定实物避障响应时间。
+; 平台按机器周期计时（按12MHz），但播放速度可调，不能用画面速度判定实物避障响应时间。
 DELAY_500MS:
     MOV R5, #250
 DS1: MOV R6, #250
@@ -2672,11 +2672,12 @@ READ_T_DONE:
 
 ; 单总线复位（含存在检测）：复位低脉冲→释放→等器件存在脉冲结束
 OW_RESET:
+    CLR EA               ; 1-Wire 时隙靠软件计时，收发期间关中断
     CLR DQ
-    MOV R7, #200         ; 480us低电平
+    MOV R7, #250         ; 复位低电平≥480us：250×2us(DJNZ)=500us
     DJNZ R7, $
     SETB DQ
-    MOV R7, #30          ; 等存在脉冲拉低（无器件则超时跳过）
+    MOV R7, #30          ; 等存在脉冲拉低：30×4us=120us（无器件则超时跳过）
 OW_PRES_W:
     JNB DQ, OW_PRES_L
     DJNZ R7, OW_PRES_W
@@ -2688,28 +2689,32 @@ OW_PRES_H:
     DJNZ R7, OW_PRES_H
     SJMP OW_R_DONE
 OW_PRES_END:
-    MOV R7, #10          ; 恢复间隔
+    MOV R7, #200         ; 补足主机接收期（释放后合计≥480us）：200×2us=400us
     DJNZ R7, $
 OW_R_DONE:
+    SETB EA
     RET
 
 ; 单总线写字节
 OW_WRITE:
+    CLR EA
     MOV R6, #8
 OW_WR_BIT:
     RRC A                ; 取最低位到CY
     CLR DQ               ; 拉低
     NOP
-    MOV DQ, C            ; 写入位
-    MOV R7, #25
-    DJNZ R7, $           ; 60us时隙
+    MOV DQ, C            ; 写入位（写1时约4us内释放，满足<15us）
+    MOV R7, #30
+    DJNZ R7, $           ; 30×2us=60us，时隙合计约65us（规范60–120us）
     SETB DQ
     NOP
     DJNZ R6, OW_WR_BIT
+    SETB EA
     RET
 
 ; 单总线读字节
 OW_READ:
+    CLR EA
     MOV R6, #8
 OW_RD_BIT:
     CLR DQ
@@ -2717,24 +2722,26 @@ OW_RD_BIT:
     SETB DQ
     NOP
     NOP
-    MOV C, DQ            ; 采样
+    MOV C, DQ            ; 采样：时隙起点后约5us（须在15us内）
     RRC A
     MOV R7, #25
-    DJNZ R7, $
+    DJNZ R7, $           ; 25×2us=50us，时隙合计约60us
     DJNZ R6, OW_RD_BIT
+    SETB EA
     RET
 
 ; DHT11读取（真实单总线协议）：起始信号→80+80应答→40bit(湿度+温度+校验)
 READ_DHT11:
-    ; 主机起始信号：拉低约18ms
+    ; 主机起始信号：拉低≥18ms：40×(1+250×2+2)us≈20ms
     CLR DHT
-    MOV R5, #72
+    MOV R5, #40
 DHT_START_DLY:
     MOV R6, #250
     DJNZ R6, $
     DJNZ R5, DHT_START_DLY
+    CLR EA               ; 应答与40bit接收靠软件计时，期间关中断，防T0中断拉长脉宽导致错位
     SETB DHT
-    MOV R7, #20          ; 释放后等待器件应答
+    MOV R7, #20          ; 释放后等待器件应答：20×2us=40us
     DJNZ R7, $
     ; 等应答低电平(80us)
     MOV R6, #200
@@ -2767,7 +2774,8 @@ DHT_B_L:
     DJNZ R6, DHT_B_L
     SJMP DHT_FAIL
 DHT_B_HI:
-    ; 测高电平脉宽：0→28us(约14迭代) / 1→70us(约35迭代)；带超时保护
+    ; 测高电平脉宽：每次迭代 INC(1)+JNB(2)+DJNZ(2)=5us
+    ; 0→26~28us(约6次) / 1→70us(约14次)；带超时保护(80×5us=400us)
     MOV R3, #0
     MOV R5, #80
 DHT_CNT:
@@ -2778,7 +2786,7 @@ DHT_CNT:
 DHT_CNT_END:
     MOV A, R3
     CLR C
-    SUBB A, #22          ; 阈值居中：>=22判1，否则0
+    SUBB A, #10          ; 阈值居中(约50us)：>=10次判1，否则0
     CPL C                ; C=1表示1位
     MOV A, @R0
     RLC A                ; MSB先，逐位左移入缓冲
@@ -2804,6 +2812,7 @@ DHT_CHK:
 DHT_FAIL:
     ; 容错：保留上次有效湿度值（遥测帧标记由上层判断）
 DHT_DONE:
+    SETB EA              ; 恢复中断
     RET
 
 ; 检查报警阈值（30度 = 01E0H）

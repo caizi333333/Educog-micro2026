@@ -4,7 +4,7 @@ import type { GreenhouseEnvironment } from './greenhouse-env';
 /**
  * 虚拟 DHT11：单总线温湿度传感器（自定义协议，非 1-Wire）。
  *
- * 真实时序还原（时间轴=指令计数≈µs）：
+ * 真实时序还原（时间轴=机器周期，12MHz 下 1 机器周期 = 1µs）：
  * - 主机起始信号：拉低 ≥START_MIN（真实 ≥18ms）后释放；
  * - 器件应答：低 80 + 高 80；
  * - 40bit 数据：每位 = 低 50 + 高（26–28→0 / 70→1），MSB 先；
@@ -15,7 +15,7 @@ import type { GreenhouseEnvironment } from './greenhouse-env';
  * 脉宽阈值设错都会得到与真机一致的错误结果。
  */
 
-const START_MIN = 8000;     // 主机起始低电平下限（真实 18ms；教学容差）
+const START_MIN = 18000;    // 主机起始低电平下限（器件手册 ≥18ms）
 const RESP_LOW = 80;
 const RESP_HIGH = 80;
 const BIT_LOW = 50;
@@ -63,12 +63,12 @@ export class Dht11Device implements SimDevice {
 
   public tick(now: number): void {
     if (this.phase !== 'respond') return;
+    if (now < this.segEndAt) return; // 当前段（含帧尾 50µs 低电平）须保持满时长
     if (this.segIdx >= this.segs.length) {
       this.applyDrive(false);
       this.phase = 'idle';
       return;
     }
-    if (now < this.segEndAt) return;
     const seg = this.segs[this.segIdx];
     this.segEndAt = now + seg.duration;
     this.applyDrive(seg.driveLow);

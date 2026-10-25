@@ -1,3 +1,5 @@
+import { checkOperandLegality } from './operand-rules';
+
 /**
  * 8051汇编语法验证器
  * 提供基本的语法检查和错误提示功能
@@ -27,9 +29,11 @@ const INSTRUCTIONS = new Set([
   'CJNE', 'MOVC', 'MOVX'
 ]);
 
-// 汇编指令
+// 汇编伪指令（含 A51/Keil 风格的分段、符号定义与链接指令，学生粘贴 Keil 代码时常见）
 const DIRECTIVES = new Set([
-  'ORG', 'DB', 'DW', 'DS', 'EQU', 'SET', 'END', 'BIT', 'DATA', 'XDATA', 'CODE'
+  'ORG', 'DB', 'DW', 'DS', 'EQU', 'SET', 'END', 'BIT', 'DATA', 'XDATA', 'IDATA', 'CODE',
+  'USING', 'SEGMENT', 'RSEG', 'CSEG', 'DSEG', 'BSEG', 'XSEG', 'ISEG',
+  'PUBLIC', 'EXTRN', 'EXTERN', 'NAME', 'SFR', 'SBIT', 'INCLUDE', 'NOLIST', 'LIST'
 ]);
 
 // 寄存器和SFR名称
@@ -80,7 +84,7 @@ export class AssemblySyntaxValidator {
         definedLabels.add(labelMatch[1].toUpperCase());
       }
       // Also collect EQU/SET/BIT definitions
-      const equMatch = trimmed.match(/^([A-Z_]\w*)\s+(?:EQU|SET|BIT|DATA)\s+/i);
+      const equMatch = trimmed.match(/^([A-Z_]\w*)\s+(?:EQU|SET|BIT|DATA|SFR|SBIT|CODE|XDATA|IDATA)\s+/i);
       if (equMatch) {
         definedLabels.add(equMatch[1].toUpperCase());
       }
@@ -161,10 +165,10 @@ export class AssemblySyntaxValidator {
     const parts = instructionPart.split(/\s+/);
     const instruction = parts[0].toUpperCase();
 
-    // Skip NAME EQU/SET/BIT/DATA definitions (e.g., "DQ BIT P3.7", "TEMP_H DATA 30H")
+    // Skip NAME EQU/SET/BIT/DATA/SFR/SBIT definitions (e.g., "DQ BIT P3.7", "TEMP_H DATA 30H")
     if (parts.length >= 3) {
       const directive = parts[1].toUpperCase();
-      if (['EQU', 'SET', 'BIT', 'DATA', 'XDATA', 'CODE'].includes(directive)) {
+      if (['EQU', 'SET', 'BIT', 'DATA', 'XDATA', 'IDATA', 'CODE', 'SFR', 'SBIT'].includes(directive)) {
         return; // Valid assembly definition, skip validation
       }
     }
@@ -179,62 +183,41 @@ export class AssemblySyntaxValidator {
       return;
     }
 
-    // Validate operands
-    if (parts.length > 1) {
-      const operands = parts.slice(1).join(' ');
-      this.validateOperands(instruction, operands, lineNumber, errors, warnings, definedLabels);
-    }
-  }
+    // 伪指令行（DB/DW/DS/USING 等）不做操作数形态校验
+    if (DIRECTIVES.has(instruction)) return;
 
-  /**
-   * 验证操作数
-   */
-  private validateOperands(
-    instruction: string, operands: string, lineNumber: number,
-    errors: ValidationError[], warnings: ValidationError[],
-    definedLabels: Set<string>
-  ): void {
-    const operandList = operands.split(',').map(op => op.trim());
-
-    operandList.forEach((operand) => {
-      // Check immediate values
-      if (operand.startsWith('#')) {
-        const value = operand.substring(1);
-        // Supported formats: #0FFH (hex), #255 (dec), #11111111B (bin), #'A' (char), #LABEL
-        if (!/^[0-9A-F]+H?$|^\d+$|^[01]+B$|^'.'$/i.test(value)) {
-          // Could be a label reference like #OFFSET or #LOW(addr)
-          if (!definedLabels.has(value.toUpperCase()) && !/^(LOW|HIGH)\s*\(/i.test(value)) {
-            errors.push({
-              line: lineNumber, column: 1,
-              message: `立即数"${operand}"格式错误`,
-              severity: 'error', code: 'INVALID_IMMEDIATE_FORMAT'
-            });
-          }
-        }
+    // 操作数形态校验（与仿真器共用 operand-rules 规则表）；无操作数也要查（缺操作数同样是错）
+    {
+      const operandList = parts.length > 1
+        ? parts.slice(1).join(' ').split(',').map(op => op.trim())
+        : [];
+      const legalityError = checkOperandLegality(instruction, operandList, {
+        isDefinedSymbol: (name) => definedLabels.has(name.toUpperCase()),
+      });
+      if (legalityError) {
+        errors.push({
+          line: lineNumber, column: 1,
+          message: legalityError,
+          severity: 'error', code: 'ILLEGAL_OPERAND_FORM'
+        });
         return;
       }
-
-      // Skip register names, indirect addressing, bit addresses
-      if (REGISTERS.has(operand.toUpperCase())) return;
-      if (operand.startsWith('@')) return;
-      if (/^[0-9A-F]+H?$/i.test(operand)) return; // Hex address
-      if (/^\d+$/.test(operand)) return; // Decimal number
-      if (/^[01]+B$/i.test(operand)) return; // Binary
-      if (operand.includes('.')) return; // Bit address like P1.0
-      if (operand.startsWith('/')) return; // Complemented bit like /P1.0
-
-      // If it looks like a label, check if it's defined
-      if (/^[A-Z_]\w*$/i.test(operand)) {
-        if (!definedLabels.has(operand.toUpperCase())) {
-          warnings.push({
-            line: lineNumber, column: 1,
-            message: `"${operand}"可能是未定义的标签`,
-            severity: 'warning', code: 'UNDEFINED_LABEL_REFERENCE'
-          });
-        }
-        // If defined, it's valid — no warning needed
+      // 非标准助记符别名：能跑，但提示学生用标准写法
+      if (instruction === 'CALL') {
+        warnings.push({
+          line: lineNumber, column: 1,
+          message: 'CALL 不是标准 8051 助记符——本平台按 LCALL 执行，建议改用 LCALL/ACALL',
+          severity: 'warning', code: 'NONSTANDARD_CALL'
+        });
       }
-    });
+      if (instruction === 'JMP' && operandList[0] && operandList[0].toUpperCase() !== '@A+DPTR') {
+        warnings.push({
+          line: lineNumber, column: 1,
+          message: `JMP ${operandList[0]} 将按 LJMP 执行——标准 8051 只有 JMP @A+DPTR`,
+          severity: 'warning', code: 'NONSTANDARD_JMP'
+        });
+      }
+    }
   }
 }
 

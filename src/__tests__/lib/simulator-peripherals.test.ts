@@ -33,10 +33,11 @@ describe('Simulator Peripherals Tests', () => {
     });
 
     it('preserves a pending received byte while the same SBUF address is used for transmission', () => {
-      simulator.updateCode('MOV SCON, #50H\nMOV SBUF, #42H\nCLR RI\nMOV A, SBUF\nEND');
+      // 方式1 发送需要 T1 作波特率发生器：一帧 10 位 × 32 次溢出 × 3 计数 ≈ 960 机器周期
+      simulator.updateCode('MOV SCON, #50H\nMOV TMOD, #20H\nMOV TH1, #0FDH\nMOV TL1, #0FDH\nSETB TR1\nMOV SBUF, #42H\nCLR RI\nMOV A, SBUF\nWAIT: JNB TI, WAIT\nSJMP $\nEND');
       simulator.step();
       expect(simulator.receiveUartByte(65)).toBe(true);
-      simulator.stepBatch(4);
+      simulator.stepBatch(2000);
       expect(simulator.getState().registers.A).toBe(65);
       expect(simulator.getState().uart.transmitBuffer).toBe('B');
       simulator.updateCode('MOV SBUF, #43H\nMOV A, SBUF\nEND');

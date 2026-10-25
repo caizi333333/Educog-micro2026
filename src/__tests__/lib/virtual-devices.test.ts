@@ -51,16 +51,25 @@ describe('虚拟传感器建模（proj04 智慧大棚）', () => {
     // 先等环境收敛；再等到一帧校验和自洽的完整接收（50H..54H），
     // 此刻 HUMI(42H) 必等于缓冲湿度字节——协议端到端正确的确定性标志
     runUntil(sim, () => Math.abs(env.state.humidity - 55) < 1.5, 8_000_000);
-    let envAtRead = 0;
-    const checksumOk = () => {
-      const ok =
-        ((sim.state.ram[0x50] + sim.state.ram[0x51] + sim.state.ram[0x52] + sim.state.ram[0x53]) & 0xFF) ===
-          sim.state.ram[0x54] && sim.state.ram[0x42] === sim.state.ram[0x50] && sim.state.ram[0x42] > 0;
-      if (ok) envAtRead = env.state.humidity; // 命中瞬间的环境值——后续漂移不影响断言
-      return ok;
-    };
-    const got = runUntil(sim, checksumOk, 4_000_000);
-    expect(got).toBe(true);
+    // 采集周期约 2.75s（DELAY_750MS + DELAY_2S，按机器周期计时），环境在两帧间会漂移，
+    // 因此在器件开始应答（DHT 引脚起始信号结束）时记录环境值，与本帧读数比较
+    const checksumOk = () =>
+      ((sim.state.ram[0x50] + sim.state.ram[0x51] + sim.state.ram[0x52] + sim.state.ram[0x53]) & 0xFF) ===
+        sim.state.ram[0x54] && sim.state.ram[0x42] === sim.state.ram[0x50] && sim.state.ram[0x42] > 0;
+    let envAtRead = -1;
+    let frameStarted = false;
+    let receiving = false;
+    let dhtLow = false;
+    for (let spent = 0; spent < 6_000_000; spent += 200) {
+      sim.stepBatch(200);
+      const low = (sim.state.portValues.P3 & 0x10) === 0;
+      if (dhtLow && !low && !frameStarted) { envAtRead = env.state.humidity; frameStarted = true; }
+      dhtLow = low;
+      if (frameStarted && sim.state.registers.R2 > 0) receiving = true; // 本帧 40bit 接收已开始
+      if (receiving && sim.state.registers.R2 === 0 && checksumOk()) break;
+    }
+    expect(frameStarted).toBe(true);
+    expect(checksumOk()).toBe(true);
     expect(Math.abs(sim.state.ram[0x42] - Math.round(envAtRead))).toBeLessThanOrEqual(2);
   });
 

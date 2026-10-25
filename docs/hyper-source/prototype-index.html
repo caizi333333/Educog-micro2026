@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EduCog·芯智育才 — 原型导航</title>
+<script src="shared/theme-init.js"></script>
+<link rel="stylesheet" href="shared/tokens.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.js"></script>
+<style>
+  .nav-card {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 20px;
+    background: var(--bg-panel); border: 1px solid var(--border-subtle);
+    border-radius: var(--r-xl);
+    text-decoration: none; color: var(--text-primary);
+    transition: all 180ms var(--ease-out);
+    cursor: pointer; position: relative; overflow: hidden;
+  }
+  .nav-card:hover {
+    border-color: var(--accent-line);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .nav-card:hover .nav-card-arrow { transform: translateX(4px); color: var(--accent); }
+  .nav-card-arrow { transition: all 180ms; color: var(--text-tertiary); }
+  .nav-card-thumb {
+    height: 140px; border-radius: var(--r-md);
+    background: var(--bg-panel-2); border: 1px solid var(--border-subtle);
+    position: relative; overflow: hidden;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="shared/components.jsx" type="text/babel"></script>
+<script type="text/babel">
+const pages = [
+  {
+    title: "登录页",
+    subtitle: "左图右表单 · 学校/学号登录",
+    path: "pages/01-login.html",
+    variant: "v1",
+    icon: "LogIn",
+    thumb: (
+      <div style={{ display: "flex", height: "100%" }}>
+        <div style={{ flex: 1, background: "#0a0d11", borderRight: "1px solid var(--border-subtle)", position: "relative" }}>
+          <div style={{ position: "absolute", inset: 8, border: "1px solid var(--accent-line)", borderRadius: 2, opacity: 0.6 }} />
+          <div style={{ position: "absolute", left: 14, top: 14, width: 40, height: 16, background: "var(--accent-soft)", borderRadius: 2 }} />
+        </div>
+        <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
+          <div style={{ height: 6, width: "60%", background: "var(--text-tertiary)", borderRadius: 2 }} />
+          <div style={{ height: 18, background: "var(--bg-input)", border: "1px solid var(--border-default)", borderRadius: 2 }} />
+          <div style={{ height: 18, background: "var(--bg-input)", border: "1px solid var(--border-default)", borderRadius: 2 }} />
+          <div style={{ height: 18, background: "var(--accent)", borderRadius: 2 }} />
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "课程首页",
+    subtitle: "实验列表 · 难度/主题分类",
+    path: "pages/02-courses.html",
+    variant: "v1",
+    icon: "LayoutGrid",
+    thumb: (
+      <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gap: 6, height: "100%" }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} style={{ background: "var(--bg-panel-2)", border: "1px solid var(--border-subtle)", borderRadius: 2, padding: 4, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div style={{ height: 3, width: `${40 + i * 8}%`, background: i === 0 ? "var(--accent)" : "var(--text-tertiary)", borderRadius: 1 }} />
+            <div style={{ display: "flex", gap: 2 }}>{Array.from({ length: 5 }).map((_, j) => <span key={j} style={{ width: 2, height: 6, background: j <= i % 5 ? "var(--accent)" : "var(--border-default)" }} />)}</div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    title: "实验仿真页",
+    subtitle: "代码 · 接线 · SFR 实时状态",
+    path: "pages/03-simulator.html",
+    variant: "v1",
+    icon: "Cpu",
+    thumb: (
+      <div style={{ display: "flex", height: "100%" }}>
+        <div style={{ width: 40, background: "#0a0d11", borderRight: "1px solid var(--border-subtle)" }} />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, background: "#0a0d11", padding: 6, fontFamily: "var(--font-mono)", fontSize: 6, color: "var(--code-fn)", lineHeight: 1.4 }}>
+            <div style={{ color: "var(--code-cmt)" }}># include</div>
+            <div><span style={{ color: "var(--code-kw)" }}>void</span> main() {"{"}</div>
+            <div style={{ paddingLeft: 8 }}><span style={{ color: "var(--code-fn)" }}>P1</span> = <span style={{ color: "var(--code-num)" }}>0xFF</span>;</div>
+          </div>
+          <div style={{ height: "40%", background: "var(--bg-panel-2)", borderTop: "1px solid var(--border-subtle)" }} />
+        </div>
+        <div style={{ width: "35%", background: "var(--bg-panel-2)", borderLeft: "1px solid var(--border-subtle)", padding: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2 }}>
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} style={{ aspectRatio: "1", background: i % 3 ? "var(--bg-input)" : "var(--accent-soft)", border: "1px solid var(--border-default)", borderRadius: 1 }} />)}
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "实验指南面板",
+    subtitle: "步骤 · 原理 · 参考代码",
+    path: "pages/04-guide.html",
+    variant: "v1",
+    icon: "BookOpen",
+    thumb: (
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, height: "100%" }}>
+        <div style={{ height: 10, width: "70%", background: "var(--text-primary)", borderRadius: 2 }} />
+        <div style={{ display: "flex", gap: 6 }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{ flex: 1, height: 3, background: i <= 2 ? "var(--accent)" : "var(--border-default)", borderRadius: 1 }} />
+          ))}
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, paddingTop: 4 }}>
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} style={{ height: 3, width: `${60 + (i % 3) * 10}%`, background: "var(--text-tertiary)", borderRadius: 1, opacity: 0.6 }} />)}
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "知识图谱",
+    subtitle: "树形布局 · 掌握度热力 · 故事线",
+    path: "pages/05-knowledge-graph.html",
+    variant: "v1",
+    icon: "Workflow",
+    thumb: (
+      <div style={{ padding: 14, position: "relative", height: "100%" }}>
+        <svg viewBox="0 0 200 120" width="100%" height="100%">
+          <line x1="20" y1="60" x2="70" y2="30" stroke="var(--border-default)" strokeWidth="0.8" />
+          <line x1="20" y1="60" x2="70" y2="60" stroke="var(--border-default)" strokeWidth="0.8" />
+          <line x1="20" y1="60" x2="70" y2="90" stroke="var(--border-default)" strokeWidth="0.8" />
+          <line x1="70" y1="30" x2="130" y2="20" stroke="var(--border-default)" strokeWidth="0.8" />
+          <line x1="70" y1="60" x2="130" y2="50" stroke="var(--accent)" strokeWidth="0.8" />
+          <line x1="70" y1="60" x2="130" y2="70" stroke="var(--accent)" strokeWidth="0.8" />
+          <line x1="70" y1="90" x2="130" y2="100" stroke="var(--border-default)" strokeWidth="0.8" />
+          <line x1="130" y1="50" x2="180" y2="50" stroke="var(--accent)" strokeWidth="0.8" strokeDasharray="2 1" />
+          <rect x="6" y="54" width="28" height="12" rx="2" fill="var(--bg-panel-2)" stroke="var(--accent)" strokeWidth="0.6" />
+          <rect x="56" y="24" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--success)" strokeWidth="0.6" />
+          <rect x="56" y="54" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--accent)" strokeWidth="0.6" />
+          <rect x="56" y="84" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--amber)" strokeWidth="0.6" />
+          <rect x="116" y="14" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--border-default)" strokeWidth="0.6" />
+          <rect x="116" y="44" width="28" height="12" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" strokeWidth="1" />
+          <rect x="116" y="64" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--accent)" strokeWidth="0.6" />
+          <rect x="116" y="94" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--border-default)" strokeWidth="0.6" />
+          <rect x="166" y="44" width="28" height="12" rx="2" fill="var(--bg-panel)" stroke="var(--amber)" strokeWidth="0.6" />
+        </svg>
+      </div>
+    ),
+  },
+];
+
+const medalSystem = [
+  { title: "勋章墙", subtitle: "全部勋章网格 · 分类 · 详情", path: "pages/medals-wall.html", icon: "LayoutGrid" },
+  { title: "我的主页", subtitle: "头像环 · 精选勋章 · 时间线", path: "pages/medals-profile.html", icon: "User" },
+  { title: "排行榜", subtitle: "三甲领奖台 · 班级排名", path: "pages/medals-leaderboard.html", icon: "Trophy" },
+  { title: "解锁动效演示", subtitle: "弹窗 · 抽屉 · Toast 三级动效", path: "pages/medals-popup-demo.html", icon: "PartyPopper" },
+  { title: "教师授予面板", subtitle: "选学生 · 选勋章 · 等级 · 理由", path: "pages/medals-teacher.html", icon: "Award" },
+];
+
+const boldVariants = [
+  { title: "课程首页 · 大胆版", subtitle: "数据工位感 · 大字号", path: "pages/02-courses-bold.html", icon: "Sparkles" },
+  { title: "实验仿真页 · 大胆版", subtitle: "电路板美学 · 沉浸式", path: "pages/03-simulator-bold.html", icon: "Sparkles" },
+  { title: "知识图谱 · 大胆版", subtitle: "径向宇宙 · 发光节点 · 大号详情", path: "pages/05-knowledge-graph-bold.html", icon: "Sparkles" },
+];
+
+function App() {
+  const [theme, setTheme] = React.useState(() => document.documentElement.getAttribute("data-theme") || "dark");
+  React.useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("educog-theme", theme);
+  }, [theme]);
+
+  return (
+    <div className="app-shell">
+      <TopBar theme={theme} setTheme={setTheme} breadcrumb={["原型导航"]} />
+      <main style={{ flex: 1, overflowY: "auto", padding: "40px 48px 80px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+
+          {/* Hero */}
+          <div style={{ marginBottom: 32, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 10px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", borderRadius: 4, fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent-hover)", marginBottom: 16 }}>
+                <Icon name="Cpu" size={12} /> 8051 · AT89C52 · Intel MCS-51
+              </div>
+              <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+                EduCog·芯智育才 <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>— 前端重构原型</span>
+              </h1>
+              <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 8, maxWidth: 640 }}>
+                桂林航天工业学院 · 8051 单片机教学平台 · 全屏交互原型 · 深浅双主题 · 青琥珀电路配色
+              </p>
+            </div>
+            <div className="mono" style={{ textAlign: "right", fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.8 }}>
+              <div>v0.2 · design review</div>
+              <div>5 主页面 · 5 勋章页 · 3 变体</div>
+              <div>深色 + 浅色 · 3 种强调色</div>
+            </div>
+          </div>
+
+          {/* Standard pages */}
+          <SectionLabel num="01" title="标准方向" desc="石墨工作台 · 严谨信息层级 · 青色电路高亮" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 48 }}>
+            {pages.map((p, i) => (
+              <a key={i} href={p.path} className="nav-card">
+                <div className="nav-card-thumb">{p.thumb}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <Icon name={p.icon} size={14} style={{ color: "var(--accent)" }} />
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</span>
+                      <Tag tone="default">{p.variant}</Tag>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{p.subtitle}</div>
+                  </div>
+                  <span className="nav-card-arrow"><Icon name="ArrowUpRight" size={16} /></span>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          {/* Medal system */}
+          <SectionLabel num="02" title="勋章系统" desc="6 类勋章 · 10 级数字等级 · 几何盾牌 + 金属带绶带" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 48 }}>
+            {medalSystem.map((p, i) => (
+              <a key={i} href={p.path} className="nav-card">
+                <div className="nav-card-thumb" style={{ background: "linear-gradient(135deg, var(--bg-panel-2) 0%, var(--bg-panel) 100%)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name={p.icon} size={32} style={{ color: "var(--amber)", opacity: 0.75 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{p.title}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{p.subtitle}</div>
+                  </div>
+                  <span className="nav-card-arrow"><Icon name="ArrowUpRight" size={14} /></span>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          {/* Bold variants */}
+          <SectionLabel num="03" title="大胆版变体" desc="更强的视觉叙事 · 更大字号 · 更多电路质感" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 48 }}>
+            {boldVariants.map((p, i) => (
+              <a key={i} href={p.path} className="nav-card">
+                <div className="nav-card-thumb" style={{ background: "linear-gradient(135deg, var(--bg-panel-2) 0%, #0a0d11 100%)", position: "relative" }}>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name={p.icon} size={36} style={{ color: "var(--accent)", opacity: 0.6 }} />
+                  </div>
+                  <div className="bg-grid-dots" style={{ position: "absolute", inset: 0, opacity: 0.3 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</span>
+                      <Tag tone="accent">v2</Tag>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{p.subtitle}</div>
+                  </div>
+                  <span className="nav-card-arrow"><Icon name="ArrowUpRight" size={16} /></span>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          {/* Design system quick view */}
+          <SectionLabel num="04" title="Design Tokens" desc="这套原型使用的基础设计变量" />
+          <div className="surface" style={{ padding: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
+              <TokenBlock title="主题色">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <Swatch color="var(--accent)" label="accent" />
+                  <Swatch color="var(--amber)" label="amber" />
+                  <Swatch color="var(--success)" label="success" />
+                  <Swatch color="var(--danger)" label="danger" />
+                </div>
+              </TokenBlock>
+              <TokenBlock title="表面">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <Swatch color="var(--bg-base)" label="base" border />
+                  <Swatch color="var(--bg-panel)" label="panel" border />
+                  <Swatch color="var(--bg-panel-2)" label="panel-2" border />
+                  <Swatch color="var(--bg-elevated)" label="elevated" border />
+                </div>
+              </TokenBlock>
+              <TokenBlock title="圆角 · 字号">
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                  <div>radius: 2 / 4 / 6 / 8px</div>
+                  <div>fs: 11 / 12 / 13 / 14 / 16 / 18 / 22 / 28</div>
+                  <div>font: Inter + 思源黑体</div>
+                  <div>mono: JetBrains Mono</div>
+                </div>
+              </TokenBlock>
+            </div>
+          </div>
+
+          <footer style={{ marginTop: 48, textAlign: "center", fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
+            桂林航天工业学院 · GUAT · EduCog-Micro · 仅为前端视觉/布局/交互原型
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function SectionLabel({ num, title, desc }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16, paddingBottom: 10, borderBottom: "1px solid var(--border-subtle)" }}>
+      <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)", fontWeight: 600 }}>{num}</span>
+      <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
+      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{desc}</span>
+    </div>
+  );
+}
+function TokenBlock({ title, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+function Swatch({ color, label, border }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ width: 44, height: 32, background: color, borderRadius: 3, border: border ? "1px solid var(--border-default)" : "none" }} />
+      <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-tertiary)" }}>{label}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

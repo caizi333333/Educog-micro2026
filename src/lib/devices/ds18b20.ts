@@ -4,7 +4,7 @@ import type { GreenhouseEnvironment } from './greenhouse-env';
 /**
  * 虚拟 DS18B20：挂在单总线引脚上的 1-Wire 从机。
  *
- * 协议还原（时间轴=指令计数≈µs，阈值取教学容差）：
+ * 协议还原（时间轴=机器周期，12MHz 下 1 机器周期 = 1µs；阈值按器件手册）：
  * - 复位：主机拉低 ≥RESET_MIN → 释放后器件回存在脉冲（拉低 ~PRES_LEN）；
  * - 写时隙：主机拉低发起时隙，器件在 +RX_SAMPLE 处采样主机锁存电平收位（LSB 先）；
  * - 读时隙：主机短暂拉低发起时隙，器件在 +TX_START..+TX_LEN 窗口内为 0 位拉低线、
@@ -16,14 +16,13 @@ import type { GreenhouseEnvironment } from './greenhouse-env';
  * 时序不对与真机一致：复位脉宽不够 → 不应答、读回全 1；采样点错 → 字节错位。
  */
 
-const RESET_MIN = 150;      // 复位低电平下限（真实 ≥480µs；模板代码保持 ~400 指令）
+const RESET_MIN = 480;      // 复位低电平下限（器件手册 ≥480µs）
 const PRES_DELAY = 30;      // 主机释放后到存在脉冲的间隔（真实 15–60µs）
 const PRES_LEN = 120;       // 存在脉冲低保持（真实 60–240µs）
 const RX_SAMPLE = 12;       // 写时隙采样点（真实 15–60µs 窗口）
 const TX_START = 2;         // 读时隙内器件开始拉低的延迟（0 位）
-const TX_LEN = 24;          // 0 位拉低保持时长：必须盖过主机采样点(+~7)
-                            // 又须在下一时隙采样前(+~43)释放——模板时隙仅~36指令，
-                            // 真实器件按主机时隙等比放宽，这里对齐仿真时轴
+const TX_LEN = 24;          // 0 位拉低保持时长：盖过主机 15µs 内的采样点，
+                            // 并在 60µs 时隙结束前释放（器件手册 15–60µs）
 const CONVERT_LEN = 30000;  // 温度转换耗时（远小于学生 DELAY_750MS 等待即可）
 
 const CMD_SKIP_ROM = 0xCC;
