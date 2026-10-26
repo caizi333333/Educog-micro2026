@@ -108,6 +108,7 @@ const zeroAchievementState: ReturnType<typeof useAchievements> = {
   dataProvenance: null,
   asOf: null,
   sampleSize: null,
+  studyPointsNote: null,
   userProgress: [],
   userStats: null,
   totalPoints: 0,

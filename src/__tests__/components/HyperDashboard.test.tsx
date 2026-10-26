@@ -93,7 +93,11 @@ const validPayloads: Record<string, unknown> = {
   '/api/achievements': {
     dataProvenance: { mode: 'DEMO', label: '演示数据', note: '竞赛功能演示记录，不用于证明教学成效。' },
     asOf: '2026-08-25T07:12:59.892Z',
-    achievements: [],
+    achievements: [
+      { achievementId: 'first_login', name: '初次登录', unlocked: true, unlockedAt: '2026-10-26T01:00:00.000Z' },
+      { achievementId: 'quizzes_completed_bronze', name: '测验达人 · 铜章', unlocked: true, unlockedAt: '2026-10-26T02:00:00.000Z' },
+    ],
+    studyPoints: { note: '当前累计 8 分钟，未满 1 小时，时长积分尚未入账。' },
     stats: { totalAchievements: 54, unlockedAchievements: 2, completionRate: 4, totalPoints: 120 },
   },
   '/api/teacher/dashboard': {
@@ -145,6 +149,10 @@ describe('HyperDashboard source-owned states', () => {
     expect(screen.getByText('完成模块').parentElement).toHaveTextContent('1');
     expect(screen.getByText('连续学习').parentElement).toHaveTextContent('3 天');
     expect(screen.getByText('2/54')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: '已解锁成就' })).toHaveTextContent('测验达人 · 铜章');
+    expect(screen.getByRole('list', { name: '已解锁成就' })).toHaveTextContent('初次登录');
+    expect(screen.queryByText('暂无解锁记录')).not.toBeInTheDocument();
+    expect(screen.getByText(/时长积分尚未入账/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '从任务开始，按证据完成每一步' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /我的任务|查看我的学习任务/ }).some((link) => link.getAttribute('href') === '/tasks')).toBe(true);
     expect(screen.queryByTestId('welcome-onboarding')).not.toBeInTheDocument();

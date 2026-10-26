@@ -741,18 +741,13 @@ describe('Achievements API Routes（V2 最小回归）', () => {
     mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com' } as any);
     const prisma = (globalThis as any).__mockPrisma;
 
-    prisma.user.findUnique
-      .mockResolvedValueOnce({ id: '1' }) // userExists
-      .mockResolvedValueOnce({ totalPoints: 0 }); // user totalPoints
+    prisma.user.findUnique.mockResolvedValue({ id: '1', totalPoints: 0 });
 
     prisma.userAchievement.findMany.mockResolvedValue([]);
-    prisma.learningProgress.aggregate.mockResolvedValue({ _sum: { timeSpent: 0 }, _count: { _all: 0 } });
-    prisma.quizAttempt.aggregate.mockResolvedValue({ _avg: { score: 0 }, _count: { _all: 0 } });
-    prisma.userActivity.aggregate.mockResolvedValue({ _count: { _all: 0 } });
-    prisma.userActivity.count.mockResolvedValue(0);
-    prisma.learningProgress.count.mockResolvedValue(0);
-    prisma.quizAttempt.count.mockResolvedValue(0);
     prisma.userActivity.findMany.mockResolvedValue([]);
+    prisma.learningProgress.findMany.mockResolvedValue([]);
+    prisma.quizAttempt.findMany.mockResolvedValue([]);
+    prisma.userExperiment.findMany.mockResolvedValue([]);
 
     const req = new NextRequest('http://localhost:3000/api/achievements', {
       method: 'GET',
@@ -775,8 +770,19 @@ describe('Achievements API Routes（V2 最小回归）', () => {
     mockVerifyToken.mockResolvedValue({ userId: '1', email: 'x@y.com', role: 'STUDENT' } as any);
     const prisma = (globalThis as any).__mockPrisma;
 
-    prisma.user.findUnique.mockResolvedValue({ id: '1', totalPoints: 0 });
-    prisma.userAchievement.findMany.mockResolvedValue([]);
+    prisma.user.findUnique.mockResolvedValue({ id: '1', totalPoints: 175 });
+    prisma.userAchievement.findMany.mockResolvedValue([
+      {
+        achievementId: 'first_login',
+        unlockedAt: new Date('2026-10-26T01:00:00.000Z'),
+        progress: 100,
+      },
+      {
+        achievementId: 'quizzes_completed_bronze',
+        unlockedAt: new Date('2026-10-26T02:00:00.000Z'),
+        progress: 100,
+      },
+    ]);
     prisma.userActivity.findMany.mockResolvedValue([]);
     prisma.learningProgress.findMany.mockResolvedValue([]);
     prisma.quizAttempt.findMany.mockResolvedValue([]);
@@ -805,6 +811,15 @@ describe('Achievements API Routes（V2 最小回归）', () => {
     ]));
     expect(data.userStats.experiments_completed).toBe(2);
     expect(data.userStats.experiment_time).toBe(3600);
+    expect(data.studyPoints.note).toContain('未满 1 小时');
+    expect(data.stats.totalPoints).toBe(175);
+    expect(data.stats.latestAchievement).toMatchObject({ id: 'quizzes_completed_bronze', name: '测验达人 · 铜章' });
+    expect(data.stats.unlockedAchievementsList.map((item: { name: string }) => item.name)).toEqual([
+      '测验达人 · 铜章',
+      '初次登录',
+    ]);
+    expect(data.achievements.filter((item: { unlocked: boolean }) => item.unlocked).map((item: { name: string }) => item.name))
+      .toEqual(expect.arrayContaining(['测验达人 · 铜章', '初次登录']));
     const bronze = data.achievements.find((item: any) => item.id === 'experiment_time_bronze');
     expect(bronze.progressPercentage).toBe(100);
     expect(bronze.isUnlocked).toBe(false);

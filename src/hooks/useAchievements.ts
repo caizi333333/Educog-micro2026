@@ -42,6 +42,7 @@ interface AchievementsResponse {
   achievements: UserAchievementData[];
   stats: { totalPoints: number };
   userStats?: Record<string, number>;
+  studyPoints?: { note?: string };
 }
 
 export interface AchievementDataProvenance {
@@ -120,6 +121,7 @@ export const useAchievements = (category?: string) => {
   const [dataProvenance, setDataProvenance] = useState<AchievementDataProvenance | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [sampleSize, setSampleSize] = useState<AchievementSampleSize | null>(null);
+  const [studyPointsNote, setStudyPointsNote] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
 
@@ -143,6 +145,7 @@ export const useAchievements = (category?: string) => {
         setDataProvenance(null);
         setAsOf(null);
         setSampleSize(null);
+        setStudyPointsNote(null);
         setAccessErrorStatus(401);
         throw new Error('登录已过期，请重新登录');
       }
@@ -160,6 +163,7 @@ export const useAchievements = (category?: string) => {
         setDataProvenance(null);
         setAsOf(null);
         setSampleSize(null);
+        setStudyPointsNote(null);
         setAccessErrorStatus(achievementsRes.status);
         throw new Error(achievementsRes.status === 401
           ? '登录已过期，请重新登录'
@@ -196,6 +200,9 @@ export const useAchievements = (category?: string) => {
       setDataProvenance(achievementsData.dataProvenance);
       setAsOf(achievementsData.asOf);
       setSampleSize(achievementsData.sampleSize);
+      setStudyPointsNote(typeof achievementsData.studyPoints?.note === 'string'
+        ? achievementsData.studyPoints.note
+        : null);
       setAccessErrorStatus(null);
 
     } catch (err) {
@@ -235,6 +242,7 @@ export const useAchievements = (category?: string) => {
     setDataProvenance(null);
     setAsOf(null);
     setSampleSize(null);
+    setStudyPointsNote(null);
     setError(null);
     setAccessErrorStatus(null);
     setLoading(false);
@@ -345,6 +353,7 @@ export const useAchievements = (category?: string) => {
     dataProvenance,
     asOf,
     sampleSize,
+    studyPointsNote,
     totalPoints: serverTotalPoints,
     fetchAchievements,
     calculateStats,

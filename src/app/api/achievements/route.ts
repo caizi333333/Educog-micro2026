@@ -7,6 +7,8 @@ import { OFFICIAL_EXPERIMENT_IDS } from '@/lib/experiment-config';
 import {
   ACHIEVEMENTS_V2
 } from '@/lib/achievements-v2';
+import { summarizeStudyActivity } from '@/lib/study-activity';
+import { describeStudyPoints } from '@/lib/study-points';
 
 // In-memory rate limiter: userId → [timestamps]
 const rateLimiter = new Map<string, number[]>();
@@ -66,7 +68,7 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       prisma.userAchievement.findMany({ where: { userId: payload.userId, unlockedAt: { lte: asOf } }, orderBy: { unlockedAt: 'desc' } }),
       prisma.userActivity.findMany({ where: { userId: payload.userId, createdAt: { lte: asOf } }, select: { action: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
-      prisma.learningProgress.findMany({ where: { userId: payload.userId, lastAccessAt: { lte: asOf } }, select: { status: true, timeSpent: true } }),
+      prisma.learningProgress.findMany({ where: { userId: payload.userId, lastAccessAt: { lte: asOf } }, select: { status: true, timeSpent: true, lastAccessAt: true } }),
       prisma.quizAttempt.findMany({ where: { userId: payload.userId, completedAt: { lte: asOf } }, select: { score: true } }),
       prisma.userExperiment.findMany({
         where: {
@@ -102,35 +104,14 @@ export async function GET(request: Request) {
 
     let nightStudy = 0;
     let morningStudy = 0;
-    let dailyStreak = 0;
     let continuousHours = 0;
 
     if (allActivities.length > 0) {
-      const activityDates = new Set<string>();
       for (const activity of allActivities) {
         const date = new Date(activity.createdAt);
         const hour = date.getHours();
         if (hour >= 22 || hour < 6) nightStudy++;
         if (hour >= 5 && hour < 9) morningStudy++;
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        activityDates.add(dateStr);
-      }
-
-      if (activityDates.size > 0) {
-        const sortedDates = Array.from(activityDates).sort().reverse();
-        let streak = 1;
-        for (let i = 1; i < sortedDates.length; i++) {
-          const current = new Date(sortedDates[i - 1]);
-          const previous = new Date(sortedDates[i]);
-          const diffDays = Math.round((current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays === 1) streak++;
-          else break;
-        }
-        const latest = new Date(`${sortedDates[0]}T00:00:00`);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const daysSinceLatest = Math.round((today.getTime() - latest.getTime()) / (1000 * 60 * 60 * 24));
-        dailyStreak = daysSinceLatest >= 0 && daysSinceLatest <= 1 ? streak : 0;
       }
 
       const SESSION_GAP_MS = 30 * 60 * 1000;
@@ -150,6 +131,12 @@ export async function GET(request: Request) {
       if (sessionEnd - sessionStart > maxSessionMs) maxSessionMs = sessionEnd - sessionStart;
       continuousHours = Math.floor(maxSessionMs / (1000 * 60 * 60));
     }
+
+    const dailyStreak = summarizeStudyActivity(
+      allLearningProgress.map((row) => row.lastAccessAt),
+      asOf,
+    ).streakDays;
+    const studyPoints = describeStudyPoints(learningStats._sum.timeSpent || 0);
 
     const userStats = {
       modules_completed: completedModules,
@@ -212,12 +199,22 @@ export async function GET(request: Request) {
 
     const totalPossibleAchievements = achievementList.length;
     const unlockedCount = achievementList.filter(a => a.unlocked).length;
+    const unlockedHistory = achievementList
+      .filter((item) => item.unlocked)
+      .map((item) => ({
+        id: item.achievementId,
+        name: item.name,
+        unlockedAt: item.unlockedAt instanceof Date ? item.unlockedAt.toISOString() : null,
+      }))
+      .sort((left, right) => (right.unlockedAt ?? '').localeCompare(left.unlockedAt ?? ''));
 
     const stats = {
       totalAchievements: totalPossibleAchievements,
       unlockedAchievements: unlockedCount,
       completionRate: totalPossibleAchievements > 0 ? Math.round((unlockedCount / totalPossibleAchievements) * 100) : 0,
       totalPoints: user?.totalPoints || 0,
+      latestAchievement: unlockedHistory[0] ?? null,
+      unlockedAchievementsList: unlockedHistory,
     };
 
     return NextResponse.json({
@@ -234,7 +231,8 @@ export async function GET(request: Request) {
       },
       achievements: achievementList,
       stats,
-      userStats
+      userStats,
+      studyPoints,
     });
 
   } catch (error) {

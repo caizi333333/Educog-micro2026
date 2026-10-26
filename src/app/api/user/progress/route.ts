@@ -1,48 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { CAMPUS_TIME_ZONE } from '@/lib/campus-time';
+import { STUDY_STREAK_SOURCE, summarizeStudyActivity } from '@/lib/study-activity';
+import { describeStudyPoints } from '@/lib/study-points';
 
 function json(body: unknown, status = 200): NextResponse {
   const response = NextResponse.json(body, { status });
   response.headers.set('Cache-Control', 'no-store, max-age=0');
   return response;
-}
-
-function shanghaiDateKey(value: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(value);
-}
-
-function calculateStreak(completedAt: Array<Date | null>): number {
-  const dates = [...new Set(completedAt
-    .filter((value): value is Date => value instanceof Date)
-    .map(shanghaiDateKey))]
-    .sort((a, b) => b.localeCompare(a));
-  if (dates.length === 0) return 0;
-
-  const today = shanghaiDateKey(new Date());
-  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  if (dates[0] !== today && dates[0] !== yesterday) return 0;
-
-  let streak = 1;
-  for (let index = 1; index < dates.length; index += 1) {
-    const current = dates[index - 1];
-    const previous = dates[index];
-    if (!current || !previous) continue;
-    const days = Math.round(
-      (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`))
-      / 86_400_000,
-    );
-    if (days !== 1) break;
-    streak += 1;
-  }
-  return streak;
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -56,7 +22,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!payload?.userId) return json({ error: '令牌无效' }, 401);
 
     const userId = payload.userId;
-    const [modulesCompleted, learningAggregate, quizAggregate, recentCompletions] = await Promise.all([
+    const [modulesCompleted, learningAggregate, quizAggregate, recentAccess] = await Promise.all([
       prisma.learningProgress.count({
         where: {
           userId,
@@ -75,9 +41,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         _count: true,
       }),
       prisma.learningProgress.findMany({
-        where: { userId, completedAt: { not: null } },
-        select: { completedAt: true },
-        orderBy: { completedAt: 'desc' },
+        where: { userId },
+        select: { lastAccessAt: true },
+        orderBy: { lastAccessAt: 'desc' },
         take: 366,
       }),
     ]);
@@ -88,16 +54,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const quizAttempts = typeof quizAggregate._count === 'number'
       ? quizAggregate._count
       : 0;
+    const totalTimeSpent = learningAggregate._sum.timeSpent ?? 0;
+    const study = summarizeStudyActivity(recentAccess.map((item) => item.lastAccessAt));
 
     return json({
       source: 'SERVER_DERIVED',
       modulesCompleted,
-      totalTimeSpent: learningAggregate._sum.timeSpent ?? 0,
+      totalTimeSpent,
       averageScore: quizAggregate._avg.score == null
         ? null
         : Math.round(quizAggregate._avg.score * 100) / 100,
-      streakDays: calculateStreak(recentCompletions.map((item) => item.completedAt)),
-      lastActiveDate: learningAggregate._max.completedAt ?? null,
+      streakDays: study.streakDays,
+      lastActiveDate: study.lastActiveDate?.toISOString() ?? null,
+      streakSource: STUDY_STREAK_SOURCE,
+      streakTimeZone: CAMPUS_TIME_ZONE,
+      studyPoints: describeStudyPoints(totalTimeSpent),
       learningRecords,
       quizAttempts,
       dataSufficient: learningRecords > 0 || quizAttempts > 0,

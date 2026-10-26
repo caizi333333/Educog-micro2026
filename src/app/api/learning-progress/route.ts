@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto';
 import { verifyToken } from '@/lib/auth';
 import { prisma, checkDatabaseConnection } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
+import { recordStudySessionPoints } from '@/lib/study-points';
+import { checkAchievementsForLearning } from '@/lib/achievement-checker';
 import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
 import { getModuleIdForChapter, parseLearningTaskSteps } from '@/lib/lesson-tasks';
 import { getDataProvenance } from '@/lib/env';
@@ -441,6 +443,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 移除用户活动记录以提高性能
 
     const achievementPoints = 0;
+    const studyPoints = await recordStudySessionPoints({
+      userId: payload.userId,
+      role: payload.role,
+      acceptedTimeIncrement,
+      now: receivedAt,
+    });
+    if (studyPoints.timeMilestoneAwarded > 0) {
+      try {
+        await checkAchievementsForLearning(payload.userId, finalModuleId, normalizedChapterId);
+      } catch (achievementError) {
+        console.error('学习时长成就核对失败:', achievementError);
+      }
+    }
 
     try {
       const classId = await getActiveClassIdForUser(payload.userId);
@@ -498,6 +513,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       message: '学习进度已更新',
       pointsEarned,
+      studyPoints,
       completionCriteria,
       completionPercentage: actualCompletion,
       acceptedIncrement: {

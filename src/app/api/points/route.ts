@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
 import { sanitizeMetadata } from '@/lib/classroom';
+import { describeStudyPoints } from '@/lib/study-points';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const USER_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -252,7 +253,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 50;
     const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
-    const [user, transactions, stats, dailyPoints] = await Promise.all([
+    const [user, transactions, stats, dailyPoints, studyTime] = await Promise.all([
       prisma.user.findUnique({
         where: { id: payload.userId },
         select: { totalPoints: true },
@@ -273,6 +274,10 @@ export async function GET(request: Request): Promise<NextResponse> {
         where: { userId: payload.userId, createdAt: { gte: chinaDayStart() } },
         _sum: { points: true },
       }),
+      prisma.learningProgress.aggregate({
+        where: { userId: payload.userId },
+        _sum: { timeSpent: true },
+      }),
     ]);
 
     if (!user) return json({ error: '用户不存在' }, 404);
@@ -289,6 +294,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         count: stat._count,
       })),
       dailyPoints: dailyPoints._sum.points || 0,
+      studyPoints: describeStudyPoints(studyTime._sum.timeSpent ?? 0),
       pagination: { limit, offset, hasMore: transactions.length === limit },
     });
   } catch (error) {

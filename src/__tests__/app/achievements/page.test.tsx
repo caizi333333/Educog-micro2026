@@ -49,6 +49,7 @@ function achievementHookResult(overrides: Record<string, unknown> = {}): ReturnT
     dataProvenance: null,
     asOf: null,
     sampleSize: null,
+    studyPointsNote: null,
     totalPoints: 0,
     fetchAchievements: mockFetchAchievements,
     calculateStats: () => ({

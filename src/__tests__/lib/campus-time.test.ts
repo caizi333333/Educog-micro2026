@@ -1,4 +1,4 @@
-import { CAMPUS_TIME_ZONE, formatCampusDate, formatCampusDateTime } from '@/lib/campus-time';
+import { CAMPUS_TIME_ZONE, campusDateKey, formatCampusDate, formatCampusDateTime, shiftCampusDateKey } from '@/lib/campus-time';
 
 describe('campus time', () => {
   // 2026-10-26 17:02:53Z is 2026-10-27 01:02:53 in Asia/Shanghai
@@ -9,6 +9,11 @@ describe('campus time', () => {
     expect(CAMPUS_TIME_ZONE).toBe('Asia/Shanghai');
     expect(formatCampusDateTime(pacificInstant)).toBe('2026/10/27 01:02:53');
     expect(formatCampusDate(pacificInstant)).toBe('2026/10/27');
+  });
+
+  it('keys campus days in Asia/Shanghai', () => {
+    expect(campusDateKey(new Date(pacificInstant))).toBe('2026-10-27');
+    expect(shiftCampusDateKey('2026-10-27', -1)).toBe('2026-10-26');
   });
 
   it('does not invent a clock for a missing or invalid value', () => {

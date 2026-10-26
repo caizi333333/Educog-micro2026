@@ -54,8 +54,8 @@ describe('/api/user/progress', () => {
       _count: 3,
     } as any);
     (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([
-      { completedAt: today },
-      { completedAt: yesterday },
+      { lastAccessAt: today },
+      { lastAccessAt: yesterday },
     ] as any);
 
     const response = await GET(request());
@@ -74,10 +74,33 @@ describe('/api/user/progress', () => {
       dataSufficient: true,
     });
     expect(mockPrisma.userProgress.findUnique).not.toHaveBeenCalled();
+    expect(data.lastActiveDate).toBe(today.toISOString());
+    expect(data.streakSource).toBe('learningProgress.lastAccessAt');
+    expect(data.studyPoints.note).toContain('满 1 小时');
     expect(mockPrisma.learningProgress.findMany).toHaveBeenCalledWith(expect.objectContaining({
       take: 366,
-      orderBy: { completedAt: 'desc' },
+      orderBy: { lastAccessAt: 'desc' },
+      select: { lastAccessAt: true },
     }));
+  });
+
+  it('未完成章节的学习访问也计入连续天数和最近活跃', async () => {
+    const accessedAt = new Date();
+    (mockPrisma.learningProgress.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { timeSpent: 480 },
+      _max: { completedAt: null },
+      _count: 1,
+    } as any);
+    (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([
+      { lastAccessAt: accessedAt },
+    ] as any);
+
+    const data = await (await GET(request())).json();
+
+    expect(data.streakDays).toBe(1);
+    expect(data.lastActiveDate).toBe(accessedAt.toISOString());
+    expect(data.studyPoints.totalStudySeconds).toBe(480);
+    expect(data.studyPoints.note).toContain('时长积分尚未入账');
   });
 
   it('无学习记录时应返回明确的零值与数据不足状态', async () => {
@@ -96,7 +119,7 @@ describe('/api/user/progress', () => {
 
   it('最近完成记录超过一天未更新时连续天数应归零', async () => {
     (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([
-      { completedAt: new Date(Date.now() - 3 * 86_400_000) },
+      { lastAccessAt: new Date(Date.now() - 3 * 86_400_000) },
     ] as any);
 
     const response = await GET(request());

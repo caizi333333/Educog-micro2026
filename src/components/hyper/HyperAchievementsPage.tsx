@@ -268,6 +268,7 @@ export function HyperAchievementsPage() {
     dataProvenance,
     asOf,
     sampleSize,
+    studyPointsNote,
   } = useAchievements();
   const [active, setActive] = useState('all');
   const [query, setQuery] = useState('');
@@ -524,6 +525,9 @@ export function HyperAchievementsPage() {
               </div>
             ))}
           </div>
+          {studyPointsNote && (
+            <p className="mb-4 text-xs leading-5 text-slate-500">{studyPointsNote}</p>
+          )}
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="relative w-full max-w-sm">
