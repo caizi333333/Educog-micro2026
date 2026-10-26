@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import { getJwtSecret, getJwtRefreshSecret } from '@/lib/env';
-import { normalizeLearningEventInput } from '@/lib/classroom';
+import { normalizeLearningEventInput, studentHasActiveEnrollment } from '@/lib/classroom';
 import { prisma } from './prisma';
 
 // JWT配置
@@ -34,6 +34,8 @@ export interface JWTPayload {
   role: string;
   sid?: string;
   authVersion?: number;
+  /** 1 when this token may open courseware. Students receive 1 only with an active class enrollment. */
+  cls?: 0 | 1;
   iat?: number;
   exp?: number;
 }
@@ -44,7 +46,7 @@ export interface JWTPayload {
 type TokenSubject = Pick<User, 'id' | 'email' | 'role' | 'authVersion'>;
 type IssuedTokens = AuthTokens & { sessionId: string };
 
-function createTokens(user: TokenSubject): IssuedTokens {
+function createTokens(user: TokenSubject, cls: 0 | 1): IssuedTokens {
   const sessionId = randomUUID();
   const payload: JWTPayload = {
     userId: user.id,
@@ -52,6 +54,7 @@ function createTokens(user: TokenSubject): IssuedTokens {
     role: user.role,
     sid: sessionId,
     authVersion: user.authVersion,
+    cls,
   };
 
   const accessToken = jwt.sign(payload, getJwtSecret(), {
@@ -189,7 +192,7 @@ export async function register(data: {
       throw new Error('班级邀请码无效或已停用');
     }
 
-    // 公开注册只创建学生账号；教师/管理员由管理员创建。
+    // 公开注册接口已关闭。此函数只创建学生账号，供既有测试和内部流程使用。
     const user = await tx.user.create({
       data: {
         email: data.email,
@@ -286,7 +289,7 @@ export async function register(data: {
       });
     }
 
-    const tokens = createTokens(user);
+    const tokens = createTokens(user, classEnrollment ? 1 : 0);
 
     await tx.session.create({
       data: {
@@ -348,6 +351,49 @@ async function assertLoginAllowed(userId: string, ip?: string): Promise<void> {
   }
 }
 
+const LOGIN_ACCOUNT_SELECT = {
+  id: true,
+  email: true,
+  username: true,
+  password: true,
+  name: true,
+  avatar: true,
+  role: true,
+  status: true,
+  studentId: true,
+  teacherId: true,
+  authVersion: true,
+} as const;
+
+async function classroomClaimForUser(user: { id: string; role: string }): Promise<0 | 1> {
+  if (user.role === 'ADMIN' || user.role === 'TEACHER') return 1;
+  if (user.role !== 'STUDENT') return 0;
+  return (await studentHasActiveEnrollment(user.id)) ? 1 : 0;
+}
+
+/**
+ * Match an active account by student ID, then username, then email.
+ * Disabled accounts are excluded here and cannot sign in.
+ */
+async function findActiveLoginUser(identifier: string) {
+  const matches = await prisma.user.findMany({
+    where: {
+      OR: [
+        { studentId: identifier },
+        { username: identifier },
+        { email: identifier },
+      ],
+      status: 'ACTIVE',
+    },
+    select: LOGIN_ACCOUNT_SELECT,
+    take: 5,
+  });
+  return matches.find((item) => item.studentId === identifier)
+    ?? matches.find((item) => item.username === identifier)
+    ?? matches.find((item) => item.email === identifier)
+    ?? null;
+}
+
 export async function login(
   emailOrUsername: string,
   password: string,
@@ -355,32 +401,7 @@ export async function login(
   userAgent?: string,
   expectedRole?: LoginExpectedRole,
 ) {
-  // 查找用户
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { email: emailOrUsername },
-        { username: emailOrUsername }
-      ],
-      status: 'ACTIVE'
-    },
-    // 登录只读取认证与响应所需字段，避免无关 User 列的迁移漂移阻断已有账号。
-    // authVersion 必须保留，它承担密码/角色变化后的服务端令牌失效语义。
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      password: true,
-      name: true,
-      avatar: true,
-      role: true,
-      status: true,
-      studentId: true,
-      teacherId: true,
-      authVersion: true
-    }
-  });
-
+  const user = await findActiveLoginUser(emailOrUsername);
   if (!user) {
     throw new Error(INVALID_CREDENTIALS_MESSAGE);
   }
@@ -474,8 +495,7 @@ export async function login(
     }
   }
 
-  // 创建令牌
-  const tokens = createTokens(user);
+  const tokens = createTokens(user, await classroomClaimForUser(user));
 
   // 保存刷新令牌
   await prisma.session.create({
@@ -602,8 +622,7 @@ export async function refreshTokens(refreshToken: string) {
       throw new Error('刷新令牌无效或已过期');
     }
 
-    // 创建新令牌
-    const tokens = createTokens(session.user);
+    const tokens = createTokens(session.user, await classroomClaimForUser(session.user));
 
     await prisma.$transaction(async (tx) => {
       // 刷新令牌只能使用一次，并发重放只有一个请求可以轮换成功。
@@ -715,7 +734,8 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 export function generateTokens(user: User): AuthTokens {
-  return createTokens(user);
+  const cls: 0 | 1 = user.role === 'ADMIN' || user.role === 'TEACHER' ? 1 : 0;
+  return createTokens(user, cls);
 }
 
 export { prisma };

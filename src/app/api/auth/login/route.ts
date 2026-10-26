@@ -50,7 +50,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 验证必填字段
     if (!emailOrUsername || !password) {
       const response = NextResponse.json(
-        { error: '邮箱/用户名和密码不能为空' },
+        { error: '学号/用户名和密码不能为空' },
         { status: 400 }
       );
       return setNoStore(response);

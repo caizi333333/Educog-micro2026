@@ -16,6 +16,8 @@ export interface EdgeAccessTokenPayload {
   userId: string;
   email: string;
   role: ApplicationRole;
+  /** Present on tokens issued after class gating. 1 means the student was enrolled at sign-in. */
+  cls?: 0 | 1;
   exp: number;
   iat?: number;
   nbf?: number;
@@ -110,12 +112,16 @@ export async function verifyEdgeAccessToken(
     if (claims.iat !== undefined && (typeof claims.iat !== 'number' || !Number.isInteger(claims.iat))) {
       return null;
     }
+    if (claims.cls !== undefined && claims.cls !== 0 && claims.cls !== 1) {
+      return null;
+    }
 
     return {
       userId: claims.userId,
       email: claims.email,
       role: claims.role,
       exp: claims.exp,
+      ...(claims.cls === 0 || claims.cls === 1 ? { cls: claims.cls } : {}),
       ...(typeof claims.iat === 'number' ? { iat: claims.iat } : {}),
       ...(typeof claims.nbf === 'number' ? { nbf: claims.nbf } : {}),
     };

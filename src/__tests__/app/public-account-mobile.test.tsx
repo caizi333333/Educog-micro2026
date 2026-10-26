@@ -72,7 +72,7 @@ describe('public and account pages mobile contracts', () => {
     ]) {
       expect(link).toHaveClass('min-h-11', 'focus-visible:ring-2');
     }
-    expect(screen.getAllByRole('link', { name: /教师端登录|教师与管理员登录|学生注册|创建学生账号/ }).length).toBeGreaterThan(2);
+    expect(screen.getAllByRole('link', { name: /教师端登录|教师与管理员登录|学生登录/ }).length).toBeGreaterThan(2);
     expect(screen.getByRole('heading', { name: /3.1 寻址方式.*教学闭环样板/ })).toBeInTheDocument();
     expect(screen.getByText('待采集')).toBeInTheDocument();
     expect(screen.getByText(/当前没有可核验结果，不生成成效数值/)).toBeInTheDocument();
@@ -80,60 +80,16 @@ describe('public and account pages mobile contracts', () => {
     expect(screen.getByRole('link', { name: '教师端登录' })).toHaveAttribute('href', '/login?role=teacher');
   });
 
-  it('keeps registration controls touch-sized and focuses the first invalid field', () => {
+  it('explains that public registration is closed and keeps the login actions touch-sized', () => {
     const { container } = render(<RegisterPage />);
 
     expect(container.firstElementChild).toHaveClass('min-h-[100dvh]', 'overflow-x-hidden');
+    expect(screen.getByRole('heading', { name: '自助注册已关闭' })).toBeInTheDocument();
+    expect(screen.getByText(/学生账号由任课教师或管理员创建后发放/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '注册' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '返回登录' })).toHaveClass('min-h-11', 'focus-visible:ring-2');
     expect(screen.getByRole('link', { name: '立即登录' })).toHaveClass('min-h-11', 'focus-visible:ring-2');
-
-    const submit = screen.getByRole('button', { name: '注册' });
-    expect(submit).toHaveClass('min-h-11', 'focus-visible:ring-2');
-    fireEvent.click(submit);
-
-    const email = screen.getByLabelText('邮箱 *');
-    expect(email).toHaveFocus();
-    expect(email).toHaveClass('min-h-11');
-    expect(email).toHaveAttribute('aria-invalid', 'true');
-    expect(email).toHaveAttribute('aria-describedby', 'register-form-error');
-    expect(screen.getByRole('alert')).toHaveTextContent('请输入邮箱');
-  });
-
-  it('locks registration inputs and exposes a stable loading label during submission', async () => {
-    let finishRequest: ((response: Response) => void) | undefined;
-    mockFetch.mockImplementation(() => new Promise<Response>((resolve) => { finishRequest = resolve; }));
-    render(<RegisterPage />);
-
-    fireEvent.change(screen.getByLabelText('邮箱 *'), { target: { value: 'student@example.com' } });
-    fireEvent.change(screen.getByLabelText('用户名 *'), { target: { value: 'student' } });
-    fireEvent.change(screen.getByLabelText('密码 *'), { target: { value: 'password123' } });
-    fireEvent.change(screen.getByLabelText('确认密码 *'), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByRole('button', { name: '注册' }));
-
-    const pendingSubmit = screen.getByRole('button', { name: '正在创建账号…' });
-    expect(pendingSubmit).toBeDisabled();
-    expect(pendingSubmit).toHaveAttribute('aria-busy', 'true');
-    expect(pendingSubmit.closest('form')).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByLabelText('邮箱 *')).toBeDisabled();
-    expect(screen.getByLabelText('班级邀请码')).toBeDisabled();
-
-    await act(async () => {
-      finishRequest?.({
-        ok: false,
-        status: 409,
-        json: async () => ({ error: '用户名已存在' }),
-      } as Response);
-    });
-    expect(await screen.findByRole('alert')).toHaveTextContent('用户名已存在');
-    expect(screen.getByRole('button', { name: '注册' })).toBeEnabled();
-  });
-
-  it('keeps password guidance associated with the mobile registration input', () => {
-    render(<RegisterPage />);
-
-    const password = screen.getByLabelText('密码 *');
-    expect(password).toHaveAttribute('aria-describedby', 'register-password-help');
-    expect(screen.getByText(/按 UTF-8 计算不超过 72 字节/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '立即登录' })).toHaveAttribute('href', '/login');
   });
 
   it('keeps public policy pages readable and keyboard-visible on narrow screens', () => {

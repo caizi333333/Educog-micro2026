@@ -178,11 +178,11 @@ export default function WelcomePage() {
               <div className="font-mono text-xs uppercase tracking-[0.15em] text-cyan-200">Role-aware Entrance · 角色入口</div>
               <h2 className="mt-3 text-2xl font-semibold text-slate-50">从当前角色的下一项教学动作开始</h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                学生可注册后进入学习空间；教师与管理员使用已分配账号登录，平台根据角色显示学习任务、教学复核或系统管理入口。
+                学生使用教师发放的学号或用户名登录；教师与管理员使用已分配账号登录。平台不开放自助注册。
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/register" className={secondaryActionClass}>创建学生账号</Link>
+              <Link href="/login" className={secondaryActionClass}>学生登录</Link>
               <Link href="/login?role=teacher" className={primaryActionClass}>教师与管理员登录</Link>
             </div>
           </div>

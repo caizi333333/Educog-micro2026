@@ -309,7 +309,7 @@ describe('auth', () => {
     };
 
     it('should login user successfully', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', mockUser as any);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [mockUser] as any);
       mockBcrypt.compare.mockResolvedValue(true as never);
       setupPrismaMock(mockPrisma, 'userActivity', 'count', 0); // First login
       setupPrismaMock(mockPrisma, 'user', 'update', mockUser as any);
@@ -325,11 +325,12 @@ describe('auth', () => {
       const result = await login('test@example.com', 'password123');
 
       expect(result.user.id).toBe('user123');
-      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: {
           OR: [
+            { studentId: 'test@example.com' },
+            { username: 'test@example.com' },
             { email: 'test@example.com' },
-            { username: 'test@example.com' }
           ],
           status: 'ACTIVE'
         },
@@ -345,14 +346,15 @@ describe('auth', () => {
           studentId: true,
           teacherId: true,
           authVersion: true
-        }
+        },
+        take: 5,
       });
       expect(result.accessToken).toBe('mock-token');
       expect(result.firstLoginAchievement).toBeDefined();
     });
 
     it('should login user without first login achievement if not first time', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', mockUser as any);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [mockUser] as any);
       mockBcrypt.compare.mockResolvedValue(true as never);
       setupPrismaMock(mockPrisma, 'userActivity', 'count', 5); // Not first login
       setupPrismaMock(mockPrisma, 'user', 'update', mockUser as any);
@@ -367,14 +369,61 @@ describe('auth', () => {
     });
 
     it('should throw error if user not found', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', null);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [] as any);
 
       await expect(login('nonexistent@example.com', 'password123'))
         .rejects.toThrow('账号或密码不正确，或账号已停用');
     });
 
+    it('logs in with studentId ahead of another account that shares the same email', async () => {
+      const student = {
+        ...mockUser,
+        id: 'student-1',
+        email: 'student@example.com',
+        username: '20260001',
+        studentId: '20260001',
+        role: 'STUDENT',
+      };
+      const teacher = {
+        ...mockUser,
+        id: 'teacher-1',
+        email: '20260001',
+        username: 'teacher',
+        studentId: null,
+        role: 'TEACHER',
+      };
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [teacher, student] as any);
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      setupPrismaMock(mockPrisma, 'userActivity', 'count', 5);
+      setupPrismaMock(mockPrisma, 'user', 'update', student as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'session', 'create', {} as any);
+      mockJwt.sign.mockReturnValue('mock-token' as never);
+
+      const result = await login('20260001', 'password123', undefined, undefined, 'STUDENT');
+
+      expect(result.user.id).toBe('student-1');
+      expect(result.user.role).toBe('STUDENT');
+    });
+
+    it('still logs a teacher in with username when the account has no studentId', async () => {
+      const teacher = { ...mockUser, id: 'teacher-1', username: 'teacher', email: 'teacher@example.com', role: 'TEACHER', studentId: null };
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [teacher] as any);
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      setupPrismaMock(mockPrisma, 'userActivity', 'count', 2);
+      setupPrismaMock(mockPrisma, 'user', 'update', teacher as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'session', 'create', {} as any);
+      mockJwt.sign.mockReturnValue('mock-token' as never);
+
+      const result = await login('teacher', 'password123', undefined, undefined, 'TEACHER');
+
+      expect(result.user.id).toBe('teacher-1');
+      expect(result.user.role).toBe('TEACHER');
+    });
+
     it('should throw error if password is incorrect', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', mockUser as any);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [mockUser] as any);
       mockBcrypt.compare.mockResolvedValue(false as never);
 
       await expect(login('test@example.com', 'wrongpassword'))
@@ -388,7 +437,7 @@ describe('auth', () => {
     });
 
     it('should enforce the shared database failure limit per account and source', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', mockUser as any);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [mockUser] as any);
       setupPrismaMock(mockPrisma, 'userActivity', 'findFirst', null);
       (mockPrisma.userActivity.count as unknown as jest.Mock)
         .mockResolvedValueOnce(8)
@@ -400,7 +449,7 @@ describe('auth', () => {
     });
 
     it('should reject a role mismatch before writing login activity or a session', async () => {
-      setupPrismaMock(mockPrisma, 'user', 'findFirst', mockUser as any);
+      setupPrismaMock(mockPrisma, 'user', 'findMany', [mockUser] as any);
       mockBcrypt.compare.mockResolvedValue(true as never);
 
       await expect(login('test@example.com', 'password123', undefined, undefined, 'TEACHER'))

@@ -469,8 +469,8 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
   // Public pages don't show sidebar. The course home is public for visitors,
   // but keeps the full app chrome once a user is signed in.
   const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
-  // 课程内容与讲解笔记对访客开放（登录后改用完整工作台外壳）
-  const publicCoursePaths = ['/', '/lesson-notes'];
+  // 课程目录对访客开放。讲解笔记和课件文件由中间件按登录与班级校验。
+  const publicCoursePaths = ['/'];
   const isPublicPath = publicPaths.includes(pathname ?? '');
   const isPublicCoursePath = publicCoursePaths.includes(pathname ?? '');
   const renderPublicShell = isPublicPath || (isPublicCoursePath && !user);

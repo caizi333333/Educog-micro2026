@@ -44,10 +44,10 @@ export function PublicSiteHeader({ active, floating = false }: { active: PublicP
           </Link>
           {active !== 'login' && (
             <Link
-              href="/register"
+              href="/login"
               className="hidden min-h-11 items-center rounded-md bg-cyan-300 px-3 text-sm font-semibold text-[#001014] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 sm:inline-flex"
             >
-              学生注册
+              学生登录
             </Link>
           )}
         </span>

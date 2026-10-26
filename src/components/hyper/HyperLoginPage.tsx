@@ -216,7 +216,7 @@ export function HyperLoginPage() {
     }
   };
 
-  const accountLabel = role === 'student' ? '学号 / 邮箱 / 用户名' : role === 'teacher' ? '工号 / 邮箱 / 用户名' : '管理员账号 / 邮箱';
+  const accountLabel = role === 'student' ? '学号或用户名' : role === 'teacher' ? '工号 / 邮箱 / 用户名' : '管理员账号 / 邮箱';
   const submitLabel = role === 'student' ? '进入学习空间' : role === 'teacher' ? '进入教师工作台' : '进入管理后台';
 
   return (
@@ -285,8 +285,8 @@ export function HyperLoginPage() {
               </div>
             </label>
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-300">{accountLabel}</span>
+            <div className="block">
+              <label htmlFor="emailOrUsername" className="mb-2 block text-sm font-medium text-slate-300">{accountLabel}</label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
@@ -302,12 +302,15 @@ export function HyperLoginPage() {
                   autoComplete="username"
                   disabled={!ready || loading}
                   aria-invalid={errorField === 'account'}
-                  aria-describedby={formError ? 'login-error' : undefined}
+                  aria-describedby={[role === 'student' ? 'student-login-hint' : '', formError ? 'login-error' : ''].filter(Boolean).join(' ') || undefined}
                   className="h-11 w-full rounded-md border border-white/[0.1] bg-black/25 pl-10 pr-3 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
-                  placeholder={role === 'student' ? '例如 2023050118' : '输入账号'}
+                  placeholder={role === 'student' ? '学号或用户名均可' : '输入账号'}
                 />
               </div>
-            </label>
+              {role === 'student' && (
+                <p id="student-login-hint" className="mt-2 text-xs leading-5 text-slate-500">学号或用户名均可。账号由任课教师发放。</p>
+              )}
+            </div>
 
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-300">密码</span>
@@ -384,7 +387,7 @@ export function HyperLoginPage() {
               返回平台介绍
             </Link>
             <Link href="/register" className="inline-flex min-h-11 items-center rounded px-1 text-cyan-200 transition hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
-              创建学生账号
+              账号由教师发放
             </Link>
           </div>
         </div>

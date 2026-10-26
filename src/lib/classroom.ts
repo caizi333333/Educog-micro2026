@@ -134,6 +134,23 @@ export function normalizeLearningEventInput(input: LearningEventInput, fallbackT
   };
 }
 
+/**
+ * True when the student has an active enrollment in an active class.
+ * Teachers and admins are not students; callers decide their own access.
+ */
+export async function studentHasActiveEnrollment(userId: string): Promise<boolean> {
+  const enrollment = await prisma.classEnrollment.findFirst({
+    where: {
+      userId,
+      status: 'ACTIVE',
+      role: 'STUDENT',
+      classGroup: { status: 'ACTIVE' },
+    },
+    select: { id: true },
+  });
+  return Boolean(enrollment);
+}
+
 export async function getActiveClassIdForUser(
   userId: string,
   preferredClassId?: string | null,
