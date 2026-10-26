@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ALL_ACHIEVEMENTS, type Achievement } from '@/lib/achievements-v2';
+import { summarizeStudyActivity } from '@/lib/study-activity';
 
 export interface AchievementCheck {
   achievementId: string;
@@ -188,43 +189,11 @@ async function grantAchievementsInTransaction(
 }
 
 async function calculateLearningStreak(userId: string): Promise<number> {
-  const activities = await prisma.userActivity.findMany({
-    where: {
-      userId,
-      action: { in: ['COMPLETE_QUIZ', 'COMPLETE_MODULE', 'COMPLETE_EXPERIMENT', 'UPDATE_PROGRESS'] }
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { createdAt: true }
+  const rows = await prisma.learningProgress.findMany({
+    where: { userId },
+    select: { lastAccessAt: true },
   });
-
-  if (activities.length === 0) return 0;
-
-  const dates = [...new Set(activities.map(a =>
-    new Date(a.createdAt).toDateString()
-  ))];
-
-  const today = new Date().toDateString();
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-
-  if (!dates.includes(today) && !dates.includes(yesterday)) {
-    return 0;
-  }
-
-  let streak = 1;
-  const sortedDates = dates.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
-
-  for (let i = 1; i < sortedDates.length; i++) {
-    const diff = (sortedDates[i - 1]?.getTime() ?? 0) - (sortedDates[i]?.getTime() ?? 0);
-    const daysDiff = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (daysDiff === 1) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  return summarizeStudyActivity(rows.map((row) => row.lastAccessAt)).streakDays;
 }
 
 export async function checkAchievementsForQuiz(userId: string, _score: number, _quizId: string) {

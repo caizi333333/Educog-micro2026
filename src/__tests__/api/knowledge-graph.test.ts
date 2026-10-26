@@ -766,6 +766,10 @@ describe('Knowledge Graph API Routes', () => {
         expect(data.success).toBe(true);
         expect(data.data.totalNodesAccessed).toBeDefined();
         expect(data.data.totalNodesCompleted).toBeDefined();
+        expect(data.data.streakDays).toBe(1);
+        expect(data.data.lastActiveDate).toEqual(expect.any(String));
+        expect(data.data.streakSource).toBe('learningProgress.lastAccessAt');
+        expect(data.data.studyPoints.note).toContain('未满 1 小时');
         expect(Array.isArray(data.data.activePaths)).toBe(true);
         expect(Array.isArray(data.data.achievements)).toBe(true);
       });

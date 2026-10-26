@@ -29,7 +29,7 @@ describe('/api/user/stats', () => {
 
     const prisma = (globalThis as any).__mockPrisma;
     prisma.learningProgress.findMany.mockResolvedValue([
-      { moduleId: 'm1', chapterId: 'c1', progress: 100, timeSpent: 200, completedAt: new Date() },
+      { moduleId: 'm1', chapterId: 'c1', progress: 100, timeSpent: 200, completedAt: new Date(), lastAccessAt: new Date() },
     ]);
     prisma.quizAttempt.findMany.mockResolvedValue([
       { score: 100, totalQuestions: 10, completedAt: new Date() },
@@ -50,6 +50,23 @@ describe('/api/user/stats', () => {
     expect(data.stats).toHaveProperty('modules_completed');
     expect(data.stats).toHaveProperty('experiments_completed');
     expect(data.stats).toHaveProperty('perfect_quiz');
+    expect(data.stats.daily_streak).toBe(1);
+  });
+
+  it('进行中的学习访问计入连续学习，未完成章节不计入完成模块', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: 'user123', email: 'x@y.com' } as any);
+    const prisma = (globalThis as any).__mockPrisma;
+    prisma.learningProgress.findMany.mockResolvedValue([
+      { moduleId: 'm1', chapterId: 'c1', progress: 40, timeSpent: 480, completedAt: null, lastAccessAt: new Date() },
+    ]);
+
+    const req = createMockNextRequest('http://localhost:3000/api/user/stats', {
+      headers: { authorization: 'Bearer valid-token' },
+    }) as unknown as NextRequest;
+    const data = await (await GET(req)).json();
+
+    expect(data.stats.daily_streak).toBe(1);
+    expect(data.stats.modules_completed).toBe(0);
   });
 
   it('应该在无数据时返回 0 值统计', async () => {

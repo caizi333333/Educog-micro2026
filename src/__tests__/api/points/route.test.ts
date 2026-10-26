@@ -19,6 +19,9 @@ jest.mock('@/lib/prisma', () => ({
       findUnique: jest.fn(),
     },
     userActivity: { create: jest.fn() },
+    learningProgress: {
+      aggregate: jest.fn().mockResolvedValue({ _sum: { timeSpent: 480 } }),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -277,6 +280,8 @@ describe('/api/points', () => {
 
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ success: true, totalPoints: 200, dailyPoints: 30 });
+      expect(body.studyPoints.note).toContain('未满 1 小时');
+      expect(body.studyPoints.totalStudySeconds).toBe(480);
       expect(body.transactions[0].metadata).toEqual({ experimentId: 'exp1' });
       expect(body.transactions[1].metadata).toBeNull();
       expect(body.stats[0]).toEqual({ type: 'COMPLETE_EXPERIMENT', totalPoints: 100, count: 2 });

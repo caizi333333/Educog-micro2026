@@ -88,6 +88,8 @@ describe('hyper-data adapter', () => {
       completionRate: 0,
       totalPoints: 0,
       latestAchievement: null,
+      unlockedList: [],
+      studyPointsNote: null,
     });
     expect(normalizeUserStats({})).toMatchObject({
       modulesCompleted: 0,
@@ -96,6 +98,24 @@ describe('hyper-data adapter', () => {
       perfectQuiz: 0,
       codeRuns: 0,
     });
+  });
+
+  it('uses the achievements list for unlock history when stats omit the latest name', () => {
+    const stats = normalizeAchievementStats({
+      stats: { totalAchievements: 14, unlockedAchievements: 3, completionRate: 21, totalPoints: 175 },
+      achievements: [
+        { achievementId: 'first_login', name: '初次登录', unlocked: true, unlockedAt: '2026-10-26T01:00:00.000Z' },
+        { achievementId: 'first_steps', name: '初露锋芒', unlocked: false, unlockedAt: null },
+        { achievementId: 'quizzes_completed_bronze', name: '测验达人 · 铜章', unlocked: true, unlockedAt: '2026-10-26T02:00:00.000Z' },
+      ],
+      studyPoints: { note: '当前累计 8 分钟，未满 1 小时，时长积分尚未入账。' },
+    });
+
+    expect(stats.totalPoints).toBe(175);
+    expect(stats.completionRate).toBe(21);
+    expect(stats.latestAchievement?.name).toBe('测验达人 · 铜章');
+    expect(stats.unlockedList.map((item) => item.name)).toEqual(['测验达人 · 铜章', '初次登录']);
+    expect(stats.studyPointsNote).toContain('时长积分尚未入账');
   });
 
   it('builds knowledge summary from local points and real progress records', () => {

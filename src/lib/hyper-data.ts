@@ -25,15 +25,20 @@ export interface HyperLearningProgressRecord {
   lastAccessAt?: string | Date | null;
 }
 
+export interface HyperUnlockedAchievement {
+  id: string;
+  name: string;
+  unlockedAt: string | null;
+}
+
 export interface HyperAchievementStats {
   totalAchievements: number;
   unlockedAchievements: number;
   completionRate: number;
   totalPoints: number;
-  latestAchievement: {
-    name: string;
-    unlockedAt?: string | Date | null;
-  } | null;
+  latestAchievement: HyperUnlockedAchievement | null;
+  unlockedList: HyperUnlockedAchievement[];
+  studyPointsNote: string | null;
 }
 
 export interface HyperUserStats {
@@ -88,6 +93,8 @@ export const EMPTY_ACHIEVEMENT_STATS: HyperAchievementStats = {
   completionRate: 0,
   totalPoints: 0,
   latestAchievement: null,
+  unlockedList: [],
+  studyPointsNote: null,
 };
 
 export const EMPTY_USER_STATS: HyperUserStats = {
@@ -171,20 +178,49 @@ export function normalizeLearningProgress(payload: unknown): HyperLearningProgre
     }));
 }
 
+function readUnlockedAchievement(value: unknown): HyperUnlockedAchievement | null {
+  if (!value || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  const name = typeof source.name === 'string'
+    ? source.name
+    : typeof source.title === 'string' ? source.title : '';
+  if (!name) return null;
+  const id = typeof source.achievementId === 'string'
+    ? source.achievementId
+    : typeof source.id === 'string' ? source.id : name;
+  const unlockedAt = typeof source.unlockedAt === 'string' ? source.unlockedAt : null;
+  return { id, name, unlockedAt };
+}
+
+function readUnlockedList(payload: Record<string, unknown>): HyperUnlockedAchievement[] {
+  const rows = Array.isArray(payload.achievements) ? payload.achievements : [];
+  const unlocked = rows
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const source = item as Record<string, unknown>;
+      if (source.unlocked !== true && source.isUnlocked !== true) return null;
+      return readUnlockedAchievement(source);
+    })
+    .filter((item): item is HyperUnlockedAchievement => item !== null);
+  unlocked.sort((left, right) => (right.unlockedAt ?? '').localeCompare(left.unlockedAt ?? ''));
+  return unlocked;
+}
+
 export function normalizeAchievementStats(payload: unknown): HyperAchievementStats {
   if (!payload || typeof payload !== 'object') return EMPTY_ACHIEVEMENT_STATS;
-  const stats = (payload as { stats?: unknown }).stats;
+  const record = payload as Record<string, unknown>;
+  const stats = record.stats;
   if (!stats || typeof stats !== 'object') return EMPTY_ACHIEVEMENT_STATS;
 
   const source = stats as Record<string, unknown>;
-  const latest = source.latestAchievement;
-  const latestAchievement =
-    latest && typeof latest === 'object' && typeof (latest as Record<string, unknown>).name === 'string'
-      ? {
-          name: (latest as Record<string, unknown>).name as string,
-          unlockedAt: ((latest as Record<string, unknown>).unlockedAt as string | null | undefined) ?? null,
-        }
-      : null;
+  const unlockedList = readUnlockedList(record);
+  const listedLatest = readUnlockedAchievement(source.latestAchievement);
+  const latestAchievement = unlockedList[0] ?? listedLatest;
+  const studyPoints = record.studyPoints;
+  const studyPointsNote = studyPoints && typeof studyPoints === 'object'
+    && typeof (studyPoints as Record<string, unknown>).note === 'string'
+    ? (studyPoints as Record<string, unknown>).note as string
+    : null;
 
   return {
     totalAchievements: asNumber(source.totalAchievements),
@@ -192,6 +228,10 @@ export function normalizeAchievementStats(payload: unknown): HyperAchievementSta
     completionRate: Math.max(0, Math.min(100, asNumber(source.completionRate))),
     totalPoints: asNumber(source.totalPoints),
     latestAchievement,
+    unlockedList: unlockedList.length > 0
+      ? unlockedList
+      : listedLatest ? [listedLatest] : [],
+    studyPointsNote,
   };
 }
 

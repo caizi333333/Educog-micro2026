@@ -547,9 +547,25 @@ function AchievementPanel({
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.08]">
         <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 transition-all duration-500" style={{ width: `${stats.completionRate}%` }} />
       </div>
-      <div className="mt-3 text-xs leading-5 text-slate-400">
-        最新：{stats.latestAchievement ? stats.latestAchievement.name : '暂无解锁记录'}
-      </div>
+      {stats.unlockedList.length > 0 ? (
+        <ul aria-label="已解锁成就" className="mt-3 space-y-1 text-xs leading-5 text-slate-300">
+          {stats.unlockedList.slice(0, 8).map((item) => (
+            <li key={`${item.id}:${item.unlockedAt ?? ''}`}>{item.name}</li>
+          ))}
+          {stats.unlockedList.length > 8 && (
+            <li className="text-slate-500">另有 {stats.unlockedList.length - 8} 项，见成就页</li>
+          )}
+        </ul>
+      ) : (
+        <div className="mt-3 text-xs leading-5 text-slate-400">
+          {stats.unlockedAchievements > 0
+            ? `已解锁 ${stats.unlockedAchievements} 项，解锁名单未随本次响应返回`
+            : '暂无解锁记录'}
+        </div>
+      )}
+      {stats.studyPointsNote && (
+        <p className="mt-2 text-xs leading-5 text-slate-500">{stats.studyPointsNote}</p>
+      )}
       </>}
     </div>
   );

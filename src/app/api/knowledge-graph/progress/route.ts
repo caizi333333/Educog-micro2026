@@ -3,6 +3,9 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getModuleIdForChapter, parseLearningTaskSteps } from '@/lib/lesson-tasks';
 import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
+import { CAMPUS_TIME_ZONE } from '@/lib/campus-time';
+import { STUDY_STREAK_SOURCE, summarizeStudyActivity } from '@/lib/study-activity';
+import { describeStudyPoints } from '@/lib/study-points';
 
 function getNodeQuizIds(point: KnowledgePoint | undefined): string[] {
   const quizIds = new Set<string>();
@@ -251,22 +254,8 @@ export async function GET(request: NextRequest) {
       timestamp: r.lastAccessAt.toISOString(),
     }));
 
-    // Compute streak: count consecutive days with activity
-    const activityDays = new Set(
-      allProgress.map(p => p.lastAccessAt.toISOString().split('T')[0])
-    );
-    let streakDays = 0;
-    const today = new Date();
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      if (activityDays.has(dateStr)) {
-        streakDays++;
-      } else if (i > 0) {
-        break;
-      }
-    }
+    // Same campus-day rule as /api/user/progress: lastAccessAt, not completion.
+    const study = summarizeStudyActivity(allProgress.map((row) => row.lastAccessAt));
 
     // Achievements from UserAchievement table
     const achievements = await prisma.userAchievement.findMany({
@@ -287,7 +276,11 @@ export async function GET(request: NextRequest) {
       activePaths: activePathData,
       recentActivity,
       achievements: achievements.map(a => a.achievementId),
-      streakDays,
+      streakDays: study.streakDays,
+      lastActiveDate: study.lastActiveDate?.toISOString() ?? null,
+      streakSource: STUDY_STREAK_SOURCE,
+      streakTimeZone: CAMPUS_TIME_ZONE,
+      studyPoints: describeStudyPoints(totalTimeSpent),
       level,
       experiencePoints,
     };

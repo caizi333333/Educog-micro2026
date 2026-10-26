@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { getJwtSecret, getJwtRefreshSecret } from '@/lib/env';
 import { normalizeLearningEventInput, studentHasActiveEnrollment } from '@/lib/classroom';
 import { prisma } from './prisma';
+import { awardDailyLogin } from '@/lib/study-points';
 
 // JWT配置
 const JWT_EXPIRES_IN = '7d';
@@ -492,6 +493,14 @@ export async function login(
           })
         }
       });
+    }
+  }
+
+  if (user.role === 'STUDENT') {
+    try {
+      await awardDailyLogin(user.id, new Date(), 'login');
+    } catch (error) {
+      console.error('每日登录积分入账失败:', error);
     }
   }
 

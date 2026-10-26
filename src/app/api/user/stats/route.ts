@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { campusHour } from '@/lib/campus-time';
+import { summarizeStudyActivity } from '@/lib/study-activity';
 
 function json(body: unknown, status = 200): NextResponse {
   const response = NextResponse.json(body, { status });
   response.headers.set('Cache-Control', 'no-store, max-age=0');
   return response;
-}
-
-function shanghaiDateKey(value: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(value);
-}
-
-function shanghaiHour(value: Date): number {
-  return Number(new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai',
-    hour: '2-digit',
-    hourCycle: 'h23',
-  }).format(value));
 }
 
 export async function GET(request: NextRequest) {
@@ -57,6 +42,7 @@ export async function GET(request: NextRequest) {
           progress: true,
           timeSpent: true,
           completedAt: true,
+          lastAccessAt: true,
         }
       }),
 
@@ -104,13 +90,13 @@ export async function GET(request: NextRequest) {
       // Time-based achievements
       night_study: learningProgress.filter(p => {
         if (!p.completedAt) return false;
-        const hour = shanghaiHour(new Date(p.completedAt));
+        const hour = campusHour(new Date(p.completedAt));
         return hour >= 2 && hour < 5;
       }).length > 0 ? 1 : 0,
       
       morning_study: learningProgress.filter(p => {
         if (!p.completedAt) return false;
-        const hour = shanghaiHour(new Date(p.completedAt));
+        const hour = campusHour(new Date(p.completedAt));
         return hour >= 5 && hour < 8;
       }).length > 0 ? 1 : 0,
       
@@ -150,43 +136,13 @@ interface LearningProgressStats {
   progress: number;
   timeSpent: number;
   completedAt: Date | null;
+  lastAccessAt: Date | null;
 }
 
 function calculateDailyStreak(
   learningProgress: LearningProgressStats[]
 ): number {
-  const dates = [...new Set(learningProgress
-    .filter(p => p.completedAt)
-    .map(p => shanghaiDateKey(new Date(p.completedAt!))))]
-    .sort((a, b) => b.localeCompare(a));
-
-  if (dates.length === 0) return 0;
-
-  const today = shanghaiDateKey(new Date());
-  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  if (dates[0] !== today && dates[0] !== yesterday) return 0;
-
-  let streak = 1;
-  for (let i = 1; i < dates.length; i++) {
-    const currentDate = dates[i - 1];
-    const previousDate = dates[i];
-    if (!currentDate || !previousDate) continue;
-    
-    const diffDays = Math.round(
-      (Date.parse(`${currentDate}T00:00:00Z`) - Date.parse(`${previousDate}T00:00:00Z`))
-      / 86_400_000,
-    );
-    
-    if (diffDays === 1) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  
-  return streak;
+  return summarizeStudyActivity(learningProgress.map((row) => row.lastAccessAt)).streakDays;
 }
 
 

@@ -16,6 +16,7 @@ jest.mock('@/lib/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
       upsert: jest.fn(),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { timeSpent: 120 } }),
     },
     classEnrollment: {
       findFirst: jest.fn(),
@@ -53,15 +54,7 @@ jest.mock('@/lib/auth', () => ({
   verifyToken: jest.fn(),
 }));
 
-jest.mock('@/lib/points-system', () => ({
-  POINTS_CONFIG: {
-    timeSpent: { perMinute: 1, maxDaily: 60 },
-    quiz: { perfect: 10, good: 7, fair: 5 },
-    streak: { daily: 5, weekly: 20, monthly: 50 },
-    COMPLETE_CHAPTER: 20,
-  },
-  calculateTimePoints: jest.fn(),
-}));
+jest.mock('@/lib/points-system', () => jest.requireActual('@/lib/points-system'));
 
 jest.mock('@/lib/learning-completion', () => ({
   DEFAULT_COMPLETION_CONFIG: {
@@ -79,13 +72,11 @@ jest.mock('@/lib/achievement-checker', () => ({
 
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { calculateTimePoints } from '@/lib/points-system';
 import { isChapterCompleted, calculateCompletionPercentage } from '@/lib/learning-completion';
 import { checkAchievementsForLearning } from '@/lib/achievement-checker';
 
 const mockPrisma = jest.mocked(prisma);
 const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
-const mockCalculateTimePoints = calculateTimePoints as jest.MockedFunction<typeof calculateTimePoints>;
 const mockIsChapterCompleted = isChapterCompleted as jest.MockedFunction<typeof isChapterCompleted>;
 const mockCalculateCompletionPercentage = calculateCompletionPercentage as jest.MockedFunction<typeof calculateCompletionPercentage>;
 const mockCheckAchievementsForLearning = checkAchievementsForLearning as jest.MockedFunction<typeof checkAchievementsForLearning>;
@@ -184,7 +175,6 @@ describe('Learning Progress API Routes', () => {
 
       setupPrismaMock(mockPrisma, 'learningProgress', 'findUnique', null);
       setupPrismaMock(mockPrisma, 'learningProgress', 'create', mockProgress);
-      mockCalculateTimePoints.mockReturnValue(10);
       mockIsChapterCompleted.mockReturnValue(false);
       mockCalculateCompletionPercentage.mockReturnValue(60);
       mockCheckAchievementsForLearning.mockResolvedValue([]);
@@ -255,7 +245,6 @@ describe('Learning Progress API Routes', () => {
 
       setupPrismaMock(mockPrisma, 'learningProgress', 'findUnique', existingProgress);
       setupPrismaMock(mockPrisma, 'learningProgress', 'update', updatedProgress);
-      mockCalculateTimePoints.mockReturnValue(10);
       mockIsChapterCompleted.mockReturnValue(false);
       mockCalculateCompletionPercentage.mockReturnValue(80);
       mockCheckAchievementsForLearning.mockResolvedValue([]);
@@ -320,7 +309,6 @@ describe('Learning Progress API Routes', () => {
         id: 'user-1',
         totalPoints: 120,
       });
-      mockCalculateTimePoints.mockReturnValue(20);
       mockIsChapterCompleted.mockReturnValue(true);
       mockCalculateCompletionPercentage.mockReturnValue(100);
 
@@ -552,7 +540,7 @@ describe('Learning Progress API Routes', () => {
         timeSpent: 1200,
         startedAt: new Date(),
         completedAt,
-        lastAccessAt: new Date(),
+        lastAccessAt: new Date(Date.now() - 120_000),
         notes: null,
         bookmarks: null,
       };
@@ -573,10 +561,14 @@ describe('Learning Progress API Routes', () => {
       expect(response.status).toBe(200);
       expect(data.isCompleted).toBe(true);
       expect(data.pointsEarned).toBe(0);
+      expect(data.studyPoints.note).toContain('未满 1 小时');
       expect(mockPrisma.learningProgress.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'COMPLETED', completedAt }),
       }));
-      expect(mockPrisma.userPointsTransaction.create).not.toHaveBeenCalled();
+      const pointTypes = (mockPrisma.userPointsTransaction.create as jest.Mock).mock.calls
+        .map((call) => call[0].data.type);
+      expect(pointTypes).not.toContain('COMPLETE_CHAPTER');
+      expect(pointTypes).toContain('DAILY_LOGIN');
     });
 
     it('应该在并发完成奖励重复时保持成功且不重复计分', async () => {
