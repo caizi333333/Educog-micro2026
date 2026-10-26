@@ -6,6 +6,7 @@ import { GET as ProfileGET, PUT as ProfilePUT } from '@/app/api/user/profile/rou
 import { GET as UsersGET, POST as UsersPOST } from '@/app/api/users/route';
 import { DELETE as UserDELETE, GET as UserGET, PUT as UserPUT } from '@/app/api/users/[id]/route';
 import { POST as AvatarPOST } from '@/app/api/upload/avatar/route';
+import { PUBLIC_REGISTRATION_CLOSED_MESSAGE } from '@/lib/auth-registration';
 import { setupPrismaMock, createMockNextRequest, createMockJWTPayload, setupAuthMock } from '../utils/test-mocks';
 
 
@@ -221,7 +222,7 @@ describe('User Management API Routes', () => {
         const data = await response.json();
 
         expect(response.status).toBe(403);
-        expect(data.error).toBe('已关闭自助注册，请联系任课教师领取账号');
+        expect(data.error).toBe(PUBLIC_REGISTRATION_CLOSED_MESSAGE);
         expect(mockRegister).not.toHaveBeenCalled();
       });
     });
