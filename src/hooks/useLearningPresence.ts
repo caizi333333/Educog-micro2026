@@ -9,7 +9,7 @@ import {
   PRESENCE_CLIENT_FLUSH_MS,
   shouldSendPresence,
   type PresenceEventType,
-} from '@/lib/learning-presence';
+} from '@/lib/learning-presence-shared';
 
 export type LearningPresenceTarget = {
   eventType: PresenceEventType;
