@@ -7,9 +7,11 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://placehold.co",
   "font-src 'self' data:",
   "connect-src 'self'",
-  "media-src 'self' data: blob:",
+  // Chapter 5 classroom clips play from the R2 custom domain. The kept
+  // CodeBrick and Bilibili players are iframed on that same page.
+  "media-src 'self' data: blob: https://videos.sunyancai.top",
   "worker-src 'self' blob:",
-  "frame-src 'self' blob:",
+  "frame-src 'self' blob: https://player.bilibili.com https://www.codebrick.tech",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
