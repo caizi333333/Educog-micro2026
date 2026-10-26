@@ -141,6 +141,73 @@ export function readEmbeddedSection(frame: FrameLike | null | undefined): string
   }
 }
 
+const LESSON_HASH = /^#[\w=%.~-]{1,160}$/;
+const LESSON_SECTION_ID = /^[\w=%.~-]{1,64}$/;
+
+/**
+ * Courseware file that owns an in-page anchor.
+ * `home` is shared by more than one unit, so it does not pick a file.
+ */
+export function lessonFileForSection(sectionId: string): string | null {
+  const id = sectionId.replace(/^#/, '').trim();
+  if (!id || id === 'home') return null;
+  if (Object.prototype.hasOwnProperty.call(U5_SECTION_POINTS, id)) return 'u5-overview';
+  if (Object.prototype.hasOwnProperty.call(U3_SECTION_POINTS, id)) return 'u3-overview';
+  if (Object.prototype.hasOwnProperty.call(U4_PANE_POINTS, id)) return 'u4-classroom';
+  return null;
+}
+
+export interface LessonDeepLink {
+  file: string;
+  hash: string;
+}
+
+/**
+ * Where /lesson-notes should open.
+ * A unit-5 anchor such as `#int-2` opens the overview pane students actually
+ * watch. An alias note (for example `u3-jump`) keeps its own hash.
+ * A hash that belongs to a different note is not attached to the wrong file.
+ */
+export function resolveLessonDeepLink(input: {
+  note: string | null;
+  unitId: number | null;
+  hash: string;
+  alias: Readonly<Record<string, string>>;
+  notesInUnit: (unitId: number) => readonly string[];
+  isKnownNote: (file: string) => boolean;
+}): LessonDeepLink | null {
+  const hash = LESSON_HASH.test(input.hash) ? input.hash : '';
+  const sectionFile = lessonFileForSection(hash.slice(1));
+  const note = input.note?.trim() || null;
+
+  if (note && (input.isKnownNote(note) || Object.prototype.hasOwnProperty.call(input.alias, note))) {
+    if (Object.prototype.hasOwnProperty.call(input.alias, note)) return { file: note, hash: '' };
+    if (sectionFile && sectionFile !== note) return { file: note, hash: '' };
+    return { file: note, hash };
+  }
+
+  if (input.unitId != null) {
+    const files = input.notesInUnit(input.unitId);
+    const first = files[0];
+    if (!first) return null;
+    if (sectionFile && files.includes(sectionFile)) return { file: sectionFile, hash };
+    return { file: first, hash: '' };
+  }
+
+  if (sectionFile && input.isKnownNote(sectionFile)) return { file: sectionFile, hash };
+  return null;
+}
+
+/** Standalone courseware URL for the pane the shell is showing. */
+export function standaloneCoursewareHref(base: string, file: string, sectionId: string): string {
+  const path = `${base}/${file}.html`;
+  const id = sectionId.trim();
+  if (!LESSON_SECTION_ID.test(id)) return path;
+  const owner = lessonFileForSection(id);
+  if (owner && owner !== file) return path;
+  return `${path}#${id}`;
+}
+
 export function describeLearningTarget(targetId: string): string {
   if (targetId === 'session') return '在线心跳';
   if (targetId.startsWith('/')) return `页面 ${targetId}`;

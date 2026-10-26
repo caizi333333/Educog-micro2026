@@ -1,6 +1,12 @@
 import { COMPREHENSIVE_QUIZ_ID } from '@/lib/diagnostic-attempt';
 import { ADDRESSING_QUIZ_ID, ADDRESSING_TASK_PRESET } from '@/lib/lesson-tasks';
-import { decideTaskFocus, quizIdsFromSteps, remediationQuizLink } from '@/lib/task-focus';
+import {
+  decideTaskFocus,
+  defaultPathEmptyCopy,
+  quizIdsFromSteps,
+  remediationQuizLink,
+  tasksPendingIntro,
+} from '@/lib/task-focus';
 
 const comprehensiveWeak = [
   '1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3',
@@ -37,6 +43,15 @@ describe('task focus for TEST0872001', () => {
     expect(decision.diagnosticLeads).toBe(false);
     expect(decision.defaultPathId).toBe('path-addressing');
     expect(decision.pinnedPathIds).toEqual([]);
+  });
+
+  it('does not call an empty task list empty while the comprehensive receipt still leads', () => {
+    expect(tasksPendingIntro(1, true)).toBeNull();
+    expect(tasksPendingIntro(0, true)).toBe('当前待办是上方的测评补学，没有另外布置的实验或学习路径。');
+    expect(tasksPendingIntro(0, false)).toBe('当前没有待处理的任务。');
+    expect(defaultPathEmptyCopy(true, 1)).toContain('指定任务保留原进度');
+    expect(defaultPathEmptyCopy(true, 0)).toBe('默认补学在上方。当前没有另外进行中的学习路径。');
+    expect(defaultPathEmptyCopy(true, 0)).not.toContain('下一栏');
   });
 
   it('keeps a comprehensive plan on the comprehensive paper even if a weak atom is 3.1', () => {

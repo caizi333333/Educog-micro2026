@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { computeStep } from '@/components/onboarding/NextStepBanner';
 import { buildTaskNavigationReceipt, requiresTaskOpenReceiptBeforeNavigation } from '@/lib/lesson-tasks';
+import { defaultPathEmptyCopy, tasksPendingIntro } from '@/lib/task-focus';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
@@ -794,7 +795,7 @@ export default function MyTasksPage(): JSX.Element {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">我的学习任务</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               老师布置给你的实验和学习路径会自动出现在这里。时间按{CAMPUS_TIME_LABEL}（Asia/Shanghai）显示。
-              {!loading && data && totalCount === 0 && '当前没有待处理的任务。'}
+              {!loading && data ? tasksPendingIntro(totalCount, Boolean(diagnosticFocus?.leads)) : null}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -908,9 +909,7 @@ export default function MyTasksPage(): JSX.Element {
               )}
               {defaultActivePaths.length === 0 ? (
                 <div className="rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm leading-6 text-slate-500">
-                  {diagnosticFocus?.leads
-                    ? '默认补学在上方。指定任务保留原进度，并在下一栏标明。'
-                    : '当前没有进行中的学习路径。可先完成下方课前实验，或回看最近完成任务。'}
+                  {defaultPathEmptyCopy(Boolean(diagnosticFocus?.leads), pinnedActivePaths.length)}
                 </div>
               ) : renderActivePathCards(defaultActivePaths)}
             </section>

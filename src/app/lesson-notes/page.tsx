@@ -20,7 +20,8 @@
 // 讲解页里指向别篇的链接（含跨单元，如第 3 章指向第 2 章的 P0~P3 口），嵌在这里时
 // 由讲解页 postMessage {type:'lesson-note:open', file, hash} 交给外壳切单元、切页签，
 // 不在 iframe 里再套一层讲解页。只收同源消息，只认下面登记过的篇目。
-// 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=3 打开某单元第一篇。
+// 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=5#int-2 打开第 5 章总览的那一节。
+// 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,7 +29,12 @@ import Link from 'next/link';
 import { ExternalLink, NotebookPen, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
-import { readEmbeddedSection, resolveLessonVisit } from '@/lib/classroom-sections';
+import {
+  readEmbeddedSection,
+  resolveLessonDeepLink,
+  resolveLessonVisit,
+  standaloneCoursewareHref,
+} from '@/lib/classroom-sections';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 
@@ -169,6 +175,8 @@ export default function LessonNotesPage(): React.JSX.Element {
   const [lastInUnit, setLastInUnit] = useState<Readonly<Record<number, string>>>({});
   const [sectionId, setSectionId] = useState('');
   const frames = useRef(new Map<string, HTMLIFrameElement>());
+  const activeFileRef = useRef(activeFile);
+  activeFileRef.current = activeFile;
 
   const openNote = useCallback((rawFile: string, rawHash = ''): void => {
     const aliasHash = NOTE_ALIAS[rawFile];
@@ -176,6 +184,8 @@ export default function LessonNotesPage(): React.JSX.Element {
     const hash = aliasHash ?? rawHash;
     const hit = findNote(file);
     if (!hit) return;
+    const sectionFromHash = hash.startsWith('#') ? hash.slice(1) : '';
+    if (/^[\w=%.~-]{1,64}$/.test(sectionFromHash)) setSectionId(sectionFromHash);
     setActiveFile(file);
     setLastInUnit((prev) => (prev[hit.unit.id] === file ? prev : { ...prev, [hit.unit.id]: file }));
     if (mounted.includes(file)) {
@@ -231,16 +241,23 @@ export default function LessonNotesPage(): React.JSX.Element {
     };
   }, [activeFile, mounted]);
 
-  // 深链：?note=u3-jump 或 ?unit=3，只在进页时读一次
+  // 深链：?note=、?unit= 和页内 hash（如 #int-2）只在进页时读一次
   const deepLinkRead = useRef(false);
   useEffect(() => {
     if (deepLinkRead.current) return;
     deepLinkRead.current = true;
     const params = new URLSearchParams(window.location.search);
-    const note = params.get('note');
-    const unit = LESSON_UNITS.find((item) => String(item.id) === params.get('unit'));
-    if (note && (findNote(note) || NOTE_ALIAS[note])) openNote(note);
-    else if (unit) openNote(unit.notes[0]!.file);
+    const unitParam = params.get('unit');
+    const unitId = unitParam != null && /^\d+$/.test(unitParam) ? Number(unitParam) : null;
+    const target = resolveLessonDeepLink({
+      note: params.get('note'),
+      unitId,
+      hash: window.location.hash,
+      alias: NOTE_ALIAS,
+      notesInUnit: (id) => LESSON_UNITS.find((item) => item.id === id)?.notes.map((item) => item.file) ?? [],
+      isKnownNote: (file) => Boolean(findNote(file)),
+    });
+    if (target) openNote(target.file, target.hash);
   }, [openNote]);
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
@@ -412,6 +429,11 @@ export default function LessonNotesPage(): React.JSX.Element {
                   src={`${unit.base}/${note.file}.html${initialHash[note.file] ?? ''}`}
                   title={`${note.title} · 讲解笔记`}
                   loading="lazy"
+                  onLoad={() => {
+                    if (activeFileRef.current !== note.file) return;
+                    const next = readEmbeddedSection(frames.current.get(note.file));
+                    setSectionId((previous) => (previous === next ? previous : next));
+                  }}
                   className="block h-[min(78dvh,860px)] w-full border-0"
                 />
               </div>
@@ -426,7 +448,7 @@ export default function LessonNotesPage(): React.JSX.Element {
               图表　<b className="font-semibold text-slate-300">{activeUnit.figures}</b>
             </span>
             <a
-              href={`${activeUnit.base}/${active.file}.html`}
+              href={standaloneCoursewareHref(activeUnit.base, active.file, sectionId)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex min-h-11 items-center gap-1.5 rounded px-1 text-cyan-200 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"

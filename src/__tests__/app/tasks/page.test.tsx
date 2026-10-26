@@ -614,5 +614,39 @@ describe('MyTasksPage', () => {
     expect(screen.getByRole('progressbar', { name: '3.1 寻址方式专项学习任务完成进度' })).toHaveAttribute('aria-valuetext', '0/6 步，完成 0%');
     expect(screen.getByText('本指定任务的当前步骤')).toBeInTheDocument();
     expect(screen.queryByText('当前只需完成')).not.toBeInTheDocument();
+    expect(screen.queryByText('当前没有待处理的任务。')).not.toBeInTheDocument();
+    expect(screen.getByText('默认补学在上方。指定任务保留原进度，并在下一栏标明。')).toBeInTheDocument();
+  });
+
+  it('does not tell a student with only a comprehensive receipt that nothing is pending', async () => {
+    const weakAreas = ['1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3'];
+    mockFetch.mockResolvedValue(response(200, {
+      success: true,
+      data: {
+        assignedExperiments: [],
+        pausedPaths: [],
+        completedPaths: [],
+        activePaths: [],
+        diagnosticFocus: {
+          leads: true,
+          quizId: 'comprehensive-assessment',
+          assessmentMode: 'initial',
+          weakAreas,
+          score: 20,
+          label: '默认口径：最近一次综合测评「综合测评」20分，交卷于 2026/10/27 01:02:53（Asia/Shanghai）',
+          href: '/weak-nodes',
+          learningPathHref: '/learning-path',
+        },
+        counts: { assignedExperiments: 0, activePaths: 0, completedPaths: 0, pausedPaths: 0 },
+      },
+    }));
+
+    render(<MyTasksPage />);
+
+    expect(await screen.findByRole('heading', { name: '你有 12 个薄弱点等着补' })).toBeInTheDocument();
+    expect(screen.getByText(/当前待办是上方的测评补学/)).toBeInTheDocument();
+    expect(screen.queryByText('当前没有待处理的任务。')).not.toBeInTheDocument();
+    expect(screen.getByText('默认补学在上方。当前没有另外进行中的学习路径。')).toBeInTheDocument();
+    expect(screen.queryByText(/下一栏/)).not.toBeInTheDocument();
   });
 });

@@ -174,4 +174,36 @@ describe('AchievementsPage student access boundary', () => {
     expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('0/55');
     expect(screen.getByText('规则总数').parentElement).toHaveTextContent('55');
   });
+
+  it('makes 3/55 add up with the visible unearned count and the hidden remainder', () => {
+    const visible = [
+      { id: 'first-login', title: '初次登录', description: '第一次进入', icon: '🚪', category: 'progress', criteria: { type: 'daily_streak', target: 1 }, points: 10, rarity: 'common' },
+      { id: 'quiz-bronze', title: '测验达人', description: '完成一次测评', icon: '📝', category: 'quiz', criteria: { type: 'quizzes_completed', target: 1 }, points: 20, rarity: 'common' },
+      { id: 'streak', title: '连续学习', description: '连续三天', icon: '🔥', category: 'progress', criteria: { type: 'daily_streak', target: 3 }, points: 30, rarity: 'common' },
+      { id: 'lab-start', title: '实验入门', description: '完成一次实验', icon: '🔬', category: 'experiment', criteria: { type: 'experiments_completed', target: 1 }, points: 20, rarity: 'common' },
+    ];
+    const unlockedIds = new Set(['first-login', 'quiz-bronze', 'streak']);
+    mockUseAchievements.mockReturnValue(achievementHookResult({
+      userProgress: [...unlockedIds].map((achievementId) => ({ achievementId, progress: 100, unlocked: true })),
+      getFilteredAchievements: (category: string) => visible.filter((item) => category === 'all' || item.category === category),
+      calculateStats: () => ({
+        unlockedCount: 3,
+        totalCount: 55,
+        totalPoints: 60,
+        byTier: { bronze: 3, silver: 0, gold: 0, platinum: 0 },
+        completionPercentage: 5,
+      }),
+    }));
+
+    render(<AchievementsPage />);
+
+    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('3/55');
+    expect(screen.getByRole('button', { name: /已获得/ })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: /未获得/ })).toHaveTextContent('1');
+    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('55');
+    expect(screen.getByText(/已解锁 3、未获得 1、隐藏 51，合计规则总数 55/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /学习进度/ })).toHaveTextContent('2/2');
+    expect(screen.getByRole('button', { name: /实验实践/ })).toHaveTextContent('0/1');
+    expect(screen.getByRole('button', { name: /在线测评/ })).toHaveTextContent('1/1');
+  });
 });

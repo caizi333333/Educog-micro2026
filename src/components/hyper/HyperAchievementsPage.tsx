@@ -316,18 +316,21 @@ export function HyperAchievementsPage() {
   const visibleAllAchievements = getFilteredAchievements('all');
   const visibleAllCount = visibleAllAchievements.length;
   const visibleUnlockedCount = visibleAllAchievements.filter((item) => progressFor(userProgress, item.id)?.unlocked).length;
+  const visibleLockedCount = Math.max(0, visibleAllCount - visibleUnlockedCount);
   const concealedCount = Math.max(0, stats.totalCount - visibleAllCount);
+  const wallRatioAddsUp = stats.unlockedCount === visibleUnlockedCount
+    && stats.unlockedCount + visibleLockedCount + concealedCount === stats.totalCount;
   const categoryCounts = useMemo(() => {
     const counts: Record<string, { total: number; earned: number }> = {};
     Object.keys(categoryMeta).forEach((category) => {
-      const list = ACHIEVEMENTS_V2.filter((item) => item.category === category);
+      const list = getFilteredAchievements(category);
       counts[category] = {
         total: list.length,
         earned: list.filter((item) => progressFor(userProgress, item.id)?.unlocked).length,
       };
     });
     return counts;
-  }, [userProgress]);
+  }, [getFilteredAchievements, userProgress]);
 
   const achievements = useMemo(() => {
     let list = active === 'all' || active === 'earned' || active === 'locked'
@@ -466,7 +469,7 @@ export function HyperAchievementsPage() {
           {[
             ['all', LayoutGrid, '全部可见', `${stats.unlockedCount}/${stats.totalCount}`],
             ['earned', Check, '已获得', String(stats.unlockedCount)],
-            ['locked', Lock, '未获得', String(Math.max(0, visibleAllCount - visibleUnlockedCount))],
+            ['locked', Lock, '未获得', String(visibleLockedCount)],
           ].map(([id, Icon, label, count]) => (
             <button
               key={id as string}
@@ -486,7 +489,9 @@ export function HyperAchievementsPage() {
 
           {concealedCount > 0 && (
             <p className="mt-3 px-2 text-[10px] leading-4 text-slate-500">
-              当前展示 {visibleAllCount} 项；另有 {concealedCount} 项隐藏成就在满足显示条件后出现。
+              {wallRatioAddsUp
+                ? `已解锁 ${stats.unlockedCount}、未获得 ${visibleLockedCount}、隐藏 ${concealedCount}，合计规则总数 ${stats.totalCount}。隐藏成就不出现在「未获得」里。`
+                : `当前展示 ${visibleAllCount} 项；另有 ${concealedCount} 项隐藏成就在满足显示条件后出现。`}
             </p>
           )}
 
