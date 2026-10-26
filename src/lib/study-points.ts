@@ -5,6 +5,9 @@
  * first accepted study increment that day. TIME_MILESTONE stays 30 points per
  * completed hour of summed learningProgress.timeSpent. Minutes under an hour
  * are recorded as study time and explained; they do not mint a time row.
+ * The note uses the same nearest-minute rounding as the student "4m" labels.
+ * dailyLoginAwarded follows today's campus-day ledger row, including a row
+ * written by an earlier login.
  */
 import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
@@ -40,6 +43,16 @@ function studyPointsId(value: string): string {
   return `pt_${createHash('sha256').update(value).digest('hex').slice(0, 28)}`;
 }
 
+/** Nearest minute, matching analytics and the home duration badge under one hour. */
+export function displayedStudyMinutes(totalSeconds: number): number {
+  const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, totalSeconds) : 0;
+  return Math.round(safeSeconds / 60);
+}
+
+export function dailyLoginLedgerId(userId: string, now: Date): string {
+  return studyPointsId(`${userId}:DAILY_LOGIN:${campusDateKey(now)}`);
+}
+
 export function describeStudyPoints(totalStudySeconds: number): StudyPointsStatus {
   const safeSeconds = Number.isFinite(totalStudySeconds) ? Math.max(0, Math.floor(totalStudySeconds)) : 0;
   const completedMilestones = Math.floor(safeSeconds / STUDY_MILESTONE_SECONDS);
@@ -47,12 +60,15 @@ export function describeStudyPoints(totalStudySeconds: number): StudyPointsStatu
   const secondsUntilNextMilestone = remainder === 0 && completedMilestones > 0
     ? STUDY_MILESTONE_SECONDS
     : STUDY_MILESTONE_SECONDS - remainder;
-  const minutes = Math.floor(safeSeconds / 60);
+  const minutes = displayedStudyMinutes(safeSeconds);
   const loginPoints = POINTS_CONFIG.DAILY_LOGIN;
   const hourPoints = POINTS_CONFIG.TIME_MILESTONE;
   const remainMinutes = Math.max(1, Math.ceil(secondsUntilNextMilestone / 60));
+  const underHourClause = minutes >= 60
+    ? '当前累计接近 1 小时，未满 3600 秒，时长积分尚未入账。'
+    : `当前累计 ${minutes} 分钟，未满 1 小时，时长积分尚未入账。`;
   const note = completedMilestones === 0
-    ? `每日首次登录或学习 +${loginPoints} 分（北京时间，每天一次）。学习时长按满 1 小时 +${hourPoints} 分；当前累计 ${minutes} 分钟，未满 1 小时，时长积分尚未入账。`
+    ? `每日首次登录或学习 +${loginPoints} 分（北京时间，每天一次）。学习时长按满 1 小时 +${hourPoints} 分；${underHourClause}`
     : `每日首次登录或学习 +${loginPoints} 分（北京时间，每天一次）。学习时长已满 ${completedMilestones} 小时，之后每满 1 小时 +${hourPoints} 分，距下一小时还有 ${remainMinutes} 分钟。`;
 
   return {
@@ -79,7 +95,7 @@ export async function awardDailyLogin(
     await prisma.$transaction([
       prisma.userPointsTransaction.create({
         data: {
-          id: studyPointsId(`${userId}:DAILY_LOGIN:${dateKey}`),
+          id: dailyLoginLedgerId(userId, now),
           userId,
           points,
           type: 'DAILY_LOGIN',
@@ -141,6 +157,29 @@ export async function awardTimeMilestones(
   return awarded;
 }
 
+/**
+ * Mark today's campus-day login as awarded when the ledger row already exists.
+ * A failed lookup leaves the flag false so a points-table blip does not fail
+ * the surrounding progress response.
+ */
+export async function applyDailyLoginLedger(
+  status: StudyPointsStatus,
+  userId: string,
+  now: Date,
+): Promise<StudyPointsStatus> {
+  if (status.dailyLoginAwarded) return status;
+  try {
+    const existing = await prisma.userPointsTransaction.findUnique({
+      where: { id: dailyLoginLedgerId(userId, now) },
+      select: { id: true },
+    });
+    return existing ? { ...status, dailyLoginAwarded: true } : status;
+  } catch (error) {
+    console.error('读取每日登录积分失败:', error);
+    return status;
+  }
+}
+
 export async function recordStudySessionPoints(input: {
   userId: string;
   role: string;
@@ -159,7 +198,9 @@ export async function recordStudySessionPoints(input: {
   }
 
   const status = describeStudyPoints(totalStudySeconds);
-  if (input.role !== 'STUDENT' || input.acceptedTimeIncrement <= 0) return status;
+  if (input.role !== 'STUDENT' || input.acceptedTimeIncrement <= 0) {
+    return applyDailyLoginLedger(status, input.userId, input.now);
+  }
 
   try {
     const daily = await awardDailyLogin(input.userId, input.now, 'learning-progress');
@@ -167,11 +208,11 @@ export async function recordStudySessionPoints(input: {
     const timeMilestoneAwarded = await awardTimeMilestones(input.userId, previousTotal, totalStudySeconds);
     return {
       ...status,
-      dailyLoginAwarded: daily.awarded,
+      dailyLoginAwarded: daily.awarded || daily.duplicate,
       timeMilestoneAwarded,
     };
   } catch (error) {
     console.error('学习积分入账失败:', error);
-    return status;
+    return applyDailyLoginLedger(status, input.userId, input.now);
   }
 }

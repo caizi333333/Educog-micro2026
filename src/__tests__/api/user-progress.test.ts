@@ -38,6 +38,7 @@ describe('/api/user/progress', () => {
       _count: 0,
     } as any);
     (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.userPointsTransaction.findUnique as jest.Mock).mockResolvedValue(null);
   });
 
   it('应从服务端学习与测评记录派生进度', async () => {
@@ -100,7 +101,27 @@ describe('/api/user/progress', () => {
     expect(data.streakDays).toBe(1);
     expect(data.lastActiveDate).toBe(accessedAt.toISOString());
     expect(data.studyPoints.totalStudySeconds).toBe(480);
+    expect(data.studyPoints.note).toContain('当前累计 8 分钟');
     expect(data.studyPoints.note).toContain('时长积分尚未入账');
+    expect(data.studyPoints.dailyLoginAwarded).toBe(false);
+  });
+
+  it('progress.studyPoints.dailyLoginAwarded 与当日 DAILY_LOGIN 账本行一致', async () => {
+    (mockPrisma.learningProgress.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { timeSpent: 210 },
+      _max: { completedAt: null },
+      _count: 1,
+    } as any);
+    (mockPrisma.userPointsTransaction.findUnique as jest.Mock).mockResolvedValue({ id: 'pt_daily' });
+
+    const data = await (await GET(request())).json();
+
+    expect(data.studyPoints.dailyLoginAwarded).toBe(true);
+    expect(data.studyPoints.note).toContain('当前累计 4 分钟');
+    expect(mockPrisma.userPointsTransaction.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: expect.stringMatching(/^pt_/) },
+      select: { id: true },
+    }));
   });
 
   it('无学习记录时应返回明确的零值与数据不足状态', async () => {

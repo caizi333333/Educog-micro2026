@@ -39,6 +39,7 @@ jest.mock('@/lib/prisma', () => ({
     userPointsTransaction: {
       createMany: jest.fn(),
       create: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue(null),
     },
     userActivity: {
       create: jest.fn(),

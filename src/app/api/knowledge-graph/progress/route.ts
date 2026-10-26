@@ -5,7 +5,7 @@ import { getModuleIdForChapter, parseLearningTaskSteps } from '@/lib/lesson-task
 import { knowledgePoints, type KnowledgePoint } from '@/lib/knowledge-points';
 import { CAMPUS_TIME_ZONE } from '@/lib/campus-time';
 import { STUDY_STREAK_SOURCE, summarizeStudyActivity } from '@/lib/study-activity';
-import { describeStudyPoints } from '@/lib/study-points';
+import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
 
 function getNodeQuizIds(point: KnowledgePoint | undefined): string[] {
   const quizIds = new Set<string>();
@@ -280,7 +280,7 @@ export async function GET(request: NextRequest) {
       lastActiveDate: study.lastActiveDate?.toISOString() ?? null,
       streakSource: STUDY_STREAK_SOURCE,
       streakTimeZone: CAMPUS_TIME_ZONE,
-      studyPoints: describeStudyPoints(totalTimeSpent),
+      studyPoints: await applyDailyLoginLedger(describeStudyPoints(totalTimeSpent), userId, new Date()),
       level,
       experiencePoints,
     };

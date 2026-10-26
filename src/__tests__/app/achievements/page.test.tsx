@@ -158,7 +158,7 @@ describe('AchievementsPage student access boundary', () => {
       getFilteredAchievements: () => [quizAchievement],
       calculateStats: () => ({
         unlockedCount: 0,
-        totalCount: 1,
+        totalCount: 55,
         totalPoints: 0,
         byTier: { bronze: 0, silver: 0, gold: 0, platinum: 0 },
         completionPercentage: 0,
@@ -171,5 +171,7 @@ describe('AchievementsPage student access boundary', () => {
     expect(screen.getAllByText('完成 1 次专项测评')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /进入专项测评/ })).toHaveAttribute('href', '/quiz');
     expect(screen.getByRole('button', { name: /全部可见/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('0/55');
+    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('55');
   });
 });
