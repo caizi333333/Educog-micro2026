@@ -12,6 +12,7 @@ jest.mock('@/lib/prisma', () => ({
     learningProgress: { findMany: jest.fn() },
     user: { findUnique: jest.fn(), findMany: jest.fn() },
     userExperiment: { findMany: jest.fn() },
+    userActivity: { findMany: jest.fn() },
     classEnrollment: { findMany: jest.fn() },
   },
 }));
@@ -24,6 +25,7 @@ describe('GET /api/analytics/overview', () => {
     jest.clearAllMocks();
     mockVerifyToken.mockResolvedValue({ userId: 'student-1', email: 's@example.com', role: 'STUDENT' });
     (mockPrisma.learningProgress.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.userActivity.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       totalPoints: 0,
       achievements: [],
@@ -71,5 +73,39 @@ describe('GET /api/analytics/overview', () => {
     expect(data.data.summary.totalAchievements).toBe(1);
     expect(data.sampleSize.achievementRecords).toBe(1);
     expect(data.sampleSize.achievementRules).toBe(ALL_ACHIEVEMENTS.length);
+  });
+
+  it('returns the same quiz receipts the diagnostic selector reads', async () => {
+    (mockPrisma.quizAttempt.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.userActivity.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'comprehensive',
+        createdAt: new Date('2026-10-26T17:02:53.000Z'),
+        details: JSON.stringify({
+          quizId: 'comprehensive-assessment',
+          score: 20,
+          weakAreas: ['1.4.1'],
+          scoresByKA: { '1.1.1': { score: 16 } },
+        }),
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/analytics/overview', {
+      headers: { authorization: 'Bearer valid-token' },
+    }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.userActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: 'student-1', action: 'COMPLETE_QUIZ' }),
+      take: 50,
+    }));
+    expect(data.data.diagnosticActivities).toEqual([
+      expect.objectContaining({
+        id: 'comprehensive',
+        createdAt: '2026-10-26T17:02:53.000Z',
+        details: expect.stringContaining('"scoresByKA"'),
+      }),
+    ]);
   });
 });

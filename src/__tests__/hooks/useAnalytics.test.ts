@@ -226,17 +226,82 @@ describe('useAnalytics', () => {
     const timers = mastery.find((item) => item.topic === '定时器/计数器');
     const frontier = mastery.find((item) => item.topic === '前沿应用');
 
-    expect(interrupts?.mastery).toBe(80);
-    expect(interrupts?.details).toHaveProperty('89C51中断系统', 80);
-    expect(timers?.mastery).toBe(60);
-    expect(timers?.details).toHaveProperty('定时器基础', 60);
+    expect(interrupts?.chapterProgress).toBe(80);
+    expect(interrupts?.mastery).toBeNull();
+    expect(interrupts?.details).toHaveProperty('89C51中断系统', null);
+    expect(interrupts?.themes.every((theme) => theme.mastery !== 80)).toBe(true);
+    expect(timers?.chapterProgress).toBe(60);
+    expect(timers?.details).toHaveProperty('定时器基础', null);
     expect(frontier?.mastery).toBeNull();
     expect(frontier?.hasRecord).toBe(false);
     expect(Object.values(frontier?.details ?? {})).toEqual(expect.arrayContaining([null]));
+    expect(result.current.masterySourceLabel).toBeNull();
 
     const advice = result.current.generateLearningAdvice();
-    expect(advice.weakAreas.map((item) => item.topic)).toEqual(['定时器/计数器']);
-    expect(advice.strongAreas.map((item) => item.topic)).toEqual(['中断系统']);
+    expect(advice.weakAreas).toEqual([]);
+    expect(advice.strongAreas).toEqual([]);
+  });
+
+  it('keeps sibling theme scores from the diagnostic receipt instead of the chapter progress', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...analyticsEvidence,
+        success: true,
+        data: {
+          quizHistory,
+          learningProgress,
+          summary,
+          diagnosticActivities: [
+            {
+              id: 'chapter-paper',
+              createdAt: '2026-10-26T17:03:08.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch5',
+                assessmentMode: 'initial',
+                score: 90,
+                weakAreas: ['5.2.1'],
+                scoresByKA: { '5.1.1': { score: 90 } },
+              }),
+            },
+            {
+              id: 'comprehensive',
+              createdAt: '2026-10-26T17:02:53.000Z',
+              details: JSON.stringify({
+                quizId: 'comprehensive-assessment',
+                assessmentMode: 'initial',
+                score: 20,
+                weakAreas: ['5.2.1'],
+                scoresByKA: {
+                  '5.1.1': { score: 16 },
+                  '6.1.1': { score: 20 },
+                },
+              }),
+            },
+          ],
+        },
+      }),
+    });
+
+    const { result } = renderHook(() => useAnalytics());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const mastery = result.current.calculateKnowledgeMastery();
+    const interrupts = mastery.find((item) => item.topic === '中断系统');
+    const timers = mastery.find((item) => item.topic === '定时器/计数器');
+    const concept = interrupts?.themes.find((theme) => theme.id === '5.1');
+    const system = interrupts?.themes.find((theme) => theme.id === '5.2');
+    const untouched = interrupts?.themes.find((theme) => theme.id === '5.3');
+    const timerBasics = timers?.themes.find((theme) => theme.id === '6.1');
+
+    expect(result.current.masterySourceLabel).toContain('综合测评');
+    expect(interrupts?.chapterProgress).toBe(80);
+    expect(concept?.mastery).toBe(16);
+    expect(system?.atoms.find((atom) => atom.id === '5.2.1')?.band).toBe('weak');
+    expect(system?.atoms.find((atom) => atom.id === '5.2.2')?.band).toBeNull();
+    expect(untouched?.mastery).toBeNull();
+    expect(timerBasics?.mastery).toBe(20);
+    expect(interrupts?.themes.every((theme) => theme.mastery === interrupts.chapterProgress)).toBe(false);
   });
 
   it('calculates learning totals and a chronological quiz trend', async () => {

@@ -23,6 +23,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { analyticsMasteryDetail } from '@/lib/analytics-mastery';
+import type { GraphMasteryBand } from '@/lib/graph-mastery';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { EvidenceReadiness } from '@/components/shared/StatusBanner';
@@ -208,6 +210,39 @@ function heatColor(value: number | null) {
   return 'border-red-300/25 bg-red-300/[0.12] text-red-100';
 }
 
+function masteryChipClass(mastery: number | null, band: GraphMasteryBand | null): string {
+  if (band === 'contains-weak') return 'border-amber-300/25 bg-amber-300/[0.14] text-amber-100';
+  if (band === 'weak' || (mastery !== null && mastery < 60)) return 'border-red-300/25 bg-red-300/[0.12] text-red-100';
+  if (mastery === null || band === null) return 'border-white/[0.08] bg-white/[0.025] text-slate-400';
+  if (mastery >= 80) return 'border-emerald-300/25 bg-emerald-300/[0.16] text-emerald-100';
+  return 'border-amber-300/25 bg-amber-300/[0.14] text-amber-100';
+}
+
+function headerTone(mastery: number | null, band?: GraphMasteryBand | null): string {
+  if (band === 'weak') return 'text-red-200';
+  if (band === 'contains-weak') return 'text-amber-200';
+  if (mastery === null) return 'text-slate-400';
+  return 'text-cyan-100';
+}
+
+function headerText(mastery: number | null, band?: GraphMasteryBand | null): string {
+  if (band) return analyticsMasteryDetail({ mastery, band });
+  return mastery === null ? 'N/A' : `${Math.round(mastery)}%`;
+}
+
+function themeHasEvidence(theme: { band: GraphMasteryBand | null; atoms: Array<{ band: GraphMasteryBand | null }> }): boolean {
+  return theme.band !== null || theme.atoms.some((atom) => atom.band !== null);
+}
+
+function chapterHasWeakness(item: {
+  band?: GraphMasteryBand | null;
+  themes?: Array<{ band: GraphMasteryBand | null; atoms: Array<{ band: GraphMasteryBand | null }> }>;
+}): boolean {
+  if (item.band === 'weak' || item.band === 'contains-weak') return true;
+  return (item.themes ?? []).some((theme) => theme.band === 'weak' || theme.band === 'contains-weak'
+    || theme.atoms.some((atom) => atom.band === 'weak' || atom.band === 'contains-weak'));
+}
+
 function formatUpdatedAt(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '更新时间未知';
   const formatted = formatCampusDateTime(value);
@@ -237,6 +272,7 @@ export function HyperAnalyticsPage() {
     quizHistory,
     learningProgress,
     calculateKnowledgeMastery,
+    masterySourceLabel = null,
     calculateLearningStats,
     fetchAnalyticsData,
   } = useAnalytics({ enabled: !isTeacherView });
@@ -513,7 +549,8 @@ export function HyperAnalyticsPage() {
   const overviewUnavailable = !loading && !overviewHasData;
   const hasLearningRecords = overviewReady && learningProgress.length > 0;
   const hasQuizRecords = overviewReady && ((summary?.totalQuizzes ?? 0) > 0 || quizHistory.length > 0);
-  const hasKnowledgeRecords = overviewReady && recordedKnowledgeMastery.length > 0;
+  const hasKnowledgeRecords = overviewReady && knowledgeMastery.some((item) => item.hasRecord || item.mastery !== null);
+  const hasUnresolvedWeakness = knowledgeMastery.some((item) => chapterHasWeakness(item));
   const freshnessNote = overviewDataStatus === 'cached'
     ? ' · 缓存值，正在校准'
     : overviewDataStatus === 'stale'
@@ -535,7 +572,7 @@ export function HyperAnalyticsPage() {
     {
       label: '知识掌握',
       value: loading && !overviewHasData ? '…' : overviewUnavailable ? 'N/A' : hasKnowledgeRecords && avgMastery !== null ? `${avgMastery}%` : 'N/A',
-      note: loading && !overviewHasData ? '正在读取' : overviewUnavailable ? '读取失败' : `${hasKnowledgeRecords ? `按 ${recordedKnowledgeMastery.length} 个有记录章节计算` : '无可计算章节记录'}${freshnessNote}`,
+      note: loading && !overviewHasData ? '正在读取' : overviewUnavailable ? '读取失败' : `${recordedKnowledgeMastery.length > 0 ? `按 ${recordedKnowledgeMastery.length} 个有记录章节计算` : hasKnowledgeRecords ? '有学习或诊断记录，尚无章节分数' : '无可计算章节记录'}${freshnessNote}`,
       icon: BarChart3,
     },
     {
@@ -604,11 +641,23 @@ export function HyperAnalyticsPage() {
               label: '查看薄弱点',
               summary: `已记录章节的平均掌握度为 ${avgMastery}%，可先复核薄弱点及对应补学资源。`,
             }
-          : {
-              href: '/tasks',
-              label: '继续当前任务',
-              summary: `已记录章节的平均掌握度为 ${avgMastery ?? 'N/A'}%，继续按任务要求完成实践与复测。`,
-            };
+          : avgMastery !== null
+            ? {
+                href: '/tasks',
+                label: '继续当前任务',
+                summary: `已记录章节的平均掌握度为 ${avgMastery}%，继续按任务要求完成实践与复测。`,
+              }
+            : hasUnresolvedWeakness
+              ? {
+                  href: '/weak-nodes',
+                  label: '查看薄弱点',
+                  summary: '诊断回执里有薄弱知识点。它们没有被写成同一个章节百分比，可先打开薄弱点查看具体主题。',
+                }
+              : {
+                  href: '/quiz',
+                  label: '进入自主测评',
+                  summary: '已有学习记录，但还没有可按主题拆开的测评分数。',
+                };
   const studentSecondaryAction = !hasQuizRecords
     ? { href: '/quiz', label: '进入自主测评' }
     : { href: '/simulation', label: '进入仿真实践' };
@@ -809,7 +858,10 @@ export function HyperAnalyticsPage() {
           {!isTeacherView && <section className="glass-hover rounded-md border border-white/[0.08] bg-white/[0.035]">
             <div className="border-b border-white/[0.08] p-5">
               <h2 className="text-lg font-semibold text-slate-50">知识点掌握度</h2>
-              <p className="mt-1 text-xs text-slate-500">基于已落盘学习进度计算；没有该章记录时显示 N/A，且不纳入平均值。</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">与薄弱点使用同一份测评回执：最近一次综合测评，否则最近一次首测。主题和知识点只显示自己的分数或诊断结果，章节学习进度不会抄到每个下级。没有记录时显示 N/A，且不纳入平均值。</p>
+              {masterySourceLabel && (
+                <p className="mt-2 text-xs leading-5 text-slate-400">{masterySourceLabel}</p>
+              )}
             </div>
             <div className="p-5">
               {loading && !overviewHasData ? (
@@ -818,32 +870,83 @@ export function HyperAnalyticsPage() {
                 <LoadFailure message={overviewError} retryLabel="重试知识点统计" onRetry={retryOverview} />
               ) : hasKnowledgeRecords ? (
                 <div className="space-y-4">
-                  {knowledgeMastery.map((item) => (
-                    <div key={item.topic} className="rounded-md border border-white/[0.08] bg-black/20 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-slate-100">{item.topic}</div>
-                        <div className={cn('font-mono text-sm', item.mastery === null ? 'text-slate-400' : 'text-cyan-100')}>
-                          {item.mastery === null ? 'N/A' : `${Math.round(item.mastery)}%`}
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        {Object.entries(item.details).map(([detail, score]) => (
-                          <div
-                            key={detail}
-                            className={cn('rounded-md border px-3 py-2 text-xs', heatColor(score))}
-                          >
-                            <div className="line-clamp-1">{detail}</div>
-                            <div className="mt-1 font-mono text-[11px] opacity-80">
-                              {score === null ? 'N/A · 未形成记录' : `${Math.round(score)}%`}
-                            </div>
+                  {knowledgeMastery.map((item) => {
+                    const themes = item.themes ?? [];
+                    const recordedThemes = themes.filter((theme) => themeHasEvidence(theme));
+                    const untouchedThemes = themes.filter((theme) => !themeHasEvidence(theme));
+                    return (
+                      <div key={item.id ?? item.topic} className="rounded-md border border-white/[0.08] bg-black/20 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-slate-100">{item.topic}</div>
+                          <div className={cn('font-mono text-sm', headerTone(item.mastery, item.band))}>
+                            {headerText(item.mastery, item.band)}
                           </div>
-                        ))}
+                        </div>
+                        {typeof item.chapterProgress === 'number' && (
+                          <p className="mb-3 text-[11px] leading-5 text-slate-500">
+                            本章学习进度 {Math.round(item.chapterProgress)}%，不代表下面每个主题的掌握度。
+                          </p>
+                        )}
+                        {themes.length > 0 ? (
+                          <div className="space-y-3">
+                            {recordedThemes.map((theme) => (
+                              <div key={theme.id} className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3" data-mastery-band={theme.band ?? 'unrecorded'}>
+                                <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                                  <div className="font-semibold text-slate-100">{theme.name}</div>
+                                  <div className={cn('font-mono', headerTone(theme.mastery, theme.band))}>
+                                    {analyticsMasteryDetail(theme)}
+                                  </div>
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {theme.atoms.map((atom) => (
+                                    <div
+                                      key={atom.id}
+                                      data-mastery-band={atom.band ?? 'unrecorded'}
+                                      className={cn('rounded-md border px-3 py-2 text-xs', masteryChipClass(atom.mastery, atom.band))}
+                                    >
+                                      <div className="line-clamp-2">{atom.name}</div>
+                                      <div className="mt-1 font-mono text-[11px] opacity-80">{analyticsMasteryDetail(atom)}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {untouchedThemes.length > 0 && (
+                              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {untouchedThemes.map((theme) => (
+                                  <div
+                                    key={theme.id}
+                                    data-mastery-band="unrecorded"
+                                    className={cn('rounded-md border px-3 py-2 text-xs', heatColor(null))}
+                                  >
+                                    <div className="line-clamp-1">{theme.name}</div>
+                                    <div className="mt-1 font-mono text-[11px] opacity-80">{analyticsMasteryDetail(theme)}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            {Object.entries(item.details).map(([detail, score]) => (
+                              <div
+                                key={detail}
+                                className={cn('rounded-md border px-3 py-2 text-xs', heatColor(score))}
+                              >
+                                <div className="line-clamp-1">{detail}</div>
+                                <div className="mt-1 font-mono text-[11px] opacity-80">
+                                  {score === null ? 'N/A · 未形成记录' : `${Math.round(score)}%`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <EmptyState centered icon={BrainCircuit} title="暂无学习进度记录" description="接口读取成功；形成学习进度记录后，这里会生成知识点掌握度" className="min-h-64" />
+                <EmptyState centered icon={BrainCircuit} title="暂无学习进度记录" description="接口读取成功。完成测评后，这里会按主题和知识点分别列出掌握度。" className="min-h-64" />
               )}
             </div>
           </section>}
