@@ -87,6 +87,7 @@ import {
 } from '@/lib/ideological-graph';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { NextStepBanner, type NextStepSnapshot } from '@/components/onboarding/NextStepBanner';
 import { diagnosticActivitiesQuery } from '@/lib/diagnostic-attempt';
 import {
@@ -4328,6 +4329,22 @@ export function HyperKnowledgeGraphPage() {
   const [kgDataSource, setKgDataSource] = useState<'loading' | 'db' | 'server-static' | 'client-fallback'>('loading');
   const [kgDataNote, setKgDataNote] = useState('正在读取课程图谱');
   const [selectedId, setSelectedId] = useState('');
+  const presencePoint = view === 'knowledge'
+    ? knowledgePoints.find((point) => point.id === selectedId) ?? null
+    : null;
+  useLearningPresence('section', user?.role === 'STUDENT' && presencePoint ? {
+    eventType: 'SECTION_VISIT',
+    targetType: 'KNOWLEDGE_POINT',
+    targetId: presencePoint.id,
+    chapterId: String(presencePoint.chapter),
+    moduleId: 'knowledge-graph',
+    metadata: {
+      source: 'knowledge-graph',
+      route: '/knowledge-graph',
+      sectionId: presencePoint.id,
+      knowledgePointId: presencePoint.id,
+    },
+  } : null);
   const [selectedProblemId, setSelectedProblemId] = useState('');
   const [selectedIdeologicalId, setSelectedIdeologicalId] = useState('');
   const [query, setQuery] = useState('');

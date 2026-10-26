@@ -43,6 +43,7 @@ import {
   FileText,
   ListChecks,
   NotebookPen,
+  Activity,
   X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -63,6 +64,7 @@ import { AchievementNotification } from '@/components/ui/achievement-notificatio
 import { useAchievementNotifications } from '@/hooks/use-achievement-notifications';
 import { useAchievementCheck } from '@/hooks/use-achievement-check';
 import { getMostSpecificRouteMatch } from '@/lib/role-access';
+import { useLearningPresence } from '@/hooks/useLearningPresence';
 
 // Navigation groups. Personal learning records are student-only; teachers get
 // task review at the same visual position so the next action matches the role.
@@ -93,6 +95,7 @@ const studentPersonalAnalysisItems = [
 
 const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
+  { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
   { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },
   { href: '/obe/teacher/cqi', label: '持续改进', icon: FileText },
@@ -178,6 +181,7 @@ const staticPageTitles: Record<string, string> = {
   '/profile': '个人资料',
   '/settings': '设置',
   '/privacy': '隐私政策',
+  '/teacher/class-activity': '班级学情',
   '/learning-path': '个性化学习',
   '/certificate': '学习证明',
   '/obe/teacher/objectives': '课程目标配置',
@@ -460,6 +464,19 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
   const pathname = usePathname();
 
   const { user, loading, logout } = useAuth();
+  const trackStudent = user?.role === 'STUDENT';
+  useLearningPresence('page', trackStudent && pathname ? {
+    eventType: 'PAGE_VIEW',
+    targetType: 'ROUTE',
+    targetId: pathname,
+    metadata: { source: 'app-layout', route: pathname },
+  } : null);
+  useLearningPresence('session', trackStudent ? {
+    eventType: 'SESSION_HEARTBEAT',
+    targetType: 'SESSION',
+    targetId: 'session',
+    metadata: { source: 'app-layout', route: pathname || '/' },
+  } : null);
   const router = useRouter();
   const { currentAchievement, clearCurrent } = useAchievementNotifications();
   const navigationTriggerRef = React.useRef<HTMLButtonElement>(null);

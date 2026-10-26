@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getActiveClassIdForUser, normalizeLearningEventInput, type LearningEventInput } from '@/lib/classroom';
+import { isPresenceEventType, PRESENCE_MAX_PER_REQUEST, savePresenceEvents } from '@/lib/learning-presence';
 import { createHash } from 'node:crypto';
 import {
   getInitialTaskRemediationWeakAreas,
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: string;
       classId: string | null;
     }> = [];
+    const presenceEvents: NormalizedLearningEvent[] = [];
     const taskPathCache = new Map<string, TaskPathSnapshot>();
     const remediationWeakAreasCache = new Map<string, string[] | null>();
     let taskRejection: EventRejection | null = null;
@@ -117,6 +119,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const event = normalizeLearningEventInput(eventInput);
       const clientEventId = rawEvent.clientEventId.trim();
       if (!event || !/^[A-Za-z0-9:_-]{8,160}$/.test(clientEventId)) continue;
+      if (isPresenceEventType(event.eventType)) {
+        if (presenceEvents.length < PRESENCE_MAX_PER_REQUEST) presenceEvents.push(event);
+        continue;
+      }
 
       const taskContext = (event.eventType === 'RESOURCE_OPENED' || event.eventType === 'RESOURCE_COMPLETED')
         ? taskContextOf(rawEvent.metadata)
@@ -215,9 +221,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       normalized.push({ id, userId: payload.userId, classId, ...event });
     }
 
+    const presenceResult = normalized.length > 0 || !taskRejection
+      ? await savePresenceEvents(payload.userId, classId, presenceEvents)
+      : { accepted: 0, coalesced: 0, ignored: 0 };
+    const ignored = events.length - normalized.length - presenceEvents.length + presenceResult.ignored;
+
     if (normalized.length === 0) {
       if (taskRejection) {
         return NextResponse.json({ error: taskRejection.error, code: taskRejection.code }, { status: taskRejection.status });
+      }
+      if (presenceEvents.length > 0) {
+        return NextResponse.json({
+          success: true,
+          accepted: presenceResult.accepted,
+          duplicates: 0,
+          coalesced: presenceResult.coalesced,
+          ignored,
+        });
       }
       return NextResponse.json({ error: '没有可保存的有效事件' }, { status: 400 });
     }
@@ -282,9 +302,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      accepted: created.count,
+      accepted: created.count + presenceResult.accepted,
       duplicates: normalized.length - created.count,
-      ignored: events.length - normalized.length,
+      coalesced: presenceResult.coalesced,
+      ignored,
     });
   } catch (error) {
     console.error('保存学习行为失败:', error);

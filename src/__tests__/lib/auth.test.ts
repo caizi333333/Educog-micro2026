@@ -366,6 +366,15 @@ describe('auth', () => {
 
       expect(result.user.id).toBe('user123');
       expect(result.firstLoginAchievement).toBeNull();
+      expect(mockPrisma.learningEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user123',
+          classId: null,
+          eventType: 'LOGIN',
+          targetType: 'USER',
+          targetId: 'user123',
+        }),
+      });
     });
 
     it('should throw error if user not found', async () => {

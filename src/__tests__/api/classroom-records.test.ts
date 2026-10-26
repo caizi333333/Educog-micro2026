@@ -43,6 +43,8 @@ jest.mock('@/lib/prisma', () => {
       create: resolved({}),
       createMany: resolved({ count: 0 }),
       findMany: resolved([]),
+      update: resolved({}),
+      count: resolved(0),
     },
     learningPath: { findFirst: resolved(null) },
     $transaction: jest.fn(),
@@ -79,6 +81,9 @@ describe('Classroom and learning record APIs', () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
     mockPrisma.user.findMany.mockResolvedValue([]);
     mockPrisma.learningEvent.findMany.mockResolvedValue([]);
+    mockPrisma.learningEvent.count.mockResolvedValue(0);
+    mockPrisma.learningEvent.update.mockResolvedValue({});
+    mockPrisma.learningEvent.createMany.mockResolvedValue({ count: 0 });
     mockPrisma.userActivity.findMany.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(async (arg: any) => {
       if (typeof arg === 'function') return arg(mockPrisma);
@@ -848,5 +853,112 @@ describe('Classroom and learning record APIs', () => {
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ accepted: 0, duplicates: 1, ignored: 0 });
     expect(mockPrisma.learningEvent.createMany).toHaveBeenCalledWith(expect.objectContaining({ skipDuplicates: true }));
+  });
+
+  it('把课堂小节访问合并进同一个 15 分钟桶，并在间隔之后更新停留', async () => {
+    const now = Math.floor(1_700_000_000_000 / (15 * 60 * 1000)) * (15 * 60 * 1000) + 60_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    mockVerifyToken.mockResolvedValue({ userId: 'student-1', email: 's@example.com', role: 'STUDENT' });
+    mockPrisma.classEnrollment.findFirst.mockResolvedValue({ classId: 'class-1' });
+    mockPrisma.learningEvent.createMany.mockResolvedValue({ count: 1 });
+
+    const open = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-token', {
+      events: [{
+        clientEventId: 'presence-section-addressing-0001',
+        eventType: 'SECTION_VISIT',
+        targetType: 'KNOWLEDGE_POINT',
+        targetId: '3.1#addressing',
+        moduleId: 'u3-overview',
+        chapterId: '3',
+        duration: 0,
+        metadata: { source: 'lesson-notes', sectionId: 'addressing', noteFile: 'u3-overview' },
+      }],
+    }));
+    const opened = await open.json();
+    const saved = mockPrisma.learningEvent.createMany.mock.calls[0][0].data[0];
+
+    expect(open.status).toBe(200);
+    expect(opened).toMatchObject({ success: true, accepted: 1 });
+    expect(saved.userId).toBe('student-1');
+    expect(saved.classId).toBe('class-1');
+    expect(saved.targetId).toBe('3.1#addressing');
+    expect(saved.duration).toBe(0);
+    expect(saved.metadata).toContain('addressing');
+
+    mockPrisma.learningEvent.createMany.mockClear();
+    mockPrisma.learningEvent.findMany.mockResolvedValue([{ id: saved.id, duration: 0, metadata: saved.metadata }]);
+    (Date.now as jest.Mock).mockReturnValue(now + 120_000);
+
+    const dwell = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-token', {
+      events: [{
+        clientEventId: 'presence-section-addressing-0002',
+        eventType: 'SECTION_VISIT',
+        targetType: 'KNOWLEDGE_POINT',
+        targetId: '3.1#addressing',
+        chapterId: '3',
+        duration: 120,
+        metadata: { source: 'lesson-notes', sectionId: 'addressing' },
+      }],
+    }));
+    const dwelled = await dwell.json();
+
+    expect(dwell.status).toBe(200);
+    expect(dwelled.accepted).toBe(1);
+    expect(mockPrisma.learningEvent.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.learningEvent.update).toHaveBeenCalledWith({
+      where: { id: saved.id },
+      data: expect.objectContaining({ duration: 120 }),
+    });
+
+    const flushedAt = new Date(now + 120_000).toISOString();
+    mockPrisma.learningEvent.update.mockClear();
+    mockPrisma.learningEvent.findMany.mockResolvedValue([{
+      id: saved.id,
+      duration: 120,
+      metadata: JSON.stringify({ flushedAt, sectionId: 'addressing' }),
+    }]);
+    (Date.now as jest.Mock).mockReturnValue(now + 130_000);
+
+    const rapid = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-token', {
+      events: [{
+        clientEventId: 'presence-section-addressing-0003',
+        eventType: 'SECTION_VISIT',
+        targetType: 'KNOWLEDGE_POINT',
+        targetId: '3.1#addressing',
+        duration: 200,
+      }],
+    }));
+    const rapidBody = await rapid.json();
+
+    expect(rapid.status).toBe(200);
+    expect(rapidBody.coalesced).toBe(1);
+    expect(mockPrisma.learningEvent.update).not.toHaveBeenCalled();
+    nowSpy.mockRestore();
+  });
+
+  it('单次请求最多新写 4 条在场记录，避免一页点穿整章', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    mockVerifyToken.mockResolvedValue({ userId: 'student-1', email: 's@example.com', role: 'STUDENT' });
+    mockPrisma.classEnrollment.findFirst.mockResolvedValue({ classId: 'class-1' });
+    mockPrisma.learningEvent.createMany.mockImplementation(async (args: { data: unknown[] }) => ({ count: args.data.length }));
+
+    const response = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-token', {
+      events: ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6'].map((targetId) => ({
+        clientEventId: `presence-section-${targetId.replace('.', '_')}-0001`,
+        eventType: 'SECTION_VISIT',
+        targetType: 'KNOWLEDGE_POINT',
+        targetId,
+        chapterId: '3',
+        duration: 0,
+      })),
+    }));
+    const data = await response.json();
+    const saved = mockPrisma.learningEvent.createMany.mock.calls[0][0].data;
+
+    expect(response.status).toBe(200);
+    expect(saved).toHaveLength(4);
+    expect(data.accepted).toBe(4);
+    expect(data.ignored).toBeGreaterThanOrEqual(2);
+    nowSpy.mockRestore();
   });
 });
