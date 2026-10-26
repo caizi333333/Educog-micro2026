@@ -290,8 +290,8 @@ html[data-theme="light"] .tab[aria-selected=true]{
 html[data-theme="light"] .tabs{background-color:rgba(238,242,246,.92)!important}
 html[data-theme="light"] .btn.pri{background:rgba(8,145,178,.12);border-color:rgba(8,145,178,.4);color:var(--cyan100)}
 html[data-theme="light"] .btn.amb{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.4);color:var(--amber200)}
-.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
-html[data-theme="light"] .kp-theme-toggle{box-shadow:0 2px 10px rgba(15,23,42,.12)}
+.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+html[data-theme="light"] .kp-theme-toggle{border-color:rgba(15,23,42,.12);background:#fff;color:var(--fg,#0f172a);box-shadow:0 2px 10px rgba(15,23,42,.12)}
 @media print{.kp-theme-toggle{display:none!important}}
 
 /* interrupt classroom light extras */
@@ -513,7 +513,7 @@ html[data-theme="light"] .foot a:hover{color:#d97706;border-bottom-color:#d97706
 .media-card a{font:600 15px var(--fs);color:#fbbf24;text-decoration:none;border-bottom:1px solid rgba(251,191,36,.55)}
 .media-card a:hover{color:#fde68a;border-bottom-color:#fde68a}
 .media-local{margin:10px 0 6px}
-.media-local video{width:100%;max-height:280px;border-radius:8px;background:#000;border:1px solid rgba(255,255,255,.1)}
+.media-local video{display:block;width:100%;aspect-ratio:16/9;height:auto;max-height:min(42vh,320px);object-fit:contain;border-radius:8px;background:#000;border:1px solid rgba(255,255,255,.1)}
 .media-local .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:14px}
 .media-local .links a{color:#fbbf24;font-weight:600;border-bottom:1px solid rgba(251,191,36,.55)}
 .media-local .links a:hover{color:#fde68a}
@@ -943,6 +943,16 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
 <!-- ② -->
 <section class="pane" id="p2">
   <div class="key">查询是 CPU 一遍遍去看，中断是外设有事来叫 CPU。</div>
+  <div class="media-local" id="media2">
+    <div class="lbl" style="margin-top:0">短片 · 查询对比与响应过程（约 3:51）</div>
+    <video controls playsinline preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
+      浏览器不支持 video：请用下方链接打开。
+    </video>
+    <div class="links">
+      <a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">打开对比短片</a>
+      <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>
+    </div>
+  </div>
   <div class="row"><button class="btn pri" id="tlStart">▶ 开始</button><button class="btn amb" id="tlKey">按键！</button><button class="btn" id="tlReset">⟲ 重来</button>
     <span class="sub">随时点“按键”，看两种方式各自什么时候发现</span></div>
   <div class="lbl">查询方式：主程序反复读 P3.2，“到了吗？”</div>
@@ -1025,19 +1035,9 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
     <div class="analogy-one">课上硬指标：点 2～3 人复述——「实验一里 <strong>LCALL Delay</strong> 时 CPU 在干什么？」答「空转／什么正经事都没干」才过。然后再问：「中断来了像什么？」期望听到「有人喊一声／硬件帮你 LCALL」。</div>
   </div>
 
-  <div class="media-ref" id="media2">
+  <div class="media-ref">
     <div class="h2">参考动画 / 视频</div>
-    <p class="teach">老师用：先播/点<strong>对比短片</strong>，再进本页时间轴演示；外链模拟器作加深，DMA 标「今晚不讲」。</p>
-    <div class="media-local">
-      <div class="lbl" style="margin-top:0">短片 · 查询对比与响应过程（约 3:51）</div>
-      <video controls preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
-        浏览器不支持 video：请用下方链接打开。
-      </video>
-      <div class="links">
-        <a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">打开对比短片</a>
-        <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>
-      </div>
-    </div>
+    <p class="teach">对比短片在本页签顶部。下面是外链模拟器，作加深；DMA 标「今晚不讲」。中断系统正片仍用 B站。</p>
     <div class="media-grid">
       <div class="media-card">
         <div class="t">CodeBrick · 查询 / 中断 / DMA 并排</div>
@@ -1312,6 +1312,22 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
     </div>
     <div class="card"><div class="h2">S4/SHIYAN42.ASM（实验四，原样摘录）</div><div class="code" id="code9"></div>
       <div class="note">注：数码管为共阳，P0 输出 0 的段点亮。程序用 R1 从 10 倒数，满 10 次把 R2 归零，所以数显 0～9 循环。服务程序开头 <b>LCALL DELAY</b> 后再判 P3.2，是按键消抖。</div></div>
+  </div>
+  <div class="media-local" id="lab4clips">
+    <div class="lbl">实验四讲解 · 0872</div>
+    <video controls playsinline preload="none" src="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4">
+      浏览器不支持 video：请用下方链接打开。
+    </video>
+    <div class="links">
+      <a href="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4" target="_blank" rel="noopener">新窗口打开 0872</a>
+    </div>
+    <div class="lbl">实验四讲解 · 3084 按键</div>
+    <video controls playsinline preload="none" src="https://videos.sunyancai.top/u5/u5-lab4-3084.mp4">
+      浏览器不支持 video：请用下方链接打开。
+    </video>
+    <div class="links">
+      <a href="https://videos.sunyancai.top/u5/u5-lab4-3084.mp4" target="_blank" rel="noopener">新窗口打开 3084 按键</a>
+    </div>
   </div>
 </section>
 
@@ -2381,8 +2397,7 @@ RETI</pre>
 配套短片：<a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">查询对比与响应过程</a> ·
 <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a> ·
 <a href="#media2" onclick="document.querySelector('.tab[data-p=&quot;2&quot;]').click();return true">课堂②参考动画</a> ·
-<a href="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4" target="_blank" rel="noopener">实验四 0872</a> ·
-<a href="https://videos.sunyancai.top/u5/u5-lab4-3084.mp4" target="_blank" rel="noopener">实验四 3084 按键</a></div>
+<a href="#lab4clips" onclick="document.querySelector('.tab[data-p=&quot;9&quot;]').click();return true">实验四 0872 / 3084（页内播放）</a></div>
 </div>
 
 <script>
@@ -2396,7 +2411,12 @@ function bin8(n){var s=n.toString(2);while(s.length<8)s='0'+s;return s.slice(0,4
 var cur=1;
 function show(n){cur=n;$$('.tab').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.p)===String(n));});$$('.pane').forEach(function(p){p.classList.toggle('on',p.id==='p'+n);});
   var hashWant=(n===10)?'#p10':'#p'+n;
-  try{if(location.hash!==hashWant && location.hash!=='#drill' && !/^#(struct6|struct|lcall-hw|lcall|level-edge|it-mode|ex53|例5-3|ex51|例5-1|tload|装值|exg|例题|mem|速记|快速记忆|quiz|测试)$/.test(location.hash) && !(n===10 && /^#act[A-D]$/.test(location.hash)))history.replaceState(null,'',hashWant)}catch(e){}
+  try{if(location.hash!==hashWant && location.hash!=='#drill' && !/^#(struct6|struct|lcall-hw|lcall|level-edge|it-mode|ex53|例5-3|ex51|例5-1|tload|装值|exg|例题|mem|速记|快速记忆|quiz|测试|media2|lab4clips)$/.test(location.hash) && !(n===10 && /^#act[A-D]$/.test(location.hash)))history.replaceState(null,'',hashWant)}catch(e){}
+  setTimeout(function(){
+    var pane=document.getElementById('p'+n);
+    if(!pane) return;
+    pane.querySelectorAll('video').forEach(function(v){ if(v.readyState===0){ try{ v.load(); }catch(e){} } });
+  },0);
 }
 $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
 (function(){
@@ -2408,6 +2428,8 @@ $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
   if(h==='#exg' || h==='#例题' || h==='#p15'){show(15);return}
   if(h==='#mem' || h==='#速记' || h==='#快速记忆' || h==='#p16'){show(16);return}
   if(h==='#quiz' || h==='#测试' || h==='#p17'){show(17);return}
+  if(h==='#media2'){show(2);setTimeout(function(){var e=document.getElementById('media2');if(e)e.scrollIntoView({block:'start'});},80);return}
+  if(h==='#lab4clips'){show(9);setTimeout(function(){var e=document.getElementById('lab4clips');if(e)e.scrollIntoView({block:'start'});},80);return}
   if(h==='#struct6' || h==='#struct'){show(1);setTimeout(function(){var e=document.getElementById('struct6');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
   if(h==='#lcall-hw' || h==='#lcall'){show(1);setTimeout(function(){var e=document.getElementById('lcall-hw');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
   if(h==='#level-edge' || h==='#it-mode'){show(1);setTimeout(function(){var e=document.getElementById('level-edge');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
@@ -3506,6 +3528,10 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
       show(1); setTimeout(function(){ var e=document.getElementById('struct6'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
     }else if(h==='#level-edge'||h==='#it-mode'){
       show(1); setTimeout(function(){ var e=document.getElementById('level-edge'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
+    }else if(h==='#media2'){
+      show(2); setTimeout(function(){ var e=document.getElementById('media2'); if(e) e.scrollIntoView({block:'start'}); },80);
+    }else if(h==='#lab4clips'){
+      show(9); setTimeout(function(){ var e=document.getElementById('lab4clips'); if(e) e.scrollIntoView({block:'start'}); },80);
     }
     syncDrillNav();
   });
@@ -3846,9 +3872,6 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
   resetAll();
 })();
 
-})();
-</script>
-<script src="lib/kp-theme-toggle.js">
 /* ---------- ⑭ 装值计算：小计算器 + 看答案 ---------- */
 (function(){
   var calc=$('#tlCalc'), outDec=$('#tlDec'), outHex=$('#tlHex'), outTH=$('#tlTH'), outTL=$('#tlTL'), hint=$('#tlHint');
@@ -4026,6 +4049,9 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
   };
 })();
 
+
+})();
 </script>
+<script src="lib/kp-theme-toggle.js"></script>
 </body>
 </html>
