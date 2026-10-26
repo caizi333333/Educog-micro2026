@@ -18,9 +18,14 @@ describe('middleware', () => {
 
   const makeJwt = (
     role: ApplicationRole,
-    options: { expiresIn?: jwt.SignOptions['expiresIn']; secret?: string } = {},
+    options: { expiresIn?: jwt.SignOptions['expiresIn']; secret?: string; cls?: 0 | 1 } = {},
   ) => jwt.sign(
-    { userId: 'user-1', email: 'user@example.com', role },
+    {
+      userId: 'user-1',
+      email: 'user@example.com',
+      role,
+      ...(options.cls === undefined ? {} : { cls: options.cls }),
+    },
     options.secret ?? process.env.JWT_SECRET!,
     { algorithm: 'HS256', expiresIn: options.expiresIn ?? '1h' },
   );
@@ -165,6 +170,31 @@ describe('middleware', () => {
       
       expect(response.status).not.toBe(302);
       expect(response.status).not.toBe(307);
+    });
+
+    it('keeps courseware and lecture notes closed until a class member signs in', async () => {
+      const guestPage = await middleware(createRequest('/lesson-notes'));
+      const guestFile = await middleware(createRequest('/resources/course/courseware/u3/u3-overview.html'));
+      const researchFile = await middleware(createRequest('/resources/research/course-reform-project-application.pdf'));
+      const enrolled = await middleware(createRequest('/lesson-notes', {
+        headers: { authorization: `Bearer ${makeJwt('STUDENT', { cls: 1 })}` },
+      }));
+      const outsider = await middleware(createRequest('/resources/course/course-slides.pdf', {
+        headers: { authorization: `Bearer ${makeJwt('STUDENT')}` },
+      }));
+      const teacher = await middleware(createRequest('/videos/ch1.mp4', {
+        headers: { authorization: `Bearer ${makeJwt('TEACHER')}` },
+      }));
+
+      expect(guestPage.status).toBe(307);
+      expect(guestPage.headers.get('location')).toContain('/login?from=%2Flesson-notes');
+      expect(guestFile.status).toBe(307);
+      expect(guestFile.headers.get('location')).toContain('/login?from=%2Fresources%2Fcourse%2Fcourseware%2Fu3%2Fu3-overview.html');
+      expect(researchFile.status).not.toBe(307);
+      expect(enrolled.status).not.toBe(307);
+      expect(outsider.status).toBe(307);
+      expect(outsider.headers.get('location')).toBe('http://localhost:3000/classroom-locked');
+      expect(teacher.status).not.toBe(307);
     });
 
     it('should not treat a public-path prefix as a public route', async () => {

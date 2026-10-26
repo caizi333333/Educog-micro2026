@@ -232,8 +232,8 @@ describe('HyperLoginPage role recovery', () => {
 
     expect(screen.getByRole('link', { name: '返回平台介绍' })).toHaveAttribute('href', '/welcome');
     expect(screen.getByRole('link', { name: '返回平台介绍' })).toHaveClass('min-h-11', 'focus-visible:ring-2');
-    expect(screen.getByRole('link', { name: '创建学生账号' })).toHaveAttribute('href', '/register');
-    expect(screen.getByRole('link', { name: '创建学生账号' })).toHaveClass('min-h-11', 'focus-visible:ring-2');
+    expect(screen.getByRole('link', { name: '账号由教师发放' })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: '账号由教师发放' })).toHaveClass('min-h-11', 'focus-visible:ring-2');
     expect(screen.queryByRole('button', { name: '主题' })).not.toBeInTheDocument();
   });
 
@@ -268,7 +268,7 @@ describe('HyperLoginPage role recovery', () => {
     global.fetch = mockFetch as typeof fetch;
 
     render(<HyperLoginPage />);
-    const account = screen.getByRole('textbox', { name: '学号 / 邮箱 / 用户名' });
+    const account = screen.getByRole('textbox', { name: '学号或用户名' });
     const password = screen.getByLabelText('密码');
     fireEvent.change(account, { target: { value: 'student' } });
     fireEvent.change(password, { target: { value: 'password123' } });
@@ -341,7 +341,7 @@ describe('HyperLoginPage role recovery', () => {
     global.fetch = mockFetch as typeof fetch;
 
     render(<HyperLoginPage />);
-    fireEvent.change(screen.getByRole('textbox', { name: '学号 / 邮箱 / 用户名' }), { target: { value: 'student' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '学号或用户名' }), { target: { value: 'student' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: '进入学习空间' }));
 
@@ -370,7 +370,7 @@ describe('HyperLoginPage role recovery', () => {
     expect(rememberButton).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('仅保留到本次浏览器会话结束')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('textbox', { name: '学号 / 邮箱 / 用户名' }), { target: { value: 'student' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '学号或用户名' }), { target: { value: 'student' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: '进入学习空间' }));
 
@@ -394,7 +394,7 @@ describe('HyperLoginPage role recovery', () => {
     global.fetch = mockFetch as typeof fetch;
 
     render(<HyperLoginPage />);
-    fireEvent.change(screen.getByRole('textbox', { name: '学号 / 邮箱 / 用户名' }), { target: { value: 'student' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '学号或用户名' }), { target: { value: 'student' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: '进入学习空间' }));
 

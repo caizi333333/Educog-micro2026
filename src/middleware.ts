@@ -4,7 +4,8 @@ import {
   getAllowedRolesForPath,
   getRoleMismatchReasonForPath,
 } from '@/lib/role-access';
-import { verifyEdgeAccessToken } from '@/lib/edge-jwt';
+import { verifyEdgeAccessToken, type EdgeAccessTokenPayload } from '@/lib/edge-jwt';
+import { isClassroomContentPath, isUngatedStaticPath } from '@/lib/classroom-paths';
 
 // 不需要认证的公开路径
 const publicPaths = [
@@ -13,13 +14,12 @@ const publicPaths = [
   '/welcome', 
   '/privacy',
   '/terms',
-  '/lesson-notes',
+  '/classroom-locked',
   '/clear-auth',
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
   '/api/experiments',
-  '/api/quiz/questions',
   '/ilab/entry',
   '/ilab/error',
   '/experiments/proj04'
@@ -27,9 +27,6 @@ const publicPaths = [
 
 const publicExactPaths = ['/', ...publicPaths];
 const administratorOnlyDiagnosticPaths = ['/auth-test', '/api/init', '/api/middleware-test'];
-
-// 静态资源路径
-const staticPaths = ['/_next', '/favicon.ico', '/public', '/resources', '/prinx'];
 
 function redirectToRoleLogin(request: NextRequest, reason?: string): NextResponse {
   const url = new URL('/login', request.url);
@@ -64,6 +61,11 @@ function continueRequest(request: NextRequest, accessToken?: string | null): Nex
   return NextResponse.next({ request: { headers } });
 }
 
+function canOpenClassroom(payload: EdgeAccessTokenPayload): boolean {
+  if (payload.role === 'ADMIN' || payload.role === 'TEACHER') return true;
+  return payload.role === 'STUDENT' && payload.cls === 1;
+}
+
 function rejectUnauthenticated(request: NextRequest, message = '未授权'): NextResponse {
   if (request.nextUrl.pathname.startsWith('/api/')) {
     return NextResponse.json({ error: message }, { status: 401 });
@@ -75,9 +77,20 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const { searchParams } = request.nextUrl;
 
-  // 跳过静态资源
-  if (staticPaths.some(path => pathname.startsWith(path))) {
+  // 课件和站内视频不走静态放行；其余静态资源仍公开。
+  if (isUngatedStaticPath(pathname)) {
     return NextResponse.next();
+  }
+
+  if (isClassroomContentPath(pathname)) {
+    const classroomToken = getAccessToken(request);
+    if (!classroomToken) return rejectUnauthenticated(request);
+    const classroomPayload = await verifyEdgeAccessToken(classroomToken);
+    if (!classroomPayload) return rejectUnauthenticated(request, '令牌无效');
+    if (!canOpenClassroom(classroomPayload)) {
+      return NextResponse.redirect(new URL('/classroom-locked', request.url));
+    }
+    return continueRequest(request, classroomToken);
   }
 
   // 检查是否是公开路径

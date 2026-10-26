@@ -8,8 +8,12 @@ import {
   getAiLiteracyQuestionIds,
 } from '@/lib/lesson-tasks';
 import { getDataProvenance } from '@/lib/env';
+import { requireClassroomApiAccess } from '@/lib/classroom-access';
 
 export async function GET(request: Request): Promise<NextResponse> {
+  const denied = await requireClassroomApiAccess(request);
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const topic = searchParams.get('topic');
   const mode = searchParams.get('mode');

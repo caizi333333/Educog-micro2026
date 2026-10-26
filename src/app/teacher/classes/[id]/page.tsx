@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, BarChart3, Check, ClipboardCopy, Link2, Loader2, Plus, RefreshCw, Target, Trash2, UserPlus } from 'lucide-react';
+import { ArrowLeft, BarChart3, Check, ClipboardCopy, FileUp, Link2, Loader2, Plus, RefreshCw, Target, Trash2, UserPlus } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { getStoredAccessToken } from '@/lib/auth-storage';
@@ -68,6 +68,24 @@ const mutationResponseSchema = z.object({
   duplicate: z.boolean().optional(),
   error: z.string().optional(),
   user: z.object({ name: nullableString, username: nullableString }).optional(),
+});
+const importRowSchema = z.object({
+  line: z.number(),
+  studentId: z.string(),
+  name: z.string(),
+  status: z.enum(['created', 'enrolled', 'unchanged', 'error']),
+  message: z.string(),
+});
+const importResponseSchema = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+  summary: z.object({
+    created: z.number(),
+    enrolled: z.number(),
+    unchanged: z.number(),
+    failed: z.number(),
+  }).optional(),
+  rows: z.array(importRowSchema).optional(),
 });
 
 const LOGIN_EXPIRED_ERROR = '登录已过期，请重新登录后继续';
@@ -134,9 +152,13 @@ export default function TeacherClassDetailPage(): JSX.Element {
   const [dataProvenance, setDataProvenance] = useState<DataProvenance | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [busyAction, setBusyAction] = useState<{ kind: 'add' | 'remove'; userId?: string } | null>(null);
+  const [busyAction, setBusyAction] = useState<{ kind: 'add' | 'remove' | 'import'; userId?: string } | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [addLocator, setAddLocator] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [importCsv, setImportCsv] = useState('');
+  const [initialPassword, setInitialPassword] = useState('');
+  const [importRows, setImportRows] = useState<z.infer<typeof importRowSchema>[]>([]);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const loadRequestId = useRef(0);
@@ -328,6 +350,69 @@ export default function TeacherClassDetailPage(): JSX.Element {
     }
   };
 
+  const importStudents = async (): Promise<void> => {
+    if (busyRef.current) return;
+    if (!importCsv.trim()) {
+      setMessage({ kind: 'err', text: '请先选择 CSV 文件。列顺序为学号、姓名、班级。' });
+      return;
+    }
+    if (initialPassword.length < 6) {
+      setMessage({ kind: 'err', text: '初始密码长度至少为 6 位' });
+      return;
+    }
+    const token = typeof window !== 'undefined' ? getStoredAccessToken() : null;
+    if (!token) {
+      setData(null);
+      setDataProvenance(null);
+      setMessage({ kind: 'err', text: LOGIN_EXPIRED_ERROR });
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
+    setBusyAction({ kind: 'import' });
+    setMessage(null);
+    try {
+      const res = await sendClassMutation(`/api/classes/${id}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ csv: importCsv, initialPassword }),
+      });
+      const raw: unknown = await res.json().catch((): null => null);
+      const parsed = importResponseSchema.safeParse(raw);
+      if (!parsed.success) throw new UncertainClassMutationError('导入结果暂未确认');
+      if (!res.ok || parsed.data.success !== true || !parsed.data.summary) {
+        if (res.status === 401 || res.status === 403) {
+          setData(null);
+          setDataProvenance(null);
+        }
+        setMessage({
+          kind: 'err',
+          text: classDetailResponseError(res.status, parsed.data.error ?? '导入失败'),
+        });
+        return;
+      }
+      setImportRows(parsed.data.rows ?? []);
+      setInitialPassword('');
+      const summary = parsed.data.summary;
+      setMessage({
+        kind: summary.failed > 0 ? 'err' : 'ok',
+        text: `新建 ${summary.created}，加入已有账号 ${summary.enrolled}，已在班 ${summary.unchanged}，失败 ${summary.failed}。新建账号使用刚才填写的初始密码登录。`,
+      });
+      await load(true);
+    } catch (importError) {
+      setMessage({
+        kind: 'err',
+        text: isUncertainClassMutation(importError)
+          ? '导入结果暂未确认，可能已经生效。请先刷新学生名单核对，再决定是否重试。'
+          : importError instanceof Error ? importError.message : '导入失败，请重试',
+      });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+      setBusyAction(null);
+    }
+  };
+
   const copyInviteCode = async (): Promise<void> => {
     if (!data?.inviteCode) return;
     try {
@@ -467,7 +552,7 @@ export default function TeacherClassDetailPage(): JSX.Element {
                 </button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                把链接发给学生即可一键加入；或学生在 <Link href="/classes/join" className="underline">/classes/join</Link> 手动输码。
+                自助注册已关闭。新学生请用下方 CSV 建号。已有账号仍可使用加入链接，或在 <Link href="/classes/join" className="underline">/classes/join</Link> 输邀请码。
               </p>
             </div>
             <button
@@ -490,7 +575,7 @@ export default function TeacherClassDetailPage(): JSX.Element {
           手动添加学生
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          按学号或用户名添加。学生须已在系统注册（角色 STUDENT）。
+          按学号或用户名添加已经存在的学生账号。新学生请用下方 CSV 建号。
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -523,6 +608,71 @@ export default function TeacherClassDetailPage(): JSX.Element {
           </button>
         </div>
         {addLocatorError && <p id="add-student-error" className="mt-2 text-xs text-red-600 dark:text-red-300">{addLocatorError}</p>}
+      </div>}
+
+      {data && <div className="rounded-md border bg-card p-4">
+        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <FileUp className="h-4 w-4" />
+          批量导入学生
+        </h2>
+        <p className="mb-3 text-xs leading-5 text-muted-foreground">
+          CSV 列为学号、姓名、班级。班级列可留空；如果填写，必须与当前班级「{data.name}」一致。一次最多 30 人。新建账号的用户名就是学号，学生用学号和这里设置的初始密码登录。
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border bg-background px-3 text-sm">
+            <span>{importFileName || '选择 CSV'}</span>
+            <input
+              type="file"
+              accept=".csv,text/csv,text/plain"
+              className="sr-only"
+              aria-label="学生 CSV 文件"
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (file.size > 20_000) {
+                  setMessage({ kind: 'err', text: 'CSV 文件过大' });
+                  event.target.value = '';
+                  return;
+                }
+                void file.text().then((text) => {
+                  setImportCsv(text);
+                  setImportFileName(file.name);
+                  setImportRows([]);
+                });
+              }}
+            />
+          </label>
+          <input
+            type="password"
+            value={initialPassword}
+            onChange={(event) => setInitialPassword(event.target.value)}
+            placeholder="新建账号的初始密码"
+            aria-label="新建账号的初始密码"
+            autoComplete="new-password"
+            disabled={busy}
+            className="min-h-11 min-w-[200px] flex-1 rounded-md border bg-background px-3 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => void importStudents()}
+            disabled={busy}
+            aria-busy={busyAction?.kind === 'import'}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {busyAction?.kind === 'import' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <FileUp aria-hidden="true" className="h-4 w-4" />}
+            {busyAction?.kind === 'import' ? '正在导入…' : '导入'}
+          </button>
+        </div>
+        {importRows.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs">
+            {importRows.map((row) => (
+              <li key={`${row.line}-${row.studentId}`} className={row.status === 'error' ? 'text-red-600 dark:text-red-300' : 'text-muted-foreground'}>
+                第 {row.line} 行 {row.studentId || '—'} {row.name}：{row.message}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>}
 
       {data && <section className="rounded-md border bg-card" aria-labelledby="class-roster-title">
@@ -572,7 +722,7 @@ export default function TeacherClassDetailPage(): JSX.Element {
           </div>
         ) : !loading && (
           <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-            班级里还没有学生。请复制加入链接，或在上方按学号手动添加。
+            班级里还没有学生。请用 CSV 导入，或按学号添加已有账号。
           </div>
         )}
       </section>}

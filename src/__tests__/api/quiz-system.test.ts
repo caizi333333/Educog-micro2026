@@ -70,18 +70,48 @@ const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockCalculateQuizPoints = calculateQuizPoints as jest.MockedFunction<typeof calculateQuizPoints>;
 const mockCheckAchievementsForQuiz = checkAchievementsForQuiz as jest.MockedFunction<typeof checkAchievementsForQuiz>;
 
+function classroomQuestionRequest(url: string): Request {
+  return new Request(url, { headers: { authorization: 'Bearer teacher-token' } });
+}
+
 describe('Quiz System API Tests', () => {
   describe('GET /api/quiz/questions', () => {
+    beforeEach(() => {
+      mockVerifyToken.mockResolvedValue({
+        userId: 'teacher-1',
+        email: 'teacher@example.com',
+        role: 'TEACHER',
+        sid: 'session-1',
+      });
+    });
+
+    it('rejects anonymous question requests', async () => {
+      const response = await getQuizQuestions(new Request('http://localhost/api/quiz/questions'));
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects a student who is not enrolled in a class', async () => {
+      mockVerifyToken.mockResolvedValue({
+        userId: 'student-1',
+        email: 'student@example.com',
+        role: 'STUDENT',
+        sid: 'session-2',
+      });
+      (mockPrisma.classEnrollment.findFirst as jest.Mock).mockResolvedValue(null);
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions'));
+      expect(response.status).toBe(403);
+    });
+
     it('新增课件练习在交卷前保留出处但不公开答案和解析', async () => {
-      const response = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?chapter=7'));
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?chapter=7'));
       const data = (await response.json()).data;
       const sourced = data.filter((question: Record<string, unknown>) => question.source);
       expect(sourced.length).toBeGreaterThan(0);
       expect(data.every((question: Record<string, unknown>) => !('correctAnswer' in question) && !('explanation' in question))).toBe(true);
     });
     it('学生题目接口不得返回答案，且首测复测题目不重复', async () => {
-      const initial = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?topic=addressing-modes&mode=initial'));
-      const retest = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?topic=addressing-modes&mode=retest'));
+      const initial = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?topic=addressing-modes&mode=initial'));
+      const retest = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?topic=addressing-modes&mode=retest'));
       const initialData = (await initial.json()).data;
       const retestData = (await retest.json()).data;
       expect(initialData).toHaveLength(7);
@@ -93,7 +123,7 @@ describe('Quiz System API Tests', () => {
     });
 
     it('综合测评应返回固定章节抽样卷，而不是整套题库', async () => {
-      const response = await getQuizQuestions(new Request('http://localhost/api/quiz/questions'));
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions'));
       const data = (await response.json()).data;
       expect(data).toHaveLength(getComprehensiveQuestions().length);
       expect(data.length).toBeLessThan(quizQuestions.length);
@@ -101,7 +131,7 @@ describe('Quiz System API Tests', () => {
     });
 
     it('AI素养情境测评应只返回五个10.5子节点题且不泄露答案', async () => {
-      const response = await getQuizQuestions(new Request('http://localhost/api/quiz/questions?topic=ai-literacy'));
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?topic=ai-literacy'));
       const data = (await response.json()).data;
       expect(response.status).toBe(200);
       expect(data.map((question: { id: number }) => question.id)).toEqual([...AI_LITERACY_QUESTION_IDS]);
@@ -115,7 +145,7 @@ describe('Quiz System API Tests', () => {
       ['http://localhost/api/quiz/questions?chapter=11', '章节编号必须为 1-10'],
       ['http://localhost/api/quiz/questions?topic=addressing-modes&chapter=3', '专项测评与章节测评不能同时指定'],
     ])('无效题卷参数应明确拒绝：%s', async (url, expectedError) => {
-      const response = await getQuizQuestions(new Request(url));
+      const response = await getQuizQuestions(classroomQuestionRequest(url));
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({ error: expectedError });
     });

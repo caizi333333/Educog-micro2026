@@ -14,7 +14,7 @@
 // 同源 iframe 在平台现有安全头下是允许的：CSP frame-src 'self'，
 // 且 /resources/* 被显式放宽为 X-Frame-Options: SAMEORIGIN（见 next.config.ts）。
 //
-// 外壳沿用 HyperCoursesPage 的双形态写法：未登录访客套公开站顶栏，
+// 讲解笔记只对已登录且已加入班级的学生，以及教师、管理员开放。
 // 登录后由 AppLayout 提供侧边栏，本页只出内容，不重复顶栏。
 //
 // 讲解页里指向别篇的链接（含跨单元，如第 3 章指向第 2 章的 P0~P3 口），嵌在这里时

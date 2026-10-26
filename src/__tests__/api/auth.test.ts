@@ -275,7 +275,7 @@ describe('Auth API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('邮箱/用户名和密码不能为空');
+      expect(data.error).toBe('学号/用户名和密码不能为空');
     });
 
     it('应该在创建登录会话前拒绝角色不匹配', async () => {
@@ -382,67 +382,7 @@ describe('Auth API Routes', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    it('应该成功注册新用户', async () => {
-      const mockUser = {
-        id: 'user-1',
-        email: 'newuser@example.com',
-        username: 'newuser',
-        password: 'hashed-password',
-        name: 'New User',
-        avatar: null,
-        role: 'STUDENT',
-        status: 'ACTIVE',
-        studentId: null,
-        class: null,
-        grade: null,
-        major: null,
-        teacherId: null,
-        department: null,
-        title: null,
-        totalPoints: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: null,
-      };
-
-      const mockTokens = {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      };
-
-      const mockRegisterResult = {
-        user: { 
-          id: mockUser.id, 
-          email: mockUser.email, 
-          username: mockUser.username,
-          name: mockUser.name,
-          role: mockUser.role,
-          avatar: mockUser.avatar,
-          studentId: mockUser.studentId,
-          teacherId: null
-        },
-        accessToken: mockTokens.accessToken,
-        refreshToken: mockTokens.refreshToken,
-        classEnrollment: null,
-        firstLoginAchievement: {
-          id: 'test-achievement-id',
-          name: 'First Login',
-          userId: mockUser.id,
-          achievementId: 'first-login',
-          description: 'First login achievement',
-          icon: null,
-          category: 'milestone',
-          unlockedAt: new Date(),
-          progress: 100
-        }
-      };
-
-      mockRegister.mockResolvedValue(mockRegisterResult);
-      setupPrismaMock(mockPrisma as any, 'user', 'findUnique', null); // 用户不存在
-      mockHashPassword.mockResolvedValue('hashed-password');
-      setupPrismaMock(mockPrisma as any, 'user', 'create', mockUser);
-      mockGenerateTokens.mockReturnValue(mockTokens);
-
+    it('应该拒绝公开自助注册', async () => {
       const request = createMockNextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
@@ -456,136 +396,9 @@ describe('Auth API Routes', () => {
       const response = await registerHandler(request);
       const data = await response.json();
 
-      if (response.status !== 201) {
-        console.log('Register test failed:', { status: response.status, data });
-      }
-      expect(response.status).toBe(201);
-      expect(data.success).toBe(true);
-      expect(data.user.email).toBe(mockUser.email);
-      expect(data.user.username).toBe(mockUser.username);
-      expect(data.accessToken).toBeUndefined();
-    });
-
-    it('应该拒绝重复的邮箱', async () => {
-      mockRegister.mockRejectedValue(new Error('邮箱已被注册'));
-
-      const request = createMockNextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'existing@example.com',
-          username: 'newuser',
-          password: 'password123',
-          displayName: 'New User',
-        }),
-      }) as unknown as NextRequest;
-
-      const response = await registerHandler(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('邮箱已被注册');
-    });
-
-    it('应该验证邮箱格式', async () => {
-      const request = createMockNextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'invalid-email',
-          username: 'newuser',
-          password: 'password123',
-          displayName: 'New User',
-        }),
-      }) as unknown as NextRequest;
-
-      const response = await registerHandler(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('邮箱格式不正确');
-    });
-
-    it('应该验证密码长度', async () => {
-      const request = createMockNextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          username: 'newuser',
-          password: '123', // 太短
-          displayName: 'New User',
-        }),
-      }) as unknown as NextRequest;
-
-      const response = await registerHandler(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('密码长度至少为6位');
-    });
-
-    it('应该拒绝超过 bcrypt 处理上限的密码', async () => {
-      const request = createMockNextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          username: 'newuser',
-          password: '密'.repeat(25),
-        }),
-      }) as unknown as NextRequest;
-
-      const response = await registerHandler(request);
-
-      expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toEqual({ error: '密码不能超过72字节' });
+      expect(response.status).toBe(403);
+      expect(data.error).toBe('已关闭自助注册，请联系任课教师领取账号');
       expect(mockRegister).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      ['数组', []],
-      ['空值', null],
-      ['字符串', 'invalid'],
-    ])('应该拒绝%s类型的请求体', async (_label, body) => {
-      const request = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const response = await registerHandler(request);
-
-      expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toEqual({ error: '请求格式错误' });
-      expect(mockRegister).not.toHaveBeenCalled();
-    });
-
-    it('应该把字段标准化后再交给注册服务', async () => {
-      mockRegister.mockResolvedValue({
-        user: { id: 'user-1', email: 'new@example.com', username: 'new-user', role: 'STUDENT' },
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        firstLoginAchievement: null,
-        classEnrollment: null,
-      } as any);
-      const request = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          email: '  new@example.com  ',
-          username: '  new-user  ',
-          password: 'password123',
-          displayName: '  新用户  ',
-          classInviteCode: '  EDU2401  ',
-        }),
-      });
-
-      const response = await registerHandler(request);
-
-      expect(response.status).toBe(201);
-      expect(mockRegister).toHaveBeenCalledWith(expect.objectContaining({
-        email: 'new@example.com',
-        username: 'new-user',
-        name: '新用户',
-        classInviteCode: 'EDU2401',
-      }));
     });
   });
 

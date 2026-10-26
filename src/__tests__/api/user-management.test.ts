@@ -201,30 +201,12 @@ describe('User Management API Routes', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('邮箱/用户名和密码不能为空');
+        expect(data.error).toBe('学号/用户名和密码不能为空');
       });
     });
 
     describe('POST /api/auth/register', () => {
-      it('应该成功注册用户', async () => {
-        const mockUser = {
-          id: 'user123',
-          email: 'newuser@example.com',
-          username: 'newuser',
-          name: '新用户',
-          role: 'STUDENT',
-          avatar: null,
-          studentId: null,
-          teacherId: null
-        };
-
-        mockRegister.mockResolvedValue({
-          user: mockUser,
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
-          firstLoginAchievement: { id: 'first-login', name: '首次登录' }
-        } as any);
-
+      it('应该拒绝公开自助注册', async () => {
         const request = new NextRequest('http://localhost:3000/api/auth/register', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -238,47 +220,9 @@ describe('User Management API Routes', () => {
         const response = await RegisterPOST(request);
         const data = await response.json();
 
-        expect(response.status).toBe(201);
-        expect(data.success).toBe(true);
-        expect(data.user.email).toBe('newuser@example.com');
-      });
-
-      it('应该处理注册失败', async () => {
-        mockRegister.mockRejectedValue(new Error('邮箱已被注册'));
-
-        const request = new NextRequest('http://localhost:3000/api/auth/register', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            email: 'existing@example.com',
-            username: 'existinguser',
-            password: 'password123'
-          })
-        });
-
-        const response = await RegisterPOST(request);
-        const data = await response.json();
-
-        expect(response.status).toBe(400);
-        expect(data.error).toBe('邮箱已被注册');
-      });
-
-      it('应该验证注册数据格式', async () => {
-        const request = new NextRequest('http://localhost:3000/api/auth/register', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            email: 'invalid-email',
-            username: 'testuser',
-            password: 'password123'
-          })
-        });
-
-        const response = await RegisterPOST(request);
-        const data = await response.json();
-
-        expect(response.status).toBe(400);
-        expect(data.error).toBe('邮箱格式不正确');
+        expect(response.status).toBe(403);
+        expect(data.error).toBe('已关闭自助注册，请联系任课教师领取账号');
+        expect(mockRegister).not.toHaveBeenCalled();
       });
     });
   });
