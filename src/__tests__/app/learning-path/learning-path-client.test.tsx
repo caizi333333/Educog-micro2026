@@ -143,6 +143,97 @@ describe('LearningPathClient weak-area evidence priority', () => {
     expect(screen.queryByText('3.1.1')).not.toBeInTheDocument();
   });
 
+  it('builds the path from the comprehensive assessment when a later quiz exists', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/experiments') return response({ success: false, data: [] });
+      if (url.startsWith('/api/knowledge-graph?')) return response({ data: [] });
+      if (url.startsWith('/api/user/activities?')) {
+        return response({
+          success: true,
+          activities: [
+            {
+              id: 'ch1',
+              createdAt: '2026-10-26T17:03:08.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch1', assessmentMode: 'initial', score: 58.3,
+                weakAreas: ['1.2', '1.4.1', '1.4.3', '1.4.4'],
+              }),
+            },
+            {
+              id: 'retest',
+              createdAt: '2026-10-26T17:02:40.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch3-addressing', assessmentMode: 'retest', score: 85.7,
+                weakAreas: ['3.1.6'],
+              }),
+            },
+            {
+              id: 'comprehensive',
+              createdAt: '2026-10-26T17:02:53.000Z',
+              details: JSON.stringify({
+                quizId: 'comprehensive-assessment', assessmentMode: 'initial', score: 20,
+                weakAreas: ['1.1.1', '1.4.1'],
+              }),
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<LearningPathClient />);
+
+    expect(await screen.findByText('1.1.1')).toBeInTheDocument();
+    expect(screen.getByText('1.4.1')).toBeInTheDocument();
+    expect(screen.getAllByText(/最近一次综合测评/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/2026\/10\/27 01:02:53/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('3.1.6')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '在薄弱点页核对同一份测评' })).toHaveAttribute('href', '/weak-nodes');
+  });
+
+  it('pins the learning path to the quiz named by the diagnostic report', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/experiments') return response({ success: false, data: [] });
+      if (url.startsWith('/api/knowledge-graph?')) return response({ data: [] });
+      if (url.startsWith('/api/user/activities?')) {
+        return response({
+          success: true,
+          activities: [
+            {
+              id: 'comprehensive',
+              createdAt: '2026-10-26T17:02:53.000Z',
+              details: JSON.stringify({
+                quizId: 'comprehensive-assessment', assessmentMode: 'initial', score: 20,
+                weakAreas: ['1.1.1'],
+              }),
+            },
+            {
+              id: 'chapter',
+              createdAt: '2026-10-26T17:03:08.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch1', assessmentMode: 'initial', score: 58.3,
+                weakAreas: ['1.4.4'],
+              }),
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<LearningPathClient quizId="quiz-ch1" assessmentMode="initial" />);
+
+    expect(await screen.findByText('1.4.4')).toBeInTheDocument();
+    expect(screen.queryByText('1.1.1')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/指定试卷/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: '在薄弱点页核对同一份测评' })).toHaveAttribute(
+      'href',
+      '/weak-nodes?quizId=quiz-ch1&mode=initial',
+    );
+  });
+
   it('uses the latest server quiz instead of a local cache', async () => {
     storage.set('assessment-results-test-user-id', JSON.stringify({
       timestamp: new Date().toISOString(),

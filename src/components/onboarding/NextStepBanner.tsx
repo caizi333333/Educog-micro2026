@@ -17,6 +17,11 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchClientRequest } from '@/lib/client-fetch';
+import {
+  diagnosticActivitiesQuery,
+  parseQuizActivityDetails,
+  selectDiagnosticAttempt,
+} from '@/lib/diagnostic-attempt';
 
 export type NextStepSnapshot = {
   weakKAs?: string[];
@@ -34,6 +39,8 @@ const snapshotSchema = z.object({
 
 const activityResponseSchema = z.object({
   activities: z.array(z.object({
+    id: z.string().optional(),
+    createdAt: z.string().optional(),
     details: z.string().nullable().optional(),
   })).optional(),
 });
@@ -205,7 +212,7 @@ export function NextStepBanner({
         const [activityResult, experimentResult] = await Promise.allSettled([
           callerResolvedAssessment
             ? Promise.resolve<Response | null>(null)
-            : fetchClientRequest('/api/user/activities?action=COMPLETE_QUIZ&limit=1', {
+            : fetchClientRequest(diagnosticActivitiesQuery(), {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: controller.signal,
               }, 6_000),
@@ -223,17 +230,22 @@ export function NextStepBanner({
           if (activityResponse?.ok) {
             const rawActivity: unknown = await activityResponse.json();
             const parsedActivity = activityResponseSchema.safeParse(rawActivity);
-            const detailsText = parsedActivity.success ? parsedActivity.data.activities?.[0]?.details : null;
-            if (detailsText) {
-              const rawDetails: unknown = JSON.parse(detailsText);
-              const parsedDetails = assessmentDetailsSchema.safeParse(rawDetails);
-              if (parsedDetails.success) {
-                resolvedSnapshot = {
-                  weakKAs: parsedDetails.data.weakAreas ?? [],
-                  ...(parsedDetails.data.score !== undefined ? { totalScore: parsedDetails.data.score } : {}),
-                  ...(parsedDetails.data.scoresByKA ? { scores: parsedDetails.data.scoresByKA } : {}),
-                };
-              }
+            const activities = parsedActivity.success ? parsedActivity.data.activities ?? [] : [];
+            const chosen = selectDiagnosticAttempt(activities.flatMap((activity) => {
+              const candidate = parseQuizActivityDetails(activity);
+              return candidate ? [candidate] : [];
+            }));
+            if (chosen) {
+              const scores = assessmentDetailsSchema.safeParse({
+                weakAreas: chosen.weakAreas,
+                ...(chosen.score !== null ? { score: chosen.score } : {}),
+                ...(chosen.scoresByKA !== undefined ? { scoresByKA: chosen.scoresByKA } : {}),
+              });
+              resolvedSnapshot = {
+                weakKAs: chosen.weakAreas,
+                ...(chosen.score !== null ? { totalScore: chosen.score } : {}),
+                ...(scores.success && scores.data.scoresByKA ? { scores: scores.data.scoresByKA } : {}),
+              };
             }
           }
 

@@ -547,7 +547,7 @@ describe('QuizClient', () => {
     expect(await screen.findByText('测试完成！')).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: /生成补学路径/ })[0]);
-    expect(mockPush).toHaveBeenCalledWith('/learning-path');
+    expect(mockPush).toHaveBeenCalledWith('/learning-path?quizId=comprehensive-assessment&mode=initial');
     expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('weakKAs='));
   });
 

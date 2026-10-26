@@ -67,6 +67,78 @@ function configureFetch(weakAreas: string[], score: number): void {
   });
 }
 
+describe('WeakNodesPage diagnostic source', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.history.replaceState({}, '', '/weak-nodes');
+    const storage = new Map<string, string>([['accessToken', 'student-token']]);
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: jest.fn((key: string) => storage.get(key) ?? null),
+        setItem: jest.fn((key: string, value: string) => { storage.set(key, value); }),
+        removeItem: jest.fn((key: string) => { storage.delete(key); }),
+      },
+    });
+    mockUseRouter.mockReturnValue({ push: routerPush } as any);
+    mockUseSearchParams.mockReturnValue(new URLSearchParams() as any);
+    mockUseAuth.mockReturnValue({ user: { id: 'student-1', role: 'STUDENT' }, loading: false } as any);
+    global.fetch = mockFetch as typeof fetch;
+  });
+
+  it('keeps the comprehensive 20-point diagnosis after a later 58-point quiz lands', async () => {
+    const comprehensiveWeak = ['1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3'];
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/knowledge-graph?')) return response({}, false, 503);
+      if (url.startsWith('/api/quiz/questions?')) return response({ data: [] });
+      if (url.startsWith('/api/user/activities?')) {
+        return response({
+          success: true,
+          activities: [
+            {
+              id: 'ch1',
+              createdAt: '2026-10-26T17:03:08.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch1', assessmentMode: 'initial', score: 58.3,
+                weakAreas: ['1.2', '1.4.1', '1.4.3', '1.4.4'],
+              }),
+            },
+            {
+              id: 'retest',
+              createdAt: '2026-10-26T17:02:40.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch3-addressing', assessmentMode: 'retest', score: 85.7,
+                weakAreas: ['3.1.6'],
+              }),
+            },
+            {
+              id: 'comprehensive',
+              createdAt: '2026-10-26T17:02:53.000Z',
+              details: JSON.stringify({
+                quizId: 'comprehensive-assessment', assessmentMode: 'initial', score: 20,
+                weakAreas: comprehensiveWeak,
+              }),
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<WeakNodesPage />);
+
+    expect(await screen.findByText('综合测评得分')).toBeInTheDocument();
+    expect(screen.getByText('20 分')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText(/2026\/10\/27 01:02:53（北京时间）/)).toBeInTheDocument();
+    expect(screen.queryByText('58 分')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026/10/26 10:02:53')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '生成学习路径' }));
+    expect(routerPush).toHaveBeenCalledWith('/learning-path?quizId=comprehensive-assessment&mode=initial');
+  });
+});
+
 describe('WeakNodesPage task remediation', () => {
   beforeEach(() => {
     jest.clearAllMocks();

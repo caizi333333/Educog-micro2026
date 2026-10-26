@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { buildTaskNavigationReceipt, requiresTaskOpenReceiptBeforeNavigation } from '@/lib/lesson-tasks';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { useAuth } from '@/contexts/AuthContext';
+import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
 
 const TASK_ACTION_TIMEOUT_MS = 20_000;
 const TASK_LOAD_TIMEOUT_MS = 15_000;
@@ -148,19 +149,8 @@ function taskStepIsCompleted(data: TasksData, pathId: string, stepId: string): b
 }
 
 function formatDate(iso: string): string {
-  try {
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
+  const formatted = formatCampusDateTime(iso);
+  return formatted === '时间待核实' ? '—' : formatted;
 }
 
 function formatScore(score: number): string {
@@ -629,7 +619,7 @@ export default function MyTasksPage(): JSX.Element {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">我的学习任务</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              老师布置给你的实验和学习路径会自动出现在这里。
+              老师布置给你的实验和学习路径会自动出现在这里。时间按{CAMPUS_TIME_LABEL}（Asia/Shanghai）显示。
               {!loading && data && totalCount === 0 && '当前没有待处理的任务。'}
             </p>
           </div>

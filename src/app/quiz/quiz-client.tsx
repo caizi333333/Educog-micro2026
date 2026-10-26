@@ -1180,9 +1180,15 @@ export function QuizClient(): React.JSX.Element {
         // No weak areas found, generating general learning plan
       }
 
-      // 学习路径从服务端最近一次测评记录恢复薄弱点。不要把可篡改的
-      // weakKAs 放进 URL，避免导航参数被误当作正式诊断依据。
-      router.push('/learning-path');
+      // 只把本次交卷的试卷编号交给学习路径。薄弱点仍由服务端记录核验，
+      // 避免稍后提交的其他试卷把这条诊断报告悄悄换掉。
+      const params = new URLSearchParams();
+      if (submissionResult?.quizId) {
+        params.set('quizId', submissionResult.quizId);
+        params.set('mode', assessmentMode);
+      }
+      const query = params.toString();
+      router.push(query ? `/learning-path?${query}` : '/learning-path');
     } catch (error) {
       console.error('Error generating learning plan:', error);
       alert(error instanceof Error ? error.message : '生成学习计划时发生错误，请稍后重试');
@@ -1383,7 +1389,8 @@ export function QuizClient(): React.JSX.Element {
                     : '测试诊断报告'}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                得分、知识原子掌握度和薄弱项均来自本次服务端交卷回执；请按右侧“下一步”继续完成学习闭环。
+                得分、知识原子掌握度和薄弱项均来自本次服务端交卷回执。继续生成补学路径时按这一次交卷对齐。
+                直接打开薄弱点或学习路径时，默认采用最近一次综合测评；还没有综合测评时用最近一次首测。
               </p>
               <span className="sr-only">测试完成！</span>
               <span className="sr-only">这是您的诊断报告。</span>

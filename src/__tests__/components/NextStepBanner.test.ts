@@ -121,7 +121,7 @@ describe('NextStepBanner assessment ownership', () => {
 
     await waitFor(() => {
       expect(mockFetchClientRequest).toHaveBeenCalledTimes(1);
-      expect(mockFetchClientRequest.mock.calls[0]?.[0]).toBe('/api/user/activities?action=COMPLETE_QUIZ&limit=1');
+      expect(mockFetchClientRequest.mock.calls[0]?.[0]).toBe('/api/user/activities?action=COMPLETE_QUIZ&limit=50');
     });
   });
 });
