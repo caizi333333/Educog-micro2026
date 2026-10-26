@@ -6,6 +6,7 @@ import { POST as logoutHandler } from '@/app/api/auth/logout/route';
 import { POST as validateHandler } from '@/app/api/auth/validate/route';
 import { PUT as passwordHandler } from '@/app/api/auth/password/route';
 import { createMockJWTPayload, setupAuthMock, setupPrismaMock, clearAllMocks, createMockPrismaClient, createMockNextRequest } from '@/__tests__/utils/test-mocks';
+import { PUBLIC_REGISTRATION_CLOSED_MESSAGE } from '@/lib/auth-registration';
 import { getLoginCookieOptions, getLogoutCookieOptions } from '@/lib/auth-storage';
 
 // Mock Prisma：使用全局 __mockPrisma（由 createMockPrismaClient 注入）
@@ -397,7 +398,7 @@ describe('Auth API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(403);
-      expect(data.error).toBe('已关闭自助注册，请联系任课教师领取账号');
+      expect(data.error).toBe(PUBLIC_REGISTRATION_CLOSED_MESSAGE);
       expect(mockRegister).not.toHaveBeenCalled();
     });
   });
