@@ -28,6 +28,8 @@ import Link from 'next/link';
 import { ExternalLink, NotebookPen, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
+import { readEmbeddedSection, resolveLessonVisit } from '@/lib/classroom-sections';
+import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 
 type LessonNote = {
@@ -165,6 +167,7 @@ export default function LessonNotesPage(): React.JSX.Element {
   const [initialHash, setInitialHash] = useState<Readonly<Record<string, string>>>({});
   // 每个单元上次看到哪一篇，切回该单元时回到那里
   const [lastInUnit, setLastInUnit] = useState<Readonly<Record<number, string>>>({});
+  const [sectionId, setSectionId] = useState('');
   const frames = useRef(new Map<string, HTMLIFrameElement>());
 
   const openNote = useCallback((rawFile: string, rawHash = ''): void => {
@@ -213,6 +216,21 @@ export default function LessonNotesPage(): React.JSX.Element {
     return (): void => window.removeEventListener('message', onMessage);
   }, [openNote]);
 
+  useEffect(() => {
+    let stopped = false;
+    const read = (): void => {
+      if (stopped) return;
+      const next = readEmbeddedSection(frames.current.get(activeFile));
+      setSectionId((previous) => (previous === next ? previous : next));
+    };
+    read();
+    const timer = window.setInterval(read, 2000);
+    return (): void => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [activeFile, mounted]);
+
   // 深链：?note=u3-jump 或 ?unit=3，只在进页时读一次
   const deepLinkRead = useRef(false);
   useEffect(() => {
@@ -226,6 +244,26 @@ export default function LessonNotesPage(): React.JSX.Element {
   }, [openNote]);
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
+  const lessonVisit = resolveLessonVisit({
+    unitId: activeUnit.id,
+    noteFile: active.file,
+    pointId: active.pointId,
+    sectionId,
+  });
+  useLearningPresence('section', user?.role === 'STUDENT' ? {
+    eventType: 'SECTION_VISIT',
+    targetType: 'KNOWLEDGE_POINT',
+    targetId: lessonVisit.targetId,
+    moduleId: lessonVisit.moduleId,
+    chapterId: lessonVisit.chapterId,
+    metadata: {
+      source: 'lesson-notes',
+      route: '/lesson-notes',
+      sectionId: lessonVisit.sectionId,
+      noteFile: active.file,
+      knowledgePointId: lessonVisit.knowledgePointId,
+    },
+  } : null);
   const mountedNotes = LESSON_UNITS.flatMap((unit) =>
     unit.notes.filter((note) => mounted.includes(note.file)).map((note) => ({ unit, note })));
   const isPublicShell = !user;

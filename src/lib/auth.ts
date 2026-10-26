@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import { getJwtSecret, getJwtRefreshSecret } from '@/lib/env';
-import { normalizeLearningEventInput, studentHasActiveEnrollment } from '@/lib/classroom';
+import { getActiveClassIdForUser, normalizeLearningEventInput, studentHasActiveEnrollment } from '@/lib/classroom';
 import { prisma } from './prisma';
 import { awardDailyLogin } from '@/lib/study-points';
 
@@ -454,6 +454,24 @@ export async function login(
       userAgent: userAgent ?? null
     }
   });
+
+  // 登录写一条学习事件，教师名单才能看到“最近来过”。失败不阻断登录。
+  try {
+    const classId = await getActiveClassIdForUser(user.id);
+    const loginEvent = normalizeLearningEventInput({
+      eventType: 'LOGIN',
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: { source: 'login', action: 'LOGIN' },
+    }, user.id);
+    if (loginEvent) {
+      await prisma.learningEvent.create({
+        data: { userId: user.id, classId, ...loginEvent },
+      });
+    }
+  } catch (eventError) {
+    console.error('记录登录学习事件失败:', eventError);
+  }
 
   // 如果是首次登录，解锁成就
   let firstLoginAchievement = null;

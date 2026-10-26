@@ -33,6 +33,10 @@ const METADATA_ALLOWED_KEYS = new Set([
   'stepId',
   'visitedModes',
   'visitedNodeIds',
+  'sectionId',
+  'noteFile',
+  'knowledgePointId',
+  'flushedAt',
 ]);
 
 export type LearningEventInput = {
