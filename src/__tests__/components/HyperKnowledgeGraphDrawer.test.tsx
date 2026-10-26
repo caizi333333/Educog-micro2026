@@ -35,6 +35,7 @@ import {
   useGraphWorkspace,
 } from '@/components/hyper/HyperKnowledgeGraphPage';
 import type { KnowledgePoint } from '@/lib/knowledge-points';
+import { buildGraphMastery } from '@/lib/graph-mastery';
 
 jest.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/knowledge-graph', useRouter: () => ({ push: jest.fn() }) }));
 
@@ -144,7 +145,7 @@ jest.mock('@xyflow/react', () => {
   type MockNode = {
     id: string;
     type?: string;
-    data: { label?: string; visible?: boolean; clickable?: boolean; size?: string };
+    data: { label?: string; visible?: boolean; clickable?: boolean; size?: string; masteryBand?: string };
   };
   return {
     Controls: () => null,
@@ -177,6 +178,7 @@ jest.mock('@xyflow/react', () => {
         'data-id': node.id,
         'data-flow-node-id': node.id,
         'data-node-size': node.data.size,
+        'data-mastery-band': node.data.masteryBand,
         'aria-label': node.data.label,
         disabled: node.data.clickable === false,
         onClick: (event: React.MouseEvent<HTMLButtonElement>) => onNodeClick?.(event, node),
@@ -935,6 +937,30 @@ describe('knowledge graph progressive disclosure', () => {
       expect(edge).toHaveAttribute('data-source-handle', 'rs');
       expect(edge).toHaveAttribute('data-target-handle', 'lt');
     });
+  });
+
+  it('recolors the unit card from diagnostic weak atoms instead of leaving it unmarked', () => {
+    const masteryByKa = buildGraphMastery(points, undefined, ['1.1.1', '1.1.2']);
+    render(<FullKnowledgeMap {...baseProps} masteryByKa={masteryByKa} selectedId="" chapterFilter="all" />);
+    expect(document.querySelector('[data-flow-node-id="1"]')).toHaveAttribute('data-mastery-band', 'contains-weak');
+    expect(document.querySelector('[data-flow-node-id="knowledge-course"]')).not.toHaveAttribute('data-mastery-band');
+  });
+
+  it('colors compact unit cards and does not copy one atom score onto its sibling', () => {
+    const masteryByKa = buildGraphMastery(
+      points,
+      { '1.1.1': { score: 100 } },
+      ['1.2.1'],
+    );
+    const overview = render(<FullKnowledgeMap {...baseProps} masteryByKa={masteryByKa} selectedId="" chapterFilter="all" compactViewport />);
+    expect(screen.getByRole('button', { name: /单元 1 测试单元/ })).toHaveAttribute('data-mastery-band', 'contains-weak');
+    expect(screen.getByRole('button', { name: /单元 1 测试单元/ })).toHaveTextContent('含薄弱点');
+    overview.unmount();
+
+    render(<FullKnowledgeMap {...baseProps} masteryByKa={masteryByKa} selectedId="1.1.2" chapterFilter={1} compactViewport />);
+    expect(screen.getByRole('button', { name: /知识点 第一个知识点/ })).toHaveAttribute('data-mastery-band', 'strong');
+    expect(screen.getByRole('button', { name: /主题 同级主题/ })).toHaveAttribute('data-mastery-band', 'contains-weak');
+    expect(screen.queryByRole('button', { name: /其他主题知识点/ })).not.toBeInTheDocument();
   });
 
   it('returns to the course from the breadcrumb through the page callback', () => {

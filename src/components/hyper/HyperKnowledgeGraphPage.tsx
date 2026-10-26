@@ -88,6 +88,15 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { NextStepBanner, type NextStepSnapshot } from '@/components/onboarding/NextStepBanner';
+import { diagnosticActivitiesQuery } from '@/lib/diagnostic-attempt';
+import {
+  diagnosticAttemptFromLocalReceipt,
+  graphMasteryLabel,
+  graphViewFromAttempt,
+  resolveGraphMasteryFromActivities,
+  type GraphMasteryBand,
+  type GraphNodeMastery,
+} from '@/lib/graph-mastery';
 import {
   ADDRESSING_ANIMATION_EVIDENCE_SOURCE,
   ADDRESSING_GRAPH_EVIDENCE_SOURCE,
@@ -550,22 +559,14 @@ const knowledgePointResponseSchema = z.object({
   data: z.array(knowledgePointSchema),
   source: z.enum(['db', 'static']).optional(),
 });
-const scoreMapSchema = z.record(z.string(), z.object({
-  correct: z.number().optional(), total: z.number().optional(), score: z.number(),
-}));
-const localAssessmentSchema = z.object({
-  scores: scoreMapSchema,
-  weakKAs: z.array(z.string()).optional(),
-  totalScore: z.number().optional(),
-});
-const serverAssessmentDetailsSchema = z.object({
-  scoresByKA: scoreMapSchema,
-  weakAreas: z.array(z.string()).optional(),
-  score: z.number().optional(),
+const activityRowSchema = z.object({
+  id: z.string().optional(),
+  createdAt: z.string().optional(),
+  details: z.string().nullish(),
 });
 const activityResponseSchema = z.object({
-  activities: z.array(z.object({ details: z.string().nullish() })).optional(),
-  data: z.array(z.object({ details: z.string().nullish() })).optional(),
+  activities: z.array(activityRowSchema).optional(),
+  data: z.array(activityRowSchema).optional(),
 });
 
 const graphViews: Array<{ id: GraphView; label: string; count: number; summary: string; icon: LucideIcon }> = [
@@ -1526,6 +1527,7 @@ type MapNodeData = {
   clickable?: boolean;
   chapter?: number;
   mastery?: number;
+  masteryBand?: GraphMasteryBand;
   description?: string;
   dimmed?: boolean;
   // 实验关联角标：有 appliedIn 的节点显示烧瓶角标，悬停列出实验名
@@ -1544,6 +1546,24 @@ type MapNodeData = {
   fitIgnore?: boolean;
   [key: string]: unknown;
 };
+
+function masteryTone(band: GraphMasteryBand): GraphTone {
+  if (band === 'strong') return 'emerald';
+  if (band === 'weak') return 'red';
+  return 'amber';
+}
+
+function masteryTextClass(band: GraphMasteryBand): string {
+  if (band === 'strong') return 'text-emerald-300';
+  if (band === 'weak') return 'text-red-200';
+  return 'text-amber-200';
+}
+
+function masteryCardClass(band: GraphMasteryBand): string {
+  if (band === 'strong') return 'border-emerald-300/45 bg-emerald-300/[0.14] text-slate-50 hover:border-emerald-200/60';
+  if (band === 'weak') return 'border-red-300/50 bg-red-400/[0.14] text-slate-50 hover:border-red-200/65';
+  return 'border-amber-300/50 bg-amber-300/[0.14] text-slate-50 hover:border-amber-200/60';
+}
 
 export function getGraphNodeSize(size: GraphNodeSize) {
   return graphNodeSize[size];
@@ -1834,6 +1854,9 @@ function createMapNode(
     data.levelLabel,
     data.subtitle,
     typeof data.mastery === 'number' ? `最近掌握度 ${Math.round(data.mastery)}%` : null,
+    data.masteryBand && typeof data.mastery !== 'number'
+      ? graphMasteryLabel({ score: null, band: data.masteryBand })
+      : null,
   ].filter((value): value is string => Boolean(value));
   return {
     id,
@@ -1855,8 +1878,12 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
   const tone = graphTone[data.tone];
   const size = getGraphNodeSize(data.size);
   const mastery = typeof data.mastery === 'number' ? Math.max(0, Math.min(100, data.mastery)) : null;
+  const masteryBand = data.masteryBand;
+  const masteryStripe = masteryBand ? `inset 3px 0 0 ${tone.color}` : '';
   const handleCls = '!h-1 !w-1 !border-0 !bg-transparent';
   const centerStyle: CSSProperties = { left: '50%', top: '50%', opacity: 0, pointerEvents: 'none' };
+  const canvasBase = data.selected ? '#163242' : '#101821';
+  const masteryMix = masteryBand ? (data.selected ? 36 : 24) : 12;
   return (
     <>
       <Handle id="tt" type="target" position={Position.Top} className={handleCls} />
@@ -1865,20 +1892,29 @@ function MapNode({ data }: NodeProps<RFNode<MapNodeData>>) {
       <Handle id="rt" type="target" position={Position.Right} className={handleCls} />
       <Handle id="ct" type="target" position={Position.Top} className={handleCls} style={centerStyle} />
       <div
+        data-mastery-band={masteryBand}
         className={cn('flex flex-col justify-center gap-1 rounded-lg border px-3 transition-[border-color,background-color,opacity] duration-200', data.clickable === false ? 'cursor-default' : 'cursor-pointer')}
         style={{
           width: size.width, height: size.height,
-          background: data.selected ? '#163242' : `color-mix(in srgb, ${tone.color} 12%, #101821)`,
+          background: data.selected && !masteryBand
+            ? '#163242'
+            : `color-mix(in srgb, ${tone.color} ${masteryMix}%, ${canvasBase})`,
           borderColor: data.selected ? '#67e8f9' : tone.border,
-          boxShadow: data.selected ? '0 0 0 1px #67e8f9' : '0 3px 9px rgba(0,0,0,.15)',
+          boxShadow: data.selected
+            ? `0 0 0 1px #67e8f9${masteryStripe ? `, ${masteryStripe}` : ''}`
+            : masteryStripe || '0 3px 9px rgba(0,0,0,.15)',
           opacity: !data.visible && !data.selected ? 0.3 : data.dimmed && !data.selected ? 0.68 : 1,
         }}
       >
         <div className="break-words text-[16px] font-semibold leading-[1.35] text-slate-100">{data.label}</div>
-        {(data.subtitle || mastery !== null) && (
+        {(data.subtitle || mastery !== null || masteryBand) && (
           <div className="flex flex-wrap items-center gap-x-2 text-[12px] leading-4 text-slate-400">
             {data.subtitle && <span>{data.subtitle}</span>}
-            {mastery !== null && <span className={mastery >= 80 ? 'text-emerald-300' : 'text-amber-200'}>掌握 {Math.round(mastery)}%</span>}
+            {masteryBand && (
+              <span className={masteryTextClass(masteryBand)}>
+                {graphMasteryLabel({ score: mastery, band: masteryBand })}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -2578,7 +2614,7 @@ export function FullKnowledgeMap({
   onSelect: (point: KnowledgePoint) => void;
   onFocusChapter?: (chapter: number) => void;
   chapterFilter: number | 'all';
-  masteryByKa?: Record<string, number>;
+  masteryByKa?: Record<string, GraphNodeMastery>;
   experimentTitleByRefId: Record<string, string>;
   onClearVisibility: () => void;
   onReturnOverview?: () => void;
@@ -2615,11 +2651,15 @@ export function FullKnowledgeMap({
     const nodes: RFNode[] = [];
     const edges: RFEdge[] = [];
     const addPoint = (point: KnowledgePoint, x: number, y: number, subtitle: string, size: GraphNodeSize = 'topicCard'): void => {
+      const mastery = masteryByKa?.[point.id];
       nodes.push(createMapNode(point.id, x, y, {
         label: point.name, subtitle, levelLabel: point.level === 1 ? '单元' : point.level === 2 ? '主题' : '知识点',
-        tone: knowledgeTone(point.chapter), size, selected: point.id === selectedId,
+        tone: mastery ? masteryTone(mastery.band) : knowledgeTone(point.chapter), size, selected: point.id === selectedId,
         visible: visibleIds.has(point.id) || points.some((child) => child.parentId === point.id && visibleIds.has(child.id)),
-        chapter: point.chapter, mastery: masteryByKa?.[point.id], description: point.description,
+        chapter: point.chapter,
+        ...(mastery?.score !== null && mastery?.score !== undefined ? { mastery: mastery.score } : {}),
+        ...(mastery ? { masteryBand: mastery.band } : {}),
+        description: point.description,
         experiments: (point.appliedIn || []).map((id) => experimentTitleByRefId[id] || id), labelPlacement: 'inside',
       }));
     };
@@ -2730,20 +2770,28 @@ export function FullKnowledgeMap({
             <div className="grid grid-cols-2 gap-2" aria-label="十个平台单元">
               {overviewRoots.map((point) => {
                 const themeCount = points.filter((child) => child.parentId === point.id).length;
+                const mastery = masteryByKa?.[point.id];
+                const masteryText = mastery ? graphMasteryLabel(mastery) : null;
                 return (
                   <button
                     key={point.id}
                     type="button"
+                    data-mastery-band={mastery?.band}
                     onClick={() => {
                       onFocusChapter?.(point.chapter);
                       onSelect(point);
                     }}
-                    className="min-h-[92px] rounded-md border border-white/[0.11] bg-[#102027] px-3 py-3 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                    aria-label={`单元 ${point.chapter} ${point.name}，${themeCount} 个主题`}
+                    className={cn(
+                      'min-h-[92px] rounded-md border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                      mastery
+                        ? masteryCardClass(mastery.band)
+                        : 'border-white/[0.11] bg-[#102027] hover:border-cyan-200/35 hover:bg-cyan-200/[0.09]',
+                    )}
+                    aria-label={`单元 ${point.chapter} ${point.name}，${themeCount} 个主题${masteryText ? `，${masteryText}` : ''}`}
                   >
                     <span className="block font-mono text-[11px] text-cyan-200/65">单元 {point.chapter}</span>
                     <span className="mt-1 block text-sm font-semibold leading-5 text-slate-50">{point.name}</span>
-                    <span className="mt-1 block text-xs text-slate-400">{themeCount} 个主题</span>
+                    <span className="mt-1 block text-xs text-slate-400">{themeCount} 个主题{masteryText ? ` · ${masteryText}` : ''}</span>
                   </button>
                 );
               })}
@@ -2755,17 +2803,23 @@ export function FullKnowledgeMap({
               type="button"
               onClick={() => onSelect(root)}
               aria-current={!activeTopic ? 'page' : undefined}
+              data-mastery-band={masteryByKa?.[root.id]?.band}
               className={cn(
                 'mx-auto block w-full max-w-sm rounded-md border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                !activeTopic
-                  ? 'border-cyan-200/40 bg-cyan-200/[0.11] text-cyan-50'
-                  : 'border-white/[0.11] bg-[#102027] text-slate-100 hover:border-cyan-200/30',
+                masteryByKa?.[root.id]
+                  ? masteryCardClass(masteryByKa[root.id]!.band)
+                  : !activeTopic
+                    ? 'border-cyan-200/40 bg-cyan-200/[0.11] text-cyan-50'
+                    : 'border-white/[0.11] bg-[#102027] text-slate-100 hover:border-cyan-200/30',
               )}
-              aria-label={`单元 ${root.chapter} ${root.name}，${compactTopics.length} 个主题`}
+              aria-label={`单元 ${root.chapter} ${root.name}，${compactTopics.length} 个主题${masteryByKa?.[root.id] ? `，${graphMasteryLabel(masteryByKa[root.id]!)}` : ''}`}
             >
               <span className="block font-mono text-[11px] text-cyan-200/65">单元 {root.chapter}</span>
               <span className="mt-1 block text-base font-semibold leading-6">{root.name}</span>
-              <span className="mt-1 block text-xs text-slate-400">{compactTopics.length} 个主题</span>
+              <span className="mt-1 block text-xs text-slate-400">
+                {compactTopics.length} 个主题
+                {masteryByKa?.[root.id] ? ` · ${graphMasteryLabel(masteryByKa[root.id]!)}` : ''}
+              </span>
             </button>
 
             <div className="mx-auto h-5 w-px bg-cyan-200/25" aria-hidden />
@@ -2777,22 +2831,27 @@ export function FullKnowledgeMap({
               {compactTopics.map((topic) => {
                 const childCount = points.filter((point) => point.parentId === topic.id).length;
                 const active = activeTopic?.id === topic.id;
+                const mastery = masteryByKa?.[topic.id];
+                const masteryText = mastery ? graphMasteryLabel(mastery) : null;
                 return (
                   <button
                     key={topic.id}
                     type="button"
                     onClick={() => onSelect(topic)}
                     aria-current={active ? 'page' : undefined}
+                    data-mastery-band={mastery?.band}
                     className={cn(
                       'min-h-[88px] rounded-md border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                      active
-                        ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
-                        : 'border-white/[0.10] bg-[#102027] text-slate-100 hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]',
+                      mastery
+                        ? cn(masteryCardClass(mastery.band), active && 'ring-1 ring-cyan-200/70')
+                        : active
+                          ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
+                          : 'border-white/[0.10] bg-[#102027] text-slate-100 hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]',
                     )}
-                    aria-label={`主题 ${topic.name}，${childCount} 个知识点`}
+                    aria-label={`主题 ${topic.name}，${childCount} 个知识点${masteryText ? `，${masteryText}` : ''}`}
                   >
                     <span className="block text-sm font-semibold leading-5">{topic.name}</span>
-                    <span className="mt-1 block text-xs text-slate-400">{childCount} 个知识点</span>
+                    <span className="mt-1 block text-xs text-slate-400">{childCount} 个知识点{masteryText ? ` · ${masteryText}` : ''}</span>
                   </button>
                 );
               })}
@@ -2808,22 +2867,28 @@ export function FullKnowledgeMap({
                 <div className="grid grid-cols-2 gap-2" aria-label={`${activeTopic.name}知识点`}>
                   {compactLeaves.map((point) => {
                     const active = selectedPoint?.id === point.id;
+                    const mastery = masteryByKa?.[point.id];
+                    const masteryText = mastery ? graphMasteryLabel(mastery) : null;
                     return (
                       <button
                         key={point.id}
                         type="button"
                         onClick={() => onSelect(point)}
                         aria-current={active ? 'page' : undefined}
+                        data-mastery-band={mastery?.band}
                         className={cn(
                           'min-h-[72px] rounded-md border px-3 py-2.5 text-left text-sm font-medium leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
-                          active
-                            ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
-                            : 'border-white/[0.10] bg-black/20 text-slate-200 hover:border-cyan-200/30 hover:bg-cyan-200/[0.07]',
+                          mastery
+                            ? cn(masteryCardClass(mastery.band), active && 'ring-1 ring-cyan-200/70')
+                            : active
+                              ? 'border-cyan-200/45 bg-cyan-200/[0.12] text-cyan-50'
+                              : 'border-white/[0.10] bg-black/20 text-slate-200 hover:border-cyan-200/30 hover:bg-cyan-200/[0.07]',
                           !visibleIds.has(point.id) && 'opacity-45',
                         )}
-                        aria-label={`知识点 ${point.name}`}
+                        aria-label={`知识点 ${point.name}${masteryText ? `，${masteryText}` : ''}`}
                       >
-                        {point.name}
+                        <span className="block">{point.name}</span>
+                        {masteryText && <span className={cn('mt-1 block text-xs font-medium', masteryTextClass(mastery!.band))}>{masteryText}</span>}
                       </button>
                     );
                   })}
@@ -4275,7 +4340,8 @@ export function HyperKnowledgeGraphPage() {
   const [ideologicalCategoryFilter, setIdeologicalCategoryFilter] = useState<'all' | IdeologicalCategory>('all');
   const [ideologicalChapterFilter, setIdeologicalChapterFilter] = useState<number | 'all'>('all');
   const [progress, setProgress] = useState<HyperLearningProgressRecord[]>([]);
-  const [kaScores, setKaScores] = useState<Record<string, number>>({});
+  const [masteryById, setMasteryById] = useState<Record<string, GraphNodeMastery>>({});
+  const [diagnosticNote, setDiagnosticNote] = useState<string | null>(null);
   const [latestAssessmentSnapshot, setLatestAssessmentSnapshot] = useState<NextStepSnapshot | null | undefined>(undefined);
   const workbenchRef = useRef<HTMLDivElement>(null);
   const [isCanvasFocus, setIsCanvasFocus] = useState(false);
@@ -4408,21 +4474,21 @@ export function HyperKnowledgeGraphPage() {
     };
   }, []);
 
-  // Load latest quiz scores from localStorage so the canvas can re-tint the
-  // nodes the student is weak / strong on. Re-runs when the user identity
-  // changes (storage key is namespaced by user id).
+  // Color the graph from the same diagnostic receipt as 薄弱点. A later chapter
+  // quiz must not put the page back into the empty "先做一次诊断测验" state.
   useEffect(() => {
     if (knowledgePoints.length === 0) return;
     let active = true;
     const controller = new AbortController();
+    const pointRefs = knowledgePoints.map((point) => ({ id: point.id, parentId: point.parentId }));
     async function loadScores(): Promise<void> {
       if (typeof window === 'undefined') return;
-      let scores: z.infer<typeof scoreMapSchema> | null = null;
-      let resolvedAssessment: NextStepSnapshot | null = null;
+      let view = graphViewFromAttempt(null, pointRefs);
       const token = getStoredAccessToken();
+      let serverAnswered = false;
       if (user && token) {
         try {
-          const response = await fetchClientRequest('/api/user/activities?action=COMPLETE_QUIZ&limit=1', {
+          const response = await fetchClientRequest(diagnosticActivitiesQuery(), {
             headers: { Authorization: `Bearer ${token}` },
             signal: controller.signal,
           }, 6_000);
@@ -4430,86 +4496,30 @@ export function HyperKnowledgeGraphPage() {
             const rawResponse: unknown = await response.json();
             const parsedResponse = activityResponseSchema.safeParse(rawResponse);
             if (parsedResponse.success) {
-              const activity = (parsedResponse.data.activities ?? parsedResponse.data.data ?? [])[0];
-              if (activity?.details) {
-                const rawDetails: unknown = JSON.parse(activity.details);
-                const parsedDetails = serverAssessmentDetailsSchema.safeParse(rawDetails);
-                if (parsedDetails.success) {
-                  scores = parsedDetails.data.scoresByKA;
-                  resolvedAssessment = {
-                    weakKAs: parsedDetails.data.weakAreas
-                      ?? Object.entries(parsedDetails.data.scoresByKA)
-                        .filter(([, value]) => value.score < 60)
-                        .map(([ka]) => ka),
-                    ...(parsedDetails.data.score !== undefined ? { totalScore: parsedDetails.data.score } : {}),
-                    scores: parsedDetails.data.scoresByKA,
-                  };
-                }
-              }
+              serverAnswered = true;
+              const activities = parsedResponse.data.activities ?? parsedResponse.data.data ?? [];
+              view = resolveGraphMasteryFromActivities(activities, pointRefs);
             }
           }
         } catch {
-          // The local receipt below remains a fallback when the service is unavailable.
+          // A local receipt is only a fallback when the service is unavailable.
         }
       }
 
-      if (!scores) {
+      if (!view.attempt && !serverAnswered) {
         try {
           const key = user ? `assessment-results-${user.id}` : 'assessment-results';
           const stored = localStorage.getItem(key);
-          if (stored) {
-            const rawStored: unknown = JSON.parse(stored);
-            const parsedStored = localAssessmentSchema.safeParse(rawStored);
-            if (parsedStored.success) {
-              scores = parsedStored.data.scores;
-              resolvedAssessment = {
-                weakKAs: parsedStored.data.weakKAs
-                  ?? Object.entries(parsedStored.data.scores)
-                    .filter(([, value]) => value.score < 60)
-                    .map(([ka]) => ka),
-                ...(parsedStored.data.totalScore !== undefined ? { totalScore: parsedStored.data.totalScore } : {}),
-                scores: parsedStored.data.scores,
-              };
-            }
-          }
+          if (stored) view = graphViewFromAttempt(diagnosticAttemptFromLocalReceipt(stored), pointRefs, 'local');
         } catch {
-          scores = null;
+          view = graphViewFromAttempt(null, pointRefs);
         }
       }
 
-      const direct: Record<string, number> = {};
-      Object.entries(scores ?? {}).forEach(([ka, value]) => {
-        if (/^\d+(\.\d+)*$/.test(ka)) {
-          direct[ka] = value.score;
-        }
-      });
-      // Aggregate child scores up to parents (L3 -> L2 -> L1) so the heat map
-      // shows on hierarchy nodes even when only leaves were quizzed.
-      const childIds: Record<string, string[]> = {};
-      knowledgePoints.forEach((p) => {
-        if (p.parentId) {
-          (childIds[p.parentId] ||= []).push(p.id);
-        }
-      });
-      const resolve = (id: string): number | null => {
-        if (typeof direct[id] === 'number') return direct[id];
-        const kids = childIds[id];
-        if (!kids?.length) return null;
-        const vals = kids.map(resolve).filter((v): v is number => typeof v === 'number');
-        if (!vals.length) return null;
-        return vals.reduce((a, b) => a + b, 0) / vals.length;
-      };
-      const out: Record<string, number> = { ...direct };
-      knowledgePoints.forEach((p) => {
-        if (typeof out[p.id] !== 'number') {
-          const v = resolve(p.id);
-          if (typeof v === 'number') out[p.id] = v;
-        }
-      });
-      if (active) {
-        setKaScores(out);
-        setLatestAssessmentSnapshot(resolvedAssessment);
-      }
+      if (!active) return;
+      setMasteryById(view.masteryById);
+      setDiagnosticNote(view.sourceLabel);
+      setLatestAssessmentSnapshot(view.snapshot);
     }
 
     void loadScores();
@@ -5563,7 +5573,8 @@ export function HyperKnowledgeGraphPage() {
           </div>
           <div className="kg-scrollbar max-h-[min(660px,calc(100vh-350px))] space-y-1 overflow-y-auto pr-1">
             {navigatorList.map((point) => {
-              const chapterProgress = progressForChapter(progress, point.chapter);
+              const mastery = masteryById[point.id];
+              const chapterProgress = mastery ? null : progressForChapter(progress, point.chapter);
               const parentPoint = point.parentId ? pointById[point.parentId] : null;
               const chapterCounts = childCountsByParent[point.id];
               return (
@@ -5598,6 +5609,7 @@ export function HyperKnowledgeGraphPage() {
                     )}
                   </span>
                   <span className="ml-auto flex shrink-0 items-center gap-1 pt-0.5 font-mono text-xs text-slate-500">
+                    {mastery && <span className={masteryTextClass(mastery.band)}>{graphMasteryLabel(mastery)}</span>}
                     {point.level === 1 && chapterProgress !== null && <span>{chapterProgress}%</span>}
                     <span>L{point.level}</span>
                   </span>
@@ -5682,6 +5694,11 @@ export function HyperKnowledgeGraphPage() {
               </button>
             </div>
           </div>
+          {diagnosticNote && (
+            <p className="border-b border-white/[0.06] bg-black/10 px-4 py-1.5 text-[11px] leading-5 text-slate-300" role="status">
+              图谱上色依据：{diagnosticNote}
+            </p>
+          )}
           {workspace.mode === 'single' && (
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0a0f15]/96 px-3 py-2 backdrop-blur" aria-label="手机节点导航">
               <span className="min-w-0 flex-1 truncate text-xs text-slate-300" title={selectedPathLabel}>当前位置：{selectedPathLabel}</span>
@@ -5722,12 +5739,12 @@ export function HyperKnowledgeGraphPage() {
                 层级归属 · 非先修
               </span>
                 <span className="inline-flex items-center gap-1"><span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-[#1D8076]/55 bg-[#0a1c1a] text-[#5BA89F]"><FlaskConical className="h-2 w-2" /></span>实践入口</span>
-              {Object.keys(kaScores).length > 0 && (
+              {Object.keys(masteryById).length > 0 && (
                 <span className="inline-flex flex-wrap items-center gap-2 text-slate-300">
-                  <span className="text-slate-500">最近掌握度</span>
+                  <span className="text-slate-500">诊断掌握度</span>
                   <span className="text-emerald-200">● ≥80</span>
-                  <span className="text-amber-200">● 60–79</span>
-                  <span className="text-red-200">● &lt;60</span>
+                  <span className="text-amber-200">● 60–79 · 含薄弱点</span>
+                  <span className="text-red-200">● &lt;60 · 诊断薄弱</span>
                 </span>
               )}
               <GraphOperationHints dependencyEdges />
@@ -5776,7 +5793,7 @@ export function HyperKnowledgeGraphPage() {
                 focusChapter(value);
               }}
               chapterFilter={chapter}
-              masteryByKa={kaScores}
+              masteryByKa={masteryById}
               experimentTitleByRefId={experimentTitleByRefId}
               onClearVisibility={() => setQuery('')}
               compactViewport={workspace.mode === 'single'}
