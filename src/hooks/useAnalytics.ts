@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import {
+  buildAnalyticsKnowledgeMastery,
+  type AnalyticsActivityRow,
+  type KnowledgeMasteryItem,
+} from '@/lib/analytics-mastery';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+
+export type { KnowledgeMasteryItem };
 
 // Type definitions
 export interface UserProfile {
@@ -63,13 +70,6 @@ export interface AnalyticsSampleSize {
   achievementRules: number;
 }
 
-export interface KnowledgeMasteryItem {
-  topic: string;
-  mastery: number | null;
-  hasRecord: boolean;
-  details: Record<string, number | null>;
-}
-
 export type AnalyticsDataStatus = 'idle' | 'loading' | 'cached' | 'fresh' | 'stale' | 'error';
 
 const normalizeSummary = (value: unknown): AnalyticsSummary | null => {
@@ -114,25 +114,19 @@ const normalizeSampleSize = (value: unknown): AnalyticsSampleSize | null => {
   return Object.fromEntries(keys.map((key) => [key, source[key]])) as unknown as AnalyticsSampleSize;
 };
 
-// Normalize chapterId from various formats: "chapter-1", "1", "ch1" → "ch1"
-function normalizeChapterId(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits) return `ch${digits}`;
-  return raw;
-}
-
-// 直接从正式知识图谱生成章节映射，避免课程调整后分析页继续使用旧编号。
-const chapterTopicMap = knowledgePoints
-  .filter((point) => point.level === 1)
-  .reduce<Record<string, { topic: string; details: string[] }[]>>((map, chapter) => {
-    map[`ch${chapter.chapter}`] = [{
-      topic: chapter.name,
-      details: knowledgePoints
-        .filter((point) => point.level === 2 && point.parentId === chapter.id)
-        .map((point) => point.name),
+function normalizeDiagnosticActivities(value: unknown): AnalyticsActivityRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const row = entry as Record<string, unknown>;
+    if (typeof row.details !== 'string' || !row.details.trim()) return [];
+    return [{
+      id: typeof row.id === 'string' ? row.id : null,
+      createdAt: typeof row.createdAt === 'string' ? row.createdAt : '',
+      details: row.details,
     }];
-    return map;
-  }, {});
+  });
+}
 
 interface UseAnalyticsOptions {
   enabled?: boolean;
@@ -159,6 +153,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
   const [dataProvenance, setDataProvenance] = useState<AnalyticsDataProvenance | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [sampleSize, setSampleSize] = useState<AnalyticsSampleSize | null>(null);
+  const [diagnosticActivities, setDiagnosticActivities] = useState<AnalyticsActivityRow[]>([]);
   const displayedUserIdRef = useRef<string | null>(null);
   const hasDisplayedDataRef = useRef(false);
   const requestIdRef = useRef(0);
@@ -191,6 +186,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
       setDataProvenance(null);
       setAsOf(null);
       setSampleSize(null);
+      setDiagnosticActivities([]);
       hasDisplayedDataRef.current = false;
     };
 
@@ -245,6 +241,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
           setDataProvenance(cachedProvenance);
           setAsOf(cachedAsOf);
           setSampleSize(cachedSampleSize);
+          setDiagnosticActivities(normalizeDiagnosticActivities(parsed.diagnosticActivities));
           setLastUpdatedAt(cachedAt);
           setDataStatus('cached');
           hasDisplayedDataRef.current = true;
@@ -313,6 +310,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
         dataProvenance: normalizedProvenance,
         asOf: normalizedAsOf,
         sampleSize: normalizedSampleSize,
+        diagnosticActivities: normalizeDiagnosticActivities(data.diagnosticActivities),
         teacherData: data.teacherData && typeof data.teacherData === 'object' ? data.teacherData : null,
       };
 
@@ -333,6 +331,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
       setDataProvenance(analyticsData.dataProvenance);
       setAsOf(analyticsData.asOf);
       setSampleSize(analyticsData.sampleSize);
+      setDiagnosticActivities(analyticsData.diagnosticActivities);
       setLastUpdatedAt(updatedAt);
       setDataStatus('fresh');
       setError(null);
@@ -392,6 +391,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
       setDataProvenance(null);
       setAsOf(null);
       setSampleSize(null);
+      setDiagnosticActivities([]);
       setLoading(false);
     }
     return () => {
@@ -401,37 +401,13 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
     };
   }, [authLoading, enabled, fetchAnalyticsData, user?.id]);
 
-  // 计算知识点掌握度：没有该章进度记录时返回 null，不能把“未采集”写成 0%。
-  const calculateKnowledgeMastery = (): KnowledgeMasteryItem[] => {
-    // 按 chapterId 聚合进度
-    const chapterProgress: Record<string, number> = {};
-    const chapterCount: Record<string, number> = {};
-    for (const lp of learningProgress) {
-      const ch = lp.chapterId;
-      if (!ch) continue;
-      const norm = normalizeChapterId(ch);
-      chapterProgress[norm] = (chapterProgress[norm] || 0) + lp.progress;
-      chapterCount[norm] = (chapterCount[norm] || 0) + 1;
-    }
-
-    const result: KnowledgeMasteryItem[] = [];
-    for (const [chapterId, topics] of Object.entries(chapterTopicMap)) {
-      const avgProgress = chapterCount[chapterId]
-        ? Math.round(chapterProgress[chapterId] / chapterCount[chapterId])
-        : null;
-
-      for (const { topic, details } of topics) {
-        const detailEntries = details.reduce((acc, d) => {
-          acc[d] = avgProgress;
-          return acc;
-        }, {} as Record<string, number | null>);
-
-        result.push({ topic, mastery: avgProgress, hasRecord: avgProgress !== null, details: detailEntries });
-      }
-    }
-
-    return result;
-  };
+  // 主题和知识点掌握度来自与薄弱点相同的测评回执。章节学习进度只留在章上，不抄到每个主题。
+  const masteryReport = buildAnalyticsKnowledgeMastery({
+    points: knowledgePoints,
+    activities: diagnosticActivities,
+    learningProgress,
+  });
+  const calculateKnowledgeMastery = (): KnowledgeMasteryItem[] => masteryReport.items;
 
   // 计算学习统计
   const calculateLearningStats = () => {
@@ -465,13 +441,17 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
   // 生成学习建议
   const generateLearningAdvice = () => {
     const knowledgeMastery = calculateKnowledgeMastery();
+    const isWeakChapter = (item: KnowledgeMasteryItem) =>
+      item.band === 'weak'
+      || item.band === 'contains-weak'
+      || (item.mastery !== null && item.mastery < 70);
     const weakAreas = knowledgeMastery
-      .filter(ka => ka.mastery !== null && ka.mastery < 70)
-      .sort((a, b) => (a.mastery ?? Infinity) - (b.mastery ?? Infinity))
+      .filter(isWeakChapter)
+      .sort((a, b) => (a.mastery ?? 69) - (b.mastery ?? 69))
       .slice(0, 3);
 
     const strongAreas = knowledgeMastery
-      .filter(ka => ka.mastery !== null && ka.mastery >= 80)
+      .filter(ka => ka.mastery !== null && ka.mastery >= 80 && ka.band !== 'weak' && ka.band !== 'contains-weak')
       .sort((a, b) => (b.mastery ?? -Infinity) - (a.mastery ?? -Infinity))
       .slice(0, 3);
 
@@ -496,6 +476,7 @@ export const useAnalytics = ({ enabled = true }: UseAnalyticsOptions = {}) => {
     asOf,
     sampleSize,
     calculateKnowledgeMastery,
+    masterySourceLabel: masteryReport.sourceLabel,
     calculateLearningStats,
     generateLearningAdvice,
     fetchAnalyticsData,

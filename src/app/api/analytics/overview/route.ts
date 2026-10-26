@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAccessibleClassIds } from '@/lib/classroom';
 import { getDataProvenance } from '@/lib/env';
 import { ALL_ACHIEVEMENTS } from '@/lib/achievements-v2';
+import { DIAGNOSTIC_ACTIVITY_LIMIT } from '@/lib/diagnostic-attempt';
 
 const CURRENT_ACHIEVEMENT_IDS = new Set(ALL_ACHIEVEMENTS.map((achievement) => achievement.id));
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     const asOf = new Date();
 
     // Student-facing data (parallel queries)
-    const [quizHistory, learningProgress, userStats, experimentStatus] = await Promise.all([
+    const [quizHistory, learningProgress, userStats, experimentStatus, diagnosticRows] = await Promise.all([
       prisma.quizAttempt.findMany({
         where: { userId, completedAt: { lte: asOf } },
         select: { id: true, score: true, totalQuestions: true, completedAt: true },
@@ -47,6 +48,13 @@ export async function GET(request: NextRequest) {
         where: { userId, createdAt: { lte: asOf } },
         select: { experimentId: true, status: true },
       }),
+      // Same COMPLETE_QUIZ window 薄弱点 uses. Selection stays in diagnostic-attempt.
+      prisma.userActivity.findMany({
+        where: { userId, action: 'COMPLETE_QUIZ', createdAt: { lte: asOf } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: DIAGNOSTIC_ACTIVITY_LIMIT,
+        select: { id: true, createdAt: true, details: true },
+      }),
     ]);
 
     // Computed stats
@@ -65,6 +73,11 @@ export async function GET(request: NextRequest) {
     const overview: Record<string, unknown> = {
       quizHistory,
       learningProgress,
+      diagnosticActivities: diagnosticRows.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        details: row.details,
+      })),
       summary: {
         totalPoints: userStats?.totalPoints || 0,
         totalExperiments: userStats?._count.experiments || 0,

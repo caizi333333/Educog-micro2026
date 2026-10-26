@@ -179,6 +179,70 @@ describe('AnalyticsPage role and data states', () => {
     expect(screen.getByText('N/A · 未形成记录')).toBeInTheDocument();
   });
 
+  it('shows sibling themes and atoms from their own diagnostic evidence', () => {
+    mockUseAnalytics.mockReturnValue(analyticsState({
+      summary: { ...zeroSummary, totalQuizzes: 1, avgQuizScore: 20 },
+      quizHistory: [{ id: 'attempt-1', score: 20, totalQuestions: 10, completedAt: '2026-10-26T17:02:53.000Z' }],
+      learningProgress: [{ id: 'progress-1', moduleId: 'module-1', chapterId: 'ch1', progress: 16, timeSpent: 30, lastAccessAt: '2026-10-26T17:00:00.000Z' }],
+      masterySourceLabel: '默认口径：最近一次综合测评「综合测评」20分，交卷于 2026-10-27 01:02',
+      calculateKnowledgeMastery: () => [
+        {
+          id: '1',
+          topic: '单片机概述',
+          mastery: null,
+          hasRecord: true,
+          band: 'contains-weak',
+          chapterProgress: 16,
+          details: { 单片机发展历史: 16, '89C51基本结构': 20, 开发工具与环境: null },
+          themes: [
+            {
+              id: '1.1',
+              name: '单片机发展历史',
+              mastery: 16,
+              band: 'weak',
+              atoms: [
+                { id: '1.1.1', name: '微处理器的诞生与发展', mastery: 16, band: 'weak' },
+                { id: '1.1.2', name: '单片机的发展阶段', mastery: null, band: null },
+              ],
+            },
+            {
+              id: '1.4',
+              name: '89C51基本结构',
+              mastery: 20,
+              band: 'weak',
+              atoms: [
+                { id: '1.4.1', name: '芯片引脚功能', mastery: 20, band: 'weak' },
+                { id: '1.4.4', name: '工作方式（最小系统）', mastery: null, band: 'weak' },
+              ],
+            },
+            {
+              id: '1.5',
+              name: '开发工具与环境',
+              mastery: null,
+              band: null,
+              atoms: [],
+            },
+          ],
+        },
+      ],
+    }));
+
+    render(<AnalyticsPage />);
+
+    expect(screen.getByText('单片机发展历史').parentElement).toHaveTextContent('16%');
+    expect(screen.getByText('89C51基本结构').parentElement).toHaveTextContent('20%');
+    expect(screen.getByText('开发工具与环境').parentElement).toHaveTextContent('N/A · 未形成记录');
+    expect(screen.getByText('微处理器的诞生与发展').parentElement).toHaveTextContent('16%');
+    expect(screen.getByText('单片机的发展阶段').parentElement).toHaveTextContent('N/A · 未形成记录');
+    expect(screen.getByText('芯片引脚功能').parentElement).toHaveTextContent('20%');
+    expect(screen.getByText('工作方式（最小系统）').parentElement).toHaveTextContent('诊断薄弱');
+    expect(screen.getByText('工作方式（最小系统）').parentElement).not.toHaveTextContent('N/A');
+    expect(screen.getByText(/本章学习进度 16%/)).toBeInTheDocument();
+    expect(screen.getByText(/不代表下面每个主题的掌握度/)).toBeInTheDocument();
+    expect(screen.getByText('单片机概述').parentElement).toHaveTextContent('含薄弱点');
+    expect(screen.getByText('单片机概述').parentElement).not.toHaveTextContent('16%');
+  });
+
   it('shows a personal overview failure instead of converting it to zero', () => {
     const fetchAnalyticsData = jest.fn();
     const invalidateCache = jest.fn();
