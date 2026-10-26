@@ -74,6 +74,11 @@ const U4_NOTES: readonly LessonNote[] = [
   { file: 'u4-classroom', title: '课堂互动台', sub: '指令判对错 / 寻址 / 例程演练 / 当堂自测', pointId: '3.5', pointName: '控制转移（前置）' },
 ] as const;
 
+const U5_NOTES: readonly LessonNote[] = [
+  { file: 'u5-overview', title: '第 5 章交互总览', sub: '中断系统 + 定时/计数器；含例题全览、速记、课末测', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-knowledge', title: '知识导览', sub: '第五章结构与媒资入口', pointId: '5', pointName: '中断系统' },
+] as const;
+
 const LESSON_UNITS: readonly LessonUnit[] = [
   {
     id: 2,
@@ -113,6 +118,19 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     ),
     intro: '第 4 章配套讲解视频与课堂互动台：先看视频把伪指令、程序设计步骤、查表思路过一遍，再到互动台里判指令、拆例程、做当堂自测。',
     figures: '例 4-1~4-16，伪指令 ORG / DB / DW / EQU / DATA / BIT',
+  },
+  {
+    id: 5,
+    name: '中断系统与定时器',
+    base: '/resources/course/courseware/u5',
+    notes: U5_NOTES,
+    bannerMid: (
+      <>
+        中断系统 + 定时/计数器交互总览：<b className="font-semibold text-amber-100">例题全览 · 速记 · 课末测</b>
+      </>
+    ),
+    intro: '第 5 章把“谁来叫 CPU、怎么响应、怎么定时计数”串成一条线：左侧目录可直达中断页签与定时器四步，知识导览给出结构与媒资入口。',
+    figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
 
