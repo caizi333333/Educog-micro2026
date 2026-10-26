@@ -37,6 +37,7 @@ export interface GraphDiagnosticSnapshot {
   weakKAs: string[];
   totalScore?: number;
   scores?: Record<string, { score: number }>;
+  quizId?: string;
 }
 
 export interface GraphDiagnosticView {
@@ -197,6 +198,7 @@ export function graphViewFromAttempt(
     attempt,
     snapshot: {
       weakKAs: attempt.weakAreas,
+      quizId: attempt.quizId,
       ...(attempt.score !== null ? { totalScore: attempt.score } : {}),
       ...(Object.keys(scores).length > 0
         ? { scores: Object.fromEntries(Object.entries(scores).map(([id, score]) => [id, { score }])) }

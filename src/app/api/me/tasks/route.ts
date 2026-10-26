@@ -3,7 +3,11 @@
 //                          the student's current ASSIGNED/IN_PROGRESS/COMPLETED
 //                          server state preserved across refresh and re-entry
 //   - activePaths:         LearningPath rows with status='ACTIVE'
-//                          (created by /api/teacher/push-learning-task)
+//                          (created by /api/teacher/push-learning-task).
+//                          alignment='pinned' means the path stays active but
+//                          is not the default next step: a comprehensive
+//                          receipt, or another canonical quiz, leads instead.
+//   - diagnosticFocus:     that same default COMPLETE_QUIZ receipt.
 //
 // Auth: any authenticated user (no role check).
 
@@ -16,6 +20,12 @@ import { getDataProvenance } from '@/lib/env';
 import { experiments as experimentCatalog } from '@/lib/experiment-config';
 import { COURSE_CHAPTER_BY_ID } from '@/lib/course-curriculum';
 import {
+  DIAGNOSTIC_ACTIVITY_LIMIT,
+  describeDiagnosticSource,
+  parseQuizActivityDetails,
+  selectDiagnosticAttempt,
+} from '@/lib/diagnostic-attempt';
+import {
   buildCourseChapterHref,
   getTaskEvidenceEventType,
   isManualTaskStep,
@@ -26,6 +36,7 @@ import {
   validateAddressingGraphCompletionEvidence,
   type LearningTaskStep,
 } from '@/lib/lesson-tasks';
+import { decideTaskFocus, quizIdsFromSteps } from '@/lib/task-focus';
 
 const OFFICIAL_EXPERIMENT_IDS = experimentCatalog.map((experiment) => experiment.id);
 
@@ -116,6 +127,11 @@ function parseJsonRecord(value: string | null): Record<string, unknown> {
 
 function asTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function activityCreatedAt(value: Date | string | null | undefined): string {
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === 'string' ? value : '';
 }
 
 function assignedExperimentCompletionRule(experimentId: string): string {
@@ -298,6 +314,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         assessmentReceiptByPathQuizAndMode.set(parsed.key, parsed.receipt);
       }
     }
+    // 默认下一步跟薄弱点同一份回执。路径内的测评回执只证明该任务步骤，
+    // 不能把一次未绑定 pathId 的综合测评排除在选择之外。
+    const diagnosticActivityRows = await prisma.userActivity.findMany({
+      where: { userId: payload.userId, action: 'COMPLETE_QUIZ' },
+      select: { id: true, details: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: DIAGNOSTIC_ACTIVITY_LIMIT,
+    });
+    const diagnosticRows = Array.isArray(diagnosticActivityRows) ? diagnosticActivityRows : [];
+    const diagnosticAttempts = diagnosticRows.flatMap((row) => {
+      const parsed = parseQuizActivityDetails({
+        id: row.id,
+        createdAt: activityCreatedAt(row.createdAt),
+        details: row.details,
+      });
+      return parsed ? [parsed] : [];
+    });
+    const canonicalAttempt = selectDiagnosticAttempt(diagnosticAttempts);
     const experimentReceiptByPathAndId = new Map<string, ExperimentReceipt>();
     for (const row of taskExperimentRows) {
       for (const path of pathRows) {
@@ -435,14 +469,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         steps,
       };
     });
-    const activePaths = mappedPaths.filter((path) => path.status === 'ACTIVE');
-    const completedPaths = mappedPaths.filter((path) => path.status === 'COMPLETED');
-    const pausedPaths = mappedPaths.filter((path) => path.status === 'PAUSED');
+    const focusDecision = decideTaskFocus(
+      mappedPaths.map((path) => ({
+        id: path.id,
+        status: path.status,
+        quizIds: quizIdsFromSteps(path.steps),
+      })),
+      canonicalAttempt,
+    );
+    const alignedPaths = mappedPaths.map((path) => ({
+      ...path,
+      alignment: focusDecision.pinnedPathIds.includes(path.id) ? 'pinned' as const : 'default' as const,
+    }));
+    const diagnosticFocus = canonicalAttempt
+      ? {
+        leads: focusDecision.diagnosticLeads,
+        quizId: canonicalAttempt.quizId,
+        assessmentMode: canonicalAttempt.assessmentMode,
+        weakAreas: canonicalAttempt.weakAreas,
+        score: canonicalAttempt.score,
+        label: describeDiagnosticSource(canonicalAttempt, 'canonical'),
+        href: '/weak-nodes',
+        learningPathHref: '/learning-path',
+      }
+      : null;
+    const activePaths = alignedPaths.filter((path) => path.status === 'ACTIVE');
+    const completedPaths = alignedPaths.filter((path) => path.status === 'COMPLETED');
+    const pausedPaths = alignedPaths.filter((path) => path.status === 'PAUSED');
 
     return NextResponse.json({
       success: true,
       data: {
         dataProvenance,
+        diagnosticFocus,
         assignedExperiments,
         activePaths,
         completedPaths,

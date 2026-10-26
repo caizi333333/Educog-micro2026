@@ -555,4 +555,64 @@ describe('MyTasksPage', () => {
     expect(await screen.findByText(/数据不足：未找到同时匹配本任务记录/)).toBeInTheDocument();
     expect(screen.queryByText('分数变化')).not.toBeInTheDocument();
   });
+
+  it('keeps a 0/6 addressing path pinned when the comprehensive receipt leads', async () => {
+    const weakAreas = ['1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3'];
+    mockFetch.mockResolvedValue(response(200, {
+      success: true,
+      data: {
+        assignedExperiments: [],
+        pausedPaths: [],
+        completedPaths: [],
+        diagnosticFocus: {
+          leads: true,
+          quizId: 'comprehensive-assessment',
+          assessmentMode: 'initial',
+          weakAreas,
+          score: 20,
+          label: '默认口径：最近一次综合测评「综合测评」20分，交卷于 2026/10/27 01:02:53（Asia/Shanghai）',
+          href: '/weak-nodes',
+          learningPathHref: '/learning-path',
+        },
+        activePaths: [{
+          id: 'path-addressing',
+          name: '3.1 寻址方式专项学习任务',
+          description: 'pinned addressing task',
+          startedAt: '2026-07-16T00:00:00.000Z',
+          completedAt: null,
+          currentModule: 0,
+          totalModules: 6,
+          status: 'ACTIVE',
+          alignment: 'pinned',
+          dataIssue: null,
+          steps: [{
+            stepId: 'addressing-graph',
+            type: 'GRAPH',
+            title: '图谱定位：3.1 寻址方式',
+            purpose: '定位知识点',
+            completionRule: '进入图谱并完成查看',
+            href: '/knowledge-graph?node=3.1',
+            targetId: '3.1',
+            status: 'CURRENT',
+            canMarkComplete: false,
+          }],
+        }],
+        counts: { assignedExperiments: 0, activePaths: 1, completedPaths: 0, pausedPaths: 0 },
+      },
+    }));
+
+    render(<MyTasksPage />);
+
+    expect(await screen.findByRole('heading', { name: '你有 12 个薄弱点等着补' })).toBeInTheDocument();
+    expect(screen.getByText(/默认按最近一次综合测评补学/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '查看我的薄弱节点' })).toHaveAttribute('href', '/weak-nodes');
+    expect(screen.getByRole('link', { name: '打开个性化学习' })).toHaveAttribute('href', '/learning-path');
+    const currentSection = screen.getByRole('heading', { name: '当前学习路径' }).closest('section');
+    expect(currentSection).not.toHaveTextContent('3.1 寻址方式专项学习任务');
+    expect(screen.getByRole('heading', { name: '指定任务' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '3.1 寻址方式专项学习任务完成进度' })).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByRole('progressbar', { name: '3.1 寻址方式专项学习任务完成进度' })).toHaveAttribute('aria-valuetext', '0/6 步，完成 0%');
+    expect(screen.getByText('本指定任务的当前步骤')).toBeInTheDocument();
+    expect(screen.queryByText('当前只需完成')).not.toBeInTheDocument();
+  });
 });

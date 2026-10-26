@@ -1472,6 +1472,78 @@ describe('/api/learning-path/save', () => {
       });
       expect(data.data.dataProvenance).toMatchObject({ mode: 'DEMO', label: '演示数据' });
     });
+
+    it('pins an untouched addressing path when a comprehensive receipt exists', async () => {
+      const comprehensiveWeak = ['1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3'];
+      setupAuthMock(mockVerifyToken, createMockJWTPayload({ userId: 'student1', role: 'STUDENT' }));
+      mockPrisma.userActivity.findMany.mockReset();
+      mockPrisma.userActivity.findMany
+        .mockResolvedValueOnce([] as any)
+        .mockResolvedValueOnce([] as any)
+        .mockResolvedValueOnce([
+          {
+            id: 'ch1',
+            createdAt: new Date('2026-10-26T17:03:08.000Z'),
+            details: JSON.stringify({
+              quizId: 'quiz-ch1', assessmentMode: 'initial', score: 58.3,
+              weakAreas: ['1.2', '1.4.1', '1.4.3', '1.4.4'],
+            }),
+          },
+          {
+            id: 'comprehensive',
+            createdAt: new Date('2026-10-26T17:02:53.000Z'),
+            details: JSON.stringify({
+              quizId: 'comprehensive-assessment', assessmentMode: 'initial', score: 20,
+              weakAreas: comprehensiveWeak,
+            }),
+          },
+          {
+            id: 'retest',
+            createdAt: new Date('2026-10-26T17:02:40.000Z'),
+            details: JSON.stringify({
+              quizId: ADDRESSING_QUIZ_ID, assessmentMode: 'retest', score: 85.7,
+              weakAreas: ['3.1.6'],
+            }),
+          },
+        ] as any);
+      setupPrismaMock(mockPrisma, 'userExperiment', 'findMany', [] as any);
+      setupPrismaMock(mockPrisma, 'learningEvent', 'findMany', [] as any);
+      setupPrismaMock(mockPrisma, 'learningPath', 'findMany', [{
+        id: 'path-addressing', userId: 'student1', name: ADDRESSING_TASK_PRESET.title,
+        description: ADDRESSING_TASK_PRESET.description, modules: JSON.stringify(ADDRESSING_TASK_PRESET.steps),
+        currentModule: 0, totalModules: 6, status: 'ACTIVE',
+        startedAt: new Date('2026-07-01T00:00:00Z'), completedAt: null,
+      }] as any);
+
+      const response = await getMyTasks(new NextRequest('http://localhost:3000/api/me/tasks', {
+        headers: { authorization: 'Bearer valid-token' },
+      }));
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.diagnosticFocus).toMatchObject({
+        leads: true,
+        quizId: 'comprehensive-assessment',
+        score: 20,
+        href: '/weak-nodes',
+        learningPathHref: '/learning-path',
+      });
+      expect(data.data.diagnosticFocus.weakAreas).toHaveLength(12);
+      expect(data.data.diagnosticFocus.label).toContain('最近一次综合测评');
+      expect(data.data.activePaths).toHaveLength(1);
+      expect(data.data.activePaths[0]).toMatchObject({
+        id: 'path-addressing',
+        name: ADDRESSING_TASK_PRESET.title,
+        status: 'ACTIVE',
+        currentModule: 0,
+        totalModules: 6,
+        alignment: 'pinned',
+      });
+      expect(mockPrisma.userActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { userId: 'student1', action: 'COMPLETE_QUIZ' },
+        take: 50,
+      }));
+    });
   });
 
   describe('teacher intervention review', () => {

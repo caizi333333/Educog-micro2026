@@ -1,8 +1,8 @@
 /**
  * Which quiz attempt drives 薄弱点.
  *
- * Default, used by /weak-nodes, /learning-path, and the home next-step banner
- * when the page is not opened from a specific receipt:
+ * Default, used by /weak-nodes, /learning-path, /tasks, and the home next-step
+ * banner when the page is not opened from a specific receipt:
  * 1. Latest `comprehensive-assessment`, if the student has one.
  * 2. Otherwise the latest initial assessment (assessmentMode is not `retest`).
  * 3. Otherwise the latest attempt of any kind, so a page is not blank.

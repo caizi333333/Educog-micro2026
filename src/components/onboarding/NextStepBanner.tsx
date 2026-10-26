@@ -18,16 +18,19 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchClientRequest } from '@/lib/client-fetch';
 import {
+  COMPREHENSIVE_QUIZ_ID,
   diagnosticActivitiesQuery,
   parseQuizActivityDetails,
   selectDiagnosticAttempt,
 } from '@/lib/diagnostic-attempt';
+import { ADDRESSING_QUIZ_ID } from '@/lib/lesson-tasks';
 
 export type NextStepSnapshot = {
   weakKAs?: string[];
   totalScore?: number;
   scores?: Record<string, { score?: number }>;
   timestamp?: string;
+  quizId?: string;
 };
 
 const snapshotSchema = z.object({
@@ -35,6 +38,7 @@ const snapshotSchema = z.object({
   totalScore: z.number().optional(),
   scores: z.record(z.string(), z.object({ score: z.number().optional() })).optional(),
   timestamp: z.string().optional(),
+  quizId: z.string().optional(),
 }).passthrough();
 
 const activityResponseSchema = z.object({
@@ -56,6 +60,17 @@ const experimentResponseSchema = z.object({
     status: z.string(),
   }).passthrough()).optional(),
 });
+
+function weakPointBody(snapshot: NextStepSnapshot): string {
+  const detail = '一站式复习页会把每个薄弱点的父节点、前置、对应实验和原题都摊开给你。';
+  if (snapshot.quizId === COMPREHENSIVE_QUIZ_ID) {
+    return `默认按最近一次综合测评补学，首页、个性化学习和任务页使用同一份薄弱点。${detail}`;
+  }
+  if (snapshot.quizId === ADDRESSING_QUIZ_ID) {
+    return `当前补学按最近一次寻址方式首测。${detail}`;
+  }
+  return detail;
+}
 
 type StepKind = 'no-quiz' | 'no-experiment' | 'has-weak' | 'all-strong';
 
@@ -83,7 +98,7 @@ export function computeStep(snapshot: NextStepSnapshot | null, hasExperimentProg
     return {
       kind: 'has-weak',
       title: `你有 ${snapshot.weakKAs?.length ?? 0} 个薄弱点等着补`,
-      body: '一站式复习页会把每个薄弱点的父节点、前置、对应实验和原题都摊开给你。',
+      body: weakPointBody(snapshot),
       cta: { label: '查看我的薄弱节点', href: '/weak-nodes' },
       Icon: Target,
       tone: 'amber',
@@ -243,6 +258,7 @@ export function NextStepBanner({
               });
               resolvedSnapshot = {
                 weakKAs: chosen.weakAreas,
+                quizId: chosen.quizId,
                 ...(chosen.score !== null ? { totalScore: chosen.score } : {}),
                 ...(scores.success && scores.data.scoresByKA ? { scores: scores.data.scoresByKA } : {}),
               };
