@@ -4,7 +4,7 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
 import { sanitizeMetadata } from '@/lib/classroom';
-import { describeStudyPoints } from '@/lib/study-points';
+import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const USER_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -294,7 +294,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         count: stat._count,
       })),
       dailyPoints: dailyPoints._sum.points || 0,
-      studyPoints: describeStudyPoints(studyTime._sum.timeSpent ?? 0),
+      studyPoints: await applyDailyLoginLedger(
+        describeStudyPoints(studyTime._sum.timeSpent ?? 0),
+        payload.userId,
+        new Date(),
+      ),
       pagination: { limit, offset, hasMore: transactions.length === limit },
     });
   } catch (error) {

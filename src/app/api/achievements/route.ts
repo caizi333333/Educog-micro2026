@@ -8,7 +8,7 @@ import {
   ACHIEVEMENTS_V2
 } from '@/lib/achievements-v2';
 import { summarizeStudyActivity } from '@/lib/study-activity';
-import { describeStudyPoints } from '@/lib/study-points';
+import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
 
 // In-memory rate limiter: userId → [timestamps]
 const rateLimiter = new Map<string, number[]>();
@@ -136,7 +136,11 @@ export async function GET(request: Request) {
       allLearningProgress.map((row) => row.lastAccessAt),
       asOf,
     ).streakDays;
-    const studyPoints = describeStudyPoints(learningStats._sum.timeSpent || 0);
+    const studyPoints = await applyDailyLoginLedger(
+      describeStudyPoints(learningStats._sum.timeSpent || 0),
+      payload.userId,
+      asOf,
+    );
 
     const userStats = {
       modules_completed: completedModules,

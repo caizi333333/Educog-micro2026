@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { CAMPUS_TIME_ZONE } from '@/lib/campus-time';
 import { STUDY_STREAK_SOURCE, summarizeStudyActivity } from '@/lib/study-activity';
-import { describeStudyPoints } from '@/lib/study-points';
+import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
 
 function json(body: unknown, status = 200): NextResponse {
   const response = NextResponse.json(body, { status });
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       lastActiveDate: study.lastActiveDate?.toISOString() ?? null,
       streakSource: STUDY_STREAK_SOURCE,
       streakTimeZone: CAMPUS_TIME_ZONE,
-      studyPoints: describeStudyPoints(totalTimeSpent),
+      studyPoints: await applyDailyLoginLedger(describeStudyPoints(totalTimeSpent), userId, new Date()),
       learningRecords,
       quizAttempts,
       dataSufficient: learningRecords > 0 || quizAttempts > 0,

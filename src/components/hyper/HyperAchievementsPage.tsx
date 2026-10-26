@@ -315,6 +315,7 @@ export function HyperAchievementsPage() {
   const stats = calculateStats();
   const visibleAllAchievements = getFilteredAchievements('all');
   const visibleAllCount = visibleAllAchievements.length;
+  const visibleUnlockedCount = visibleAllAchievements.filter((item) => progressFor(userProgress, item.id)?.unlocked).length;
   const concealedCount = Math.max(0, stats.totalCount - visibleAllCount);
   const categoryCounts = useMemo(() => {
     const counts: Record<string, { total: number; earned: number }> = {};
@@ -463,9 +464,9 @@ export function HyperAchievementsPage() {
         <aside className="rounded-md border border-white/[0.08] bg-white/[0.035] p-3 xl:sticky xl:top-20 xl:self-start">
           <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">视图</div>
           {[
-            ['all', LayoutGrid, '全部可见', `${stats.unlockedCount}/${visibleAllCount}`],
+            ['all', LayoutGrid, '全部可见', `${stats.unlockedCount}/${stats.totalCount}`],
             ['earned', Check, '已获得', String(stats.unlockedCount)],
-            ['locked', Lock, '未获得', String(Math.max(0, visibleAllCount - stats.unlockedCount))],
+            ['locked', Lock, '未获得', String(Math.max(0, visibleAllCount - visibleUnlockedCount))],
           ].map(([id, Icon, label, count]) => (
             <button
               key={id as string}
