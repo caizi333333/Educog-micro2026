@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>第5章 知识导览｜3084 浓缩版入口</title>
 <script>(function(){try{var t=localStorage.getItem("mcu-ui-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
-<!-- 单文件口径：依赖同目录 lib/（kp-theme.css + kp-theme-toggle.js）；从 交互网页_按单元/ 打开即可离线 -->
+<!-- 主题在同目录 lib/（kp-theme.css + kp-theme-toggle.js） -->
 <link rel="stylesheet" href="lib/kp-theme.css">
 <style>
 /* 本页仅布局；颜色一律走 kp-theme 变量 */
@@ -70,6 +70,7 @@ main.hub-main{padding:0 4px 48px;max-width:980px;min-width:0}
 #media-ref a{color:#fbbf24;font-weight:600;text-decoration:none;border-bottom:1px solid rgba(251,191,36,.5)}
 #media-ref a:visited{color:#f59e0b}
 #media-ref a:hover{color:#fde68a}
+.clip video{display:block;width:100%;max-width:720px;aspect-ratio:16/9;height:auto;max-height:min(42vh,320px);object-fit:contain;background:#000;border-radius:8px;border:1px solid var(--kp-border,rgba(255,255,255,.1));margin:8px 0 10px}
 html[data-theme="light"] .kv a,
 html[data-theme="light"] #media-ref a{color:#b45309;border-bottom-color:rgba(180,83,9,.45)}
 html[data-theme="light"] .kv a:visited,
@@ -136,11 +137,11 @@ html[data-theme="light"] table.wiki{
       <div class="meta">第5章 中断与定时器 · 知识导览（维基 + 图谱）· 口径 80C51</div>
     </div>
     <div class="links">
-      <a class="kp-btn" href="u5-第5章总览_单文件.html">打开交互总览</a>
+      <a class="kp-btn" href="u5-overview.html">打开交互总览</a>
       <a class="kp-btn" href="u5-interrupt-classroom.html#p10">学生互动 A–D</a>
       <a class="kp-btn" href="u5-interrupt-classroom.html">中断课堂页</a>
-      <a class="kp-btn" href="u5-timer-design_单文件.html">定时器页</a>
-      <a class="kp-btn" href="讲解视频_画廊.html">视频画廊</a>
+      <a class="kp-btn" href="u5-overview.html#tmr-show">定时器页</a>
+      <a class="kp-btn" href="u5-overview.html#int-2">对比短片</a>
     </div>
   </div>
 
@@ -199,14 +200,20 @@ html[data-theme="light"] table.wiki{
         <h3>① 查询 vs 中断 <span class="badges"><span class="badge imp">重点</span></span></h3>
         <p>主程序空等问外设，还是外设来叫？接实验一 <code>LCALL Delay</code>：中断 = 硬件自己做一次 LCALL。</p>
         <div class="chiprow"><span class="chip">电话类比</span><span class="chip">课件 2–7</span></div>
-        <div class="kv"><b>交互</b><span><a href="u5-第5章总览_单文件.html#int-2">总览 #int-2</a> · <a href="u5-interrupt-classroom.html#p2">课堂页签②</a> · <a href="u5-interrupt-classroom.html#media2">#media2</a></span>
+        <div class="kv"><b>交互</b><span><a href="u5-overview.html#int-2">总览 #int-2</a> · <a href="u5-interrupt-classroom.html#p2">课堂页签②</a> · <a href="u5-interrupt-classroom.html#media2">#media2</a></span>
         <b>短片</b><span><a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener"><code>查询对比与响应过程</code></a></span></div>
 
         <div id="media-ref" style="margin:12px 0 0;padding:12px 14px;border-radius:10px;border:1px solid var(--kp-border);background:var(--kp-surface)">
           <h4 style="margin:0 0 8px;font-size:1rem;color:var(--cyan100)">参考视频 / 动画</h4>
-          <p style="margin:0 0 8px;font-size:.9rem;color:var(--slate300)">老师用：先播对比短片，再进教室演示。中断系统正片用 B站，不在 R2。完整表见 <code>媒资清单_第5章中断直观_20261026.md</code>。</p>
+          <p style="margin:0 0 8px;font-size:.9rem;color:var(--slate300)">先看下面的对比短片，再进教室演示。中断系统正片用 B站，不在 R2。</p>
+          <div class="clip">
+            <video controls playsinline preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
+              浏览器不支持 video：请用下方链接打开。
+            </video>
+          </div>
           <ul style="margin:0;padding-left:1.2em;font-size:.9rem;line-height:1.7;color:var(--slate300)">
             <li><a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">短片 · 查询对比与响应过程</a>（约 3:51）</li>
+            <li><a href="u5-interrupt-classroom.html#lab4clips">实验四讲解 · 0872 / 3084（页内播放）</a></li>
             <li><a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>（约 14:33）</li>
             <li><a href="https://www.codebrick.tech/co-blog/posts/io/io-methods-compare-simulator.html" target="_blank" rel="noopener">CodeBrick 查询/中断/DMA 并排</a></li>
             <li><a href="https://dmccreary.github.io/robot-faces/sims/polling-vs-interrupt-response-simulator/" target="_blank" rel="noopener">短按会漏 · Polling vs Interrupt</a></li>
@@ -231,12 +238,12 @@ html[data-theme="light"] table.wiki{
             <tr><td>选型</td><td>按键点一下 → <code>SETB IT0</code></td><td>持续故障；ISR 内先消条件再返回</td></tr>
           </table>
           <div class="kv" style="margin-top:10px">
-            <b>演示</b><span><a href="u5-interrupt-classroom.html#actA">互动 A 门铃对决</a> · <a href="u5-interrupt-classroom.html#p4">课堂④ 机理</a> · <a href="u5-第5章总览_单文件.html#int-4">总览 #int-4</a></span>
+            <b>演示</b><span><a href="u5-interrupt-classroom.html#actA">互动 A 门铃对决</a> · <a href="u5-interrupt-classroom.html#p4">课堂④ 机理</a> · <a href="u5-overview.html#int-4">总览 #int-4</a></span>
             <b>依据</b><span>课件第 10–12 页；教材约 P94–95 表 5-1；节奏与讲法块④</span>
           </div>
         </div>
         <div class="kv">
-          <b>交互</b><span><a href="u5-第5章总览_单文件.html#int-3">#int-3</a> · <a href="u5-第5章总览_单文件.html#int-4">#int-4</a> · <a href="u5-第5章总览_单文件.html#int-5">#int-5</a> · <a href="u5-第5章总览_单文件.html#int-6">#int-6</a> · <a href="u5-interrupt-classroom.html#p4">课堂④</a> · <a href="u5-interrupt-classroom.html#p10">练 A–D</a></span>
+          <b>交互</b><span><a href="u5-overview.html#int-3">#int-3</a> · <a href="u5-overview.html#int-4">#int-4</a> · <a href="u5-overview.html#int-5">#int-5</a> · <a href="u5-overview.html#int-6">#int-6</a> · <a href="u5-interrupt-classroom.html#p4">课堂④</a> · <a href="u5-interrupt-classroom.html#p10">练 A–D</a></span>
           <b>短片</b><span><a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 BV1Hd4y1t7ub</a>（默认跳过）· <code>第5章_中断嵌套_高级打断低级与RETI.mp4</code>（OPTIONAL）</span>
         </div>
       </section>
@@ -246,7 +253,7 @@ html[data-theme="light"] table.wiki{
         <p>响应条件结论 3～8 机器周期；硬件只压 PC；入口地址；服务末必须 RETI。</p>
         <div class="chiprow"><span class="chip">INT0=0003H</span><span class="chip">T0=000BH</span><span class="chip">课件 21–24</span></div>
         <div class="kv">
-          <b>交互</b><span><a href="u5-第5章总览_单文件.html#int-7">#int-7</a> · <a href="u5-第5章总览_单文件.html#int-8">#int-8</a>（忘了保护 PSW） · <a href="u5-interrupt-classroom.html#actB">互动 B 谁替你 LCALL</a></span>
+          <b>交互</b><span><a href="u5-overview.html#int-7">#int-7</a> · <a href="u5-overview.html#int-8">#int-8</a>（忘了保护 PSW） · <a href="u5-interrupt-classroom.html#actB">互动 B 谁替你 LCALL</a></span>
           <b>短片</b><span>「为什么要用中断」后段 OPTIONAL</span>
         </div>
       </section>
@@ -256,7 +263,7 @@ html[data-theme="light"] table.wiki{
         <p>向量处放 LJMP → 初始化（含挪 SP）→ 服务（PUSH/处理/POP）→ 主循环。例5-3 看结构。</p>
         <div class="chiprow"><span class="chip">课件 24–31</span><span class="chip">RET ≠ RETI</span></div>
         <div class="kv">
-          <b>交互</b><span><a href="u5-第5章总览_单文件.html#int-8">#int-8</a> · <a href="u5-第5章总览_单文件.html#int-9">#int-9</a>（可跳）</span>
+          <b>交互</b><span><a href="u5-overview.html#int-8">#int-8</a> · <a href="u5-overview.html#int-9">#int-9</a>（可跳）</span>
           <b>短片</b><span>—</span>
         </div>
       </section>
@@ -266,7 +273,7 @@ html[data-theme="light"] table.wiki{
         <p>加 1 计数器只认溢出；方式1：X=65536−N。例：6MHz、1ms → <strong>FE0CH</strong>；同型 12MHz → FC18H。TMOD 整字节写。</p>
         <div class="chiprow"><span class="chip">课件 32–45</span><span class="chip">#0FEH 的 0</span></div>
         <div class="kv">
-          <b>交互</b><span><a href="u5-第5章总览_单文件.html#tmr-show">#tmr-show</a> · <a href="u5-第5章总览_单文件.html#tmr-hand">#tmr-hand</a> · <a href="u5-timer-design_单文件.html">timer 单文件</a></span>
+          <b>交互</b><span><a href="u5-overview.html#tmr-show">#tmr-show</a> · <a href="u5-overview.html#tmr-hand">#tmr-hand</a> · <a href="u5-overview.html#tmr-show">timer 单文件</a></span>
           <b>短片</b><span><code>第5章_定时器_初值与TMOD.mp4</code> · <code>第5章_定时器_方式1十六位初值.mp4</code>（均 OPTIONAL）</span>
         </div>
       </section>
@@ -340,6 +347,31 @@ html[data-theme="light"] table.wiki{
     links.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')===h);});
   }
   addEventListener('hashchange',setOn); setOn();
+})();
+(function(){
+  var embedded=false;
+  try{ embedded=window.self!==window.top; }catch(e){ embedded=true; }
+  if(!embedded) return;
+  function overviewHash(hash){
+    if(hash==='#media2'||hash==='#p2') return '#int-2';
+    if(hash==='#lab4clips'||hash==='#p9') return '#int-9';
+    if(hash==='#p10'||/^#act[A-D]$/.test(hash)) return '#int-10';
+    var pane=/^#p(\d+)$/.exec(hash||'');
+    if(pane) return '#int-'+pane[1];
+    return '#int-1';
+  }
+  document.addEventListener('click',function(e){
+    var link=e.target.closest&&e.target.closest('a[href]');
+    if(!link||link.target==='_blank') return;
+    var match=/(?:^|\/)(u5-[a-z0-9-]+)\.html(#.*)?$/.exec(link.getAttribute('href')||'');
+    if(!match) return;
+    var file=match[1], hash=match[2]||'';
+    if(file==='u5-interrupt-classroom'){ file='u5-overview'; hash=overviewHash(hash); }
+    if(file!=='u5-overview'&&file!=='u5-knowledge') return;
+    e.preventDefault();
+    try{ parent.postMessage({type:'lesson-note:open',file:file,hash:hash},location.origin); }
+    catch(err){ location.href=link.href; }
+  },true);
 })();
 </script>
 </body>
