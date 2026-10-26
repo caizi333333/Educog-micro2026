@@ -114,6 +114,44 @@ describe('NextStepBanner assessment ownership', () => {
     expect(mockFetchClientRequest).not.toHaveBeenCalled();
   });
 
+  it('follows the comprehensive receipt when a later addressing retest exists', async () => {
+    const weakAreas = ['1.1.1', '1.1.2', '1.1.3', '1.2', '1.2.1', '1.2.2', '1.2.3', '1.3', '1.3.1', '1.3.2', '1.4.1', '1.4.3'];
+    mockFetchClientRequest.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        activities: [
+          {
+            id: 'retest',
+            createdAt: '2026-10-26T17:02:40.000Z',
+            details: JSON.stringify({
+              quizId: 'quiz-ch3-addressing',
+              assessmentMode: 'retest',
+              score: 85.7,
+              weakAreas: ['3.1.6'],
+            }),
+          },
+          {
+            id: 'comprehensive',
+            createdAt: '2026-10-26T17:02:53.000Z',
+            details: JSON.stringify({
+              quizId: 'comprehensive-assessment',
+              assessmentMode: 'initial',
+              score: 20,
+              weakAreas,
+            }),
+          },
+        ],
+      }),
+    } as unknown as Response);
+
+    render(React.createElement(NextStepBanner, { hasExperimentProgress: false }));
+
+    expect(await screen.findByText('你有 12 个薄弱点等着补')).toBeInTheDocument();
+    expect(screen.getByText(/默认按最近一次综合测评补学/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /查看我的薄弱节点/ })).toHaveAttribute('href', '/weak-nodes');
+    expect(screen.queryByRole('link', { name: /寻址/ })).not.toBeInTheDocument();
+  });
+
   it('continues to request the latest assessment activity in unmanaged mode', async () => {
     render(React.createElement(NextStepBanner, {
       hasExperimentProgress: false,

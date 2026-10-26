@@ -192,6 +192,55 @@ describe('LearningPathClient weak-area evidence priority', () => {
     expect(screen.getByRole('link', { name: '在薄弱点页核对同一份测评' })).toHaveAttribute('href', '/weak-nodes');
   });
 
+  it('keeps the comprehensive plan off the addressing retest when a weak atom is 3.1', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/experiments') return response({ success: false, data: [] });
+      if (url.startsWith('/api/knowledge-graph?')) return response({ data: [] });
+      if (url.startsWith('/api/user/activities?')) {
+        return response({
+          success: true,
+          activities: [
+            {
+              id: 'retest',
+              createdAt: '2026-10-26T17:02:40.000Z',
+              details: JSON.stringify({
+                quizId: 'quiz-ch3-addressing',
+                assessmentMode: 'retest',
+                score: 85.7,
+                weakAreas: ['3.1.6'],
+              }),
+            },
+            {
+              id: 'comprehensive',
+              createdAt: '2026-10-26T17:02:53.000Z',
+              details: JSON.stringify({
+                quizId: 'comprehensive-assessment',
+                assessmentMode: 'initial',
+                score: 20,
+                weakAreas: ['1.1.1', '3.1.6'],
+              }),
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<LearningPathClient />);
+
+    expect(await screen.findByText('1.1.1')).toBeInTheDocument();
+    expect(screen.getByText('3.1.6')).toBeInTheDocument();
+    expect(screen.getAllByText(/最近一次综合测评/).length).toBeGreaterThan(0);
+    const retestLinks = screen.getAllByRole('link').filter((link) => (
+      (link.getAttribute('href') ?? '').includes('mode=retest')
+    ));
+    expect(retestLinks).toHaveLength(0);
+    const closingQuizLinks = screen.getAllByRole('link', { name: '重新测评' });
+    expect(closingQuizLinks.length).toBeGreaterThan(0);
+    expect(closingQuizLinks.every((link) => link.getAttribute('href') === '/quiz')).toBe(true);
+  });
+
   it('pins the learning path to the quiz named by the diagnostic report', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);

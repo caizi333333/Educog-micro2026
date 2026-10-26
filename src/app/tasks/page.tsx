@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Activity, ArrowRight, BookOpen, CheckCircle2, Circle, Clock, FlaskConical, GitBranch, KeyRound, Loader2, LockKeyhole, PauseCircle, RefreshCw } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
+import { computeStep } from '@/components/onboarding/NextStepBanner';
 import { buildTaskNavigationReceipt, requiresTaskOpenReceiptBeforeNavigation } from '@/lib/lesson-tasks';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,13 +91,26 @@ const activePathSchema = z.object({
   curriculumLabel: z.string().nullable().default(null),
   curriculumNote: z.string().nullable().default(null),
   missingChapterIds: z.array(z.string()).default([]),
+  alignment: z.enum(['default', 'pinned']).default('default'),
   steps: z.array(taskStepSchema),
+});
+
+const diagnosticFocusSchema = z.object({
+  leads: z.boolean(),
+  quizId: z.string(),
+  assessmentMode: z.enum(['initial', 'retest']),
+  weakAreas: z.array(z.string()),
+  score: z.number().nullable(),
+  label: z.string(),
+  href: z.string(),
+  learningPathHref: z.string(),
 });
 
 const tasksResponseSchema = z.object({
   success: z.boolean(),
   data: z.object({
     dataProvenance: dataProvenanceSchema.default(defaultDemoProvenance),
+    diagnosticFocus: diagnosticFocusSchema.nullable().default(null),
     assignedExperiments: z.array(assignedExperimentSchema),
     activePaths: z.array(activePathSchema),
     completedPaths: z.array(activePathSchema),
@@ -607,6 +621,166 @@ export default function MyTasksPage(): JSX.Element {
   }
 
   const totalCount = (data?.counts.assignedExperiments ?? 0) + (data?.counts.activePaths ?? 0);
+  const diagnosticFocus = data?.diagnosticFocus ?? null;
+  const defaultActivePaths = (data?.activePaths ?? []).filter((path) => path.alignment !== 'pinned');
+  const pinnedActivePaths = (data?.activePaths ?? []).filter((path) => path.alignment === 'pinned');
+  const leadStep = diagnosticFocus?.leads
+    ? computeStep({
+      weakKAs: diagnosticFocus.weakAreas,
+      quizId: diagnosticFocus.quizId,
+      ...(diagnosticFocus.score !== null ? { totalScore: diagnosticFocus.score } : {}),
+    }, false)
+    : null;
+
+  const renderActivePathCards = (paths: ActivePath[]): JSX.Element => (
+    <div className="space-y-3">
+      {paths.map((path) => {
+        const currentStepIndex = path.steps.findIndex((step) => step.status === 'CURRENT');
+        const currentStep = currentStepIndex >= 0 ? path.steps[currentStepIndex] : null;
+        const progressPercent = path.totalModules > 0
+          ? Math.min(100, Math.round((path.currentModule / path.totalModules) * 100))
+          : 0;
+        const pinned = path.alignment === 'pinned';
+        return (
+          <div
+            key={path.id}
+            className="overflow-hidden rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+          >
+            <div className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-emerald-100">{path.name}</h3>
+                    {pinned && (
+                      <span className="rounded-md border border-amber-300/30 bg-amber-300/[0.1] px-2 py-0.5 text-[10px] font-medium text-amber-100">指定任务</span>
+                    )}
+                  </div>
+                  {path.description && (
+                    <p className="mt-1 text-xs text-slate-400">{path.description}</p>
+                  )}
+                </div>
+                <span className="shrink-0 rounded-md border border-emerald-300/15 bg-black/20 px-2 py-1 font-mono text-[11px] text-emerald-200">
+                  {path.currentModule}/{path.totalModules} 步 · {progressPercent}%
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label={`${path.name}完成进度`}
+                aria-valuemin={0}
+                aria-valuemax={path.totalModules}
+                aria-valuenow={Math.min(path.currentModule, path.totalModules)}
+                aria-valuetext={`${path.currentModule}/${path.totalModules} 步，完成 ${progressPercent}%`}
+                className="mt-2 h-1.5 w-full overflow-hidden rounded-sm bg-emerald-300/10"
+              >
+                <div className="h-full bg-emerald-300/70" style={{ width: `${progressPercent}%` }} />
+              </div>
+              {currentStep && (
+                <div className="mt-3 flex flex-col gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-200/75">
+                      {pinned ? '本指定任务的当前步骤' : '当前只需完成'}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-cyan-50">步骤 {currentStepIndex + 1} · {currentStep.title}</div>
+                    <div className="mt-1 text-xs leading-5 text-slate-400">完成标志：{currentStep.completionRule}</div>
+                  </div>
+                  <span className="shrink-0 text-xs text-cyan-200">完成后自动解锁下一步</span>
+                </div>
+              )}
+              {path.dataIssue && (
+                <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-xs leading-5 text-amber-100" role="alert">
+                  {path.dataIssue}
+                </div>
+              )}
+              <CurriculumCompatibilityNotice path={path} />
+              {path.steps.length > 0 && (
+                <ol className="mt-4 space-y-2">
+                  {path.steps.map((step, index) => {
+                    const isCurrent = step.status === 'CURRENT';
+                    const isCompleted = step.status === 'COMPLETED';
+                    const stepKey = `${path.id}-${step.stepId}`;
+                    return (
+                      <li
+                        key={stepKey}
+                        aria-current={isCurrent ? 'step' : undefined}
+                        className={cn(
+                          'rounded-md border p-3',
+                          isCurrent && 'border-cyan-300/35 bg-cyan-300/[0.06]',
+                          isCompleted && 'border-emerald-300/15 bg-emerald-300/[0.025]',
+                          step.status === 'PENDING' && 'border-white/[0.06] bg-black/15 opacity-70',
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0" aria-hidden="true">
+                            {isCompleted ? (
+                              <CheckCircle2 className="h-5 w-5 text-emerald-300" />
+                            ) : isCurrent ? (
+                              <Circle className="h-5 w-5 fill-cyan-300/20 text-cyan-300" />
+                            ) : (
+                              <LockKeyhole className="h-5 w-5 text-slate-600" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-[10px] text-cyan-300">步骤 {index + 1}</span>
+                              <span className={cn('text-sm font-medium', isCompleted ? 'text-slate-400' : 'text-slate-100')}>{step.title}</span>
+                              <span className={cn(
+                                'rounded-sm px-1.5 py-0.5 text-[10px]',
+                                isCompleted ? 'bg-emerald-300/10 text-emerald-200' : isCurrent ? 'bg-cyan-300/10 text-cyan-100' : 'bg-white/[0.04] text-slate-500',
+                              )}>
+                                {isCompleted ? '已完成' : isCurrent ? '当前步骤' : '待解锁'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-slate-400"><span className="text-slate-300">目的：</span>{step.purpose}</p>
+                            <p className="text-xs leading-5 text-slate-500"><span className="text-slate-400">完成条件：</span>{step.completionRule}</p>
+                            {isCurrent && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openTaskStep(path.id, step)}
+                                  disabled={openingStep !== null || completingStep !== null}
+                                  aria-busy={openingStep === stepKey}
+                                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-cyan-300 px-3 py-2 text-xs font-semibold text-[#001014] hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {openingStep === stepKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                                  {openingStep === stepKey ? '正在打开…' : getStepActionLabel(step)}
+                                </button>
+                                {step.canMarkComplete && (
+                                  <button
+                                    type="button"
+                                    onClick={() => completeManualStep(path.id, step.stepId)}
+                                    disabled={openingStep !== null || completingStep !== null}
+                                    aria-busy={completingStep === stepKey}
+                                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300/25 bg-emerald-300/[0.07] px-3 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {completingStep === stepKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                    {completingStep === stepKey ? '正在确认...' : '确认完成本步'}
+                                  </button>
+                                )}
+                                {!step.canMarkComplete && (
+                                  <span className="inline-flex min-h-11 items-center rounded-md border border-white/[0.08] px-3 py-2 text-[11px] text-slate-500">
+                                    {['GRAPH', 'ANIMATION', 'REMEDIATION', 'CHAPTER'].includes(step.type)
+                                      ? '进入并完成学习后可确认'
+                                      : '完成结果由服务端自动判定'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              <div className="mt-3 text-[11px] text-slate-500">
+                开始于 {formatDate(path.startedAt)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="-m-4 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100 sm:-m-6">
@@ -699,166 +873,61 @@ export default function MyTasksPage(): JSX.Element {
 
         {data && (
           <>
+            {diagnosticFocus?.leads && leadStep && (
+              <section aria-labelledby="diagnostic-next-task-title" className="rounded-md border border-amber-300/25 bg-amber-300/[0.06] p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-amber-100" />
+                  <h2 id="diagnostic-next-task-title" className="text-sm font-semibold text-amber-50">当前补学</h2>
+                </div>
+                <p className="text-xs leading-5 text-amber-100/80">{diagnosticFocus.label}</p>
+                <h3 className="mt-3 text-base font-semibold text-slate-50">{leadStep.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-300">{leadStep.body}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">刷新后，这里的薄弱点数量与首页下一步、个性化学习使用同一次测评。</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link href={leadStep.cta.href} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-amber-300 px-3 text-sm font-semibold text-slate-900 hover:bg-amber-200">
+                    {leadStep.cta.label}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link href={diagnosticFocus.learningPathHref} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/[0.12] px-3 text-sm text-slate-100 hover:bg-white/[0.06]">
+                    打开个性化学习
+                  </Link>
+                </div>
+              </section>
+            )}
+
             <section>
               <div className="mb-2 flex items-center gap-2">
                 <GitBranch className="h-4 w-4 text-emerald-200" />
                 <h2 className="text-sm font-semibold text-slate-100">当前学习路径</h2>
-                <span className="font-mono text-xs text-slate-500">{data.counts.activePaths}</span>
+                <span className="font-mono text-xs text-slate-500">{defaultActivePaths.length}</span>
               </div>
-              {data.activePaths.length > 0 && (
+              {defaultActivePaths.length > 0 && (
                 <p className="mb-3 text-xs leading-5 text-slate-500">
                   只推进标记为“当前步骤”的动作；后续步骤会在服务端确认完成后依次解锁。
                 </p>
               )}
-              {data.activePaths.length === 0 ? (
+              {defaultActivePaths.length === 0 ? (
                 <div className="rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm leading-6 text-slate-500">
-                  当前没有进行中的学习路径。可先完成下方课前实验，或回看最近完成任务。
+                  {diagnosticFocus?.leads
+                    ? '默认补学在上方。指定任务保留原进度，并在下一栏标明。'
+                    : '当前没有进行中的学习路径。可先完成下方课前实验，或回看最近完成任务。'}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {data.activePaths.map((path) => {
-                    const currentStepIndex = path.steps.findIndex((step) => step.status === 'CURRENT');
-                    const currentStep = currentStepIndex >= 0 ? path.steps[currentStepIndex] : null;
-                    const progressPercent = path.totalModules > 0
-                      ? Math.min(100, Math.round((path.currentModule / path.totalModules) * 100))
-                      : 0;
-                    return (
-                    <div
-                      key={path.id}
-                      className="overflow-hidden rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
-                    >
-                      <div className="p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-semibold text-emerald-100">{path.name}</h3>
-                          {path.description && (
-                            <p className="mt-1 text-xs text-slate-400">{path.description}</p>
-                          )}
-                        </div>
-                        <span className="shrink-0 rounded-md border border-emerald-300/15 bg-black/20 px-2 py-1 font-mono text-[11px] text-emerald-200">
-                          {path.currentModule}/{path.totalModules} 步 · {progressPercent}%
-                        </span>
-                      </div>
-                      <div
-                        role="progressbar"
-                        aria-label={`${path.name}完成进度`}
-                        aria-valuemin={0}
-                        aria-valuemax={path.totalModules}
-                        aria-valuenow={Math.min(path.currentModule, path.totalModules)}
-                        aria-valuetext={`${path.currentModule}/${path.totalModules} 步，完成 ${progressPercent}%`}
-                        className="mt-2 h-1.5 w-full overflow-hidden rounded-sm bg-emerald-300/10"
-                      >
-                        <div
-                          className="h-full bg-emerald-300/70"
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                      {currentStep && (
-                        <div className="mt-3 flex flex-col gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-200/75">当前只需完成</div>
-                            <div className="mt-1 text-sm font-semibold text-cyan-50">步骤 {currentStepIndex + 1} · {currentStep.title}</div>
-                            <div className="mt-1 text-xs leading-5 text-slate-400">完成标志：{currentStep.completionRule}</div>
-                          </div>
-                          <span className="shrink-0 text-xs text-cyan-200">完成后自动解锁下一步</span>
-                        </div>
-                      )}
-                      {path.dataIssue && (
-                        <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-xs leading-5 text-amber-100" role="alert">
-                          {path.dataIssue}
-                        </div>
-                      )}
-                      <CurriculumCompatibilityNotice path={path} />
-                      {path.steps.length > 0 && (
-                        <ol className="mt-4 space-y-2">
-                          {path.steps.map((step, index) => {
-                            const isCurrent = step.status === 'CURRENT';
-                            const isCompleted = step.status === 'COMPLETED';
-                            const stepKey = `${path.id}-${step.stepId}`;
-                            return (
-                              <li
-                                key={stepKey}
-                                aria-current={isCurrent ? 'step' : undefined}
-                                className={cn(
-                                  'rounded-md border p-3',
-                                  isCurrent && 'border-cyan-300/35 bg-cyan-300/[0.06]',
-                                  isCompleted && 'border-emerald-300/15 bg-emerald-300/[0.025]',
-                                  step.status === 'PENDING' && 'border-white/[0.06] bg-black/15 opacity-70',
-                                )}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className="mt-0.5 shrink-0" aria-hidden="true">
-                                    {isCompleted ? (
-                                      <CheckCircle2 className="h-5 w-5 text-emerald-300" />
-                                    ) : isCurrent ? (
-                                      <Circle className="h-5 w-5 fill-cyan-300/20 text-cyan-300" />
-                                    ) : (
-                                      <LockKeyhole className="h-5 w-5 text-slate-600" />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="font-mono text-[10px] text-cyan-300">步骤 {index + 1}</span>
-                                      <span className={cn('text-sm font-medium', isCompleted ? 'text-slate-400' : 'text-slate-100')}>{step.title}</span>
-                                      <span className={cn(
-                                        'rounded-sm px-1.5 py-0.5 text-[10px]',
-                                        isCompleted ? 'bg-emerald-300/10 text-emerald-200' : isCurrent ? 'bg-cyan-300/10 text-cyan-100' : 'bg-white/[0.04] text-slate-500',
-                                      )}>
-                                        {isCompleted ? '已完成' : isCurrent ? '当前步骤' : '待解锁'}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 text-xs leading-5 text-slate-400"><span className="text-slate-300">目的：</span>{step.purpose}</p>
-                                    <p className="text-xs leading-5 text-slate-500"><span className="text-slate-400">完成条件：</span>{step.completionRule}</p>
-                                    {isCurrent && (
-                                      <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => openTaskStep(path.id, step)}
-                                          disabled={openingStep !== null || completingStep !== null}
-                                          aria-busy={openingStep === stepKey}
-                                          className="inline-flex min-h-11 items-center gap-2 rounded-md bg-cyan-300 px-3 py-2 text-xs font-semibold text-[#001014] hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                          {openingStep === stepKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                                          {openingStep === stepKey ? '正在打开…' : getStepActionLabel(step)}
-                                        </button>
-                                        {step.canMarkComplete && (
-                                          <button
-                                            type="button"
-                                            onClick={() => completeManualStep(path.id, step.stepId)}
-                                            disabled={openingStep !== null || completingStep !== null}
-                                            aria-busy={completingStep === stepKey}
-                                            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300/25 bg-emerald-300/[0.07] px-3 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {completingStep === stepKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                            {completingStep === stepKey ? '正在确认...' : '确认完成本步'}
-                                          </button>
-                                        )}
-                                        {!step.canMarkComplete && (
-                                          <span className="inline-flex min-h-11 items-center rounded-md border border-white/[0.08] px-3 py-2 text-[11px] text-slate-500">
-                                            {['GRAPH', 'ANIMATION', 'REMEDIATION', 'CHAPTER'].includes(step.type)
-                                              ? '进入并完成学习后可确认'
-                                              : '完成结果由服务端自动判定'}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ol>
-                      )}
-                      <div className="mt-3 text-[11px] text-slate-500">
-                        开始于 {formatDate(path.startedAt)}
-                      </div>
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              )}
+              ) : renderActivePathCards(defaultActivePaths)}
             </section>
+
+            {pinnedActivePaths.length > 0 && (
+              <section>
+                <div className="mb-2 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-amber-200" />
+                  <h2 className="text-sm font-semibold text-amber-100">指定任务</h2>
+                  <span className="font-mono text-xs text-amber-200/70">{pinnedActivePaths.length}</span>
+                </div>
+                <p className="mb-3 text-xs leading-5 text-slate-500">
+                  指定任务按布置时的步骤推进。卡片标明“指定任务”，默认下一步是当前测评补学。
+                </p>
+                {renderActivePathCards(pinnedActivePaths)}
+              </section>
+            )}
 
             <section>
               <div className="mb-2 flex items-center gap-2">

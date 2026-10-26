@@ -47,6 +47,7 @@ import {
   selectExplicitAttempt,
   type AssessmentMode,
 } from '@/lib/diagnostic-attempt';
+import { remediationQuizLink } from '@/lib/task-focus';
 
 type LearningStep = LearningPlanOutput['plan'][number];
 type StepType = LearningStep['type'];
@@ -279,6 +280,7 @@ function buildFallbackPlan(
   weakAreas: string[],
   experiments: LearningExperiment[],
   kps: LearningKnowledgePoint[],
+  focusQuizId: string | null,
 ): LearningPlanOutput {
   const plan: LearningStep[] = [];
   let step = 1;
@@ -310,17 +312,13 @@ function buildFallbackPlan(
     });
   });
 
+  const closingQuiz = remediationQuizLink(focusQuizId);
   plan.push({
     step: step++,
     type: 'quiz',
     title: '回到测评验证掌握度',
     description: '完成理论和仿真后重新测评，重点观察薄弱知识点是否仍然低于掌握阈值。',
-    resource: {
-      text: '重新测评',
-      href: weakAreas.some((area) => area === '3.1' || area.startsWith('3.1.'))
-        ? '/quiz?topic=addressing-modes&mode=retest'
-        : '/quiz',
-    },
+    resource: closingQuiz,
   });
 
   return { plan };
@@ -549,6 +547,7 @@ export function LearningPathClient({
   const { user, loading: authLoading } = useAuth();
   const [weakAreas, setWeakAreas] = useState<string[] | null>(null);
   const [diagnosticSourceLabel, setDiagnosticSourceLabel] = useState<string | null>(null);
+  const [focusQuizId, setFocusQuizId] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus>('checking');
   const [accessErrorStatus, setAccessErrorStatus] = useState<401 | 403 | null>(null);
   const [returnHref, setReturnHref] = useState('/learning-path');
@@ -613,6 +612,7 @@ export function LearningPathClient({
       if (!user || user.role !== 'STUDENT') {
         setWeakAreas(null);
         setDiagnosticSourceLabel(null);
+        setFocusQuizId(null);
         setPlan(null);
         setDataStatus('checking');
         setAccessErrorStatus(null);
@@ -626,6 +626,7 @@ export function LearningPathClient({
       if (!token) {
         setWeakAreas(null);
         setDiagnosticSourceLabel(null);
+        setFocusQuizId(null);
         setPlan(null);
         setDataStatus('checking');
         setAccessErrorStatus(401);
@@ -642,6 +643,7 @@ export function LearningPathClient({
       let serverRecoveryError: string | null = null;
       let resolvedRecoverySource: 'server' | null = null;
       let resolvedSourceLabel: string | null = null;
+      let resolvedQuizId: string | null = null;
 
       if (weakKAsParam) {
         try {
@@ -682,6 +684,7 @@ export function LearningPathClient({
             if (active) {
               setWeakAreas(null);
               setDiagnosticSourceLabel(null);
+              setFocusQuizId(null);
               setPlan(null);
               setDataStatus('checking');
               setAccessErrorStatus(actRes.status);
@@ -705,12 +708,14 @@ export function LearningPathClient({
                   serverRecoveryError = '未找到指定试卷的服务端测评记录，不会改用其他试卷的薄弱点。';
                 } else {
                   serverAreas = explicit.weakAreas;
+                  resolvedQuizId = explicit.quizId;
                   resolvedSourceLabel = describeDiagnosticSource(explicit, 'explicit');
                 }
               } else {
                 const chosen = selectDiagnosticAttempt(candidates);
                 if (chosen) {
                   serverAreas = chosen.weakAreas;
+                  resolvedQuizId = chosen.quizId;
                   resolvedSourceLabel = describeDiagnosticSource(chosen, 'canonical');
                 }
               }
@@ -736,6 +741,7 @@ export function LearningPathClient({
       if (nextAreas === null && serverRecoveryError) {
         setWeakAreas(null);
         setDiagnosticSourceLabel(null);
+        setFocusQuizId(null);
         setPlan(null);
         setRecoverySource(null);
         setAssessmentLoadError(serverRecoveryError);
@@ -743,6 +749,7 @@ export function LearningPathClient({
         return;
       }
       setWeakAreas(nextAreas);
+      setFocusQuizId(nextAreas === null ? null : resolvedQuizId);
       setDiagnosticSourceLabel(resolvedSourceLabel);
       setDataStatus(nextAreas !== null ? 'ready' : 'none');
       setPlan(null);
@@ -792,6 +799,7 @@ export function LearningPathClient({
       if (result.status === 401 || result.status === 403) {
         setProgress([]);
         setWeakAreas(null);
+        setFocusQuizId(null);
         setPlan(null);
         setDataStatus('checking');
         setAccessErrorStatus(result.status);
@@ -833,7 +841,7 @@ export function LearningPathClient({
     async function fetchPlan(): Promise<void> {
       if (!weakAreas) return;
       setIsGenerating(true);
-      const cacheKey = `learningPlan_${user?.id ?? 'anonymous'}_${weakAreas.join('_')}`;
+      const cacheKey = `learningPlan_${user?.id ?? 'anonymous'}_${focusQuizId ?? 'default'}_${weakAreas.join('_')}`;
 
       try {
         const cachedPlan = localStorage.getItem(cacheKey);
@@ -850,20 +858,20 @@ export function LearningPathClient({
           localStorage.removeItem(`${cacheKey}_time`);
         }
 
-        const fallbackPlan = buildFallbackPlan(weakAreas, experiments, knowledgePoints);
+        const fallbackPlan = buildFallbackPlan(weakAreas, experiments, knowledgePoints, focusQuizId);
         setPlan(fallbackPlan);
         localStorage.setItem(cacheKey, JSON.stringify(fallbackPlan));
         localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
       } catch (error) {
         console.error('Failed to generate learning plan:', error);
-        setPlan(buildFallbackPlan(weakAreas, experiments, knowledgePoints));
+        setPlan(buildFallbackPlan(weakAreas, experiments, knowledgePoints, focusQuizId));
       } finally {
         setIsGenerating(false);
       }
     }
 
     fetchPlan();
-  }, [accessErrorStatus, dataStatus, weakAreas, plan, isGenerating, experiments, knowledgePoints, user?.id]);
+  }, [accessErrorStatus, dataStatus, focusQuizId, weakAreas, plan, isGenerating, experiments, knowledgePoints, user?.id]);
 
   const areaProfiles = useMemo(() => {
     return (weakAreas ?? []).map((area) => buildAreaProfile(area, progress, experiments, knowledgePoints));
