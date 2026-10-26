@@ -12,6 +12,18 @@ import { knowledgePoints as staticKnowledgePoints, type KnowledgePoint } from '@
 import type { PublicQuestion } from '@/lib/quiz-data';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ADDRESSING_QUIZ_ID, ADDRESSING_REMEDIATION_STEP_ID } from '@/lib/lesson-tasks';
+import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
+import {
+  attemptOptionLabel,
+  describeDiagnosticSource,
+  diagnosticActivitiesQuery,
+  DIAGNOSTIC_SELECTION_RULE,
+  listDiagnosticOptions,
+  parseQuizActivityDetails,
+  selectDiagnosticAttempt,
+  selectExplicitAttempt,
+  type DiagnosticAttemptOption,
+} from '@/lib/diagnostic-attempt';
 import { cn } from '@/lib/utils';
 
 type AssessmentSnapshot = {
@@ -80,6 +92,7 @@ const publicQuestionSchema = z.discriminatedUnion('type', [
 ]);
 
 const activitySchema = z.object({
+  id: z.string().optional(),
   details: z.string().nullish(),
   createdAt: z.string().optional(),
 });
@@ -89,16 +102,6 @@ const activitiesResponseSchema = z.object({
   dataProvenance: dataProvenanceSchema.optional(),
   activities: z.array(activitySchema).optional(),
   data: z.array(activitySchema).optional(),
-});
-
-const quizActivityDetailsSchema = z.object({
-  quizId: z.string().optional(),
-  weakAreas: z.array(z.string()).optional(),
-  scoresByKA: z.unknown().optional(),
-  score: z.number().optional(),
-  assessmentMode: z.enum(['initial', 'retest']).optional(),
-  pathId: z.string().optional(),
-  questionSetVersion: z.string().optional(),
 });
 
 const learningEventReceiptSchema = z.object({
@@ -206,6 +209,9 @@ export default function WeakNodesPage(): React.JSX.Element {
     && requestedMode === 'initial'
     && Boolean(taskPathId && taskStepId === ADDRESSING_REMEDIATION_STEP_ID);
   const [snapshot, setSnapshot] = useState<AssessmentSnapshot | null>(null);
+  const [attemptOptions, setAttemptOptions] = useState<DiagnosticAttemptOption[]>([]);
+  const [diagnosticSourceLabel, setDiagnosticSourceLabel] = useState<string | null>(null);
+  const [diagnosticSourceKind, setDiagnosticSourceKind] = useState<'canonical' | 'explicit' | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [accessErrorStatus, setAccessErrorStatus] = useState<401 | 403 | null>(null);
@@ -262,6 +268,9 @@ export default function WeakNodesPage(): React.JSX.Element {
       if (authLoading) return;
       if (!user || user.role !== 'STUDENT') {
         setSnapshot(null);
+        setAttemptOptions([]);
+        setDiagnosticSourceLabel(null);
+        setDiagnosticSourceKind(null);
         setLoadError(null);
         setAccessErrorStatus(null);
         setLoading(false);
@@ -283,14 +292,12 @@ export default function WeakNodesPage(): React.JSX.Element {
         const token = getStoredAccessToken();
         if (token) {
           try {
-            const activityParams = new URLSearchParams({
-              action: 'COMPLETE_QUIZ',
-              limit: requestedQuizId || requestedMode || recordPathId ? '1' : '20',
-            });
-            if (requestedQuizId) activityParams.set('quizId', requestedQuizId);
-            if (requestedMode) activityParams.set('assessmentMode', requestedMode);
-            if (recordPathId) activityParams.set('pathId', recordPathId);
-            const response = await fetchWeakNodesRequest(`/api/user/activities?${activityParams.toString()}`, {
+            const pinnedReceipt = hasExactReceiptContext;
+            const response = await fetchWeakNodesRequest(diagnosticActivitiesQuery(pinnedReceipt ? {
+              quizId: requestedQuizId,
+              assessmentMode: requestedMode,
+              pathId: recordPathId,
+            } : null), {
               headers: { Authorization: `Bearer ${token}` },
               cache: 'no-store',
             }, WEAK_NODES_LOAD_TIMEOUT_MS);
@@ -299,6 +306,9 @@ export default function WeakNodesPage(): React.JSX.Element {
               if (active) {
                 if (response.status === 401 || response.status === 403) {
                   setSnapshot(null);
+                  setAttemptOptions([]);
+                  setDiagnosticSourceLabel(null);
+                  setDiagnosticSourceKind(null);
                   setAccessErrorStatus(response.status);
                 }
                 setLoadError(response.status === 401
@@ -320,37 +330,44 @@ export default function WeakNodesPage(): React.JSX.Element {
             if (active) setRecordProvenance(validatedData.data.dataProvenance ?? null);
             if (response.ok) {
               const parsed = activities.flatMap((activity) => {
-                try {
-                  const rawDetails: unknown = JSON.parse(activity.details ?? '{}');
-                  const details = quizActivityDetailsSchema.safeParse(rawDetails);
-                  return details.success ? [{ activity, details: details.data }] : [];
-                } catch {
-                  return [];
-                }
+                const details = parseQuizActivityDetails(activity);
+                return details ? [details] : [];
               });
-              const matched = parsed.find((item: { details: { quizId?: string; assessmentMode?: 'initial' | 'retest'; pathId?: string } }) => (
-                (!requestedQuizId || item.details.quizId === requestedQuizId)
-                && (!requestedMode || item.details.assessmentMode === requestedMode)
-                && (!recordPathId || item.details.pathId === recordPathId)
-              ));
+              const pinned = Boolean(requestedQuizId || requestedMode || recordPathId);
+              const matched = pinned
+                ? selectExplicitAttempt(parsed, {
+                  quizId: requestedQuizId,
+                  assessmentMode: requestedMode,
+                  pathId: recordPathId,
+                })
+                : selectDiagnosticAttempt(parsed);
               if (matched && active) {
-                if (matched.details.score === undefined) {
+                if (pinnedReceipt && matched.score === null) {
                   setLoadError('正式测评记录不完整，请返回任务页后重试。');
                   setLoading(false);
                   return;
                 }
+                const sourceKind = pinned ? 'explicit' : 'canonical';
                 setSnapshot({
-                  weakKAs: Array.isArray(matched.details.weakAreas) ? matched.details.weakAreas : [],
-                  totalScore: matched.details.score,
-                  scoresByKA: matched.details.scoresByKA,
-                  quizId: matched.details.quizId,
-                  assessmentMode: matched.details.assessmentMode,
-                  questionSetVersion: matched.details.questionSetVersion,
-                  timestamp: matched.activity.createdAt,
+                  weakKAs: matched.weakAreas,
+                  ...(matched.score !== null ? { totalScore: matched.score } : {}),
+                  scoresByKA: matched.scoresByKA,
+                  quizId: matched.quizId,
+                  assessmentMode: matched.assessmentMode,
+                  ...(matched.questionSetVersion ? { questionSetVersion: matched.questionSetVersion } : {}),
+                  timestamp: matched.completedAt || undefined,
                 });
+                setAttemptOptions(pinnedReceipt ? [] : listDiagnosticOptions(parsed));
+                setDiagnosticSourceKind(sourceKind);
+                setDiagnosticSourceLabel(describeDiagnosticSource(matched, sourceKind));
                 setAccessErrorStatus(null);
                 setLoading(false);
                 return;
+              }
+              if (active) {
+                setAttemptOptions(pinnedReceipt ? [] : listDiagnosticOptions(parsed));
+                setDiagnosticSourceLabel(null);
+                setDiagnosticSourceKind(null);
               }
             }
           } catch (error) {
@@ -371,15 +388,20 @@ export default function WeakNodesPage(): React.JSX.Element {
     }
     void loadSnapshot();
     return (): void => { active = false; };
-  }, [authLoading, loadAttempt, recordPathId, requestedMode, requestedQuizId, taskLinkValidationError, user]);
+  }, [authLoading, hasExactReceiptContext, loadAttempt, recordPathId, requestedMode, requestedQuizId, taskLinkValidationError, user]);
 
   const isAddressingSnapshot = requestedQuizId === ADDRESSING_QUIZ_ID || snapshot?.quizId === ADDRESSING_QUIZ_ID;
-  const snapshotModeLabel = snapshot?.assessmentMode === 'retest'
-    ? '最近一次作答'
-    : snapshot?.assessmentMode === 'initial' ? '首次作答' : '专项测评';
-  const snapshotScoreLabel = snapshot?.assessmentMode === 'retest'
-    ? '最近一次得分'
-    : snapshot?.assessmentMode === 'initial' ? '首次作答得分' : '本次得分';
+  const isComprehensiveSnapshot = snapshot?.quizId === 'comprehensive-assessment';
+  const snapshotModeLabel = isComprehensiveSnapshot
+    ? '综合测评'
+    : snapshot?.assessmentMode === 'retest'
+      ? '最近一次作答'
+      : snapshot?.assessmentMode === 'initial' ? '首次作答' : '专项测评';
+  const snapshotScoreLabel = isComprehensiveSnapshot
+    ? '综合测评得分'
+    : snapshot?.assessmentMode === 'retest'
+      ? '最近一次得分'
+      : snapshot?.assessmentMode === 'initial' ? '首次作答得分' : '本次得分';
 
   const pointById = useMemo(() => buildPointById(knowledgePoints), [knowledgePoints]);
   const expTitleByRef = useMemo(() => buildExpTitleByRef(knowledgePoints), [knowledgePoints]);
@@ -515,9 +537,29 @@ export default function WeakNodesPage(): React.JSX.Element {
 
   const goToReview = (): void => {
     if (!snapshot?.weakKAs?.length) return;
-    // 薄弱点已经由服务端测评记录保存；学习路径重新读取服务端记录，
-    // 不把可修改的 URL 参数当作正式诊断依据。
-    router.push('/learning-path');
+    // 只把试卷编号交给学习路径，由服务端记录核验薄弱点。
+    // 不把可修改的 weakAreas 放进 URL。
+    if (!snapshot.quizId || snapshot.quizId === 'unknown-quiz') {
+      router.push('/learning-path');
+      return;
+    }
+    const params = new URLSearchParams({ quizId: snapshot.quizId });
+    if (snapshot.assessmentMode) params.set('mode', snapshot.assessmentMode);
+    router.push(`/learning-path?${params.toString()}`);
+  };
+
+  const selectAttemptOption = (optionKey: string): void => {
+    const option = attemptOptions.find((item) => item.key === optionKey);
+    if (!option) return;
+    if (option.canonical) {
+      router.push('/weak-nodes');
+      return;
+    }
+    const params = new URLSearchParams({
+      quizId: option.attempt.quizId,
+      mode: option.attempt.assessmentMode,
+    });
+    router.push(`/weak-nodes?${params.toString()}`);
   };
 
   const completeTaskRemediation = async (): Promise<void> => {
@@ -663,8 +705,32 @@ export default function WeakNodesPage(): React.JSX.Element {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">薄弱点补学与完成确认</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               从服务端已提交的测评记录中读取薄弱节点，并汇总对应说明、关联实验和补学入口。
-              {snapshot?.timestamp && ` 测验于 ${new Date(snapshot.timestamp).toLocaleString('zh-CN')}。`}
+              {snapshot?.timestamp && ` 测验于 ${formatCampusDateTime(snapshot.timestamp)}（${CAMPUS_TIME_LABEL}）。`}
             </p>
+            {!hasExactReceiptContext && diagnosticSourceLabel && (
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">{diagnosticSourceLabel}。{DIAGNOSTIC_SELECTION_RULE}</p>
+            )}
+            {!hasExactReceiptContext && attemptOptions.length > 1 && (
+              <label className="mt-3 flex max-w-xl flex-col gap-1 text-xs text-slate-400">
+                <span>查看哪一次测评的薄弱点</span>
+                <select
+                  className="min-h-11 rounded-md border border-white/[0.1] bg-black/30 px-3 text-sm text-slate-100"
+                  value={attemptOptions.find((option) => option.attempt.quizId === snapshot?.quizId && option.attempt.assessmentMode === snapshot?.assessmentMode)?.key ?? attemptOptions[0]?.key}
+                  onChange={(event) => selectAttemptOption(event.target.value)}
+                >
+                  {attemptOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {attemptOptionLabel(option.attempt, option.canonical)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {!hasExactReceiptContext && diagnosticSourceKind === 'explicit' && (
+              <Link href="/weak-nodes" className="mt-2 inline-flex min-h-11 items-center text-sm text-cyan-200 hover:text-cyan-100">
+                回到默认薄弱点口径
+              </Link>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {recordPathId && (
@@ -759,7 +825,7 @@ export default function WeakNodesPage(): React.JSX.Element {
                 <span className="font-mono text-slate-300">任务记录号 #{formatTaskRecordId(recordPathId)}</span>
               )}
               <span className="font-mono text-slate-500">{snapshot.quizId ?? requestedQuizId}</span>
-              {snapshot.timestamp && <span className="text-slate-500">服务端回执 {new Date(snapshot.timestamp).toLocaleString('zh-CN')}</span>}
+              {snapshot.timestamp && <span className="text-slate-500">服务端回执 {formatCampusDateTime(snapshot.timestamp)}（{CAMPUS_TIME_LABEL}）</span>}
             </div>
             {SHOW_DATA_PROVENANCE_NOTICE && recordProvenance && (
               <p className="mt-2 text-[11px] leading-5 text-amber-100">

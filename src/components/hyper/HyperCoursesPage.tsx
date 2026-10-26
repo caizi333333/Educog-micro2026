@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { formatCampusDate } from '@/lib/campus-time';
 import {
   AlertCircle,
   ArrowRight,
@@ -155,9 +156,8 @@ function buildChapterSummary(chapter: KnowledgePoint, childPoints: KnowledgePoin
 
 function formatDate(value: string | null): string {
   if (!value) return '暂无记录';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '暂无记录';
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+  const formatted = formatCampusDate(value);
+  return formatted === '时间待核实' ? '暂无记录' : formatted;
 }
 
 function isExperimentRecordsPayload(value: unknown): value is { success: true; experiments: unknown[] } {

@@ -5,6 +5,7 @@ import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { CLIENT_READ_TIMEOUT_MS, fetchClientRequest } from '@/lib/client-fetch';
+import { formatCampusDateTime } from '@/lib/campus-time';
 import {
   RadarChart,
   Radar,
@@ -161,8 +162,7 @@ function isStudentProgressResponse(value: unknown): value is StudentProgressResp
 
 function formatDateTime(value: string | null): string {
   if (!value) return '尚无当前版本结果';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '时间待核实' : date.toLocaleString('zh-CN', { hour12: false });
+  return formatCampusDateTime(value);
 }
 
 function formatExpectedRecordStatus(

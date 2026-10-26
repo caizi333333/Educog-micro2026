@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { formatCampusDateTime } from '@/lib/campus-time';
 import {
   AlertCircle,
   ArrowRight,
@@ -209,13 +210,8 @@ function heatColor(value: number | null) {
 
 function formatUpdatedAt(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '更新时间未知';
-  return new Date(value).toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const formatted = formatCampusDateTime(value);
+  return formatted === '时间待核实' ? '更新时间未知' : formatted;
 }
 
 function formatLearningMinutes(totalMinutes: number): string {

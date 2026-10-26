@@ -27,6 +27,7 @@ import { useAchievements } from '@/hooks/useAchievements';
 import { ACHIEVEMENTS_V2, type Achievement, type AchievementProgress } from '@/lib/achievements-v2';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
 
 const categoryMeta: Record<string, { label: string; color: string }> = {
   progress: { label: '学习进度', color: '#06b6d4' },
@@ -232,7 +233,7 @@ function DetailPanel({ achievement, progress }: { achievement: Achievement | nul
         </div>
         <div className="text-sm text-slate-300">
           {progress?.unlockedAt
-            ? progress.unlockedAt.toLocaleDateString('zh-CN')
+            ? `${formatCampusDateTime(progress.unlockedAt)}（${CAMPUS_TIME_LABEL}）`
             : criteriaMetWithoutRecord ? '尚未写入服务端解锁记录' : '暂无记录'}
         </div>
       </div>
@@ -421,7 +422,7 @@ export function HyperAchievementsPage() {
             </div>
             <h1 id="achievements-page-title" className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">成就徽章</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              以勋章墙方式呈现学习、实验、测评和持续学习记录。
+              以勋章墙方式呈现学习、实验、测评和持续学习记录。解锁时间按{CAMPUS_TIME_LABEL}（Asia/Shanghai）显示。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

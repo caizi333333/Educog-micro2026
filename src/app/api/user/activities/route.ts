@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { getDataProvenance } from '@/lib/env';
 
 // 返回当前登录用户的行为记录（UserActivity），可按 action 过滤、按 limit 截取。
-// 学习路径/薄弱节点页据此跨会话恢复最近一次测验的薄弱点（details 内含 weakAreas）。
+// 薄弱点默认口径不在这里选择：见 src/lib/diagnostic-attempt.ts。
+// 这里只保证顺序稳定（createdAt、id 倒序），避免同秒记录来回跳动。
 export async function GET(request: Request) {
   try {
     const authorization = request.headers.get('authorization');
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
             ? { AND: detailFilters.map((contains) => ({ details: { contains } })) }
             : {}),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
       select: { id: true, action: true, details: true, createdAt: true },
     });

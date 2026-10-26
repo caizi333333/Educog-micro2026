@@ -5,6 +5,7 @@ import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { formatCampusDate, formatCampusDateTime } from '@/lib/campus-time';
 import {
   Activity,
   AlertCircle,
@@ -230,9 +231,8 @@ function formatSecondsAsHours(value: number): string {
 
 function formatDate(value: string | null): string {
   if (!value) return '暂无记录';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '暂无记录';
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+  const formatted = formatCampusDate(value);
+  return formatted === '时间待核实' ? '暂无记录' : formatted;
 }
 
 function stateTone(state: HyperExperimentCard['state']) {
@@ -926,7 +926,7 @@ export function HyperDashboard() {
             )}
           >
             <div><span className="font-semibold">{state.dataProvenance.label}：</span>{state.dataProvenance.note}</div>
-            {state.asOf && <div className="mt-1 opacity-70">当前工作台数据核对截至 {new Date(state.asOf).toLocaleString('zh-CN', { hour12: false })}</div>}
+            {state.asOf && <div className="mt-1 opacity-70">当前工作台数据核对截至 {formatCampusDateTime(state.asOf)}（北京时间）</div>}
           </div>
         )}
 

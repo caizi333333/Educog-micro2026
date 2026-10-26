@@ -37,6 +37,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAchievements } from '@/hooks/useAchievements';
 import { ACHIEVEMENTS_V2, type Achievement, type AchievementProgress } from '@/lib/achievements-v2';
 import { cn } from '@/lib/utils';
+import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
 import {
   CLIENT_READ_TIMEOUT_MS,
   CLIENT_WRITE_TIMEOUT_MS,
@@ -186,9 +187,8 @@ function MedalDisc({ achievement, unlocked, size = 'md' }: { achievement: Achiev
 
 function formatDate(value?: string | Date) {
   if (!value) return '暂无日期';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '暂无日期';
-  return date.toLocaleDateString('zh-CN');
+  const formatted = formatCampusDateTime(value);
+  return formatted === '时间待核实' ? '暂无日期' : formatted;
 }
 
 function formatLearningDuration(totalSeconds?: number): string {
@@ -564,7 +564,7 @@ function StudentProfileView(props: CommonProfileViewProps) {
       <div><span className="font-semibold">{dataProvenance.label}：</span>{dataProvenance.note}</div>
       {asOf && sampleSize && (
         <div className="mt-1 text-[11px] opacity-75">
-          截至 {new Date(asOf).toLocaleString('zh-CN', { hour12: false })} ·
+          截至 {formatCampusDateTime(asOf)}（{CAMPUS_TIME_LABEL}） ·
           勋章记录 n={sampleSize.unlockedAchievementRecords} · 学习进度 n={sampleSize.learningProgressRecords} ·
           测验作答 n={sampleSize.quizAttempts} · 实验记录 n={sampleSize.experimentRecords}
         </div>

@@ -875,6 +875,7 @@ describe('Quiz System API Tests', () => {
           details: { contains: '"quizId":"quiz-ch3-addressing"' },
         }),
         take: 1,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }));
     });
 

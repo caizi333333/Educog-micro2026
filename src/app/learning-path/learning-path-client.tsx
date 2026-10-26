@@ -39,6 +39,14 @@ import { experiments as staticExperiments } from '@/lib/experiment-config';
 import { cn } from '@/lib/utils';
 import { fetchHyperJson, normalizeLearningProgress, type HyperLearningProgressRecord } from '@/lib/hyper-data';
 import { ClientRequestTimeoutError, fetchClientRequest } from '@/lib/client-fetch';
+import {
+  describeDiagnosticSource,
+  diagnosticActivitiesQuery,
+  parseQuizActivityDetails,
+  selectDiagnosticAttempt,
+  selectExplicitAttempt,
+  type AssessmentMode,
+} from '@/lib/diagnostic-attempt';
 
 type LearningStep = LearningPlanOutput['plan'][number];
 type StepType = LearningStep['type'];
@@ -50,11 +58,11 @@ const storedAssessmentSchema = z.object({
   timestamp: z.string().optional(),
   weakKAs: weakAreasSchema,
 });
-const weakAreaDetailsSchema = z.object({
-  weakAreas: weakAreasSchema.optional(),
-  weakKAs: weakAreasSchema.optional(),
+const activityItemSchema = z.object({
+  id: z.string().optional(),
+  details: z.string().nullish(),
+  createdAt: z.string().optional(),
 });
-const activityItemSchema = z.object({ details: z.string().nullish() });
 const activityResponseSchema = z.object({
   activities: z.array(activityItemSchema).optional(),
   data: z.array(activityItemSchema).optional(),
@@ -528,10 +536,19 @@ function PlanStepCard({ step }: { step: LearningStep }): JSX.Element {
   );
 }
 
-export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }): JSX.Element {
+export function LearningPathClient({
+  weakKAsParam,
+  quizId,
+  assessmentMode,
+}: {
+  weakKAsParam?: string;
+  quizId?: string;
+  assessmentMode?: AssessmentMode;
+}): JSX.Element {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const [weakAreas, setWeakAreas] = useState<string[] | null>(null);
+  const [diagnosticSourceLabel, setDiagnosticSourceLabel] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus>('checking');
   const [accessErrorStatus, setAccessErrorStatus] = useState<401 | 403 | null>(null);
   const [returnHref, setReturnHref] = useState('/learning-path');
@@ -595,6 +612,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       if (authLoading) return;
       if (!user || user.role !== 'STUDENT') {
         setWeakAreas(null);
+        setDiagnosticSourceLabel(null);
         setPlan(null);
         setDataStatus('checking');
         setAccessErrorStatus(null);
@@ -607,6 +625,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       const token = getStoredAccessToken();
       if (!token) {
         setWeakAreas(null);
+        setDiagnosticSourceLabel(null);
         setPlan(null);
         setDataStatus('checking');
         setAccessErrorStatus(401);
@@ -622,6 +641,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       let serverAreas: string[] | null = null;
       let serverRecoveryError: string | null = null;
       let resolvedRecoverySource: 'server' | null = null;
+      let resolvedSourceLabel: string | null = null;
 
       if (weakKAsParam) {
         try {
@@ -633,8 +653,9 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
         }
       }
 
-      // URL 与本机缓存都可被修改，只作为返回位置和恢复线索；
-      // 正式薄弱点必须由服务端最近一次测评记录核验后才能生成路径。
+      // URL 与本机缓存都可被修改，只作为返回位置和恢复线索。
+      // 正式薄弱点按 diagnostic-attempt 的口径从服务端记录选择；
+      // quizId 只用来指定哪一份服务端回执，不能携带薄弱点本身。
       if (typeof window !== 'undefined') {
         const storageKey = user ? `assessment-results-${user.id}` : 'assessment-results';
         const savedResults = localStorage.getItem(storageKey);
@@ -653,13 +674,14 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
         }
 
         try {
-          const actRes = await fetchClientRequest('/api/user/activities?action=COMPLETE_QUIZ&limit=1', {
+          const actRes = await fetchClientRequest(diagnosticActivitiesQuery(), {
             headers: { Authorization: `Bearer ${token}` },
             signal: controller.signal,
           });
           if (actRes.status === 401 || actRes.status === 403) {
             if (active) {
               setWeakAreas(null);
+              setDiagnosticSourceLabel(null);
               setPlan(null);
               setDataStatus('checking');
               setAccessErrorStatus(actRes.status);
@@ -671,11 +693,26 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
             const parsed = activityResponseSchema.safeParse(raw);
             if (parsed.success) {
               const activities = parsed.data.activities ?? parsed.data.data ?? [];
-              const detailsText = activities[0]?.details;
-              if (detailsText) {
-                const detailsRaw: unknown = JSON.parse(detailsText);
-                const details = weakAreaDetailsSchema.safeParse(detailsRaw);
-                if (details.success) serverAreas = details.data.weakAreas ?? details.data.weakKAs ?? null;
+              const candidates = activities.flatMap((activity) => {
+                const candidate = parseQuizActivityDetails(activity);
+                return candidate ? [candidate] : [];
+              });
+              if (activities.length > 0 && candidates.length === 0) {
+                serverRecoveryError = '最近测评记录格式异常，请重新读取。';
+              } else if (quizId) {
+                const explicit = selectExplicitAttempt(candidates, { quizId, assessmentMode: assessmentMode ?? null });
+                if (!explicit) {
+                  serverRecoveryError = '未找到指定试卷的服务端测评记录，不会改用其他试卷的薄弱点。';
+                } else {
+                  serverAreas = explicit.weakAreas;
+                  resolvedSourceLabel = describeDiagnosticSource(explicit, 'explicit');
+                }
+              } else {
+                const chosen = selectDiagnosticAttempt(candidates);
+                if (chosen) {
+                  serverAreas = chosen.weakAreas;
+                  resolvedSourceLabel = describeDiagnosticSource(chosen, 'canonical');
+                }
               }
             } else serverRecoveryError = '最近测评记录格式异常，请重新读取。';
           } else {
@@ -698,6 +735,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       setUnverifiedHintCount(unverifiedHints.length);
       if (nextAreas === null && serverRecoveryError) {
         setWeakAreas(null);
+        setDiagnosticSourceLabel(null);
         setPlan(null);
         setRecoverySource(null);
         setAssessmentLoadError(serverRecoveryError);
@@ -705,6 +743,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
         return;
       }
       setWeakAreas(nextAreas);
+      setDiagnosticSourceLabel(resolvedSourceLabel);
       setDataStatus(nextAreas !== null ? 'ready' : 'none');
       setPlan(null);
       setRecoverySource(resolvedRecoverySource);
@@ -713,7 +752,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       if (resolvedRecoverySource === 'server') {
         toast({
           title: '已恢复测评数据',
-          description: '已读取服务端保存的最近一次测评结果。',
+          description: resolvedSourceLabel ?? '已按薄弱点口径读取服务端测评结果。',
         });
       }
     }
@@ -723,7 +762,7 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
       active = false;
       controller.abort();
     };
-  }, [assessmentRecoveryAttempt, authLoading, weakKAsParam, toast, user]);
+  }, [assessmentMode, assessmentRecoveryAttempt, authLoading, quizId, weakKAsParam, toast, user]);
 
   useEffect(() => {
     if (authLoading || !user || user.role !== 'STUDENT') {
@@ -846,12 +885,16 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
   }, [plan]);
 
   const estimatedMinutes = (plan?.plan.length ?? 0) * 35;
-  const recoverySourceLabel = recoverySource === 'server' ? '服务端最近测评' : '尚无已核验诊断';
+  const recoverySourceLabel = diagnosticSourceLabel
+    ?? (recoverySource === 'server' ? '服务端测评' : '尚无已核验诊断');
   const hasWeakAreas = dataStatus === 'ready' && weakAreas !== null && weakAreas.length > 0;
   const title = hasWeakAreas ? '个性化学习路径' : '进阶学习路径';
   const subtitle = hasWeakAreas
-    ? `根据最近一次服务端测评识别的 ${weakAreas.length} 个薄弱点生成路径。`
+    ? `${diagnosticSourceLabel ?? '已核验的服务端测评'}，识别 ${weakAreas.length} 个薄弱点。`
     : '当前没有薄弱点时，推荐走综合项目和跨章节复盘。';
+  const alignedWeakNodesHref = quizId
+    ? `/weak-nodes?quizId=${encodeURIComponent(quizId)}${assessmentMode ? `&mode=${assessmentMode}` : ''}`
+    : '/weak-nodes';
 
   const loginRecoveryHref = `/login?from=${encodeURIComponent(returnHref)}${accessErrorStatus === 403 ? '&reason=student-role' : ''}`;
 
@@ -986,8 +1029,13 @@ export function LearningPathClient({ weakKAsParam }: { weakKAsParam?: string }):
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-slate-100">诊断摘要</div>
-                  <div className="mt-1 text-xs leading-5 text-slate-400">
-                    {hasWeakAreas ? `来自${recoverySourceLabel}的薄弱知识点。` : '当前没有检测到薄弱点。'}
+                  <div className="mt-1 flex flex-col text-xs leading-5 text-slate-400">
+                    <span>{hasWeakAreas ? recoverySourceLabel : '当前没有检测到薄弱点。'}</span>
+                    {hasWeakAreas && (
+                      <Link href={alignedWeakNodesHref} className="mt-2 inline-flex min-h-11 items-center text-cyan-200 hover:text-cyan-100">
+                        在薄弱点页核对同一份测评
+                      </Link>
+                    )}
                   </div>
                 </div>
                 <span className="rounded border border-cyan-300/25 bg-cyan-300/[0.08] px-2 py-1 font-mono text-[10px] text-cyan-100">
