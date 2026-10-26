@@ -81,6 +81,26 @@ export function decideTaskFocus(
  * that receipt does not switch the plan to the addressing retest. The
  * addressing retest is used only when the receipt itself is the addressing paper.
  */
+/**
+ * Extra sentence under the task-page title.
+ * A comprehensive receipt is still work to do when no experiment or path is queued.
+ */
+export function tasksPendingIntro(pendingCount: number, diagnosticLeads: boolean): string | null {
+  if (pendingCount > 0) return null;
+  if (diagnosticLeads) return '当前待办是上方的测评补学，没有另外布置的实验或学习路径。';
+  return '当前没有待处理的任务。';
+}
+
+/**
+ * Copy for an empty default-path list.
+ * Do not mention a pinned-task section unless that section is on the page.
+ */
+export function defaultPathEmptyCopy(diagnosticLeads: boolean, pinnedCount: number): string {
+  if (!diagnosticLeads) return '当前没有进行中的学习路径。可先完成下方课前实验，或回看最近完成任务。';
+  if (pinnedCount > 0) return '默认补学在上方。指定任务保留原进度，并在下一栏标明。';
+  return '默认补学在上方。当前没有另外进行中的学习路径。';
+}
+
 export function remediationQuizLink(quizId: string | null | undefined): RemediationQuizLink {
   if (quizId === ADDRESSING_QUIZ_ID) {
     return { text: '再次测评寻址方式', href: '/quiz?topic=addressing-modes&mode=retest' };
