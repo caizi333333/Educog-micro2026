@@ -307,6 +307,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'timer_tmod_modes',
+    title: 'TMOD 对上了',
+    description: '在第 5 章练一练里，把 80C51 定时器 TMOD 的四种方式和 GATE、C/T 对上各自的含义',
+    icon: '⏱️',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-timer-tmod-modes', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'addressing_modes',
     title: '寻址方式对上了',
     description: '在第 3 章练一练里，把 80C51 的 7 条代表指令对上七种寻址方式',

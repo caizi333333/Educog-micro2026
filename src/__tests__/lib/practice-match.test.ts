@@ -7,6 +7,7 @@ import {
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   MEMORY_REGION_BOARD,
+  TIMER_TMOD_BOARD,
   decideMatchReward,
   gradeMatch,
   matchClearMessage,
@@ -50,8 +51,37 @@ function decodeOverview(html: string): string {
       }
     }
   }
-  const data = JSON.parse(html.slice(start + marker.length, end + 1)) as { int: string };
+  const data = JSON.parse(html.slice(start + marker.length, end + 1)) as { int: string; tmr: string };
   return Buffer.from(data.int, 'base64').toString('utf8');
+}
+
+function decodeTimerPane(html: string): string {
+  const marker = 'var DATA=';
+  const start = html.indexOf(marker);
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let end = start + marker.length;
+  for (let cursor = end; cursor < html.length; cursor += 1) {
+    const character = html[cursor];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === '{') depth += 1;
+    else if (character === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = cursor;
+        break;
+      }
+    }
+  }
+  const data = JSON.parse(html.slice(start + marker.length, end + 1)) as { tmr: string };
+  return Buffer.from(data.tmr, 'base64').toString('utf8');
 }
 
 describe('interrupt source match board', () => {
@@ -195,6 +225,128 @@ function revealedCode(answer: string): string {
   if (opcode?.[0]) return opcode[0];
   throw new Error(`answer has no machine code: ${answer}`);
 }
+
+describe('timer TMOD match board', () => {
+  const timerPane = decodeTimerPane(readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8'));
+  const classroom = readFileSync(join(COURSEWARE, 'u5-interrupt-classroom.html'), 'utf8');
+
+  it('copies 80C51 TMOD mode, GATE, and C/T facts from the timer pane', () => {
+    expect(TIMER_TMOD_BOARD.chapterId).toBe('5');
+    expect(TIMER_TMOD_BOARD.knowledgePointId).toBe('6.2');
+    expect(TIMER_TMOD_BOARD.sectionId).toBe('tmr-hand');
+    expect(TIMER_TMOD_BOARD.moduleId).toBe('u5-overview');
+    expect(TIMER_TMOD_BOARD.medalId).toBe('timer_tmod_modes');
+    expect(TIMER_TMOD_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(TIMER_TMOD_BOARD.zones).toBeUndefined();
+    expect(TIMER_TMOD_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target])).toEqual([
+      ['mode0', 'M1 M0 = 00', '方式 0'],
+      ['mode1', 'M1 M0 = 01', '方式 1'],
+      ['mode2', 'M1 M0 = 10', '方式 2'],
+      ['mode3', 'M1 M0 = 11', '方式 3'],
+      ['ct0', 'C/T = 0', '定时'],
+      ['ct1', 'C/T = 1', '计数'],
+      ['gate0', 'GATE = 0', '只看 TR'],
+      ['gate1', 'GATE = 1', '引脚高电平同时满足才数'],
+    ]);
+    expect(classroom).toContain('00/01/10/11→方式0–3');
+    expect(timerPane).toContain('方式 0（13 位）');
+    expect(timerPane).toContain('方式 1（16 位）');
+    expect(timerPane).toContain('方式 2（8 位自动重装）');
+    expect(timerPane).toContain('2<sup>13</sup> = 8192');
+    expect(timerPane).toContain('2<sup>16</sup> = 65536');
+    expect(timerPane).toContain('TL0 溢出时硬件把 TH0 抄回 TL0');
+    expect(timerPane).toContain('只有 T0 有：TL0、TH0 拆成两个 8 位定时器，TH0 借用 TR1、TF1');
+    expect(timerPane).toContain('T1：方式 3 → 停止计数');
+    expect(timerPane).toContain('定时（数机器周期）');
+    expect(timerPane).toContain("计数（数 ' + (who === 'T0' ? 'P3.4' : 'P3.5') + ' 引脚脉冲）");
+    expect(timerPane).toContain('GATE=0：只看 TR');
+    expect(timerPane).toContain('引脚高电平同时满足才数');
+    expect(timerPane).toContain('高 4 位管 T1，低 4 位管 T0');
+    expect(timerPane).toContain('id="p-hand"');
+    expect(classroom).toContain('GATE=0：只要 TR=1 就加');
+    expect(classroom).toContain('T0 看');
+    expect(classroom).toContain('INT0');
+    expect(classroom).toContain('T1 看');
+    expect(classroom).toContain('INT1');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode0')?.targetDetail).toBe('13 位，最多 8192');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode1')?.targetDetail).toBe('16 位，最多 65536');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode2')?.targetDetail).toContain('8 位自动重装');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode2')?.targetDetail).toContain('TL0 溢出时硬件把 TH0 抄回 TL0');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode3')?.targetDetail).toContain('TH0 借用 TR1、TF1');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'mode3')?.targetDetail).toContain('停止计数');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'ct0')?.targetDetail).toBe('数机器周期');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'ct1')?.targetDetail).toContain('P3.4');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'ct1')?.targetDetail).toContain('P3.5');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'gate0')?.targetDetail).toBe('只要 TR=1 就加');
+    expect(TIMER_TMOD_BOARD.pairs.find((pair) => pair.id === 'gate1')?.targetDetail).toBe('T0 看 INT0，T1 看 INT1');
+    expect(TIMER_TMOD_BOARD.hint).toContain('高 4 位管 T1');
+    expect(TIMER_TMOD_BOARD.hint).not.toContain('8192');
+    expect(TIMER_TMOD_BOARD.hint).not.toContain('只看 TR');
+  });
+
+  it('grades a finished TMOD map and keeps a swapped mode wrong with 0 points', () => {
+    const solved = Object.fromEntries(TIMER_TMOD_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(TIMER_TMOD_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, mode0: 'mode1', mode1: 'mode0' };
+    const grade = gradeMatch(TIMER_TMOD_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['mode0', 'mode1']);
+    expect(matchMissMessage(grade, TIMER_TMOD_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, TIMER_TMOD_BOARD)).toContain('高 4 位管 T1');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TIMER_TMOD_BOARD.cooldownMs,
+      firstClearPoints: TIMER_TMOD_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(TIMER_TMOD_BOARD.id)).toBe('practice_clears:u5-timer-tmod-modes');
+    expect(practiceMedalIdsForCount(TIMER_TMOD_BOARD.id, 1)).toEqual(['timer_tmod_modes']);
+    expect(practiceMedalIdsForCount(TIMER_TMOD_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'timer_tmod_modes',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT_SOURCE_FLAG_BOARD.id, 1)).toEqual(['interrupt_source_flags']);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'timer_tmod_modes');
+    expect(medal?.title).toBe('TMOD 对上了');
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: TIMER_TMOD_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「TMOD 对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TIMER_TMOD_BOARD.cooldownMs,
+      firstClearPoints: TIMER_TMOD_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: TIMER_TMOD_BOARD.cooldownMs,
+      firstClearPoints: TIMER_TMOD_BOARD.firstClearPoints,
+      awardToStudent: true,
+    }).reason).toBe('cooldown');
+  });
+});
 
 describe('addressing mode match board', () => {
   const reveals = addressingReveals(readFileSync(UNIT3_OVERVIEW, 'utf8'));
