@@ -14,6 +14,15 @@ const U3_SECTION_POINTS: Readonly<Record<string, string>> = {
   logic: '3.4',
   jump: '3.5',
   bit: '3.6',
+  // `#lesson-a` is chapter 5. Chapter 3 lesson landings use a u3- prefix.
+  'u3-lesson-a': '3',
+  'u3-lesson-b': '3',
+  'u3-lesson-c': '3',
+  'u3-lesson-d': '3',
+  'u3-l1': '3',
+  'u3-l2': '3',
+  'u3-l3': '3',
+  'u3-l4': '3',
 };
 
 const U5_SECTION_POINTS: Readonly<Record<string, string>> = {
@@ -59,6 +68,14 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   logic: '逻辑运算',
   jump: '控制转移',
   bit: '位操作',
+  'u3-lesson-a': '第 1 次课 · 数在哪',
+  'u3-lesson-b': '第 2 次课 · 怎么搬',
+  'u3-lesson-c': '第 3 次课 · 怎么算',
+  'u3-lesson-d': '第 4 次课 · 怎么跳',
+  'u3-l1': '第 1 次课 · 数在哪',
+  'u3-l2': '第 2 次课 · 怎么搬',
+  'u3-l3': '第 3 次课 · 怎么算',
+  'u3-l4': '第 4 次课 · 怎么跳',
   'p-rev': '指令复习',
   'p-run': '例程演练',
   'p-quiz': '当堂自测',
