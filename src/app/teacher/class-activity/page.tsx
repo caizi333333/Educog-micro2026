@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import { describeLearningTarget } from '@/lib/classroom-sections';
+import { isSmokeTestUsername, type TeachingScope } from '@/lib/current-term';
 import { cn } from '@/lib/utils';
 
 const classSchema = z.object({
@@ -77,11 +78,12 @@ function formatDuration(seconds: number): string {
 export default function TeacherClassActivityPage(): React.JSX.Element {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [classId, setClassId] = useState('');
+  const [scope, setScope] = useState<TeachingScope>('current');
   const [filter, setFilter] = useState<StudyFilter>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (nextClassId: string) => {
+  const load = useCallback(async (nextClassId: string, nextScope: TeachingScope) => {
     setLoading(true);
     setError(null);
     const token = getStoredAccessToken();
@@ -90,8 +92,9 @@ export default function TeacherClassActivityPage(): React.JSX.Element {
       headers.Authorization = `Bearer ${token}`;
     }
     try {
-      const query = nextClassId ? `?classId=${encodeURIComponent(nextClassId)}` : '';
-      const response = await fetch(`/api/teacher/class-activity${query}`, {
+      const params = new URLSearchParams({ scope: nextScope });
+      if (nextClassId) params.set('classId', nextClassId);
+      const response = await fetch(`/api/teacher/class-activity?${params.toString()}`, {
         headers,
         credentials: 'same-origin',
       });
@@ -121,8 +124,8 @@ export default function TeacherClassActivityPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    void load(classId);
-  }, [classId, load]);
+    void load(classId, scope);
+  }, [classId, load, scope]);
 
   const students = (summary?.students ?? []).filter((student) => {
     if (filter === 'studied') return student.studied;
@@ -140,8 +143,26 @@ export default function TeacherClassActivityPage(): React.JSX.Element {
           </Link>
           <h1 className="mt-1 text-2xl font-semibold text-slate-50">班级学情</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
-            近 {summary?.windowDays ?? 7} 日谁打开过知识点或交过测评。停留按 15 分钟合并写入，避免整班心跳打满免费额度。
+            近 {summary?.windowDays ?? 7} 日谁打开过知识点或交过测评。默认只列本学期四个班；往期班仍可查看。停留按 15 分钟合并写入，避免整班心跳打满免费额度。
           </p>
+          <div role="group" aria-label="学情范围" className="mt-3 inline-flex rounded-md border border-white/10 p-0.5">
+            <button
+              type="button"
+              aria-pressed={scope === 'current'}
+              onClick={() => { setClassId(''); setScope('current'); }}
+              className={cn('min-h-11 rounded px-3 text-sm', scope === 'current' ? 'bg-cyan-300 text-[#001014]' : 'text-slate-300')}
+            >
+              本学期
+            </button>
+            <button
+              type="button"
+              aria-pressed={scope === 'history'}
+              onClick={() => { setClassId(''); setScope('history'); }}
+              className={cn('min-h-11 rounded px-3 text-sm', scope === 'history' ? 'bg-cyan-300 text-[#001014]' : 'text-slate-300')}
+            >
+              往期班级
+            </button>
+          </div>
         </div>
         {summary && summary.classes.length > 0 && (
           <label className="block min-w-48 text-xs text-slate-400">
@@ -169,7 +190,11 @@ export default function TeacherClassActivityPage(): React.JSX.Element {
       )}
 
       {!loading && summary && !summary.class && summary.classes.length === 0 && (
-        <p className="rounded-md border border-white/10 px-3 py-4 text-sm text-slate-300">当前账号没有可查看的班级。</p>
+        <p className="rounded-md border border-white/10 px-3 py-4 text-sm text-slate-300">
+          {scope === 'history'
+            ? '没有可查看的往期班级。'
+            : '本学期四个班暂不可见。机电2401、机电2402 等在「往期班级」里，数据仍保留。'}
+        </p>
       )}
 
       {!loading && summary?.class && (
@@ -230,7 +255,10 @@ function StudentCard({ student }: { student: StudentRow }): React.JSX.Element {
     <li className="rounded-md border border-white/10 bg-[#0b1118] p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-base font-semibold text-slate-50">{student.name}</p>
+          <p className="text-base font-semibold text-slate-50">
+            {student.name}
+            {isSmokeTestUsername(student.username) ? <span className="ml-2 text-xs font-medium text-amber-100">自测</span> : null}
+          </p>
           <p className="text-xs text-slate-400">{student.studentId || student.username}</p>
         </div>
         <span className={cn(

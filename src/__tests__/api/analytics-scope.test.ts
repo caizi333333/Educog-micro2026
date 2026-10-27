@@ -26,6 +26,12 @@ describe('teacher analytics sample scope', () => {
     mockGetAccessibleClassIds.mockResolvedValue(['class-1']);
 
     const prisma = (globalThis as any).__mockPrisma;
+    prisma.classGroup.findMany.mockResolvedValue([{
+      id: 'class-1',
+      name: '0872-001',
+      courseName: '微控制器',
+      semester: '2026-2027-1',
+    }]);
     prisma.classEnrollment.findMany.mockResolvedValue([
       { userId: 'student-1', user: { username: 'student_1' } },
       { userId: 'demo-1', user: { username: 'demo_student' } },
