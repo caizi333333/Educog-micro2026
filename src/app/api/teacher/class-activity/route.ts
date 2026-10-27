@@ -76,7 +76,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }];
     });
 
-    const since = new Date(Date.now() - PRESENCE_SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const asOf = new Date(Date.now());
+    const since = new Date(asOf.getTime() - PRESENCE_SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
     const grouped = roster.length === 0
       ? []
       : await prisma.learningEvent.groupBy({
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         where: {
           classId: requestedClassId,
           userId: { in: roster.map((student) => student.id) },
-          createdAt: { gte: since },
+          createdAt: { gte: since, lte: asOf },
           eventType: { in: [...ACTIVITY_EVENT_TYPES] },
         },
         _max: { createdAt: true },
@@ -101,13 +102,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       durationSeconds: row._sum.duration ?? 0,
       count: row._count._all,
     }));
-    const summary = buildClassActivity(roster, groups);
+    const summary = buildClassActivity(roster, groups, { since, asOf });
 
     return NextResponse.json({
       classes,
       class: classGroup,
       windowDays: PRESENCE_SUMMARY_WINDOW_DAYS,
-      asOf: new Date().toISOString(),
+      asOf: asOf.toISOString(),
       rosterCount: roster.length,
       studiedCount: summary.studied,
       notStudiedCount: summary.notStudied,

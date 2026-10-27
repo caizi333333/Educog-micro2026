@@ -1,13 +1,13 @@
 name: CI
 
 # 这个 workflow 是发布前置检查。仓库和 Vercel 项目还必须将 quality 设为 main
-# 的必需检查，并等待同一 SHA 检查通过后才允许生产发布。
+# 及实际发布分支的必需检查，并等待同一 SHA 检查通过后才允许生产发布。
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/2026-09-20-production]
   pull_request:
-    branches: [main]
+    branches: [main, release/2026-09-20-production]
   workflow_dispatch:
 
 env:

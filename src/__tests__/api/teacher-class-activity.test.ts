@@ -18,8 +18,12 @@ function request(url: string, token: string | null) {
 }
 
 describe('GET /api/teacher/class-activity', () => {
+  const asOf = new Date('2026-10-27T10:00:00.000Z');
+  const since = new Date('2026-10-20T10:00:00.000Z');
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(asOf.getTime());
     mockVerifyToken.mockResolvedValue({ userId: 'teacher-1', email: 'sunyancai@qust.edu.cn', role: 'TEACHER' });
     mockPrisma.classGroup.findMany.mockResolvedValue([
       { id: 'class-1', name: '机电2401', courseName: '微控制器', semester: '2026-2027-1' },
@@ -57,6 +61,10 @@ describe('GET /api/teacher/class-activity', () => {
     ]);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('lists studied and not-studied students for a class the teacher owns', async () => {
     const response = await GET(request('http://localhost:3000/api/teacher/class-activity?classId=class-1', 'teacher-token'));
     const data = await response.json();
@@ -64,6 +72,7 @@ describe('GET /api/teacher/class-activity', () => {
     expect(response.status).toBe(200);
     expect(data.studiedCount).toBe(1);
     expect(data.notStudiedCount).toBe(1);
+    expect(data.asOf).toBe(asOf.toISOString());
     expect(data.students[0]).toMatchObject({
       username: 'TEST0872001',
       studied: true,
@@ -72,8 +81,40 @@ describe('GET /api/teacher/class-activity', () => {
     });
     expect(data.students[1]).toMatchObject({ username: 'S002', studied: false });
     expect(mockPrisma.learningEvent.groupBy).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ classId: 'class-1' }),
+      where: expect.objectContaining({
+        classId: 'class-1',
+        userId: { in: ['student-1', 'student-2'] },
+        createdAt: { gte: since, lte: asOf },
+      }),
     }));
+  });
+
+  it('removes old login timestamps without changing learning-event classifications', async () => {
+    mockPrisma.classEnrollment.findMany.mockResolvedValue([
+      { user: { id: 'student-1', name: '已学', username: 'learner', studentId: 'S001', lastLoginAt: new Date(since.getTime() - 1) } },
+      { user: { id: 'student-2', name: '未学', username: 'quiet', studentId: 'S002', lastLoginAt: new Date(since.getTime() - 1) } },
+    ]);
+    const response = await GET(request('http://localhost:3000/api/teacher/class-activity?classId=class-1', 'teacher-token'));
+    const data = await response.json();
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ studiedCount: 1, notStudiedCount: 1 });
+    expect(data.students[0]).toMatchObject({ id: 'student-1', studied: true, lastActiveAt: '2026-10-26T09:00:00.000Z' });
+    expect(data.students[1]).toMatchObject({ id: 'student-2', studied: false, lastActiveAt: null });
+  });
+
+  it('includes boundary logins as activity while keeping login-only students not studied', async () => {
+    mockPrisma.classEnrollment.findMany.mockResolvedValue([
+      { user: { id: 'start', name: '起点', username: 'start', studentId: 'S001', lastLoginAt: since } },
+      { user: { id: 'end', name: '终点', username: 'end', studentId: 'S002', lastLoginAt: asOf } },
+      { user: { id: 'future', name: '未来', username: 'future', studentId: 'S003', lastLoginAt: new Date(asOf.getTime() + 1) } },
+    ]);
+    mockPrisma.learningEvent.groupBy.mockResolvedValue([]);
+    const response = await GET(request('http://localhost:3000/api/teacher/class-activity?classId=class-1', 'teacher-token'));
+    const data = await response.json();
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ studiedCount: 0, notStudiedCount: 3 });
+    expect(data.students.map(({ id, lastActiveAt }: { id: string; lastActiveAt: string | null }) => [id, lastActiveAt]))
+      .toEqual([['end', asOf.toISOString()], ['start', since.toISOString()], ['future', null]]);
   });
 
   it('rejects a student and a class outside the teacher scope', async () => {

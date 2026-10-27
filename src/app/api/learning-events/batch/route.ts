@@ -31,6 +31,7 @@ const learningEventSchema = z.object({
 
 const learningEventBatchSchema = z.object({
   token: z.string().optional(),
+  expectedUserId: z.string().min(1).max(128).optional(),
   events: z.array(learningEventSchema).max(100),
 });
 
@@ -97,6 +98,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json({ error: '令牌无效' }, { status: 401 });
+    }
+
+    // A second tab can replace the shared HttpOnly cookie while this page still
+    // has observations for the previous student. This assertion can only reject
+    // a mismatch; the verified token remains the authority for every write.
+    if (body.expectedUserId && body.expectedUserId !== payload.userId) {
+      return NextResponse.json({ error: '登录账号已变更，请刷新页面', code: 'SESSION_USER_CHANGED' }, { status: 403 });
     }
 
     const events = body.events;
@@ -223,7 +231,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const presenceResult = normalized.length > 0 || !taskRejection
       ? await savePresenceEvents(payload.userId, classId, presenceEvents)
-      : { accepted: 0, coalesced: 0, ignored: 0 };
+      : { accepted: 0, coalesced: 0, ignored: 0, receipts: [] };
     const ignored = events.length - normalized.length - presenceEvents.length + presenceResult.ignored;
 
     if (normalized.length === 0) {
@@ -236,6 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           accepted: presenceResult.accepted,
           duplicates: 0,
           coalesced: presenceResult.coalesced,
+          receipts: presenceResult.receipts,
           ignored,
         });
       }
@@ -305,6 +314,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       accepted: created.count + presenceResult.accepted,
       duplicates: normalized.length - created.count,
       coalesced: presenceResult.coalesced,
+      receipts: presenceResult.receipts,
       ignored,
     });
   } catch (error) {
