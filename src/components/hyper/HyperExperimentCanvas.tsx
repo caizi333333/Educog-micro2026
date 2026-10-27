@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import {
   Activity, AlertTriangle, ArrowDown, ArrowUp, Camera, Car, Cpu, Droplets, Fan, Keyboard,
   Lightbulb, Maximize2, Radio, Scale, TerminalSquare, Thermometer, Waypoints, Zap,
@@ -14,6 +14,7 @@ import {
 } from '@/lib/experiment-config';
 import { GREENHOUSE_SCENARIOS } from '@/lib/devices/greenhouse-env';
 import { cn } from '@/lib/utils';
+import { LedHardwareDiagram } from '@/components/hyper/LedHardwareDiagram';
 
 // ── 共阴数码管段码 → 字符 ──
 const SEGMENT_MAP: Record<number, string> = {
@@ -69,94 +70,6 @@ const BIT_ICONS: Record<string, LucideIcon> = {
   thermometer: Thermometer,
   car: Car,
 };
-
-// ─────────────────────────── LED 板：真实实验图 ───────────────────────────
-function RealisticBoard({ bits, portName }: { bits: number[]; portName: PortName }) {
-  return (
-    <svg viewBox="0 0 620 420" className="h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <defs>
-        <linearGradient id="desk-bg" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#221a12" />
-          <stop offset="1" stopColor="#0d0a07" />
-        </linearGradient>
-        <pattern id="holes" width="16" height="16" patternUnits="userSpaceOnUse">
-          <circle cx="4" cy="4" r="1.4" fill="#2a2420" />
-        </pattern>
-      </defs>
-      <rect width="620" height="420" fill="url(#desk-bg)" />
-      <rect x="50" y="80" width="520" height="250" rx="5" fill="#e8e5d8" stroke="#9f9784" />
-      <rect x="70" y="104" width="480" height="190" fill="url(#holes)" opacity="0.65" />
-      <line x1="70" y1="102" x2="550" y2="102" stroke="#c02020" />
-      <line x1="70" y1="118" x2="550" y2="118" stroke="#1a6cc0" />
-      <g transform="translate(226 165)">
-        <rect width="168" height="66" rx="2" fill="#0a0a0a" />
-        <text x="84" y="28" textAnchor="middle" fill="#e2e8f0" fontFamily="monospace" fontSize="12" fontWeight="700">AT89C52</text>
-        <text x="84" y="45" textAnchor="middle" fill="#64748b" fontFamily="monospace" fontSize="8">DIP-40 · {portName} LED BUS</text>
-        {Array.from({ length: 20 }).map((_, i) => <rect key={`a${i}`} x={6 + i * 8} y="-4" width="3" height="4" fill="#888" />)}
-        {Array.from({ length: 20 }).map((_, i) => <rect key={`b${i}`} x={6 + i * 8} y="66" width="3" height="4" fill="#888" />)}
-      </g>
-      <g transform="translate(150 310)">
-        {bits.map((on, index) => (
-          <g key={index} transform={`translate(${index * 38} 0)`}>
-            <circle cx="8" cy="8" r="7" fill={on ? '#ff4040' : '#431616'} stroke="#8a2a2a" style={{ filter: on ? 'drop-shadow(0 0 7px #ff4040)' : undefined }} />
-            <rect x="6" y="15" width="1.5" height="16" fill="#888" />
-            <rect x="10" y="15" width="1.5" height="16" fill="#888" />
-          </g>
-        ))}
-      </g>
-      {bits.slice(0, 4).map((_, index) => (
-        <path
-          key={index}
-          d={`M394 ${184 + index * 8} Q ${430 + index * 8} ${260 + index * 4} ${158 + index * 38} 310`}
-          stroke={['#c02020', '#e8b84d', '#2a7a2a', '#1a6cc0'][index]}
-          strokeWidth="2"
-          fill="none"
-          opacity="0.8"
-        />
-      ))}
-    </svg>
-  );
-}
-
-// ─────────────────────────── LED 板：准确接线图 ───────────────────────────
-function SchematicBoard({ bits, portName }: { bits: number[]; portName: PortName }) {
-  return (
-    <svg viewBox="0 0 620 420" className="h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <rect width="620" height="420" fill="#111820" />
-      <g transform="translate(195 58)">
-        <rect width="230" height="238" rx="5" fill="#080b0f" stroke="#334155" />
-        <circle cx="115" cy="24" r="6" fill="none" stroke="#475569" />
-        <text x="115" y="112" textAnchor="middle" fill="#e2e8f0" fontFamily="monospace" fontSize="18" fontWeight="700">AT89C52</text>
-        <text x="115" y="134" textAnchor="middle" fill="#64748b" fontFamily="monospace" fontSize="10">8051 MCU · 40-DIP</text>
-        {Array.from({ length: 10 }).map((_, index) => (
-          <g key={index}>
-            <rect x="-18" y={44 + index * 17} width="18" height="8" fill={index < 8 ? '#06b6d4' : '#94a3b8'} opacity={index < 8 ? 1 : 0.5} />
-            <rect x="230" y={44 + index * 17} width="18" height="8" fill={index % 2 ? '#f59e0b' : '#94a3b8'} opacity={index % 2 ? 1 : 0.5} />
-          </g>
-        ))}
-      </g>
-      <g transform="translate(120 338)">
-        {bits.map((on, index) => (
-          <g key={index} transform={`translate(${index * 50} 0)`}>
-            <path d="M25 -42 L25 -14" stroke="#06b6d4" strokeWidth="1.6" />
-            <circle cx="25" cy="0" r="10" fill={on ? '#ef4444' : '#351515'} stroke="#7f1d1d" style={{ filter: on ? 'drop-shadow(0 0 8px #ef4444)' : undefined }} />
-            <text x="25" y="25" textAnchor="middle" fill="#64748b" fontFamily="monospace" fontSize="9">{portName}.{7 - index}</text>
-          </g>
-        ))}
-      </g>
-      {bits.map((_, index) => (
-        <path
-          key={index}
-          d={`M195 ${106 + index * 17} C ${150 + index * 4} ${180 + index * 8}, ${145 + index * 50} 250, ${145 + index * 50} 296`}
-          stroke={index % 2 ? '#f59e0b' : '#06b6d4'}
-          strokeWidth="1.2"
-          fill="none"
-          opacity="0.8"
-        />
-      ))}
-    </svg>
-  );
-}
 
 // ─────────────────────────── 数码管段形（共用） ───────────────────────────
 // 段顺序：a b c d e f g（bit0..bit6），与实验代码里的共阴段码表一致（置1亮）
@@ -883,27 +796,32 @@ function WaveStrip({ history }: { history: number[][] }) {
       {lanes.length === 0 ? (
         <div className="py-3 text-center text-[11px] text-slate-600">运行程序后显示引脚电平波形</div>
       ) : (
-        <svg viewBox={`0 0 ${W} ${lanes.length * laneH}`} className="w-full" style={{ height: lanes.length * laneH }} preserveAspectRatio="none">
-          {lanes.map((lane, li) => {
-            const y0 = li * laneH + pad;
-            const hi = y0 + 2, lo = y0 + laneH - pad - 6;
-            const n = lane.wave.length;
-            const step = W / Math.max(n - 1, 1);
-            let d = '';
-            for (let i = 0; i < n; i++) {
-              const x = i * step;
-              const y = lane.wave[i] === '1' ? hi : lo;
-              if (i === 0) d += `M ${x} ${y}`;
-              else d += ` L ${x} ${lane.wave[i - 1] === '1' ? hi : lo} L ${x} ${y}`;
-            }
-            return (
-              <g key={li}>
-                <text x="2" y={y0 + 11} fill="#5a7278" fontFamily="monospace" fontSize="9">{lane.label}</text>
-                <path d={d} fill="none" stroke="#22d3ee" strokeWidth="1.6" style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }} />
-              </g>
-            );
-          })}
-        </svg>
+        <div className="flex min-w-0 items-stretch gap-2">
+          <div className="w-[4.75rem] shrink-0">
+            {lanes.map((lane) => (
+              <div key={lane.label} title={lane.label} className="flex h-[26px] items-center truncate font-mono text-[11px] leading-none text-slate-300">
+                {lane.label}
+              </div>
+            ))}
+          </div>
+          <svg viewBox={`0 0 ${W} ${lanes.length * laneH}`} className="h-auto min-w-0 flex-1" style={{ height: lanes.length * laneH }} preserveAspectRatio="none" aria-hidden="true">
+            {lanes.map((lane, li) => {
+              const y0 = li * laneH + pad;
+              const hi = y0 + 3;
+              const lo = y0 + laneH - pad - 4;
+              const n = lane.wave.length;
+              const step = W / Math.max(n - 1, 1);
+              let d = '';
+              for (let i = 0; i < n; i++) {
+                const x = i * step;
+                const y = lane.wave[i] === '1' ? hi : lo;
+                if (i === 0) d += `M ${x.toFixed(2)} ${y}`;
+                else d += ` L ${x.toFixed(2)} ${lane.wave[i - 1] === '1' ? hi : lo} L ${x.toFixed(2)} ${y}`;
+              }
+              return <path key={lane.label} d={d} fill="none" stroke="#67e8f9" strokeWidth="1.8" strokeLinejoin="miter" />;
+            })}
+          </svg>
+        </div>
       )}
     </div>
   );
@@ -1242,10 +1160,14 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
           ? 'h-[680px] min-h-[680px]'
           : experimentId === 'exp09'
             ? 'h-[640px] min-h-[640px]'
-            : experimentId === 'proj02' ? 'h-[440px] min-h-[440px]' : 'h-[360px] min-h-[360px]',
+            : experimentId === 'proj02'
+              ? 'h-[440px] min-h-[440px]'
+              : isLed
+                ? 'h-[520px] min-h-[520px]'
+                : 'h-[360px] min-h-[360px]',
       )}
     >
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0e1317] px-3">
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0e1317] px-3 py-1.5">
         <div className="flex items-center gap-2">
           <Waypoints className="h-4 w-4 text-cyan-200" />
           <div>
@@ -1271,7 +1193,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
                   type="button"
                   onClick={() => setMode(key as 'real' | 'schematic')}
                   className={cn(
-                    'inline-flex h-7 items-center gap-1.5 rounded px-2 text-[11px]',
+                    'inline-flex min-h-11 items-center gap-1.5 rounded px-2.5 text-[12px]',
                     mode === key ? 'bg-cyan-300 text-[#001014]' : 'text-slate-400 hover:text-slate-100',
                   )}
                 >
@@ -1284,26 +1206,24 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0 overflow-auto overscroll-contain">
         {isLed ? (
-          <div
-            className="absolute inset-0"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}
-          >
-            <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'real' ? 'opacity-100' : 'opacity-0')}>
-              <RealisticBoard bits={bits} portName={ledPort} />
-            </div>
-            <div className={cn('absolute inset-0 transition-opacity duration-300', mode === 'schematic' ? 'opacity-100' : 'opacity-0')}>
-              <SchematicBoard bits={bits} portName={ledPort} />
-            </div>
+          <div className="flex min-h-full min-w-full justify-center px-2 pb-16 pt-3">
+            <LedHardwareDiagram
+              bits={bits}
+              portName={ledPort}
+              variant={mode === 'real' ? 'board' : 'schematic'}
+              width={Math.round(320 * zoom)}
+            />
           </div>
         ) : (
           <div
             className={cn(
-              'absolute inset-x-0 top-0 flex flex-col items-center gap-4 overflow-y-auto p-4',
-              ['proj02', 'proj03', 'exp09'].includes(experimentId ?? '') ? 'bottom-16 justify-start' : 'bottom-0 justify-center pb-12',
+              'flex min-h-full flex-col items-center gap-4 p-4 pb-16',
+              ['proj02', 'proj03', 'exp09'].includes(experimentId ?? '') ? 'justify-start' : 'justify-center',
             )}
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}
+            style={zoom === 1 ? undefined : ({ zoom } as CSSProperties)}
           >
             {!inputEnabled && <p className="text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
             {experimentId === 'proj03' && <CarInputs key={experimentId} state={simulatorState}
@@ -1322,6 +1242,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
             )}
           </div>
         )}
+        </div>
 
         {experimentId === 'proj01' && (
           <div className="absolute right-3 top-3 max-w-[145px] rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-2 text-center">
@@ -1343,15 +1264,17 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
             onClick={() => setZoom(z => Math.min(2, +(z + 0.2).toFixed(2)))}
             title="放大"
             aria-label="放大接线画布"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+            disabled={zoom >= 2}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))}
+            onClick={() => setZoom(z => Math.max(1, +(z - 0.2).toFixed(2)))}
             title="缩小"
             aria-label="缩小接线画布"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+            disabled={zoom <= 1}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>

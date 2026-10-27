@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTeachingContent } from '@/lib/teaching-content';
-import { getExperimentVisualAssets, toSvgDataUri } from '@/lib/experiment-visual-assets';
+import { getExperimentVisualAssets, type ExperimentVisualAsset } from '@/lib/experiment-visual-assets';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   emptyProj04CompletionEvidence,
   type ExperimentConfig,
@@ -62,6 +63,51 @@ function Section({
         <div className="px-3 pb-3">{children}</div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+const FIGURE_FONT = "ui-sans-serif, system-ui, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif";
+
+/** 教程硬件图按绘制尺寸内联，避免缩进侧栏后变成几像素高的文字。 */
+function CourseHardwareFigure({ asset }: { asset: ExperimentVisualAsset }) {
+  const [open, setOpen] = useState(false);
+  const markup = { __html: asset.svg };
+  const frameClass = 'w-[760px] max-w-none [&_svg]:block [&_svg]:h-auto [&_svg]:w-[760px]';
+
+  return (
+    <figure className="min-w-0 overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div className={frameClass} style={{ fontFamily: FIGURE_FONT }} dangerouslySetInnerHTML={markup} />
+      </div>
+      <figcaption className="border-t border-cyan-300/10 bg-white/[0.035] px-2.5 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <div className="text-[10px] font-semibold text-[#89dceb]">{asset.title}</div>
+          <span className="rounded border border-slate-400/20 bg-slate-300/[0.05] px-1.5 py-0.5 text-[8px] text-slate-400">
+            教学示意图 · 非实物照片
+          </span>
+        </div>
+        <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 inline-flex min-h-11 items-center rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+        >
+          放大查看
+        </button>
+        <p className="mt-1 text-[9px] leading-relaxed text-[#6c7086]">图按原尺寸显示。窄屏可左右滑动。</p>
+      </figcaption>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-5xl overflow-auto border-cyan-300/20 bg-[#080d12] p-3 text-[#d8f3f2] sm:p-4">
+          <DialogHeader>
+            <DialogTitle className="pr-8 text-left text-sm text-cyan-100">{asset.title}</DialogTitle>
+            <DialogDescription className="text-left text-xs leading-5 text-slate-400">{asset.description}</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div className={frameClass} style={{ fontFamily: FIGURE_FONT }} dangerouslySetInnerHTML={markup} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </figure>
   );
 }
 
@@ -492,23 +538,7 @@ export default function ExperimentGuide({
         <Section title="接线图与操作视频" icon={CircuitBoard} accent="cyan">
           <div className="space-y-3">
             {visualAssets.length > 0 ? visualAssets.map((asset) => (
-              <figure key={asset.id} className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#080d12]">
-                <img
-                  src={toSvgDataUri(asset.svg)}
-                  alt={`${asset.title}（教学示意图）`}
-                  loading="lazy"
-                  className="block w-full bg-[#080d12]"
-                />
-                <figcaption className="border-t border-cyan-300/10 bg-white/[0.035] px-2.5 py-2">
-                  <div className="flex flex-wrap items-center justify-between gap-1">
-                    <div className="text-[10px] font-semibold text-[#89dceb]">{asset.title}</div>
-                    <span className="rounded border border-slate-400/20 bg-slate-300/[0.05] px-1.5 py-0.5 text-[8px] text-slate-400">
-                      教学示意图 · 非实物照片
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[9px] leading-relaxed text-[#a6adc8]">{asset.description}</p>
-                </figcaption>
-              </figure>
+              <CourseHardwareFigure key={asset.id} asset={asset} />
             )) : null}
 
             {false && (
