@@ -42,7 +42,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -144,7 +144,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选课次再进小节：<b className="font-semibold text-amber-100">第 1 次课入门 · 第 2 次课案例 · 第 3 次课收口</b>
       </>
     ),
-    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。',
+    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。定时器动手练③也可以练一练：把 TMOD 的方式和 GATE、C/T 对上。',
     figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
@@ -254,6 +254,21 @@ const NOTE_ALIAS: Readonly<Record<string, string>> = {
 
 // 讲解页传来的 hash 只用于页内定位（如 #m=bit、#i=…），格式不对就丢掉
 const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
+
+/**
+ * One match cell above the iframe. Unit 5 hosts two boards on the same note:
+ * interrupt sections keep the source/flag board; the timer door (`tmr-*`)
+ * swaps in the TMOD board, expanded on 动手练③ (`#tmr-hand`).
+ */
+function practiceBoardForNote(file: string, sectionId: string): MatchBoard | null {
+  if (file === 'u5-overview') {
+    return sectionId.startsWith('tmr-') ? TIMER_TMOD_BOARD : INTERRUPT_SOURCE_FLAG_BOARD;
+  }
+  if (file === 'u3-overview') return ADDRESSING_MODE_BOARD;
+  if (file === 'u2-cpu-structure') return CPU_STRUCTURE_BOARD;
+  if (file === 'u2-memory') return MEMORY_REGION_BOARD;
+  return null;
+}
 
 export default function LessonNotesPage(): React.JSX.Element {
   const { user } = useAuth();
@@ -391,15 +406,7 @@ export default function LessonNotesPage(): React.JSX.Element {
   }, [activeFile]);
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
-  const practiceBoard: MatchBoard | null = active.file === 'u5-overview'
-    ? INTERRUPT_SOURCE_FLAG_BOARD
-    : active.file === 'u3-overview'
-      ? ADDRESSING_MODE_BOARD
-      : active.file === 'u2-cpu-structure'
-        ? CPU_STRUCTURE_BOARD
-        : active.file === 'u2-memory'
-          ? MEMORY_REGION_BOARD
-          : null;
+  const practiceBoard = practiceBoardForNote(active.file, sectionId);
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
     noteFile: active.file,

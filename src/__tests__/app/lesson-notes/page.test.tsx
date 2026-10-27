@@ -90,6 +90,18 @@ describe('LessonNotesPage deep link', () => {
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-3');
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the TMOD match on the unit 5 timer practice section', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#tmr-hand', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#tmr-hand');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照动手练③' })).toBeInTheDocument();
+    expect(screen.getByText('M1 M0 = 00')).toBeInTheDocument();
+    expect(screen.getByText('GATE = 1')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
   });
 
   it('opens the same pane from a unit link that only carries the hash', async () => {

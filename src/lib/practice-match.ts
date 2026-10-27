@@ -8,6 +8,7 @@
  * - unit 2 memory regions (note `u2-memory`, anchor `#memory`)
  * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
+ * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and a catalog row whose
  * criteria.type is `practice_clears:<board id>`. 「连对三次」and「今天练过了」
@@ -106,6 +107,48 @@ export const INTERRUPT_SOURCE_FLAG_BOARD: MatchBoard = {
     { id: 'int1', prompt: '外部中断 1', promptHint: 'INT1 · P3.3 引脚', target: 'IE1', targetDetail: 'TCON.3' },
     { id: 't1', prompt: '定时器 T1', promptHint: 'T1 溢出', target: 'TF1', targetDetail: 'TCON.7' },
     { id: 'uart', prompt: '串行口', promptHint: '串口 · 收完或发完一帧', target: 'RI / TI', targetDetail: 'SCON' },
+  ],
+};
+
+/**
+ * 80C51 timer/counter TMOD, mounted on the unit 5 overview timer door.
+ * Mode widths, the reload sentence, and GATE / C/T wording come from the
+ * timer pane (`var DATA.tmr`). M1 M0 codes 00/01/10/11 → 方式 0–3 are the
+ * classroom row for those two bits. 方式 3 stops T1; only T0 splits.
+ * GATE=0 still counts whenever TR=1; that sentence is on the classroom
+ * GATE pane the overview links. No baud-rate or chip-variant facts.
+ */
+export const TIMER_TMOD_BOARD: MatchBoard = {
+  id: 'u5-timer-tmod-modes',
+  title: 'TMOD 字段 ↔ 含义',
+  prompt: '把 80C51 定时器 TMOD 的四种方式和 GATE、C/T 对上各自的含义。',
+  hint: '高 4 位管 T1，低 4 位管 T0。C/T 管数什么，GATE 管许不许数。',
+  chapterId: '5',
+  knowledgePointId: '6.2',
+  sectionId: 'tmr-hand',
+  moduleId: 'u5-overview',
+  medalId: 'timer_tmod_modes',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：TMOD 字段对含义',
+    sectionLink: '对照动手练③',
+    expandClosed: '展开练一练：TMOD 字段对含义',
+    promptSide: 'TMOD 字段',
+    targetSide: '含义',
+    actionHint: '先点字段，再点含义。鼠标也可以直接拖过去。',
+    emptyTray: '8 个字段都放好了。',
+    slotName: '含义',
+  },
+  pairs: [
+    { id: 'mode0', prompt: 'M1 M0 = 00', promptHint: '方式位', target: '方式 0', targetDetail: '13 位，最多 8192' },
+    { id: 'mode1', prompt: 'M1 M0 = 01', promptHint: '方式位', target: '方式 1', targetDetail: '16 位，最多 65536' },
+    { id: 'mode2', prompt: 'M1 M0 = 10', promptHint: '方式位', target: '方式 2', targetDetail: '8 位自动重装，TL0 溢出时硬件把 TH0 抄回 TL0' },
+    { id: 'mode3', prompt: 'M1 M0 = 11', promptHint: '方式位', target: '方式 3', targetDetail: '只有 T0 有；TH0 借用 TR1、TF1；T1 停止计数' },
+    { id: 'ct0', prompt: 'C/T = 0', promptHint: '计数 / 定时位', target: '定时', targetDetail: '数机器周期' },
+    { id: 'ct1', prompt: 'C/T = 1', promptHint: '计数 / 定时位', target: '计数', targetDetail: '数 P3.4 或 P3.5 引脚脉冲' },
+    { id: 'gate0', prompt: 'GATE = 0', promptHint: '门控位', target: '只看 TR', targetDetail: '只要 TR=1 就加' },
+    { id: 'gate1', prompt: 'GATE = 1', promptHint: '门控位', target: '引脚高电平同时满足才数', targetDetail: 'T0 看 INT0，T1 看 INT1' },
   ],
 };
 
@@ -234,6 +277,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   MEMORY_REGION_BOARD,
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
+  TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
 ];
 
