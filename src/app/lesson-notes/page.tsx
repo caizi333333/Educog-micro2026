@@ -83,8 +83,8 @@ const U4_NOTES: readonly LessonNote[] = [
 ] as const;
 
 const U5_NOTES: readonly LessonNote[] = [
-  { file: 'u5-overview', title: '第 5 章交互总览', sub: '中断系统 + 定时/计数器；含例题全览、速记、课末测；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
-  { file: 'u5-knowledge', title: '知识导览', sub: '第五章结构与媒资入口', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-overview', title: '第 5 章交互总览', sub: '先选中断或定时，再进第 1–3 次课；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-knowledge', title: '知识导览', sub: '三次课入口与媒资；#int-2 等深链仍回总览', pointId: '5', pointName: '中断系统' },
 ] as const;
 
 const LESSON_UNITS: readonly LessonUnit[] = [
@@ -134,10 +134,10 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     notes: U5_NOTES,
     bannerMid: (
       <>
-        中断系统 + 定时/计数器交互总览：<b className="font-semibold text-amber-100">例题全览 · 速记 · 课末测</b>
+        先选课次再进小节：<b className="font-semibold text-amber-100">第 1 次课入门 · 第 2 次课案例 · 第 3 次课收口</b>
       </>
     ),
-    intro: '第 5 章把“谁来叫 CPU、怎么响应、怎么定时计数”串成一条线：左侧目录可直达中断页签与定时器四步，知识导览给出结构与媒资入口。',
+    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。',
     figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
