@@ -3,8 +3,9 @@ import { join } from 'node:path';
 
 /**
  * Phone reading leftovers after the unit 5 pass: chapter 3 diagrams that
- * forced a 720px width, 10–11px courseware labels, and the embedded copies
- * lesson notes actually open. Deep links stay on the overview hash handler.
+ * forced a 720px width, and 10–11px courseware labels. Lesson notes open
+ * the overview chooser, which sends each section to its atomic page.
+ * Deep links stay on the overview hash handler.
  */
 const REPO_ROOT = join(__dirname, '../../..');
 const COURSEWARE = join(REPO_ROOT, 'public/resources/course/courseware');
@@ -25,44 +26,6 @@ const WIDE_DIAGRAMS = [
 
 function read(path: string): string {
   return readFileSync(path, 'utf8');
-}
-
-function parseEmbeddedData(html: string): Record<string, string> {
-  const marker = 'var DATA=';
-  const start = html.indexOf(marker);
-  if (start < 0) throw new Error('overview DATA payload missing');
-  let index = start + marker.length;
-  if (html[index] !== '{') throw new Error('overview DATA is not an object');
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let cursor = index; cursor < html.length; cursor += 1) {
-    const character = html[cursor];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (character === '\\') escaped = true;
-      else if (character === '"') inString = false;
-      continue;
-    }
-    if (character === '"') inString = true;
-    else if (character === '{') depth += 1;
-    else if (character === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        const parsed: unknown = JSON.parse(html.slice(index, cursor + 1));
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('overview DATA is not an object');
-        }
-        const data: Record<string, string> = {};
-        for (const [key, value] of Object.entries(parsed)) {
-          if (typeof value !== 'string') throw new Error(`DATA.${key} is not a string`);
-          data[key] = Buffer.from(value, 'base64').toString('utf8');
-        }
-        return data;
-      }
-    }
-  }
-  throw new Error('unterminated overview DATA payload');
 }
 
 function expectFluidDiagram(html: string, label: string): void {
@@ -91,7 +54,6 @@ function expectPhoneType(html: string): void {
 
 describe('chapter 3 phone reading', () => {
   const overviewHtml = read(join(COURSEWARE, 'u3/u3-overview.html'));
-  const embedded = parseEmbeddedData(overviewHtml);
 
   it('makes the eight wide diagrams fluid and keeps 80C51 copy', () => {
     for (const name of WIDE_DIAGRAMS) {
@@ -100,21 +62,32 @@ describe('chapter 3 phone reading', () => {
       expectPhoneType(html);
     }
     expect(read(join(COURSEWARE, 'u3/u3-isa-design.html'))).toContain('80C51');
-    expect(embedded.isa).toContain('80C51');
-    expect(embedded['old-transfer']).toContain(FLUID_MARK);
-    expect(embedded.bit).not.toContain('min-width:720px');
+    expect(read(join(COURSEWARE, 'u3/u3-transfer.html'))).toContain(FLUID_MARK);
+    expect(read(join(COURSEWARE, 'u3/u3-bit.html'))).not.toContain('min-width:720px');
   });
 
-  it('applies the same rules inside the overview lesson notes embed', () => {
+  it('keeps deep links on the overview and the atomic pages lesson notes open', () => {
     expect(overviewHtml).toContain("addEventListener('hashchange'");
     expect(overviewHtml).toContain('80C51');
     expect(overviewHtml).toContain('"u3-jump": "jump"');
-    for (const [key, html] of Object.entries(embedded)) {
+    expect(overviewHtml).not.toContain('var DATA=');
+    expect(overviewHtml).not.toContain('min-width:720px');
+    const opened = [
+      'u3-isa-design.html',
+      'u3-addressing-design.html',
+      'u3-mov-design.html',
+      'u3-arith-design.html',
+      'u3-logic-design.html',
+      'u3-jump-design.html',
+      'u3-bit.html',
+    ];
+    for (const name of opened) {
+      const html = read(join(COURSEWARE, 'u3', name));
+      expect(html).toContain('80C51');
       expect(html).not.toContain('min-width:720px');
+      expect(html).not.toContain('id="hubCss"');
       if (html.includes('.kp-eyebrow')) expectPhoneType(html);
-      if (html.includes('min-width:720px')) throw new Error(`${key} still forces 720px`);
     }
-    expect(Object.keys(embedded)).toEqual(expect.arrayContaining(['isa', 'bit', 'old-transfer']));
   });
 
   it('bumps narrow-screen type on the other courseware pages that share the 10–11px chrome', () => {
