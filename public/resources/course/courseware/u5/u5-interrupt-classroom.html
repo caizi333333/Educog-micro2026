@@ -17,26 +17,33 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg-deep);background-image:radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);background-attachment:fixed;color:var(--slate100);font-family:var(--fs);font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased}
 body.z1{zoom:1.15}body.z2{zoom:1.3}
-.wrap{max-width:1360px;margin:0 auto;padding:18px 20px 48px}
+.wrap{max-width:min(1360px,100%);margin:0 auto;padding:18px 20px 48px;min-width:0}
 .eyebrow{font-family:var(--fm);font-size:13px;letter-spacing:.14em;color:var(--muted-fg);margin-bottom:6px}
 .eyebrow b{color:var(--cyan300)}
 h1{font-size:30px;font-weight:600;background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);-webkit-background-clip:text;background-clip:text;color:transparent}
 .top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}.top .grow{flex:1 1 520px}
-.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg);flex-wrap:wrap}
+.zoom .btn{min-height:44px}
 .btn{cursor:pointer;min-height:42px;padding:6px 16px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--slate100);font:600 16px var(--fs);transition:.15s;white-space:nowrap;user-select:none}
 .btn:hover{background:rgba(255,255,255,.1)}.btn:disabled{opacity:.4;cursor:default}
 .btn.pri{background:hsl(184 82% 48% / .18);border-color:hsl(184 82% 48% / .55);color:var(--cyan100)}
 .btn.amb{background:hsl(42 92% 58% / .16);border-color:hsl(42 92% 58% / .55);color:var(--amber200)}
 .btn.on,.btn[aria-pressed=true]{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
 .btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
-.tabs{display:flex;gap:6px;margin:16px 0 14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;background-color:rgba(7,10,13,.9);backdrop-filter:blur(8px)}
-.tab{flex:1;min-height:56px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}
-.tab small{font-weight:400;font-size:12.5px;opacity:.75}
+.navstack{position:sticky;top:0;z-index:20;margin:14px 0;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background-color:rgba(7,10,13,.94);backdrop-filter:blur(8px);max-width:100%;min-width:0}
+.lessons{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.lesson{flex:1 1 150px;min-width:0;min-height:48px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--slate300);font:600 15px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25;padding:6px 8px}
+.lesson small{font-weight:400;font-size:12px;opacity:.8;text-align:center}
+.lesson.on,.lesson[aria-pressed=true]{background:hsl(42 92% 58% / .18);border-color:hsl(42 92% 58% / .65);color:var(--amber200)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0;border:0;padding:0;position:static;background:transparent;min-width:0;max-width:100%}
+.tab{flex:1 1 128px;min-width:0;max-width:100%;min-height:48px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;white-space:normal;padding:4px 6px}
+.tab.is-off{display:none}
+.tab small{font-weight:400;font-size:12.5px;opacity:.75;white-space:normal;text-align:center}
 .tab:hover{background:rgba(255,255,255,.07)}
 .tab[aria-selected=true]{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
-.pane{display:none}.pane.on{display:block;animation:fade .3s ease-out both}
+.pane{display:none;min-width:0;max-width:100%}.pane.on{display:block;animation:fade .3s ease-out both}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.card{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.03);padding:14px 18px;margin-bottom:12px}
+.card{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.03);padding:14px 18px;margin-bottom:12px;min-width:0;max-width:100%}
 .h2{font-size:22px;font-weight:700;margin-bottom:4px}
 .key{font-size:20px;color:var(--amber200);font-weight:600;margin-bottom:10px}
 .sub{font-size:15px;color:var(--muted-fg)}
@@ -48,7 +55,7 @@ h1{font-size:30px;font-weight:600;background-image:linear-gradient(135deg,#4fe3e
 .note b{color:var(--cyan100)}
 .ok{color:var(--emerald300)}.bad{color:var(--rose300)}.gold{color:var(--amber300)}
 /* 寄存器位格 */
-.reg{display:grid;grid-template-columns:110px repeat(8,1fr) 90px;gap:4px;align-items:stretch;margin:6px 0}
+.reg{display:grid;grid-template-columns:72px repeat(8,minmax(32px,1fr)) 64px;gap:4px;align-items:stretch;margin:6px 0;width:0;min-width:100%;max-width:100%;overflow-x:auto}
 .reg .nm{font:700 20px var(--fm);display:flex;align-items:center}
 .reg .addr{font:14px var(--fm);color:var(--muted-fg);display:flex;align-items:center;justify-content:center}
 .bit{border:1px solid rgba(255,255,255,.14);border-radius:7px;background:rgba(255,255,255,.04);text-align:center;padding:6px 2px;cursor:pointer;color:var(--slate100);font-family:var(--fm)}
@@ -72,7 +79,7 @@ h1{font-size:30px;font-weight:600;background-image:linear-gradient(135deg,#4fe3e
 .st{display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;margin:4px 0;background:rgba(255,255,255,.03);font-size:17px}
 .st.y{background:rgba(110,231,183,.14)}.st.n{background:rgba(253,164,175,.08);color:var(--slate400)}
 /* 代码 */
-.code{position:relative;font:16px/1.45 var(--fm);background:rgba(0,0,0,.35);border-radius:8px;padding:8px 0;max-height:440px;overflow:auto}
+.code{position:relative;font:16px/1.45 var(--fm);background:rgba(0,0,0,.35);border-radius:8px;padding:8px 0;max-height:440px;overflow:auto;max-width:100%;min-width:0}
 .code div{padding:0 14px;white-space:pre}
 .code .hl{background:hsl(42 92% 58% / .9);color:#141006}
 .code .ln{display:inline-block;width:2.4em;color:var(--slate400)}
@@ -94,7 +101,9 @@ h1{font-size:30px;font-weight:600;background-image:linear-gradient(135deg,#4fe3e
 .flow{display:flex;gap:8px;flex-wrap:wrap}
 .flow span{padding:8px 12px;border-radius:7px;background:rgba(255,255,255,.05);font-size:16px;border:1px solid rgba(255,255,255,.1)}
 .flow span.cur{background:hsl(42 92% 58% / .9);color:#141006}
-.toc{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.toc{display:block;min-width:0}
+.toc-h{font-weight:700;color:var(--amber200);margin:14px 0 8px;font-size:16px}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;min-width:0}
 .toc button{text-align:left;padding:10px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--slate100);cursor:pointer;font:16px var(--fs)}
 .toc button b{color:var(--cyan300);display:block;font-size:18px}
 select{font:600 16px var(--fs);padding:6px 8px;border-radius:6px;background:#111827;color:#fff;border:1px solid #475569}
@@ -291,7 +300,18 @@ html[data-theme="light"] .tab{background:var(--kp-surface);color:var(--slate300)
 html[data-theme="light"] .tab[aria-selected=true]{
   background:rgba(8,145,178,.10);border-color:rgba(8,145,178,.35);color:var(--cyan100);
 }
-html[data-theme="light"] .tabs{background-color:rgba(238,242,246,.92)!important}
+html[data-theme="light"] .navstack{background-color:rgba(238,242,246,.94)!important}
+html[data-theme="light"] .lesson{background:#fff;color:var(--slate300)}
+html[data-theme="light"] .lesson.on,html[data-theme="light"] .lesson[aria-pressed=true]{background:rgba(217,119,6,.12);color:#9a3412;border-color:rgba(180,83,9,.45)}
+.case-split{display:grid;grid-template-columns:330px minmax(0,1fr);gap:14px}
+.case-split > *,.nz-grid > *{min-width:0}
+.nz-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr) minmax(0,.9fr);gap:12px}
+.src-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media(max-width:700px){
+  .grid2,.grid3,.case-split,.nz-grid{grid-template-columns:1fr}
+  .toc-grid{grid-template-columns:1fr}
+  .src-row{grid-template-columns:1fr 1fr}
+}
 html[data-theme="light"] .btn.pri{background:rgba(8,145,178,.12);border-color:rgba(8,145,178,.4);color:var(--cyan100)}
 html[data-theme="light"] .btn.amb{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.4);color:var(--amber200)}
 .kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
@@ -343,7 +363,7 @@ html[data-theme="light"] .sel4 .box{border-color:var(--kp-border);background:var
 
 
 /* --- ⑩ 学生互动 A–D · 强体验 --- */
-.drill-strip{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px;border-radius:9px;border:1px solid rgba(103,232,249,.35);background:rgba(103,232,249,.08);position:sticky;top:68px;z-index:15}
+.drill-strip{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px;border-radius:9px;border:1px solid rgba(103,232,249,.35);background:rgba(103,232,249,.08);position:static;z-index:1}
 .drill-strip a,.drill-strip button{flex:1;min-width:110px;text-align:center;text-decoration:none;min-height:44px;padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--slate100);font:600 15px var(--fs);cursor:pointer;transition:transform .12s,background .15s}
 .drill-strip a:hover,.drill-strip button:hover{background:rgba(255,255,255,.1)}
 .drill-strip a:active,.drill-strip button:active{transform:scale(.96)}
@@ -486,7 +506,8 @@ html[data-theme="light"] .bell{background:radial-gradient(circle at 35% 30%,#cbd
 html[data-theme="light"] .bell:active,html[data-theme="light"] .bell.down{background:radial-gradient(circle at 35% 30%,#a5f3fc,#0891b2 60%,#0e7490)}
 html[data-theme="light"] .ie-board .sw .track{background:#e2e8f0;border-color:#94a3b8}
 html[data-theme="light"] .target-banner.ok{background:rgba(5,150,105,.1)}
-@media(max-width:900px){.drill-strip{top:120px}.dual,.compare-mini{grid-template-columns:1fr}.ie-board .bits{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:900px){.drill-strip{position:static}.dual,.compare-mini{grid-template-columns:1fr}.ie-board .bits{grid-template-columns:repeat(4,minmax(0,1fr))}.ie-board .sw{min-width:0}}
+@media(max-width:700px){.btn{white-space:normal;max-width:100%}}
 .tab[data-p="10"] small{color:var(--amber300)}
 
 .kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;color:var(--slate300);background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);transition:.18s}
@@ -1049,7 +1070,7 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
 <div class="wrap">
 <div class="top">
   <div class="grow">
-    <div class="eyebrow">微控制器原理及应用技术 · <b>第 5 章 中断系统 · 第 1 次课</b></div>
+    <div class="eyebrow">微控制器原理及应用技术 · <b id="lesson-kicker">第 1 次课 · 中断入门</b> · 80C51</div>
     <h1>课堂互动台：一个按键怎么让 CPU 停下来</h1>
   </div>
   <div class="zoom">字号 <button class="btn sm" data-z="0" aria-pressed="true">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button>
@@ -1060,7 +1081,13 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
   </div>
 </div>
 
-<div class="tabs" role="tablist" id="tabs">
+<div class="navstack">
+<nav class="lessons" id="lessons" aria-label="第几次课">
+  <button type="button" class="lesson on" data-lesson="a" aria-pressed="true">第 1 次课<small>中断入门 · ①–⑧</small></button>
+  <button type="button" class="lesson" data-lesson="b" aria-pressed="false">第 2 次课<small>案例与练习 · ⑨–⑬</small></button>
+  <button type="button" class="lesson" data-lesson="c" aria-pressed="false">第 3 次课<small>定时与收口 · ⑭起</small></button>
+</nav>
+<div class="tabs" role="tablist" id="tabs" aria-label="本次课小节">
   <button class="tab" role="tab" data-p="1" aria-selected="true">① 目录<small>LCALL 与中断</small></button>
   <button class="tab" role="tab" data-p="2">② 查询与中断<small>谁去问</small></button>
   <button class="tab" role="tab" data-p="3">③ 5 个中断源<small>请求标志</small></button>
@@ -1081,6 +1108,7 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
   <button class="tab" role="tab" data-p="18">⑱ 全复习<small>总复习</small></button>
   <button class="tab" role="tab" data-p="19">⑲ GATE<small>计时窗口</small></button>
   <button class="tab" role="tab" data-p="20">⑳ 例5-3整页<small>源码墙</small></button>
+</div>
 </div>
 
 <!-- ① -->
@@ -1399,7 +1427,7 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
 <section class="pane" id="p3">
   <div class="key">5 个源：外0、定0、外1、定1、串口；各有一个请求标志。</div>
   <div class="row"><span class="sub">点一个“分机”，它的请求标志置 1</span><button class="btn" id="srcClr">全部清零</button></div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px" id="srcs"></div>
+  <div class="src-row" id="srcs"></div>
   <div class="card" style="margin-top:12px">
     <div class="reg" id="s3tcon"></div>
     <div class="note">串口的标志 <b>TI、RI</b> 在 <b>SCON（98H）</b>里，其余 4 个在 TCON 里。注意：IE0 是标志位，IE 是寄存器名。</div>
@@ -1545,7 +1573,7 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
     <div id="nzTL"></div>
     <div class="note nzLegend"><span style="background:#6ee7b7"></span>主程序<span style="background:#fda4af"></span>T0 服务<span style="background:#c4b5fd"></span>INT1 服务<span style="background:#67e8f9"></span>硬件响应（LCALL）<span style="background:#fcd34d"></span>RETI<span style="background:#f43f5e"></span>RET<span style="background:repeating-linear-gradient(45deg,rgba(252,211,77,.6) 0 4px,transparent 4px 8px)"></span>请求挂着在等</div>
     <div class="note" id="nzMsg" style="font-size:18px;min-height:56px;margin:6px 0"></div>
-    <div style="display:grid;grid-template-columns:1.15fr .85fr .9fr;gap:12px">
+    <div class="nz-grid">
       <div class="card" style="margin:0"><div class="h2">程序</div><div class="code" id="nzCode" style="max-height:470px"></div></div>
       <div class="card" style="margin:0"><div class="h2">CPU 和中断系统</div>
         <div class="note">PC = <span class="big" id="nzPC"></span></div>
@@ -1622,7 +1650,7 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
 <!-- ⑨ -->
 <section class="pane" id="p9">
   <div class="key">5 个源、5 个入口、4 个寄存器、3 个条件、1 条 RETI。</div>
-  <div style="display:grid;grid-template-columns:330px 1fr;gap:14px">
+  <div class="case-split">
     <div class="card" style="text-align:center">
       <div class="seg7" id="seg"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="e"></i><i class="f"></i><i class="g"></i></div>
       <div class="note">P0 = <b class="mono gold" id="p0v">C0H</b> &nbsp; R2 = <b class="mono" id="r2v">0</b> &nbsp; R1 = <b class="mono" id="r1v">10</b></div>
@@ -3562,7 +3590,7 @@ RETI</pre>
   </div>
 </section>
 
-<div class="foot">← → 键切换页签 · 依据：课件《80C51的中断系统及定时计数器》第 1–24 页，韩兴国《微控制器原理及应用技术》第 5 章 P92–99<br>
+<div class="foot">先点页顶「第几次课」，← → 只在本次课的小节之间切换 · 依据：课件《80C51的中断系统及定时计数器》第 1–24 页，韩兴国《微控制器原理及应用技术》第 5 章 P92–99<br>
 配套短片：<a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">查询对比与响应过程</a> ·
 <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a> ·
 <a href="#media2" onclick="document.querySelector('.tab[data-p=&quot;2&quot;]').click();return true">课堂②参考动画</a> ·
@@ -3573,19 +3601,72 @@ RETI</pre>
 (function(){
 'use strict';
 var $=function(s){return document.querySelector(s)}, $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+try{window.$=$;window.$$=$$;}catch(e){}
 function hex2(n){return (n<16?'0':'')+n.toString(16).toUpperCase()+'H'}
 function bin8(n){var s=n.toString(2);while(s.length<8)s='0'+s;return s.slice(0,4)+' '+s.slice(4)+'B'}
 
-/* ---------- 页签 ---------- */
-var cur=1;
-function show(n){cur=n;$$('.tab').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.p)===String(n));});$$('.pane').forEach(function(p){p.classList.toggle('on',p.id==='p'+n);});try{window.show=show}catch(e){}
+/* ---------- 页签：一级课次 + 二级小节（每课 ≤8） ---------- */
+var LESSONS={
+  a:[1,2,3,4,5,6,7,8],
+  b:[9,10,11,12,20,13],
+  c:[14,19,15,16,17,18]
+};
+var LESSON_LABEL={
+  a:'第 1 次课 · 中断入门',
+  b:'第 2 次课 · 案例与练习',
+  c:'第 3 次课 · 定时与收口'
+};
+var cur=1, lesson='a';
+function lessonOf(n){
+  n=+n;
+  if(LESSONS.b.indexOf(n)>=0) return 'b';
+  if(LESSONS.c.indexOf(n)>=0) return 'c';
+  return 'a';
+}
+function lessonFromToken(token){
+  token=String(token||'').replace(/^#/,'');
+  if(token==='a'||token==='1'||token==='lesson-a'||token==='lesson-1'||token==='la') return 'a';
+  if(token==='b'||token==='2'||token==='lesson-b'||token==='lesson-2'||token==='lb') return 'b';
+  if(token==='c'||token==='3'||token==='lesson-c'||token==='lesson-3'||token==='lc') return 'c';
+  return '';
+}
+function applyLesson(id){
+  lesson=id;
+  $$('.lesson').forEach(function(button){
+    var on=button.dataset.lesson===id;
+    button.classList.toggle('on', on);
+    button.setAttribute('aria-pressed', on?'true':'false');
+  });
+  $$('.tab').forEach(function(tab){
+    tab.classList.toggle('is-off', lessonOf(+tab.dataset.p)!==id);
+  });
+  var kicker=document.getElementById('lesson-kicker');
+  if(kicker) kicker.textContent=LESSON_LABEL[id];
+}
+function show(n){n=+n||1;applyLesson(lessonOf(n));cur=n;$$('.tab').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.p)===String(n));});$$('.pane').forEach(function(p){p.classList.toggle('on',p.id==='p'+n);});
+try{window.show=show}catch(e){}
   var hashWant=(n===10)?'#p10':'#p'+n;
   try{if(location.hash!==hashWant && location.hash!=='#drill' && !/^#(struct6|struct|lcall-hw|lcall|level-edge|it-mode|ex53|例5-3|ex51|例5-1|tload|装值|hex-split|rev-hex|media2|lab4clips|exg|例题|mem|速记|快速记忆|quiz|测试|review|全复习|rev-sym|rev-why|rev-sz|rev-kd|rev-warm|gate-win|p-gate|gate|ex-58|ex53-full|p-524|p20)$/.test(location.hash) && !(n===10 && /^#act[A-D]$/.test(location.hash)))history.replaceState(null,'',hashWant)}catch(e){}
 }
+try{window.show=show}catch(e){}
+applyLesson('a');
 $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
+$$('.lesson').forEach(function(button){
+  button.onclick=function(){
+    var id=button.dataset.lesson;
+    if(id===lesson) return;
+    show(LESSONS[id][0]);
+  };
+});
 (function(){
   var h=location.hash||'';
+  var picked=lessonFromToken(h);
+  if(!picked && !h){
+    try{picked=lessonFromToken(new URLSearchParams(location.search).get('lesson'));}catch(e){}
+  }
+  if(picked){show(LESSONS[picked][0]);return}
   var m=h.match(/^#p(20|1[0-9]|[1-9])$/); if(m){show(+m[1]);return}
+  var intPane=h.match(/^#int-(20|1[0-9]|[1-9])$/); if(intPane){show(+intPane[1]);return}
   if(h==='#gate-win' || h==='#p-gate' || h==='#gate' || h==='#p19'){show(19);return}
   if(h==='#ex53-full' || h==='#p-524' || h==='#p20'){show(20);return}
   if(h==='#ex-58'){show(15);setTimeout(function(){var e=document.getElementById('ex-58');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},80);return}
@@ -3618,8 +3699,10 @@ $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
 })();
 document.addEventListener('keydown',function(e){
   var tg=e.target;if(tg.tagName==='SELECT'||tg.tagName==='TEXTAREA'||(tg.tagName==='INPUT'&&tg.type!=='checkbox'))return;
-  if(e.key==='ArrowRight'){show(cur%20+1);e.preventDefault()}
-  else if(e.key==='ArrowLeft'){show((cur+18)%20+1);e.preventDefault()}
+  var order=LESSONS[lesson]||LESSONS.a;
+  var at=order.indexOf(cur); if(at<0) at=0;
+  if(e.key==='ArrowRight'){show(order[(at+1)%order.length]);e.preventDefault()}
+  else if(e.key==='ArrowLeft'){show(order[(at-1+order.length)%order.length]);e.preventDefault()}
   else if(e.key===' '&&cur===8){e.preventDefault();stepGo(1)}
   else if(e.key===' '&&cur===6){e.preventDefault();nzStepGo(1)}
 });
@@ -3901,7 +3984,18 @@ var IPB=['—','—','—','PS','PT1','PX1','PT0','PX0'];
 /* ---------- ① ---------- */
 var tocT=['① 接上第4章：LCALL','② 查询与中断','③ 5 个中断源和标志','④ TCON：触发与清零','⑤ IE：总开关和分开关','⑥ IP：优先级与嵌套','⑦ 响应条件与封锁','⑧ 响应过程单步','⑨ 按键计数总览','练 学生互动 A–D','⑪ 术语中英拼写','⑫ 例5-3 LED+INT0','⑬ 例5-1 单外中断采数','⑭ 装值计算（定时器）','⑮ 例题全览','⑯ 速记寄存器','⑰ 课末测试','⑱ 全复习','⑲ GATE 计时窗口','⑳ 例5-3整页源码'];
 var tocS=['中断响应就是硬件执行了一次 LCALL','CPU 去看 / 外设来叫','外0、定0、外1、定1、串口','IT0、IE0、TI/RI 谁来清','EA + 5 个分开关','先比级别，再比自然顺序','三个条件，三种封锁','PC、SP、堆栈一步步看','一张图串起整节课','门铃对决 / 谁替你 LCALL / 拼字节 / 选哪种','中文 · 英文全称 · 缩写','八灯移位 + 模拟 INT0 服务','课件30–31页 / P99 · INT0 采数入外 RAM','方式1/0/2 初值公式与练习','课件例题卡片（含重号说明）','TCON→IE→IP 记忆链与位图','即时对错 + 装值计算器','必会重点 + 易错难点总复习','GATE 门控：计时窗口开合','PPT 25+27–29 整页源码墙'];
-$('#toc').innerHTML=tocT.map(function(t,i){return '<button data-g="'+(i+1)+'"><b>'+t+'</b>'+tocS[i]+'</button>'}).join('');
+var tocGroups=[
+  {title:'第 1 次课 · 中断入门', panes:LESSONS.a},
+  {title:'第 2 次课 · 案例与练习', panes:LESSONS.b},
+  {title:'第 3 次课 · 定时与收口', panes:LESSONS.c}
+];
+$('#toc').innerHTML=tocGroups.map(function(group){
+  var cards=group.panes.map(function(pane){
+    var index=pane-1;
+    return '<button data-g="'+pane+'"><b>'+tocT[index]+'</b>'+tocS[index]+'</button>';
+  }).join('');
+  return '<div class="toc-h">'+group.title+'</div><div class="toc-grid">'+cards+'</div>';
+}).join('');
 $$('#toc button').forEach(function(b){b.onclick=function(){show(+b.dataset.g)}});
 var LC=['主程序执行 LCALL','PC 压栈（断点）','转到子程序','执行子程序','RET：弹回 PC','回到主程序'];
 var IR=['按键：IE0 置 1','硬件执行 LCALL','PC 压栈（断点）','转到 0003H','执行服务程序','RETI：弹回 PC，清优先级触发器','回到主程序'];
@@ -5060,7 +5154,8 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
 
 })();
 </script>
-<script src="lib/kp-theme-toggle.js">
+<script src="lib/kp-theme-toggle.js"></script>
+<script>
 /* ---------- ⑭ 子知识点 · ÷256 手算演示 ---------- */
 (function(){
   var xin=$('#hsX'), btn=$('#hsCalc'), outDec=$('#hsDec'), outTH=$('#hsTH'), outTL=$('#hsTL'), outCombo=$('#hsCombo'), hint=$('#hsHint');
