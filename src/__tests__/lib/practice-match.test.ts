@@ -6,6 +6,7 @@ import {
   ADDRESSING_MODE_BOARD,
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
+  INTERRUPT_VECTOR_BOARD,
   MEMORY_REGION_BOARD,
   TIMER_TMOD_BOARD,
   decideMatchReward,
@@ -343,6 +344,130 @@ describe('timer TMOD match board', () => {
       nowMs: now,
       cooldownMs: TIMER_TMOD_BOARD.cooldownMs,
       firstClearPoints: TIMER_TMOD_BOARD.firstClearPoints,
+      awardToStudent: true,
+    }).reason).toBe('cooldown');
+  });
+});
+
+/** Courseware line shared by the overview interrupt pane and the classroom page. */
+const VECTOR_ADDRESS_LINE = /入口地址：(INT0) (0003H) · (T0) (000BH) · (INT1) (0013H) · (T1) (001BH) · (串口) (0023H)，相隔 8 字节/;
+
+function vectorAddressLine(html: string): RegExpMatchArray {
+  const text = html.includes('var DATA=') ? decodeOverview(html) : html;
+  const match = text.match(VECTOR_ADDRESS_LINE);
+  if (!match) throw new Error('courseware is missing the vector address line');
+  return match;
+}
+
+describe('interrupt vector match board', () => {
+  const overviewHtml = readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8');
+  const classroomHtml = readFileSync(join(COURSEWARE, 'u5-interrupt-classroom.html'), 'utf8');
+  const overviewSources = sourceTable(overviewHtml);
+  const classroomSources = sourceTable(classroomHtml);
+
+  it('copies the five 80C51 vector addresses from the courseware line', () => {
+    const overviewLine = vectorAddressLine(overviewHtml);
+    const classroomLine = vectorAddressLine(classroomHtml);
+    expect(classroomLine.slice(1)).toEqual(overviewLine.slice(1));
+    expect(classroomSources).toEqual(overviewSources);
+    expect(INTERRUPT_VECTOR_BOARD.chapterId).toBe('5');
+    expect(INTERRUPT_VECTOR_BOARD.knowledgePointId).toBe('5.2');
+    expect(INTERRUPT_VECTOR_BOARD.sectionId).toBe('int-2');
+    expect(INTERRUPT_VECTOR_BOARD.moduleId).toBe('u5-overview');
+    expect(INTERRUPT_VECTOR_BOARD.medalId).toBe('interrupt_vectors');
+    expect(INTERRUPT_VECTOR_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(INTERRUPT_VECTOR_BOARD.zones).toBeUndefined();
+    expect(INTERRUPT_VECTOR_BOARD.pairs).toHaveLength(5);
+    expect(overviewHtml).toContain('href="#int-2"');
+    expect(classroomHtml).toContain('各隔 8 字节');
+    expect(classroomHtml).toContain('只放 LJMP');
+    expect(classroomHtml).toContain('断点地址 ≠ 向量入口');
+
+    overviewSources.forEach((row, index) => {
+      const pair = INTERRUPT_VECTOR_BOARD.pairs[index];
+      const abbr = overviewLine[index * 2 + 1];
+      const address = overviewLine[index * 2 + 2];
+      expect(pair?.prompt).toBe(row[0]);
+      expect(pair?.promptHint).toContain(row[1]);
+      expect(pair?.promptHint).toContain(row[4]);
+      expect(abbr).toBe(row[1]);
+      expect(pair?.target).toBe(address);
+      expect(pair?.targetDetail).toBe('入口地址');
+    });
+    expect(INTERRUPT_VECTOR_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target])).toEqual([
+      ['int0', '外部中断 0', '0003H'],
+      ['t0', '定时器 T0', '000BH'],
+      ['int1', '外部中断 1', '0013H'],
+      ['t1', '定时器 T1', '001BH'],
+      ['uart', '串行口', '0023H'],
+    ]);
+    expect(INTERRUPT_VECTOR_BOARD.hint).toContain('8 字节');
+    expect(INTERRUPT_VECTOR_BOARD.hint).toContain('LJMP');
+    expect(INTERRUPT_VECTOR_BOARD.hint).not.toContain('000BH');
+    expect(INTERRUPT_VECTOR_BOARD.hint).not.toContain('0023H');
+  });
+
+  it('grades a finished vector map and keeps a swapped address wrong with 0 points', () => {
+    const solved = Object.fromEntries(INTERRUPT_VECTOR_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(INTERRUPT_VECTOR_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, int0: 't0', t0: 'int0' };
+    const grade = gradeMatch(INTERRUPT_VECTOR_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['int0', 't0']);
+    expect(matchMissMessage(grade, INTERRUPT_VECTOR_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, INTERRUPT_VECTOR_BOARD)).toContain('8 字节');
+    expect(matchMissMessage(grade, INTERRUPT_VECTOR_BOARD)).not.toContain('0003H');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_VECTOR_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_VECTOR_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(INTERRUPT_VECTOR_BOARD.id)).toBe('practice_clears:u5-interrupt-vectors');
+    expect(practiceMedalIdsForCount(INTERRUPT_VECTOR_BOARD.id, 1)).toEqual(['interrupt_vectors']);
+    expect(practiceMedalIdsForCount(INTERRUPT_VECTOR_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'interrupt_vectors',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT_SOURCE_FLAG_BOARD.id, 1)).toEqual(['interrupt_source_flags']);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'interrupt_vectors');
+    expect(medal?.title).toBe('向量地址对上了');
+    expect(medal?.points).toBe(10);
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: INTERRUPT_VECTOR_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「向量地址对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_VECTOR_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_VECTOR_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: INTERRUPT_VECTOR_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_VECTOR_BOARD.firstClearPoints,
       awardToStudent: true,
     }).reason).toBe('cooldown');
   });

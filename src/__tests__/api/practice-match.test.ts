@@ -2,7 +2,7 @@ import { POST } from '@/app/api/practice/match/route';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, TIMER_TMOD_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TIMER_TMOD_BOARD } from '@/lib/practice-match';
 import { PRACTICE_DAILY_MEDAL_ID, PRACTICE_STREAK_MEDAL_ID } from '@/lib/practice-medals';
 
 jest.mock('@/lib/auth', () => ({ verifyToken: jest.fn() }));
@@ -352,6 +352,50 @@ describe('POST /api/practice/match', () => {
       }),
     }));
     expect(requestedMedalIds()).toEqual(['cpu_structure_home', 'practice_daily']);
+  });
+
+  it('scores the vector-address match through the same route and pays nothing for a miss', async () => {
+    const missed = await post({
+      boardId: INTERRUPT_VECTOR_BOARD.id,
+      placements: { ...solvedPlacements(INTERRUPT_VECTOR_BOARD), int0: 't0', t0: 'int0' },
+    });
+    const missedBody = await missed.json();
+    expect(missedBody.correct).toBe(false);
+    expect(missedBody.pointsAwarded).toBe(0);
+    expect(missedBody.medal).toBeNull();
+    expect(missedBody.message).toContain('8 字节');
+    expect(missedBody.message).not.toContain('0003H');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    const cleared = await post({
+      boardId: INTERRUPT_VECTOR_BOARD.id,
+      placements: solvedPlacements(INTERRUPT_VECTOR_BOARD),
+    });
+    const body = await cleared.json();
+    expect(body).toMatchObject({
+      correct: true,
+      reason: 'first_clear',
+      pointsAwarded: 30,
+      medal: { id: 'interrupt_vectors', title: '向量地址对上了', points: 10 },
+    });
+    expect(body.message).toBe('首次对上：+15 积分，解锁勋章「向量地址对上了」+10、「今天练过了」+5。');
+    expect(prisma.learningEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        eventType: 'PRACTICE_CLEAR',
+        targetId: 'u5-interrupt-vectors',
+        targetType: 'PRACTICE',
+        chapterId: '5',
+        moduleId: 'u5-overview',
+      }),
+    }));
+    expect(prisma.userPointsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        type: 'PRACTICE_CLEAR',
+        points: 15,
+        description: '第5章练一练首次对上：中断源 ↔ 向量地址',
+      }),
+    }));
+    expect(requestedMedalIds()).toEqual(['interrupt_vectors', 'practice_daily']);
   });
 
   it('scores the TMOD match through the same route and pays nothing for a miss', async () => {

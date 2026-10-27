@@ -8,6 +8,7 @@
  * - unit 2 memory regions (note `u2-memory`, anchor `#memory`)
  * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
+ * - unit 5 interrupt vectors (overview `#int-2`; addresses from the 入口地址 line)
  * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and a catalog row whose
@@ -107,6 +108,45 @@ export const INTERRUPT_SOURCE_FLAG_BOARD: MatchBoard = {
     { id: 'int1', prompt: '外部中断 1', promptHint: 'INT1 · P3.3 引脚', target: 'IE1', targetDetail: 'TCON.3' },
     { id: 't1', prompt: '定时器 T1', promptHint: 'T1 溢出', target: 'TF1', targetDetail: 'TCON.7' },
     { id: 'uart', prompt: '串行口', promptHint: '串口 · 收完或发完一帧', target: 'RI / TI', targetDetail: 'SCON' },
+  ],
+};
+
+/**
+ * 80C51 interrupt vector addresses, mounted on overview `#int-2`.
+ * The five addresses are the courseware line on the response pane and the
+ * classroom page: INT0 0003H · T0 000BH · INT1 0013H · T1 001BH · 串口 0023H.
+ * Source names and hints are the same `SRC` rows as the flag board.
+ * `#int-3` keeps that flag board as its expanded cell. Spacing is 8 bytes;
+ * the vector cell only holds a jump. No baud rate or chip-variant facts.
+ */
+export const INTERRUPT_VECTOR_BOARD: MatchBoard = {
+  id: 'u5-interrupt-vectors',
+  title: '中断源 ↔ 向量地址',
+  prompt: '把 80C51 的 5 个中断源对上各自的入口地址。',
+  hint: '五入口各隔 8 字节，向量处只放 LJMP。断点地址不是向量入口。',
+  chapterId: '5',
+  knowledgePointId: '5.2',
+  sectionId: 'int-2',
+  moduleId: 'u5-overview',
+  medalId: 'interrupt_vectors',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：中断源对向量地址',
+    sectionLink: '对照课件②',
+    expandClosed: '展开练一练：中断源对向量地址',
+    promptSide: '中断源',
+    targetSide: '向量地址',
+    actionHint: '先点中断源，再点向量地址。鼠标也可以直接拖过去。',
+    emptyTray: '5 个源都放好了。',
+    slotName: '向量地址',
+  },
+  pairs: [
+    { id: 'int0', prompt: '外部中断 0', promptHint: 'INT0 · P3.2 引脚', target: '0003H', targetDetail: '入口地址' },
+    { id: 't0', prompt: '定时器 T0', promptHint: 'T0 溢出', target: '000BH', targetDetail: '入口地址' },
+    { id: 'int1', prompt: '外部中断 1', promptHint: 'INT1 · P3.3 引脚', target: '0013H', targetDetail: '入口地址' },
+    { id: 't1', prompt: '定时器 T1', promptHint: 'T1 溢出', target: '001BH', targetDetail: '入口地址' },
+    { id: 'uart', prompt: '串行口', promptHint: '串口 · 收完或发完一帧', target: '0023H', targetDetail: '入口地址' },
   ],
 };
 
@@ -277,6 +317,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   MEMORY_REGION_BOARD,
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
+  INTERRUPT_VECTOR_BOARD,
   TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
 ];
