@@ -5,6 +5,7 @@
  * on the other, graded by pair id. A board with `zones` draws those slots
  * as a structure puzzle; grading, cooldown, and medals stay on this path.
  * Boards shipped so far:
+ * - unit 2 memory regions (note `u2-memory`, anchor `#memory`)
  * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
@@ -193,7 +194,44 @@ export const CPU_STRUCTURE_BOARD: MatchBoard = {
   ],
 };
 
+/**
+ * 80C51 存储器组织，讲解笔记 `u2-memory` 的地址图。
+ * 片内四条是图上可点的分区：工作寄存器、位寻址、用户 RAM、SFR。
+ * 第五块是片外数据存储器，用 MOVX 而不是 MOV。地址和“只能直接寻址”都来自该篇，不另加考点。
+ */
+export const MEMORY_REGION_BOARD: MatchBoard = {
+  id: 'u2-memory-regions',
+  title: '存储区 ↔ 含义',
+  prompt: '把 80C51 片内的 4 个存储区和片外数据存储器对上各自的地址或访问方式。',
+  hint: '片内 RAM 只到 7FH，SFR 在它上面。片外数据存储器靠 MOVX，不靠 MOV。',
+  chapterId: '2',
+  knowledgePointId: '2.2',
+  sectionId: 'memory',
+  moduleId: 'u2-memory',
+  medalId: 'memory_regions',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：存储区对含义',
+    sectionLink: '对照地址图',
+    expandClosed: '展开练一练：存储区对含义',
+    promptSide: '存储区',
+    targetSide: '含义',
+    actionHint: '先点存储区，再点含义。鼠标也可以直接拖过去。',
+    emptyTray: '5 个区都放好了。',
+    slotName: '含义',
+  },
+  pairs: [
+    { id: 'bank', prompt: '工作寄存器区', promptHint: '4 组 R0~R7', target: '00H ~ 1FH', targetDetail: '32 B，复位后默认 BANK0' },
+    { id: 'bit', prompt: '位寻址区', promptHint: '128 个位地址', target: '20H ~ 2FH', targetDetail: '16 B，位地址 00H~7FH' },
+    { id: 'user', prompt: '用户 RAM 区', promptHint: '缓冲区兼堆栈', target: '30H ~ 7FH', targetDetail: '80 B，SP 宜设到 30H 以上' },
+    { id: 'sfr', prompt: 'SFR', promptHint: '21 个专用寄存器', target: '80H ~ FFH', targetDetail: '只能直接寻址' },
+    { id: 'xram', prompt: '片外数据存储器', promptHint: '最大 64 KB', target: 'MOVX + DPTR', targetDetail: 'RD / WR 选通，与片外 ROM 重号' },
+  ],
+};
+
 const MATCH_BOARDS: readonly MatchBoard[] = [
+  MEMORY_REGION_BOARD,
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   ADDRESSING_MODE_BOARD,

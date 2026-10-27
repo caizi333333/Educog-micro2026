@@ -17,11 +17,11 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 63 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(63);
+    it('keeps the student wall on 64 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(64);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(63);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(64);
     });
 
     it('unlocks the interrupt-flag medal from that board’s clear count', () => {
@@ -83,6 +83,21 @@ describe('成就系统 V2', () => {
       });
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u3-addressing-modes': 1 }).unlocked).toBe(false);
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-cpu-structure': 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
+    });
+
+    it('unlocks 存储区分清了 only from the memory-region clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'memory_regions');
+      expect(medal).toMatchObject({
+        title: '存储区分清了',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u2-memory-regions', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-cpu-structure': 1 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-memory-regions': 1 })).toMatchObject({
         unlocked: true,
         progress: 100,
       });

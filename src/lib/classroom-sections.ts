@@ -85,11 +85,13 @@ const U4_PANE_POINTS: Readonly<Record<string, string>> = {
 
 const U2_NOTE_SECTIONS: Readonly<Record<string, string>> = {
   cpu: 'u2-cpu-structure',
+  memory: 'u2-memory',
 };
 
 const SECTION_LABELS: Readonly<Record<string, string>> = {
   home: '本章主线',
   cpu: 'CPU 结构图',
+  memory: '存储器地址图',
   'isa-map': '指令全景',
   addressing: '寻址方式与机器周期',
   transfer: '数据传送',

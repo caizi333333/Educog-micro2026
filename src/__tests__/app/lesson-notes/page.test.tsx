@@ -64,6 +64,17 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByRole('region', { name: '其他寄存器' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '指令 ↔ 寻址方式' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '存储区 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the memory-region match on the unit 2 memory note', async () => {
+    const frame = await openAt('/lesson-notes?unit=2#memory', '存储器组织 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', expect.stringContaining('/resources/course/courseware/u2/u2-memory.html'));
+    expect(frame.contentWindow?.location.hash).toBe('#memory');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '存储区 ↔ 含义' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照地址图' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'CPU 结构拼图' })).not.toBeInTheDocument();
   });
 
   it('opens the addressing match on unit 3 section 寻址方式', async () => {

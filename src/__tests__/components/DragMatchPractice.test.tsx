@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 const mockFetch = global.fetch as jest.Mock;
 
@@ -182,6 +182,40 @@ describe('DragMatchPractice', () => {
     expect(screen.getByRole('status')).toHaveTextContent('还有 6 处没对上');
     expect(screen.getByRole('status')).toHaveTextContent('0000H');
     await waitFor(() => expect(mockFetch).not.toHaveBeenCalled());
+  });
+
+  it('keeps the memory-region board as a tappable two-column match', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        correct: true,
+        message: '首次对上：+15 积分，解锁勋章「存储区分清了」+10。',
+      }),
+    });
+    render(
+      <DragMatchPractice
+        board={MEMORY_REGION_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+
+    expect(document.querySelector('[data-layout="puzzle"]')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u2-memory-regions"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /工作寄存器区/ })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: '含义 20H ~ 2FH，16 B，位地址 00H~7FH，空位' })).toHaveClass('min-h-11');
+
+    placeAll(MEMORY_REGION_BOARD);
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「存储区分清了」');
+    });
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.boardId).toBe('u2-memory-regions');
+    expect(body.placements.bit).toBe('bit');
+    expect(body.placements.xram).toBe('xram');
   });
 });
 

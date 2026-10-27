@@ -42,7 +42,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -105,7 +105,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选课次再进篇：<b className="font-semibold text-amber-100">片子里面 · 口和总线 · 节拍和开机</b>
       </>
     ),
-    intro: '第 2 章六篇都还在，先分成三次课。每次只显示这一课的两篇，手机上不用横着滑。旧链接 ?note=u2-memory 仍打开原来那一篇。每篇仍是讲解、疑点和自测。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。',
+    intro: '第 2 章六篇都还在，先分成三次课。每次只显示这一课的两篇，手机上不用横着滑。旧链接 ?note=u2-memory 仍打开原来那一篇。每篇仍是讲解、疑点和自测。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。存储器组织这一篇也可以练一练：把片内四个区和片外数据存储器对上地址或访问方式。',
     figures: '图 2-1 / 2-3 / 2-5~2-10，表 2-2 / 2-3 / 2-7',
   },
   {
@@ -397,7 +397,9 @@ export default function LessonNotesPage(): React.JSX.Element {
       ? ADDRESSING_MODE_BOARD
       : active.file === 'u2-cpu-structure'
         ? CPU_STRUCTURE_BOARD
-        : null;
+        : active.file === 'u2-memory'
+          ? MEMORY_REGION_BOARD
+          : null;
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
     noteFile: active.file,
