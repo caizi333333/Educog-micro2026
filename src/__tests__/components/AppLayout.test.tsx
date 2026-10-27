@@ -190,9 +190,9 @@ describe('AppLayout mobile navigation', () => {
   });
 
   it.each([
-    ['STUDENT', ['我的任务', '薄弱节点', '成就徽章', '毕业要求达成'], ['任务回查', '教学仪表板', '用户管理']],
-    ['TEACHER', ['任务回查', '教学仪表板', '班级学情', '达成度看板', '持续改进'], ['我的任务', '薄弱节点', '成就徽章', '用户管理']],
-    ['ADMIN', ['任务回查', '教学仪表板', '班级学情', '达成度看板', '用户管理', '系统管理'], ['我的任务', '薄弱节点', '成就徽章']],
+    ['STUDENT', ['我的任务', '薄弱节点', '成就徽章', '意见反馈', '毕业要求达成'], ['任务回查', '教学仪表板', '学生反馈', '用户管理']],
+    ['TEACHER', ['任务回查', '教学仪表板', '班级学情', '学生反馈', '达成度看板', '持续改进'], ['我的任务', '薄弱节点', '成就徽章', '意见反馈', '用户管理']],
+    ['ADMIN', ['任务回查', '教学仪表板', '班级学情', '学生反馈', '达成度看板', '用户管理', '系统管理'], ['我的任务', '薄弱节点', '成就徽章', '意见反馈']],
   ] as const)('keeps the %s role navigation internally consistent', async (role, visibleLabels, hiddenLabels) => {
     setAuthenticatedRole(role);
     mockPathname = role === 'STUDENT' ? '/tasks' : '/teacher/pushed';
@@ -211,6 +211,13 @@ describe('AppLayout mobile navigation', () => {
     expect(within(dialog).getByRole('button', {
       name: `打开账户菜单，当前角色${role === 'STUDENT' ? '学生' : role === 'TEACHER' ? '教师' : '管理员'}`,
     })).toHaveClass('min-h-11');
+  });
+
+  it('keeps the site version in the footer and a student feedback entry', () => {
+    render(<AppLayout><div>页面内容</div></AppLayout>);
+
+    expect(screen.getByRole('button', { name: 'v1.0.0' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '提交反馈' })).toHaveAttribute('href', '/feedback?from=%2Fknowledge-graph');
   });
 
   it('uses the same account actions in the header and mobile sidebar menus', async () => {

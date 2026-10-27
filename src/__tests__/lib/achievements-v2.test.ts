@@ -17,10 +17,27 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 55 rules, with 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(55);
+    it('keeps the student wall on 59 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(59);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(55);
+      expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(59);
+    });
+
+    it('unlocks the interrupt-flag medal from that board’s clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'interrupt_source_flags');
+      expect(medal).toMatchObject({
+        title: '中断标志对上了',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u5-interrupt-source-flags', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, {}).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { practice_clears: 4 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-source-flags': 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
     });
 
     it('每个成就应该有必需的属性', () => {

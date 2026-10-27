@@ -256,6 +256,56 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     rarity: 'rare',
   },
 
+  // 反馈勋章按有效 SiteFeedback 条数解锁。以后要加第 4 枚，在这里再追加一条
+  // criteria.type = valid_feedbacks、target 为下一次数的成就即可，不必改发奖分支。
+  {
+    id: 'feedback_first',
+    title: '首次反馈',
+    description: '向课程站点提交第 1 条有效反馈',
+    icon: '✉️',
+    category: 'social',
+    criteria: { type: 'valid_feedbacks', target: 1 },
+    points: 40,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
+    id: 'feedback_second',
+    title: '二次反馈',
+    description: '向课程站点提交第 2 条有效反馈',
+    icon: '📨',
+    category: 'social',
+    criteria: { type: 'valid_feedbacks', target: 2 },
+    points: 60,
+    rarity: 'rare',
+    tier: 'silver',
+  },
+  {
+    id: 'feedback_third',
+    title: '三次反馈',
+    description: '向课程站点提交第 3 条有效反馈',
+    icon: '🏅',
+    category: 'social',
+    criteria: { type: 'valid_feedbacks', target: 3 },
+    points: 100,
+    rarity: 'epic',
+    tier: 'gold',
+  },
+
+  // 课件练一练：同一 criteria.type（practice_clears:<题目 id>）可再追加更高次数的勋章。
+  // 发奖走 practiceMedalIdsForCount，不必为第 2 枚改接口。
+  {
+    id: 'interrupt_source_flags',
+    title: '中断标志对上了',
+    description: '在第 5 章练一练里，把 80C51 的 5 个中断源对上各自的请求标志',
+    icon: '🔔',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-interrupt-source-flags', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+
   // === 隐藏成就 ===
   {
     id: 'easter_egg',

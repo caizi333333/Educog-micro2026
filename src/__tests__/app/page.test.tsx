@@ -353,6 +353,9 @@ describe('HomePage', () => {
 
     expect(screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' })).toBeInTheDocument();
     const unitOverview = screen.getByRole('heading', { name: '10 个平台单元' });
+    const unitLinks = within(unitOverview.closest('section') as HTMLElement).getAllByRole('link');
+    expect(unitLinks).toHaveLength(10);
+    expect(unitLinks.every((link) => link.getAttribute('href')?.startsWith('#item-') && link.getAttribute('data-tone') === 'course' && link.className.includes('edu-cell'))).toBe(true);
     const sampleHeading = screen.getByRole('heading', { name: '3.1 寻址方式专项学习任务' });
     expect(unitOverview.compareDocumentPosition(sampleHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByLabelText(/样板课第\d步/)).toHaveLength(6);

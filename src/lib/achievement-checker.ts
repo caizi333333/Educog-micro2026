@@ -1,5 +1,9 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ALL_ACHIEVEMENTS, type Achievement } from '@/lib/achievements-v2';
+import { VALID_FEEDBACK_STAT } from '@/lib/feedback-medals';
+import { MATCH_CLEAR_EVENT } from '@/lib/practice-match';
+import { countPracticeClears } from '@/lib/practice-medals';
 import { summarizeStudyActivity } from '@/lib/study-activity';
 
 export interface AchievementCheck {
@@ -33,6 +37,8 @@ export async function checkAndUpdateAchievements(
       existingAchievements,
       perfectScores,
       completedModules,
+      validFeedbackCount,
+      practiceClearRows,
     ] = await Promise.all([
       prisma.learningProgress.aggregate({
         where: { userId },
@@ -62,7 +68,12 @@ export async function checkAndUpdateAchievements(
       }),
       prisma.learningProgress.count({
         where: { userId, status: 'COMPLETED' }
-      })
+      }),
+      prisma.siteFeedback.count({ where: { userId } }),
+      prisma.learningEvent.findMany({
+        where: { userId, eventType: MATCH_CLEAR_EVENT },
+        select: { targetId: true },
+      }),
     ]);
 
     const learningStreak = await calculateLearningStreak(userId);
@@ -90,7 +101,9 @@ export async function checkAndUpdateAchievements(
       discussions_started: await prisma.userActivity.count({ where: { userId, action: { contains: 'DISCUSSION' } } }),
       easter_egg_found: await prisma.userActivity.count({ where: { userId, action: 'EASTER_EGG' } }),
       bugs_reported: await prisma.userActivity.count({ where: { userId, action: 'BUG_REPORT' } }),
+      [VALID_FEEDBACK_STAT]: validFeedbackCount,
       continuous_hours: 0,
+      ...countPracticeClears(practiceClearRows.map((row) => row.targetId)),
     };
 
     const existingSet = new Set(existingAchievements.map(a => a.achievementId));
@@ -112,15 +125,15 @@ export async function checkAndUpdateAchievements(
   return newAchievements;
 }
 
-async function grantAchievementsInTransaction(
+async function persistGrantedAchievements(
+  tx: Prisma.TransactionClient,
   userId: string,
   achievements: Achievement[],
   triggeredBy: string,
 ): Promise<AchievementCheck[]> {
   if (achievements.length === 0) return [];
 
-  return prisma.$transaction(async (tx) => {
-    const inserted = await tx.userAchievement.createManyAndReturn({
+  const inserted = await tx.userAchievement.createManyAndReturn({
       data: achievements.map((achievement) => ({
         userId,
         achievementId: achievement.id,
@@ -180,12 +193,37 @@ async function grantAchievementsInTransaction(
       })),
     });
 
-    return granted.map((achievement) => ({
-      achievementId: achievement.id,
-      points: achievement.points,
-      unlocked: true,
-    }));
-  });
+  return granted.map((achievement) => ({
+    achievementId: achievement.id,
+    points: achievement.points,
+    unlocked: true,
+  }));
+}
+
+async function grantAchievementsInTransaction(
+  userId: string,
+  achievements: Achievement[],
+  triggeredBy: string,
+): Promise<AchievementCheck[]> {
+  if (achievements.length === 0) return [];
+  return prisma.$transaction((tx) => persistGrantedAchievements(tx, userId, achievements, triggeredBy));
+}
+
+/**
+ * Grant catalog medals by id. Unique (userId, achievementId) makes this idempotent:
+ * an already-unlocked medal is not inserted again and does not award points twice.
+ * Pass an open transaction when the grant must commit with the triggering write.
+ */
+export async function grantCatalogAchievements(
+  userId: string,
+  achievementIds: readonly string[],
+  triggeredBy: string,
+  tx?: Prisma.TransactionClient,
+): Promise<AchievementCheck[]> {
+  const wanted = new Set(achievementIds);
+  const achievements = ALL_ACHIEVEMENTS.filter((achievement) => wanted.has(achievement.id));
+  if (tx) return persistGrantedAchievements(tx, userId, achievements, triggeredBy);
+  return grantAchievementsInTransaction(userId, achievements, triggeredBy);
 }
 
 async function calculateLearningStreak(userId: string): Promise<number> {

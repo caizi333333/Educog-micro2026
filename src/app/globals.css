@@ -39,6 +39,25 @@
 
     --radius: 0.5rem;
 
+    /*
+      Shared student cell (#34) and junction hues (#35).
+      Geometry and motion live here; each surface keeps its own hue
+      so home, tasks, and lesson notes meet without looking identical.
+      See docs/student-cell-junction.md.
+    */
+    --cell-pad-y: 0.75rem;
+    --cell-pad-x: 0.75rem;
+    --cell-radius: var(--radius);
+    --cell-gap: 0.5rem;
+    --cell-min-block: 5.5rem;
+    --cell-shadow: 0 12px 36px hsl(220 40% 2% / 0.28);
+    --cell-duration: 180ms;
+    --cell-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --junction-course: 184 82% 48%;
+    --junction-task: 154 62% 48%;
+    --junction-notes: 42 92% 58%;
+    --junction-shell: 205 16% 62%;
+
     --sidebar-background: 220 20% 6%;
     --sidebar-foreground: 190 32% 94%;
     --sidebar-primary: 184 82% 48%;
@@ -75,6 +94,12 @@
     --chart-3: 42 92% 50%;
     --chart-4: 210 80% 52%;
     --chart-5: 348 72% 52%;
+
+    --cell-shadow: 0 8px 24px hsl(220 20% 20% / 0.08);
+    --junction-course: 185 85% 32%;
+    --junction-task: 154 62% 32%;
+    --junction-notes: 36 90% 38%;
+    --junction-shell: 215 16% 40%;
 
     --sidebar-background: 210 40% 98%;
     --sidebar-foreground: 220 15% 10%;
@@ -248,6 +273,225 @@
       linear-gradient(90deg, hsl(184 40% 62% / 0.045) 1px, transparent 1px),
       radial-gradient(circle at 84% 10%, hsl(42 92% 58% / 0.08), transparent 18rem);
     background-size: 24px 24px, 24px 24px, auto;
+  }
+
+  /* Junction hue follows data-tone. Pages must not invent a private duration. */
+  .edu-cell[data-tone="course"],
+  .edu-surface[data-tone="course"],
+  .edu-surface-kicker[data-tone="course"],
+  .edu-page-rule[data-tone="course"],
+  .edu-cell-seam[data-tone="course"] {
+    --cell-accent: var(--junction-course);
+  }
+
+  .edu-cell[data-tone="task"],
+  .edu-surface[data-tone="task"],
+  .edu-surface-kicker[data-tone="task"],
+  .edu-page-rule[data-tone="task"],
+  .edu-cell-seam[data-tone="task"] {
+    --cell-accent: var(--junction-task);
+  }
+
+  .edu-cell[data-tone="notes"],
+  .edu-surface[data-tone="notes"],
+  .edu-surface-kicker[data-tone="notes"],
+  .edu-page-rule[data-tone="notes"],
+  .edu-cell-seam[data-tone="notes"] {
+    --cell-accent: var(--junction-notes);
+  }
+
+  .edu-cell[data-tone="shell"],
+  .edu-surface[data-tone="shell"],
+  .edu-surface-kicker[data-tone="shell"],
+  .edu-page-rule[data-tone="shell"],
+  .edu-cell-seam[data-tone="shell"] {
+    --cell-accent: var(--junction-shell);
+  }
+
+  .edu-page-rule {
+    height: 3px;
+    background: linear-gradient(90deg, hsl(var(--cell-accent, var(--junction-shell)) / 0.9), transparent 78%);
+  }
+
+  .edu-surface-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--cell-radius);
+    border: 1px solid hsl(var(--cell-accent, var(--junction-shell)) / 0.28);
+    background: hsl(var(--cell-accent, var(--junction-shell)) / 0.1);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    color: hsl(var(--foreground));
+  }
+
+  .edu-surface {
+    position: relative;
+    overflow: hidden;
+    border-radius: calc(var(--cell-radius) + 0.25rem);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / 0.78);
+    padding: 1rem;
+    box-shadow: var(--cell-shadow);
+  }
+
+  @media (min-width: 640px) {
+    .edu-surface {
+      padding: 1.25rem;
+    }
+  }
+
+  .edu-surface::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, hsl(var(--cell-accent, var(--junction-shell)) / 0.95), transparent 72%);
+  }
+
+  .edu-cell {
+    position: relative;
+    overflow: hidden;
+    min-height: var(--cell-min-block);
+    border-radius: var(--cell-radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / 0.55);
+    padding: var(--cell-pad-y) var(--cell-pad-x);
+    color: inherit;
+    box-shadow: var(--cell-shadow);
+    transition:
+      border-color var(--cell-duration) var(--cell-ease),
+      background-color var(--cell-duration) var(--cell-ease);
+  }
+
+  .edu-cell::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: hsl(var(--cell-accent, var(--junction-shell)) / 0.85);
+  }
+
+  .edu-cell--compact {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    box-shadow: none;
+  }
+
+  .edu-cell--flush {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .edu-cell--interactive:hover {
+    border-color: hsl(var(--cell-accent, var(--ring)) / 0.45);
+    background: hsl(var(--cell-accent, var(--ring)) / 0.08);
+  }
+
+  .edu-cell--active {
+    border-color: hsl(var(--cell-accent, var(--ring)) / 0.55);
+    background: hsl(var(--cell-accent, var(--ring)) / 0.14);
+  }
+
+  .edu-cell-grid {
+    display: grid;
+    gap: var(--cell-gap);
+  }
+
+  .edu-cell-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cell-gap);
+  }
+
+  .edu-cell-enter {
+    animation: cell-enter var(--cell-duration) var(--cell-ease) both;
+  }
+
+  .edu-cell-skeleton {
+    min-height: var(--cell-min-block);
+    border-radius: var(--cell-radius);
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--card)) 37%,
+      hsl(var(--muted)) 63%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .edu-cell-seam {
+    position: relative;
+    min-height: min(78dvh, 860px);
+    overflow: hidden;
+    border-radius: var(--cell-radius);
+    border: 1px solid hsl(var(--cell-accent, var(--junction-notes)) / 0.28);
+    background: hsl(var(--background));
+    box-shadow: var(--cell-shadow);
+  }
+
+  .edu-cell-seam::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    height: 3px;
+    background: linear-gradient(90deg, hsl(var(--cell-accent, var(--junction-notes)) / 0.95), transparent 70%);
+    pointer-events: none;
+  }
+
+  .edu-cell-seam__pending {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: hsl(var(--background) / 0.94);
+  }
+
+  .edu-cell-seam__label {
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .edu-cell-seam__frame {
+    min-height: min(78dvh, 860px);
+    opacity: 0;
+    transition: opacity var(--cell-duration) var(--cell-ease);
+  }
+
+  .edu-cell-seam__frame.is-ready {
+    opacity: 1;
+  }
+
+  @media (max-width: 639px) {
+    .edu-cell-seam,
+    .edu-cell-seam__frame {
+      min-height: calc(100dvh - 14rem);
+    }
+  }
+}
+
+@keyframes cell-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 

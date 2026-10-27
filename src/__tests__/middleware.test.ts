@@ -106,6 +106,7 @@ describe('middleware', () => {
       '/api/auth/login',
       '/api/auth/register',
       '/api/auth/logout',
+      '/api/site/version',
     ];
 
     publicPaths.forEach(path => {
@@ -329,6 +330,7 @@ describe('middleware', () => {
       '/classes/join',
       '/achievements',
       '/certificate',
+      '/feedback',
     ])('allows students and rejects teacher/admin direct access to %s', async (path) => {
       const studentResponse = await middleware(createRequest(path, {
         headers: { authorization: `Bearer ${makeJwt('STUDENT')}` },

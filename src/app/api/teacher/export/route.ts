@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createHmac } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { getAccessibleClassIds } from '@/lib/classroom';
 import { OFFICIAL_EXPERIMENT_IDS } from '@/lib/experiment-config';
+import { filterTeachingRoster, shouldCapSmokeTests } from '@/lib/current-term';
+import { resolveTeachingScope } from '@/lib/teaching-scope';
 
 // ── CSV helpers ──────────────────────────────────────────────
 function csvCell(v: string | number | null | undefined): string {
@@ -132,14 +133,9 @@ async function resolveStudents(request: NextRequest): Promise<ResolvedStudents |
   if (!payload || (payload.role !== 'TEACHER' && payload.role !== 'ADMIN')) return null;
 
   const { searchParams } = new URL(request.url);
-  const requestedClassId = searchParams.get('classId');
-  const accessibleClassIds = await getAccessibleClassIds(payload);
-
-  if (requestedClassId && payload.role !== 'ADMIN' && !accessibleClassIds.includes(requestedClassId)) {
-    return null;
-  }
-
-  const activeClassIds = requestedClassId ? [requestedClassId] : accessibleClassIds;
+  const resolvedScope = await resolveTeachingScope(payload, searchParams);
+  if (!resolvedScope.ok) return null;
+  const { classIds: activeClassIds, classes, accessibleClassIds, explicitClassId: requestedClassId } = resolvedScope.value;
 
   const classEnrollmentWhere = {
     role: 'STUDENT' as const,
@@ -154,12 +150,22 @@ async function resolveStudents(request: NextRequest): Promise<ResolvedStudents |
       where: classEnrollmentWhere,
       include: {
         classGroup: { select: { id: true, name: true } },
-        user: { select: { id: true, name: true, studentId: true, class: true, lastLoginAt: true } },
+        user: { select: { id: true, name: true, username: true, studentId: true, class: true, lastLoginAt: true } },
       },
     });
+  const roster = filterTeachingRoster(
+    classEnrollments,
+    (enrollment) => ({
+      userId: enrollment.user.id,
+      classId: enrollment.classId,
+      username: enrollment.user.username,
+    }),
+    shouldCapSmokeTests(classes),
+  );
+  const scopedEnrollments = roster.rows;
 
   let students: ExportStudent[];
-  if (payload.role === 'ADMIN' && !requestedClassId && classEnrollments.length === 0) {
+  if (payload.role === 'ADMIN' && !requestedClassId && accessibleClassIds.length === 0 && scopedEnrollments.length === 0) {
     students = (await prisma.user.findMany({
       where: { role: 'STUDENT', status: 'ACTIVE' },
       select: { id: true, name: true, studentId: true, class: true, lastLoginAt: true },
@@ -173,7 +179,7 @@ async function resolveStudents(request: NextRequest): Promise<ResolvedStudents |
     }));
   } else {
     const studentById = new Map<string, ExportStudent>();
-    for (const enrollment of classEnrollments) {
+    for (const enrollment of scopedEnrollments) {
       const existing = studentById.get(enrollment.user.id);
       const classNames = new Set(
         [existing?.className, enrollment.classGroup.name ?? enrollment.user.class]

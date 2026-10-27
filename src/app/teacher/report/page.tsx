@@ -284,7 +284,12 @@ export default function TeacherReportPage(): JSX.Element {
         const headers = { Authorization: `Bearer ${token}` };
         // 两个来源使用同一截止时刻，避免报告在并行读取期间出现样本漂移。
         const asOf = new Date().toISOString();
-        const scopeQuery = `?asOf=${encodeURIComponent(asOf)}`;
+        const reportParams = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+        const scopeQueryParams = new URLSearchParams({ asOf });
+        if (reportParams.get('scope') === 'history') scopeQueryParams.set('scope', 'history');
+        const reportClassId = reportParams.get('classId')?.trim();
+        if (reportClassId) scopeQueryParams.set('classId', reportClassId);
+        const scopeQuery = `?${scopeQueryParams.toString()}`;
         const [dashRes, gainsRes] = await Promise.all([
           fetchClientRequest(`/api/teacher/dashboard${scopeQuery}`, { headers, signal: controller.signal }),
           fetchClientRequest(`/api/analytics/learning-gains${scopeQuery}`, { headers, signal: controller.signal }),
@@ -422,6 +427,21 @@ export default function TeacherReportPage(): JSX.Element {
         tr, img, .report-keep-together { break-inside: avoid; page-break-inside: avoid; }
         .report-table-section { break-inside: auto; page-break-inside: auto; }
         .report-page-start { break-before: page; page-break-before: always; }
+        .report-fit thead { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; clip: auto !important; }
+        .report-fit { display: table !important; width: 100% !important; min-width: 0 !important; }
+        .report-fit tbody { display: table-row-group !important; }
+        .report-fit tr { display: table-row !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+        .report-fit td, .report-fit th { display: table-cell !important; }
+        .report-fit td::before { content: none !important; }
+      }
+      @media (max-width: 640px) {
+        .report-fit { min-width: 0 !important; }
+        .report-fit thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+        .report-fit, .report-fit tbody, .report-fit tr, .report-fit td { display: block; width: auto; min-width: 0 !important; }
+        .report-fit tr { margin: 0 0 12px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .report-fit td { display: flex; justify-content: space-between; gap: 12px; align-items: center; text-align: left !important; padding: 4px 0; border: 0; }
+        .report-fit td::before { content: attr(data-label); flex: 0 0 6.5em; color: #64748b; font-weight: 600; }
+        .report-fit td > * { min-width: 0; flex: 1; }
       }`}</style>
       {/* Print button - hidden in print */}
       <div className="print:hidden sticky top-0 z-10 flex flex-col items-stretch gap-3 border-b bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -455,7 +475,7 @@ export default function TeacherReportPage(): JSX.Element {
             </div>
           )}
           <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full min-w-[680px] text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-300">
                   <th className="py-2 text-left font-semibold">数据来源</th>
@@ -472,12 +492,12 @@ export default function TeacherReportPage(): JSX.Element {
                   ['学习分析', gains.scope],
                 ] as const).map(([label, scope]) => (
                   <tr key={label} className="border-b border-slate-100 align-top">
-                    <td className="py-2 font-medium">{label}</td>
-                    <td className="py-2 text-xs text-slate-600">{scopeBasisLabel(scope)}</td>
-                    <td className="py-2 text-right font-mono">{scope.enrolledStudentCount}</td>
-                    <td className="py-2 text-right font-mono">{scope.includedStudentCount}</td>
-                    <td className="py-2 text-right font-mono">{scope.excludedStudentCount}</td>
-                    <td className="py-2 pl-4 text-xs leading-5 text-slate-600">{scopeExclusionText(scope)}</td>
+                    <td className="py-2 font-medium" data-label="数据来源">{label}</td>
+                    <td className="py-2 text-xs text-slate-600" data-label="对象口径">{scopeBasisLabel(scope)}</td>
+                    <td className="py-2 text-right font-mono" data-label="在册学生">{scope.enrolledStudentCount}</td>
+                    <td className="py-2 text-right font-mono" data-label="纳入分析">{scope.includedStudentCount}</td>
+                    <td className="py-2 text-right font-mono" data-label="排除">{scope.excludedStudentCount}</td>
+                    <td className="py-2 pl-4 text-xs leading-5 text-slate-600" data-label="排除原因">{scopeExclusionText(scope)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -523,7 +543,7 @@ export default function TeacherReportPage(): JSX.Element {
               当前可管理范围内共 {gains.scoreSummary.total} 名学生参与测验。每名学生先取各测验的服务端最高分，再对其已作答测验求均值；参与学生平均分为 {gains.scoreSummary.avg}%。分布如下：
             </p>
             <div className="overflow-x-auto print:overflow-visible">
-            <table className="min-w-[520px] w-full text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="py-2 text-left font-semibold">分数段</th>
@@ -537,10 +557,10 @@ export default function TeacherReportPage(): JSX.Element {
                   const pct = gains.scoreSummary.total > 0 ? Math.round((r.count / gains.scoreSummary.total) * 100) : 0;
                   return (
                     <tr key={r.label} className="border-b border-slate-100">
-                      <td className="py-2">{r.label}</td>
-                      <td className="py-2 text-right font-mono">{r.count}</td>
-                      <td className="py-2 text-right font-mono">{pct}%</td>
-                      <td className="py-2">
+                      <td className="py-2" data-label="分数段">{r.label}</td>
+                      <td className="py-2 text-right font-mono" data-label="人数">{r.count}</td>
+                      <td className="py-2 text-right font-mono" data-label="占比">{pct}%</td>
+                      <td className="py-2" data-label="分布">
                         <div className="h-4 w-full bg-slate-100">
                           <div className="h-full bg-slate-700" style={{ width: `${pct}%` }} />
                         </div>
@@ -560,7 +580,7 @@ export default function TeacherReportPage(): JSX.Element {
             <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、实验完成数与成绩分组</h2>
             <p className="mb-3 text-sm text-slate-600">按实验完成数量分组展示测验平均分；该描述性结果不用于判断相关或因果关系。</p>
             <div className="overflow-x-auto print:overflow-visible">
-            <table className="min-w-[520px] w-full text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="py-2 text-left font-semibold">实验完成数</th>
@@ -572,10 +592,10 @@ export default function TeacherReportPage(): JSX.Element {
               <tbody>
                 {gains.experimentCorrelation.map((item) => (
                   <tr key={item.experimentsCompleted} className="border-b border-slate-100">
-                    <td className="py-2">{item.experimentsCompleted} 个</td>
-                    <td className="py-2 text-right font-mono">{item.studentCount}</td>
-                    <td className="py-2 text-right font-mono">{item.avgScore}%</td>
-                    <td className="py-2">
+                    <td className="py-2" data-label="实验完成数">{item.experimentsCompleted} 个</td>
+                    <td className="py-2 text-right font-mono" data-label="学生人数">{item.studentCount}</td>
+                    <td className="py-2 text-right font-mono" data-label="平均分">{item.avgScore}%</td>
+                    <td className="py-2" data-label="分数条">
                       <div className="h-4 w-full bg-slate-100">
                         <div className="h-full bg-emerald-600" style={{ width: `${item.avgScore}%` }} />
                       </div>
@@ -612,7 +632,7 @@ export default function TeacherReportPage(): JSX.Element {
           <section className="report-table-section mb-8">
             <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、各章节平均掌握度</h2>
             <div className="overflow-x-auto print:overflow-visible">
-            <table className="min-w-[500px] w-full text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="py-2 text-left font-semibold">章节</th>
@@ -623,9 +643,9 @@ export default function TeacherReportPage(): JSX.Element {
               <tbody>
                 {gains.chapterMasteryAvg.map((item) => (
                   <tr key={item.chapter} className="border-b border-slate-100">
-                    <td className="py-2">{chapterLabel(item.chapter)}</td>
-                    <td className="py-2 text-right font-mono">{item.avgMastery}%</td>
-                    <td className="py-2">
+                    <td className="py-2" data-label="章节">{chapterLabel(item.chapter)}</td>
+                    <td className="py-2 text-right font-mono" data-label="平均掌握度">{item.avgMastery}%</td>
+                    <td className="py-2" data-label="进度">
                       <div className="h-3 w-full bg-slate-100">
                         <div
                           className={`h-full ${item.avgMastery >= 80 ? 'bg-emerald-600' : item.avgMastery >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
@@ -647,7 +667,7 @@ export default function TeacherReportPage(): JSX.Element {
             <h2 className="mb-4 border-b border-slate-300 pb-2 text-lg font-bold">{nextNum()}、预警学生名单</h2>
             <p className="mb-3 text-sm text-slate-600">以下学生平均测验成绩低于60分，建议重点关注：</p>
             <div className="overflow-x-auto print:overflow-visible">
-            <table className="min-w-[500px] w-full text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="py-2 text-left font-semibold">姓名</th>
@@ -658,9 +678,9 @@ export default function TeacherReportPage(): JSX.Element {
               <tbody>
                 {dashboard.alertStudents.map((s) => (
                   <tr key={s.name} className="border-b border-slate-100">
-                    <td className="py-2">{s.name}</td>
-                    <td className="py-2 text-right font-mono text-red-600">{Math.round(s.avg)}%</td>
-                    <td className="py-2 text-xs text-slate-500">
+                    <td className="py-2" data-label="姓名">{s.name}</td>
+                    <td className="py-2 text-right font-mono text-red-600" data-label="平均分">{Math.round(s.avg)}%</td>
+                    <td className="py-2 text-xs text-slate-500" data-label="薄弱章节">
                       {s.weakChapters?.length
                         ? s.weakChapters.map((c) => `${chapterLabel(c.chapter)}(${c.progress}%)`).join('、')
                         : '—'}
@@ -681,7 +701,7 @@ export default function TeacherReportPage(): JSX.Element {
               仅纳入分析范围内且已有服务端测验记录的学生（n={rankedStudents.length}）；排序采用“各测验最高分的学生均值”，真实 0 分保留，无作答记录者不参与排序。
             </p>
             <div className="overflow-x-auto print:overflow-visible">
-            <table className="min-w-[560px] w-full text-sm print:min-w-0">
+            <table className="report-fit w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="py-2 text-left font-semibold">排名</th>
@@ -695,10 +715,10 @@ export default function TeacherReportPage(): JSX.Element {
                   .slice(0, 10)
                   .map((s, i) => (
                     <tr key={s.name} className="border-b border-slate-100">
-                      <td className="py-2 font-mono">{i + 1}</td>
-                      <td className="py-2">{s.name}</td>
-                      <td className="py-2 font-mono text-slate-500">{s.studentId ?? '—'}</td>
-                      <td className="py-2 text-right font-mono">{Math.round(s.avgQuizScore ?? 0)}%</td>
+                      <td className="py-2 font-mono" data-label="排名">{i + 1}</td>
+                      <td className="py-2" data-label="姓名">{s.name}</td>
+                      <td className="py-2 font-mono text-slate-500" data-label="学号">{s.studentId ?? '—'}</td>
+                      <td className="py-2 text-right font-mono" data-label="平均分">{Math.round(s.avgQuizScore ?? 0)}%</td>
                     </tr>
                   ))}
               </tbody>

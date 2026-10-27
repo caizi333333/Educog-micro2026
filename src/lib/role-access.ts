@@ -12,6 +12,7 @@ const STUDENT_ROUTE_PREFIXES = [
   '/classes/join',
   '/achievements',
   '/certificate',
+  '/feedback',
 ] as const;
 const TEACHER_ROUTE_PREFIXES = ['/teacher', '/obe/teacher'] as const;
 const ADMIN_ROUTE_PREFIXES = ['/admin', '/obe/admin'] as const;

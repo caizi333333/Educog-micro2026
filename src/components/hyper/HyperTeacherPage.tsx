@@ -37,6 +37,7 @@ import { ADDRESSING_TASK_PRESET, ADDRESSING_TOPIC_ID } from '@/lib/lesson-tasks'
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ACHIEVEMENTS_V2, type Achievement } from '@/lib/achievements-v2';
+import { CURRENT_CLASS_CODES, CURRENT_SEMESTER, parseTeachingScope, type TeachingScope } from '@/lib/current-term';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { EvidenceReadiness, StatusBanner } from '@/components/shared/StatusBanner';
@@ -252,6 +253,9 @@ const dataProvenanceSchema = z.object({
 const teacherScopeSchema = z.object({
   asOf: z.string().datetime(),
   basis: z.enum(['ACTIVE_CLASS_ENROLLMENT', 'ACTIVE_STUDENT_ACCOUNT']),
+  teachingScope: z.enum(['current', 'history']).optional(),
+  semester: z.string().optional(),
+  omittedSmokeTestCount: z.number().int().nonnegative().optional(),
   accessibleClassCount: z.number().int().nonnegative(),
   enrolledStudentCount: z.number().int().nonnegative(),
   includedStudentCount: z.number().int().nonnegative(),
@@ -285,6 +289,7 @@ const teacherStudentSchema = z.object({
   chapterMastery: z.record(z.string(), z.number()).optional(),
   classes: z.array(classSummarySchema.pick({ id: true, name: true })).optional(),
   analysisEligible: z.boolean().optional(),
+  isSmokeTest: z.boolean().optional(),
 });
 const dashboardSchema = z.object({
   dataProvenance: dataProvenanceSchema,
@@ -618,6 +623,27 @@ export function HyperTeacherPage(): JSX.Element {
   const requestedStudentAction = searchParams?.get('action')?.trim() || null;
   const requestedTopicId = searchParams?.get('topic')?.trim() || null;
   const requestedReturnTo = safeOBETeacherReturnPath(searchParams?.get('returnTo') ?? null);
+  const teachingScope = parseTeachingScope(searchParams?.get('scope'));
+  const requestedTeachingClassId = searchParams?.get('classId')?.trim() || null;
+  const teachingQuery = (() => {
+    const params = new URLSearchParams();
+    if (teachingScope === 'history') params.set('scope', 'history');
+    if (requestedTeachingClassId) params.set('classId', requestedTeachingClassId);
+    const query = params.toString();
+    return query ? `?${query}` : '';
+  })();
+
+  const openTeachingScope = (scope: TeachingScope, classId?: string | null): void => {
+    const params = new URLSearchParams();
+    for (const key of ['batchId', 'student', 'action', 'topic', 'returnTo']) {
+      const value = searchParams?.get(key)?.trim();
+      if (value) params.set(key, value);
+    }
+    if (scope === 'history') params.set('scope', 'history');
+    if (classId) params.set('classId', classId);
+    const query = params.toString();
+    router.replace(query ? `/teacher?${query}` : '/teacher');
+  };
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [interventionData, setInterventionData] = useState<InterventionData | null>(null);
   const [interventionError, setInterventionError] = useState<string | null>(null);
@@ -800,7 +826,7 @@ export function HyperTeacherPage(): JSX.Element {
         }
         const token = getTeacherAccessToken();
         if (!token) throw new Error('登录已过期，无法读取教学周期数据');
-        const res = await fetchTeacherRead('/api/teacher/teaching-cycle', {
+        const res = await fetchTeacherRead(`/api/teacher/teaching-cycle${teachingQuery}`, {
           headers: { Authorization: `Bearer ${token}` },
         }, controller.signal);
         const raw: unknown = await res.json().catch((): null => null);
@@ -847,7 +873,7 @@ export function HyperTeacherPage(): JSX.Element {
       active = false;
       controller.abort();
     };
-  }, [cycleReloadToken, user]);
+  }, [cycleReloadToken, teachingQuery, user]);
 
   useEffect(() => {
     let active = true;
@@ -865,7 +891,7 @@ export function HyperTeacherPage(): JSX.Element {
         setError(null);
         const token = getTeacherAccessToken();
         if (!token) throw new Error('登录已过期，请重新登录后继续');
-        const response = await fetchTeacherRead('/api/teacher/dashboard', {
+        const response = await fetchTeacherRead(`/api/teacher/dashboard${teachingQuery}`, {
           headers: { Authorization: `Bearer ${token}` },
         }, controller.signal);
         if (!response.ok) {
@@ -891,7 +917,7 @@ export function HyperTeacherPage(): JSX.Element {
       active = false;
       controller.abort();
     };
-  }, [dashboardReloadToken, user]);
+  }, [dashboardReloadToken, teachingQuery, user]);
 
   useEffect(() => {
     let active = true;
@@ -1649,6 +1675,7 @@ export function HyperTeacherPage(): JSX.Element {
       const token = getTeacherAccessToken();
       const params = new URLSearchParams({ type: exportType, mode: exportMode });
       if (exportClassId && exportClassId !== 'all') params.set('classId', exportClassId);
+      else if (teachingScope === 'history') params.set('scope', 'history');
       const response = await fetch(`/api/teacher/export?${params}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
@@ -1784,7 +1811,10 @@ export function HyperTeacherPage(): JSX.Element {
                   {initialOf(student.name)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-slate-100">{student.name}</div>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <div className="truncate text-sm font-semibold text-slate-100">{student.name}</div>
+                    {student.isSmokeTest ? <span className="shrink-0 rounded bg-amber-300/15 px-1 text-[10px] leading-4 text-amber-100">自测</span> : null}
+                  </div>
                   <div className="truncate font-mono text-[10px] text-slate-500">{student.studentId ?? student.class ?? '未登记'}</div>
                 </div>
                 <div
@@ -1811,6 +1841,54 @@ export function HyperTeacherPage(): JSX.Element {
             <h1 id="teacher-workspace-title" className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">教师工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               汇聚班级学情、预警干预与任务推送；各项统计标明事件窗口与样本量。
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div role="group" aria-label="学情范围" className="inline-flex rounded-md border border-white/10 p-0.5">
+                <button
+                  type="button"
+                  aria-pressed={teachingScope === 'current'}
+                  onClick={() => openTeachingScope('current')}
+                  className={cn(
+                    'min-h-11 rounded px-3 text-sm',
+                    teachingScope === 'current' ? 'bg-cyan-300 text-[#001014]' : 'text-slate-300 hover:bg-white/[0.06]',
+                  )}
+                >
+                  本学期
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={teachingScope === 'history'}
+                  onClick={() => openTeachingScope('history')}
+                  className={cn(
+                    'min-h-11 rounded px-3 text-sm',
+                    teachingScope === 'history' ? 'bg-cyan-300 text-[#001014]' : 'text-slate-300 hover:bg-white/[0.06]',
+                  )}
+                >
+                  往期班级
+                </button>
+              </div>
+              <label className="text-xs text-slate-400">
+                班级
+                <select
+                  aria-label="教学班级"
+                  value={(data?.classes ?? []).some((classGroup) => classGroup.id === requestedTeachingClassId) ? requestedTeachingClassId ?? '' : ''}
+                  onChange={(event) => openTeachingScope(teachingScope, event.target.value || null)}
+                  className="ml-2 min-h-11 rounded-md border border-white/10 bg-black/30 px-2 text-sm text-slate-100"
+                >
+                  <option value="">{teachingScope === 'history' ? '全部往期班级' : '全部本学期班级'}</option>
+                  {(data?.classes ?? []).map((classGroup) => (
+                    <option key={classGroup.id} value={classGroup.id}>{classGroup.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
+              {teachingScope === 'history'
+                ? '正在查看往期班级。机电2401、机电2402 和空壳智工班仍可打开，不计入本学期均分与学时。'
+                : `本学期 ${CURRENT_SEMESTER} 只统计 ${CURRENT_CLASS_CODES.join('、')}。每个班保留一个 TEST 自测账号。`}
+              {(data?.scope.omittedSmokeTestCount ?? 0) > 0
+                ? ` 另有 ${data?.scope.omittedSmokeTestCount} 个多余自测账号未计入。`
+                : ''}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1880,7 +1958,10 @@ export function HyperTeacherPage(): JSX.Element {
                           {initialOf(student.name)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-slate-100">{student.name}</div>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="truncate text-sm font-semibold text-slate-100">{student.name}</div>
+                            {student.isSmokeTest ? <span className="shrink-0 rounded bg-amber-300/15 px-1 text-[10px] leading-4 text-amber-100">自测</span> : null}
+                          </div>
                           <div className="truncate font-mono text-[10px] text-slate-500">{student.studentId ?? student.class ?? '未登记'}</div>
                         </div>
                         <div className={cn('shrink-0 font-mono', hasQuizRecord(student) ? 'text-sm text-cyan-100' : 'text-[10px] text-slate-500')}>
@@ -2344,7 +2425,7 @@ export function HyperTeacherPage(): JSX.Element {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-white/[0.12] bg-[#161b22] text-slate-100">
-                  <SelectItem value="all" className="focus:bg-cyan-300/10 focus:text-cyan-100">全部班级</SelectItem>
+                  <SelectItem value="all" className="focus:bg-cyan-300/10 focus:text-cyan-100">{teachingScope === 'history' ? '全部往期班级' : '全部本学期班级'}</SelectItem>
                   {(data?.classes ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id} className="focus:bg-cyan-300/10 focus:text-cyan-100">
                       {c.name}
@@ -2402,7 +2483,7 @@ export function HyperTeacherPage(): JSX.Element {
             {/* 打开报告页自动唤起浏览器打印，另存为 PDF 中文不乱码 */}
             <button
               type="button"
-              onClick={() => window.open('/teacher/report?print=1', '_blank', 'noopener,noreferrer')}
+              onClick={() => window.open(`/teacher/report?print=1${teachingQuery ? `&${teachingQuery.slice(1)}` : ''}`, '_blank', 'noopener,noreferrer')}
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-300 px-5 text-sm font-semibold text-[#001014] hover:bg-emerald-200"
             >
               <FileText className="h-4 w-4" />

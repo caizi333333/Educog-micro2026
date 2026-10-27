@@ -28,6 +28,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, NotebookPen, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { CellSwitch, CellSwitchItem, CoursewareSeam, SurfaceKicker, cellSurfaceClass } from '@/components/shared/Cell';
 import { PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
 import {
   readEmbeddedSection,
@@ -37,6 +38,8 @@ import {
 } from '@/lib/classroom-sections';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
+import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
+import { INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -83,8 +86,8 @@ const U4_NOTES: readonly LessonNote[] = [
 ] as const;
 
 const U5_NOTES: readonly LessonNote[] = [
-  { file: 'u5-overview', title: '第 5 章交互总览', sub: '中断系统 + 定时/计数器；含例题全览、速记、课末测；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
-  { file: 'u5-knowledge', title: '知识导览', sub: '第五章结构与媒资入口', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-overview', title: '第 5 章交互总览', sub: '先选中断或定时，再进第 1–3 次课；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-knowledge', title: '知识导览', sub: '三次课入口与媒资；#int-2 等深链仍回总览', pointId: '5', pointName: '中断系统' },
 ] as const;
 
 const LESSON_UNITS: readonly LessonUnit[] = [
@@ -134,10 +137,10 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     notes: U5_NOTES,
     bannerMid: (
       <>
-        中断系统 + 定时/计数器交互总览：<b className="font-semibold text-amber-100">例题全览 · 速记 · 课末测</b>
+        先选课次再进小节：<b className="font-semibold text-amber-100">第 1 次课入门 · 第 2 次课案例 · 第 3 次课收口</b>
       </>
     ),
-    intro: '第 5 章把“谁来叫 CPU、怎么响应、怎么定时计数”串成一条线：左侧目录可直达中断页签与定时器四步，知识导览给出结构与媒资入口。',
+    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。',
     figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
@@ -174,6 +177,9 @@ export default function LessonNotesPage(): React.JSX.Element {
   // 每个单元上次看到哪一篇，切回该单元时回到那里
   const [lastInUnit, setLastInUnit] = useState<Readonly<Record<number, string>>>({});
   const [sectionId, setSectionId] = useState('');
+  const [frameReady, setFrameReady] = useState<Readonly<Record<string, boolean>>>({});
+  // null follows the courseware section; true/false is the student's own open or close.
+  const [practiceOpen, setPracticeOpen] = useState<boolean | null>(null);
   const frames = useRef(new Map<string, HTMLIFrameElement>());
   const activeFileRef = useRef(activeFile);
   activeFileRef.current = activeFile;
@@ -320,11 +326,11 @@ export default function LessonNotesPage(): React.JSX.Element {
       >
         {/* 试运行标识：讲清楚这是什么、从哪来，不冒充正式栏目 */}
         <div className="border-b border-amber-300/20 bg-amber-300/[0.06]">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 md:px-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 md:px-6 sm:py-2.5">
             <span className="rounded-sm bg-amber-300 px-2 py-0.5 font-mono text-xs font-bold tracking-[0.14em] text-[#1a1206]">
               试运行
             </span>
-            <p className="min-w-0 text-xs leading-5 text-slate-300">
+            <p className="min-w-0 text-xs leading-5 text-slate-300 line-clamp-2 sm:line-clamp-none">
               单元 {activeUnit.id}「{activeUnit.name}」讲解笔记{' '}
               <b className="font-semibold text-amber-100">{activeUnit.notes.length} 篇</b>
               <span className="mx-2 text-slate-600">·</span>
@@ -335,22 +341,22 @@ export default function LessonNotesPage(): React.JSX.Element {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-5 md:px-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="mx-auto w-full max-w-7xl px-4 pb-4 pt-3 md:px-6 sm:pb-8 sm:pt-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between sm:gap-4">
             <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
+              <SurfaceKicker tone="notes" className="mb-2 sm:mb-3">
                 <NotebookPen aria-hidden="true" className="h-3.5 w-3.5" />
                 LESSON NOTES · 单元 {activeUnit.id} · {activeUnit.name}
-              </div>
+              </SurfaceKicker>
               <h1 className="heading-gradient text-2xl font-semibold tracking-tight md:text-3xl">讲解笔记</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              <p className="mt-2 hidden max-w-3xl text-sm leading-6 text-slate-400 sm:block">
                 {activeUnit.intro}
                 每篇都能单独读完，也能从知识图谱里的对应节点直接进来。
               </p>
             </div>
             <Link
               href={graphLinkHref}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+              className="hidden min-h-11 shrink-0 items-center gap-2 self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:inline-flex"
             >
               <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
               在知识图谱中查看 {active.pointId} {active.pointName ?? active.title}
@@ -358,29 +364,25 @@ export default function LessonNotesPage(): React.JSX.Element {
             </Link>
           </div>
 
-          {/* 单元切换 */}
-          <div role="group" aria-label="选择单元" className="mt-5 flex flex-wrap gap-2">
+          {/* 单元切换：笔记色。窄屏横滑，避免再占一行高度。 */}
+          <p className="mt-3 font-mono text-xs text-slate-500 sm:hidden">左右滑动切换单元</p>
+          <CellSwitch label="选择单元" className="mt-2 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:pb-1 sm:mt-5">
             {LESSON_UNITS.map((unit) => {
               const selected = unit.id === activeUnit.id;
               return (
-                <button
+                <CellSwitchItem
                   key={unit.id}
-                  type="button"
-                  aria-pressed={selected}
+                  pressed={selected}
+                  tone="notes"
                   onClick={() => openUnit(unit)}
-                  className={cn(
-                    'inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
-                    selected
-                      ? 'border-amber-300/30 bg-amber-300/[0.1] font-semibold text-amber-50'
-                      : 'border-white/[0.08] bg-white/[0.035] text-slate-300 hover:border-amber-300/25 hover:bg-amber-300/[0.06] hover:text-amber-50',
-                  )}
+                  className="inline-flex shrink-0 items-center gap-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
                 >
                   单元 {unit.id} · {unit.name}
                   <span className="font-mono opacity-60">{unit.notes.length} 篇</span>
-                </button>
+                </CellSwitchItem>
               );
             })}
-          </div>
+          </CellSwitch>
 
           {/* 页签 */}
           <div className="mt-3 overflow-x-auto pb-1">
@@ -396,12 +398,17 @@ export default function LessonNotesPage(): React.JSX.Element {
                     aria-selected={selected}
                     aria-controls={`note-panel-${note.file}`}
                     onClick={() => openNote(note.file)}
-                    className={cn(
-                      'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 rounded-md border px-3 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
-                      selected
-                        ? 'border-cyan-300/25 bg-cyan-300/[0.12] text-cyan-50'
-                        : 'border-white/[0.08] bg-white/[0.035] text-slate-300 hover:border-cyan-300/25 hover:bg-cyan-300/[0.06] hover:text-cyan-100',
-                    )}
+                    data-tone={selected ? 'course' : 'shell'}
+                    data-state={selected ? 'active' : 'idle'}
+                    className={cellSurfaceClass({
+                      compact: true,
+                      active: selected,
+                      interactive: true,
+                      className: cn(
+                        'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                        selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
+                      ),
+                    })}
                   >
                     <span className="whitespace-nowrap text-sm font-semibold leading-5">{note.title}</span>
                     <span className="hidden whitespace-nowrap text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
@@ -411,8 +418,20 @@ export default function LessonNotesPage(): React.JSX.Element {
             </div>
           </div>
 
-          {/* 内容区：同源 iframe，讲解页自身带完整排版与交互 */}
-          <div className="mt-3 overflow-hidden rounded-md border border-white/[0.08] bg-[#0b1117]">
+          {active.file === 'u5-overview' && (
+            <DragMatchPractice
+              board={INTERRUPT_SOURCE_FLAG_BOARD}
+              expanded={practiceOpen ?? sectionId === INTERRUPT_SOURCE_FLAG_BOARD.sectionId}
+              onExpandedChange={setPracticeOpen}
+              onOpenSection={() => {
+                setPracticeOpen(true);
+                openNote('u5-overview', '#int-3');
+              }}
+            />
+          )}
+
+          {/* 内容区：同源 iframe。缝先占住高度，避免外壳和课件之间闪一下空框。 */}
+          <CoursewareSeam className="mt-3" ready={Boolean(frameReady[activeFile])} label="这一篇正在打开，版面高度保持不变。">
             {mountedNotes.map(({ unit, note }) => (
               <div
                 key={note.file}
@@ -429,16 +448,18 @@ export default function LessonNotesPage(): React.JSX.Element {
                   src={`${unit.base}/${note.file}.html${initialHash[note.file] ?? ''}`}
                   title={`${note.title} · 讲解笔记`}
                   loading="lazy"
+                  tabIndex={frameReady[note.file] ? 0 : -1}
                   onLoad={() => {
+                    setFrameReady((previous) => (previous[note.file] ? previous : { ...previous, [note.file]: true }));
                     if (activeFileRef.current !== note.file) return;
                     const next = readEmbeddedSection(frames.current.get(note.file));
                     setSectionId((previous) => (previous === next ? previous : next));
                   }}
-                  className="block h-[min(78dvh,860px)] w-full border-0"
+                  className="block h-[calc(100dvh-14rem)] w-full border-0 sm:h-[min(78dvh,860px)]"
                 />
               </div>
             ))}
-          </div>
+          </CoursewareSeam>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-slate-500">
             <span>
@@ -447,6 +468,13 @@ export default function LessonNotesPage(): React.JSX.Element {
             <span>
               图表　<b className="font-semibold text-slate-300">{activeUnit.figures}</b>
             </span>
+            <Link
+              href={graphLinkHref}
+              className="inline-flex min-h-11 items-center rounded px-1 text-cyan-200 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:hidden"
+            >
+              知识图谱 · {active.pointId}
+              {isPublicShell && <span className="text-slate-400">（需登录）</span>}
+            </Link>
             <a
               href={standaloneCoursewareHref(activeUnit.base, active.file, sectionId)}
               target="_blank"

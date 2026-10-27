@@ -19,6 +19,7 @@ const publicPaths = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
+  '/api/site/version',
   '/api/experiments',
   '/ilab/entry',
   '/ilab/error',

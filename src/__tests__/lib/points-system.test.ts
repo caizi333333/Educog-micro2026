@@ -14,6 +14,7 @@ describe('Points System', () => {
       expect(POINTS_CONFIG.DAILY_LOGIN).toBe(10);
       expect(POINTS_CONFIG.LEARNING_STREAK).toBe(15);
       expect(POINTS_CONFIG.TIME_MILESTONE).toBe(30);
+      expect(POINTS_CONFIG.PRACTICE_MATCH_CLEAR).toBe(15);
     });
 
     it('应该有正确的测验活动积分配置', () => {
