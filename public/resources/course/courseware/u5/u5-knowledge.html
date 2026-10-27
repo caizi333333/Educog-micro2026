@@ -270,10 +270,10 @@ html[data-theme="light"] table.wiki{
 
       <section class="kp-card card" id="n5">
         <h3>⑤ TMOD / 方式1 初值 FE0CH <span class="badges"><span class="badge imp">重点</span><span class="badge hard">难点·溢出须重装·晶振</span></span></h3>
-        <p>加 1 计数器只认溢出；方式1：X=65536−N。例：6MHz、1ms → <strong>FE0CH</strong>；同型 12MHz → FC18H。TMOD 整字节写。</p>
+        <p>加 1 计数器只认溢出；方式1：X=65536−N。例：6MHz、1ms → <strong>FE0CH</strong>；同型 12MHz → FC18H。TMOD 整字节写。16 位拆字节：TH = X÷256（取整），TL = X mod 256，见 <a href="u5-interrupt-classroom.html#hex-split">课堂页 #hex-split</a> · <a href="u5-hex-split.html">投影单文件</a>。</p>
         <div class="chiprow"><span class="chip">课件 32–45</span><span class="chip">#0FEH 的 0</span></div>
         <div class="kv">
-          <b>交互</b><span><a href="u5-overview.html#tmr-show">#tmr-show</a> · <a href="u5-overview.html#tmr-hand">#tmr-hand</a> · <a href="u5-overview.html#tmr-show">timer 单文件</a></span>
+          <b>交互</b><span><a href="u5-overview.html#tmr-show">#tmr-show</a> · <a href="u5-overview.html#tmr-hand">#tmr-hand</a> · <a href="u5-overview.html#tmr-show">timer 单文件</a> · <a href="u5-interrupt-classroom.html#hex-split">课堂 #hex-split</a></span>
           <b>短片</b><span><code>第5章_定时器_初值与TMOD.mp4</code> · <code>第5章_定时器_方式1十六位初值.mp4</code>（均 OPTIONAL）</span>
         </div>
       </section>
@@ -366,6 +366,7 @@ html[data-theme="light"] table.wiki{
     var match=/(?:^|\/)(u5-[a-z0-9-]+)\.html(#.*)?$/.exec(link.getAttribute('href')||'');
     if(!match) return;
     var file=match[1], hash=match[2]||'';
+    if(file==='u5-interrupt-classroom' && (hash==='#hex-split'||hash==='#rev-hex')) return;
     if(file==='u5-interrupt-classroom'){ file='u5-overview'; hash=overviewHash(hash); }
     if(file!=='u5-overview'&&file!=='u5-knowledge') return;
     e.preventDefault();
