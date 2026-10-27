@@ -2,8 +2,9 @@
  * Reusable drag-or-tap match boards for courseware practice.
  *
  * The shell is the same for every chapter: chips on one side, fixed slots
- * on the other, graded by pair id. This slice ships one board, taken from
- * the unit 5 courseware table `SRC` (overview pane ③ and the classroom page).
+ * on the other, graded by pair id. Boards shipped so far:
+ * - unit 5 `SRC` table (overview pane ③ and the classroom page)
+ * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and, if it should mint a medal,
  * a catalog row whose criteria.type is `practice_clears:<board id>`.
  *
@@ -25,6 +26,20 @@ export interface MatchPair {
   targetDetail: string;
 }
 
+/** Student-facing words for the shared cell. Each board fills these in. */
+export interface MatchBoardShell {
+  ariaLabel: string;
+  sectionLink: string;
+  expandClosed: string;
+  promptSide: string;
+  targetSide: string;
+  /** Follows `prompt`. The cell appends the first-clear point sentence. */
+  actionHint: string;
+  emptyTray: string;
+  /** Slot button name: `${slotName} ${target}，${detail}，空位`. */
+  slotName: string;
+}
+
 export interface MatchBoard {
   id: string;
   title: string;
@@ -38,6 +53,7 @@ export interface MatchBoard {
   medalId: string;
   firstClearPoints: number;
   cooldownMs: number;
+  shell: MatchBoardShell;
   pairs: readonly MatchPair[];
 }
 
@@ -58,6 +74,16 @@ export const INTERRUPT_SOURCE_FLAG_BOARD: MatchBoard = {
   medalId: 'interrupt_source_flags',
   firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
   cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：中断源对请求标志',
+    sectionLink: '对照课件③',
+    expandClosed: '展开练一练：中断源对请求标志',
+    promptSide: '中断源',
+    targetSide: '请求标志',
+    actionHint: '先点中断源，再点请求标志。鼠标也可以直接拖过去。',
+    emptyTray: '5 个源都放好了。',
+    slotName: '请求标志',
+  },
   pairs: [
     { id: 'int0', prompt: '外部中断 0', promptHint: 'INT0 · P3.2 引脚', target: 'IE0', targetDetail: 'TCON.1' },
     { id: 't0', prompt: '定时器 T0', promptHint: 'T0 溢出', target: 'TF0', targetDetail: 'TCON.5' },
@@ -67,7 +93,47 @@ export const INTERRUPT_SOURCE_FLAG_BOARD: MatchBoard = {
   ],
 };
 
-const MATCH_BOARDS: readonly MatchBoard[] = [INTERRUPT_SOURCE_FLAG_BOARD];
+/**
+ * 80C51 addressing modes, in the order of `var DZ` on the unit 3 overview
+ * pane `#addressing` (tab ① 难题与对比). Each chip is the instruction that
+ * pane reveals as「80C51 的做法」.
+ * The pane's short labels are 寄存器 / 立即 / 直接 / 间接 / 变址 / 相对 / 位.
+ * 间接 there is `MOV A,@R0` (only R0 and R1), so the slot says 寄存器间接寻址.
+ */
+export const ADDRESSING_MODE_BOARD: MatchBoard = {
+  id: 'u3-addressing-modes',
+  title: '指令 ↔ 寻址方式',
+  prompt: '把第 3 章课件里 80C51 的 7 条代表指令对上七种寻址方式。',
+  hint: '先看操作数上的记号：#、Rn、直接地址、@Ri、@A+、rel、位地址。',
+  chapterId: '3',
+  knowledgePointId: '3.1',
+  sectionId: 'addressing',
+  moduleId: 'u3-overview',
+  medalId: 'addressing_modes',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：指令对寻址方式',
+    sectionLink: '对照课件①',
+    expandClosed: '展开练一练：指令对寻址方式',
+    promptSide: '指令',
+    targetSide: '寻址方式',
+    actionHint: '先点指令，再点寻址方式。鼠标也可以直接拖过去。',
+    emptyTray: '7 条指令都放好了。',
+    slotName: '寻址方式',
+  },
+  pairs: [
+    { id: 'reg', prompt: 'MOV A,Rn', promptHint: '操作码 E8–EF，低 3 位是寄存器号', target: '寄存器寻址', targetDetail: '号编在操作码里' },
+    { id: 'imm', prompt: 'MOV A,#30H', promptHint: '机器码 74 30', target: '立即寻址', targetDetail: '常数跟在操作码后面' },
+    { id: 'dir', prompt: 'MOV A,30H', promptHint: '机器码 E5 30', target: '直接寻址', targetDetail: '第 2 字节是片内地址' },
+    { id: 'ind', prompt: 'MOV A,@R0', promptHint: '机器码 E6，只有 R0、R1', target: '寄存器间接寻址', targetDetail: '地址放在间址寄存器里' },
+    { id: 'idx', prompt: 'MOVC A,@A+DPTR', promptHint: '机器码 93，再读一次 ROM', target: '变址寻址', targetDetail: '基址 DPTR 加偏移 A' },
+    { id: 'rel', prompt: 'SJMP rel', promptHint: '机器码 80 rel，存离这儿多远', target: '相对寻址', targetDetail: '下一条地址加偏移' },
+    { id: 'bit', prompt: 'SETB P1.0', promptHint: '机器码 D2 90，位地址 90H', target: '位寻址', targetDetail: '只动这一位' },
+  ],
+};
+
+const MATCH_BOARDS: readonly MatchBoard[] = [INTERRUPT_SOURCE_FLAG_BOARD, ADDRESSING_MODE_BOARD];
 
 export function findMatchBoard(boardId: string): MatchBoard | null {
   return MATCH_BOARDS.find((board) => board.id === boardId) ?? null;

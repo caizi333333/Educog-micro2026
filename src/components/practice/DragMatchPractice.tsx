@@ -42,7 +42,8 @@ function useFinePointer(): boolean {
 }
 
 /**
- * One match cell: tap a source, then tap its flag. A fine pointer can also drag.
+ * One match cell: tap a chip, then tap its slot. A fine pointer can also drag.
+ * Labels come from the board, so the same cell serves every chapter.
  * The cell stays a strip until it is opened, so the courseware iframe remains the page.
  */
 export function DragMatchPractice({
@@ -153,7 +154,7 @@ export function DragMatchPractice({
 
   return (
     <section
-      aria-label="练一练：中断源对请求标志"
+      aria-label={board.shell.ariaLabel}
       data-practice={board.id}
       data-tone="notes"
       className={cellSurfaceClass({ className: 'edu-cell--flush mt-3' })}
@@ -168,7 +169,7 @@ export function DragMatchPractice({
           onClick={onOpenSection}
           className="inline-flex min-h-11 items-center rounded-md border border-white/[0.1] px-3 text-xs text-slate-200 hover:border-cyan-300/30 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
         >
-          对照课件③
+          {board.shell.sectionLink}
         </button>
         <button
           type="button"
@@ -176,18 +177,18 @@ export function DragMatchPractice({
           onClick={() => onExpandedChange(!expanded)}
           className="inline-flex min-h-11 items-center rounded-md border border-amber-300/30 bg-amber-300/[0.12] px-3 text-xs font-semibold text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
         >
-          {expanded ? '收起练一练' : '展开练一练：中断源对请求标志'}
+          {expanded ? '收起练一练' : board.shell.expandClosed}
         </button>
       </div>
 
       {expanded && (
         <div className="border-t border-white/[0.06] px-3 pb-3 pt-2">
           <p className="text-xs leading-5 text-slate-300">
-            {board.prompt}先点中断源，再点请求标志。鼠标也可以直接拖过去。首次全部对上 +{board.firstClearPoints} 积分，并解锁勋章。
+            {board.prompt}{board.shell.actionHint}首次全部对上 +{board.firstClearPoints} 积分，并解锁勋章。
           </p>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-slate-400">中断源</p>
+              <p className="mb-1.5 text-xs font-semibold text-slate-400">{board.shell.promptSide}</p>
               <ul className="grid grid-cols-1 gap-2">
                 {tray.map((pairId) => {
                   const pair = board.pairs.find((item) => item.id === pairId);
@@ -218,11 +219,11 @@ export function DragMatchPractice({
                     </li>
                   );
                 })}
-                {tray.length === 0 && <li className="text-xs text-slate-500">5 个源都放好了。</li>}
+                {tray.length === 0 && <li className="text-xs text-slate-500">{board.shell.emptyTray}</li>}
               </ul>
             </div>
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-slate-400">请求标志</p>
+              <p className="mb-1.5 text-xs font-semibold text-slate-400">{board.shell.targetSide}</p>
               <ul className="grid grid-cols-1 gap-2">
                 {board.pairs.map((pair) => {
                   const occupying = placements[pair.id];
@@ -234,8 +235,8 @@ export function DragMatchPractice({
                       <button
                         type="button"
                         aria-label={occupyingPair
-                          ? `请求标志 ${pair.target}，${pair.targetDetail}，已放入 ${occupyingPair.prompt}`
-                          : `请求标志 ${pair.target}，${pair.targetDetail}，空位`}
+                          ? `${board.shell.slotName} ${pair.target}，${pair.targetDetail}，已放入 ${occupyingPair.prompt}`
+                          : `${board.shell.slotName} ${pair.target}，${pair.targetDetail}，空位`}
                         onClick={() => {
                           if (selectedId) place(pair.id, selectedId);
                           else if (occupying) unplace(occupying);
