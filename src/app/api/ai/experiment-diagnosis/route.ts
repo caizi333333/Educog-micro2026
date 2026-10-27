@@ -31,14 +31,14 @@ function beijingDayStart(now = new Date()): Date {
 }
 
 const SnapshotSchema = z.object({
-  registers: z.record(z.union([z.number(), z.string()])).optional(),
-  portValues: z.record(z.number()).optional(),
+  registers: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
+  portValues: z.record(z.string(), z.number()).optional(),
   pc: z.number().optional(),
   currentLine: z.number().optional(),
   currentInstruction: z.string().max(200).optional(),
   uartTail: z.string().max(2000).optional(),
-  timers: z.record(z.union([z.number(), z.boolean()])).optional(),
-  environment: z.record(z.unknown()).optional(),
+  timers: z.record(z.string(), z.union([z.number(), z.boolean()])).optional(),
+  environment: z.record(z.string(), z.unknown()).optional(),
   deviceNotes: z.array(z.string().max(300)).max(12).optional(),
 }).strict();
 

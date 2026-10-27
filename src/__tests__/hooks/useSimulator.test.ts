@@ -280,6 +280,33 @@ describe('useSimulator Hook', () => {
       });
     });
 
+    it.each([undefined, null])('缺少里程碑证据时保留兼容回执解析但不伪造确认: %s', async (projectCompletion) => {
+      mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
+      global.fetch = jest.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'GET') {
+          return response({
+            success: true,
+            experiments: [{
+              experimentId: 'proj04', status: 'IN_PROGRESS', lastCode: 'MOV A, #22H',
+              updatedAt: '2026-08-16T08:00:00.000Z', results: null,
+            }],
+          });
+        }
+        return response({
+          success: true,
+          experiment: { experimentId: 'proj04', status: 'IN_PROGRESS', updatedAt: '2026-08-16T08:01:00.000Z' },
+          ...(projectCompletion === undefined ? {} : { projectCompletion }),
+        });
+      });
+      const { result } = renderHook(() => useSimulator());
+      act(() => result.current.loadExperiment('proj04'));
+      await act(async () => result.current.loadExperimentDraft('proj04'));
+      await act(async () => result.current.saveProj04Milestone('requirements', true));
+
+      expect(result.current.projectCompletionError).toBe('服务端未确认本次里程碑状态，请重试。');
+      expect(result.current.projectCompletion).toEqual(emptyProj04CompletionEvidence());
+    });
+
     it('进入实验时应以服务端草稿恢复代码和版本', async () => {
       mockGetStoredAccessToken.mockReturnValue(accessTokenFor('user-1'));
       global.fetch = jest.fn().mockResolvedValue(response({

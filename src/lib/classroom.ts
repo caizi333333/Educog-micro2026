@@ -37,6 +37,7 @@ const METADATA_ALLOWED_KEYS = new Set([
   'noteFile',
   'knowledgePointId',
   'flushedAt',
+  'presenceBucket',
 ]);
 
 export type LearningEventInput = {

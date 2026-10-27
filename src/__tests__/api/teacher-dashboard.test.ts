@@ -520,6 +520,25 @@ describe('/api/ai/chat 教师备课', () => {
     expect(prisma.learningProgress.update).not.toHaveBeenCalled();
   });
 
+  it('保留旧 UUID 外形请求编号并以小写同一编号重放原回执', async () => {
+    const requestId = 'ABCDEFAB-0000-0000-0000-000000000001';
+    const first = await postAiChat(request({ ...base, requestId }));
+    expect(first.status).toBe(200);
+    const replay = await postAiChat(request({ ...base, requestId: requestId.toLowerCase() }));
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).data.generationId).toBe((await first.json()).data.generationId);
+    expect(mockPrepModelChat).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['not-a-uuid', '10000000-0000-4000-8000-00000000000G', '10000000000040008000000000000001'])(
+    '拒绝非法请求编号而不写入备课记录: %s', async (requestId) => {
+      const response = await postAiChat(request({ ...base, requestId }));
+      expect(response.status).toBe(400);
+      expect(mockPrepModelChat).not.toHaveBeenCalled();
+      expect(records.size).toBe(0);
+    },
+  );
+
   it('只有真实页面文字且与知识点匹配时才允许模型生成', async () => {
     const mismatch = await postAiChat(request({ ...base, pointId: '7.2.2' }));
     expect(await mismatch.json()).toMatchObject({ code: 'SOURCE_POINT_MISMATCH' });

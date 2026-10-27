@@ -4,6 +4,8 @@ import { sanitizeMetadata } from '@/lib/classroom';
 import {
   capPresenceDuration,
   isPresenceEventType,
+  PRESENCE_BUCKET_MS,
+  PRESENCE_CLIENT_FLUSH_MS,
   PRESENCE_EVENT_TYPES,
   PRESENCE_HOURLY_NEW_ROW_CAP,
   PRESENCE_MAX_NEW_ROWS_PER_REQUEST,
@@ -105,6 +107,7 @@ export function decidePresenceWrite(input: {
   incomingMetadata: string | null;
   nowMs: number;
   insertsRemaining: number;
+  bucketed?: boolean;
 }): PresenceDecision {
   const duration = capPresenceDuration(input.incomingDuration);
   const metadata = withFlushedAt(input.incomingMetadata, input.nowMs);
@@ -113,7 +116,9 @@ export function decidePresenceWrite(input: {
     return { action: 'insert', duration, metadata };
   }
   const stored = capPresenceDuration(input.existing.duration);
-  if (duration - stored < PRESENCE_MIN_DURATION_DELTA_SECONDS) {
+  // New clients send an observed cumulative total per bucket, including final
+  // tails shorter than a minute. Keep the write gap for both protocols.
+  if (duration - stored < (input.bucketed ? 1 : PRESENCE_MIN_DURATION_DELTA_SECONDS)) {
     return { action: 'skip', reason: 'unchanged' };
   }
   const flushedAt = readFlushedAt(input.existing.metadata);
@@ -137,27 +142,61 @@ export type NormalizedPresenceEvent = {
   metadata: string | null;
 };
 
+export type PresenceReceipt = {
+  eventType: string;
+  targetType: string;
+  targetId: string;
+  bucket: number;
+  // Null means there is no persisted row (for example, the row quota was hit).
+  duration: number | null;
+  retryAfterMs?: number;
+};
+
+/** Legacy callers use receipt time. Explicit bucket identities must never be
+ * reassigned on retry: that would count the same observed time twice. */
+function eventBucket(event: NormalizedPresenceEvent, nowMs: number): { bucket: number; bucketed: boolean } | null {
+  let metadata: Record<string, unknown> = {};
+  if (event.metadata) {
+    try {
+      const parsed: unknown = JSON.parse(event.metadata);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) metadata = parsed as Record<string, unknown>;
+    } catch { /* legacy metadata is not a bucket claim */ }
+  }
+  if (!Object.prototype.hasOwnProperty.call(metadata, 'presenceBucket')) {
+    return { bucket: presenceBucket(nowMs), bucketed: false };
+  }
+  const bucket = metadata.presenceBucket;
+  const observedAt = event.clientTime?.getTime();
+  if (typeof bucket !== 'number' || !Number.isSafeInteger(bucket)
+    || observedAt == null || !Number.isFinite(observedAt)
+    // Allow small device clock skew, but never move a retry to receipt time.
+    || observedAt > nowMs + 60_000 || observedAt < nowMs - 60 * 60 * 1000
+    || presenceBucket(observedAt) !== bucket) return null;
+  return { bucket, bucketed: true };
+}
+
 export async function savePresenceEvents(
   userId: string,
   classId: string | null,
   events: NormalizedPresenceEvent[],
   nowMs = Date.now(),
-): Promise<{ accepted: number; coalesced: number; ignored: number }> {
-  if (events.length === 0) return { accepted: 0, coalesced: 0, ignored: 0 };
+): Promise<{ accepted: number; coalesced: number; ignored: number; receipts: PresenceReceipt[] }> {
+  if (events.length === 0) return { accepted: 0, coalesced: 0, ignored: 0, receipts: [] };
 
-  const bucket = presenceBucket(nowMs);
-  const byId = new Map<string, NormalizedPresenceEvent & { id: string; duration: number }>();
+  const byId = new Map<string, NormalizedPresenceEvent & { id: string; duration: number; bucket: number; bucketed: boolean }>();
   for (const event of events) {
     if (!isPresenceEventType(event.eventType)) continue;
-    const id = presenceEventId(userId, event.eventType, event.targetType, event.targetId, bucket);
-    const duration = capPresenceDuration(event.duration);
+    const identity = eventBucket(event, nowMs);
+    if (!identity) continue;
+    const id = presenceEventId(userId, event.eventType, event.targetType, event.targetId, identity.bucket);
+    const duration = Math.min(capPresenceDuration(event.duration), identity.bucketed ? PRESENCE_BUCKET_MS / 1000 : Infinity);
     const previous = byId.get(id);
     if (!previous || duration >= previous.duration) {
-      byId.set(id, { ...event, id, duration });
+      byId.set(id, { ...event, id, duration, ...identity });
     }
   }
   const prepared = [...byId.values()];
-  if (prepared.length === 0) return { accepted: 0, coalesced: 0, ignored: events.length };
+  if (prepared.length === 0) return { accepted: 0, coalesced: 0, ignored: events.length, receipts: [] };
 
   const hourAgo = new Date(nowMs - 60 * 60 * 1000);
   const hourlyCount = await prisma.learningEvent.count({
@@ -179,7 +218,7 @@ export async function savePresenceEvents(
   const existingById = new Map(existingRows.map((row) => [row.id, row]));
 
   const inserts: Array<NormalizedPresenceEvent & { id: string; userId: string; classId: string | null; duration: number; metadata: string }> = [];
-  const updates: Array<{ id: string; duration: number; metadata: string }> = [];
+  const updates: Array<{ id: string; duration: number; metadata: string; previous: { duration: number | null; metadata: string | null } }> = [];
   let coalesced = 0;
   let ignored = events.length - prepared.length;
 
@@ -190,6 +229,7 @@ export async function savePresenceEvents(
       incomingMetadata: event.metadata,
       nowMs,
       insertsRemaining,
+      bucketed: event.bucketed,
     });
     if (decision.action === 'skip') {
       if (decision.reason === 'cap') ignored += 1;
@@ -198,8 +238,9 @@ export async function savePresenceEvents(
     }
     if (decision.action === 'insert') {
       insertsRemaining -= 1;
+      const { bucket: _bucket, bucketed: _bucketed, ...row } = event;
       inserts.push({
-        ...event,
+        ...row,
         userId,
         classId,
         duration: decision.duration,
@@ -207,7 +248,7 @@ export async function savePresenceEvents(
       });
       continue;
     }
-    updates.push({ id: event.id, duration: decision.duration, metadata: decision.metadata });
+    updates.push({ id: event.id, duration: decision.duration, metadata: decision.metadata, previous: existingById.get(event.id)! });
   }
 
   let accepted = 0;
@@ -217,12 +258,33 @@ export async function savePresenceEvents(
     coalesced += inserts.length - created.count;
   }
   for (const update of updates) {
-    await prisma.learningEvent.update({
-      where: { id: update.id },
+    // Compare-and-set also protects the write gap: a racing request must not
+    // overwrite a newer total or immediately rewrite its flush timestamp.
+    const result = await prisma.learningEvent.updateMany({
+      where: { id: update.id, userId, duration: update.previous.duration, metadata: update.previous.metadata },
       data: { duration: update.duration, metadata: update.metadata },
     });
-    accepted += 1;
+    accepted += result.count;
+    coalesced += 1 - result.count;
   }
 
-  return { accepted, coalesced, ignored };
+  const bucketed = prepared.filter((event) => event.bucketed);
+  // Read back after writes, including createMany conflicts and racing updates.
+  // A successful HTTP response is not proof that a throttled tail was stored.
+  const persisted = bucketed.length > 0 ? await prisma.learningEvent.findMany({
+    where: { id: { in: bucketed.map((event) => event.id) }, userId },
+    select: { id: true, duration: true, metadata: true },
+  }) : [];
+  const persistedById = new Map(persisted.map((row) => [row.id, row]));
+  const receipts: PresenceReceipt[] = bucketed.map((event) => {
+    const row = persistedById.get(event.id);
+    const duration = row ? capPresenceDuration(row.duration) : null;
+    const flushedAt = readFlushedAt(row?.metadata ?? null);
+    const retryAfterMs = duration != null && duration >= event.duration ? undefined
+      : !row ? PRESENCE_CLIENT_FLUSH_MS
+        : Math.max(1000, (flushedAt ?? nowMs) + PRESENCE_MIN_WRITE_GAP_MS - nowMs);
+    return { eventType: event.eventType, targetType: event.targetType, targetId: event.targetId,
+      bucket: event.bucket, duration, ...(retryAfterMs == null ? {} : { retryAfterMs }) };
+  });
+  return { accepted, coalesced, ignored, receipts };
 }

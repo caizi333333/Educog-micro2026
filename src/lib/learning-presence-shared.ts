@@ -118,9 +118,18 @@ function latestIso(times: Array<Date | null | undefined>): string | null {
 export function buildClassActivity(
   roster: ClassActivityRosterStudent[],
   groups: ClassActivityEventGroup[],
+  window: { since: Date; asOf: Date },
 ): { students: ClassActivityStudent[]; studied: number; notStudied: number } {
+  const sinceMs = window.since.getTime();
+  const asOfMs = window.asOf.getTime();
+  const inWindow = (time: Date | null): boolean => time != null
+    && time.getTime() >= sinceMs && time.getTime() <= asOfMs;
+
+  // Groups must be aggregated from this same window by the caller; filtering
+  // a group's lastAt cannot remove older rows from its duration/count totals.
   const byUser = new Map<string, ClassActivityEventGroup[]>();
   for (const group of groups) {
+    if (!inWindow(group.lastAt)) continue;
     const list = byUser.get(group.userId) ?? [];
     list.push(group);
     byUser.set(group.userId, list);
@@ -146,7 +155,10 @@ export function buildClassActivity(
       name: student.name,
       username: student.username,
       studentId: student.studentId,
-      lastActiveAt: latestIso([student.lastLoginAt, ...events.map((event) => event.lastAt)]),
+      lastActiveAt: latestIso([
+        inWindow(student.lastLoginAt) ? student.lastLoginAt : null,
+        ...events.map((event) => event.lastAt),
+      ]),
       studied: studiedEvents.length > 0,
       durationSeconds: sectionEvents.reduce((sum, event) => sum + event.durationSeconds, 0),
       quizCompletions: quizEvents.reduce((sum, event) => sum + event.count, 0),

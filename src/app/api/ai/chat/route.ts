@@ -78,7 +78,8 @@ async function checkPrepQuota(userId: string): Promise<NextResponse | null> {
 const prepBaseSchema = z.object({
   mode: z.literal('teacher-prep'),
   expectedUserId: z.string().trim().min(1, '请先确认当前备课账号').max(128, '账号编号无效'),
-  requestId: z.string().uuid('requestId 必须为 UUID').transform((value) => value.toLowerCase()),
+  // Existing request receipts accept UUID-shaped IDs regardless of version.
+  requestId: z.guid('requestId 必须为 UUID').transform((value) => value.toLowerCase()),
   kind: z.enum(['case', 'exercise', 'review']),
   pointId: z.string().regex(/^\d+(?:\.\d+){0,2}$/, '知识点编号无效'),
   slideRefId: z.string().min(1).max(100).optional(),

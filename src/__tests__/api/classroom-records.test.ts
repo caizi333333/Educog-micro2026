@@ -37,6 +37,7 @@ jest.mock('@/lib/prisma', () => {
       findMany: resolved([]),
       upsert: resolved({}),
       update: resolved({}),
+      updateMany: resolved({ count: 1 }),
       count: resolved(0),
     },
     learningEvent: {
@@ -44,6 +45,7 @@ jest.mock('@/lib/prisma', () => {
       createMany: resolved({ count: 0 }),
       findMany: resolved([]),
       update: resolved({}),
+      updateMany: resolved({ count: 1 }),
       count: resolved(0),
     },
     learningPath: { findFirst: resolved(null) },
@@ -82,7 +84,7 @@ describe('Classroom and learning record APIs', () => {
     mockPrisma.user.findMany.mockResolvedValue([]);
     mockPrisma.learningEvent.findMany.mockResolvedValue([]);
     mockPrisma.learningEvent.count.mockResolvedValue(0);
-    mockPrisma.learningEvent.update.mockResolvedValue({});
+    mockPrisma.learningEvent.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.learningEvent.createMany.mockResolvedValue({ count: 0 });
     mockPrisma.userActivity.findMany.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(async (arg: any) => {
@@ -905,13 +907,13 @@ describe('Classroom and learning record APIs', () => {
     expect(dwell.status).toBe(200);
     expect(dwelled.accepted).toBe(1);
     expect(mockPrisma.learningEvent.createMany).not.toHaveBeenCalled();
-    expect(mockPrisma.learningEvent.update).toHaveBeenCalledWith({
-      where: { id: saved.id },
+    expect(mockPrisma.learningEvent.updateMany).toHaveBeenCalledWith({
+      where: { id: saved.id, userId: 'student-1', duration: 0, metadata: saved.metadata },
       data: expect.objectContaining({ duration: 120 }),
     });
 
     const flushedAt = new Date(now + 120_000).toISOString();
-    mockPrisma.learningEvent.update.mockClear();
+    mockPrisma.learningEvent.updateMany.mockClear();
     mockPrisma.learningEvent.findMany.mockResolvedValue([{
       id: saved.id,
       duration: 120,
@@ -932,8 +934,61 @@ describe('Classroom and learning record APIs', () => {
 
     expect(rapid.status).toBe(200);
     expect(rapidBody.coalesced).toBe(1);
-    expect(mockPrisma.learningEvent.update).not.toHaveBeenCalled();
+    expect(mockPrisma.learningEvent.updateMany).not.toHaveBeenCalled();
     nowSpy.mockRestore();
+  });
+
+  it('rejects stale-tab observations when the authenticated account has changed', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: 'student-b', email: 'b@example.com', role: 'STUDENT' });
+    const response = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-b-token', {
+      expectedUserId: 'student-a',
+      events: [{ clientEventId: 'presence-old-account-0001', eventType: 'SECTION_VISIT',
+        targetType: 'KNOWLEDGE_POINT', targetId: '3.1', duration: 120 }],
+    }));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'SESSION_USER_CHANGED' });
+    expect(mockPrisma.classEnrollment.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.learningEvent.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.learningEvent.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('returns persisted bucket receipts through normalization, including mixed batches', async () => {
+    const bucketMs = 15 * 60 * 1000;
+    const now = Math.floor(1_700_000_000_000 / bucketMs) * bucketMs + 120_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    mockVerifyToken.mockResolvedValue({ userId: 'student-1', email: 's@example.com', role: 'STUDENT' });
+    mockPrisma.classEnrollment.findFirst.mockResolvedValue({ classId: 'class-1' });
+    const rows = new Map<string, any>();
+    mockPrisma.learningEvent.findMany.mockImplementation(async ({ where }: any) =>
+      [...rows.values()].filter((row) => where.id.in.includes(row.id) && row.userId === where.userId));
+    mockPrisma.learningEvent.createMany.mockImplementation(async ({ data }: any) => {
+      let count = 0;
+      for (const row of data) if (!rows.has(row.id)) { rows.set(row.id, row); count += 1; }
+      return { count };
+    });
+    try {
+      for (const mixed of [false, true]) {
+        const presence = {
+          clientEventId: 'presence-receipt-0001', eventType: 'SECTION_VISIT',
+          targetType: 'KNOWLEDGE_POINT', targetId: '3.1#addressing', duration: 30,
+          clientTime: new Date(now - 1000).toISOString(),
+          metadata: { source: 'classroom-presence', presenceBucket: Math.floor(now / bucketMs) },
+        };
+        const response = await saveLearningEvents(request('http://localhost:3000/api/learning-events/batch', 'POST', 'student-token', {
+          expectedUserId: 'student-1',
+          events: [presence, ...(mixed ? [{ clientEventId: 'mixed-resource-0001',
+            eventType: 'RESOURCE_OPENED', targetType: 'RESOURCE', targetId: 'synthetic-resource' }] : [])],
+        }));
+        expect(response.status).toBe(200);
+        expect((await response.json()).receipts).toEqual([{
+          eventType: 'SECTION_VISIT', targetType: 'KNOWLEDGE_POINT', targetId: '3.1#addressing',
+          bucket: Math.floor(now / bucketMs), duration: 30,
+        }]);
+      }
+      expect([...rows.values()].filter((row) => row.eventType === 'SECTION_VISIT')).toHaveLength(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('单次请求最多新写 4 条在场记录，避免一页点穿整章', async () => {

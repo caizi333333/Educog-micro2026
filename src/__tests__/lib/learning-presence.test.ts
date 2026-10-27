@@ -166,7 +166,7 @@ describe('learning presence quotas', () => {
         durationSeconds: 40,
         count: 1,
       },
-    ]);
+    ], { since: new Date(now), asOf: new Date(now + 120_000) });
 
     expect(summary.studied).toBe(1);
     expect(summary.notStudied).toBe(1);
