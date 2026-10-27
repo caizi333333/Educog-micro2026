@@ -10,7 +10,7 @@ import {
 import { summarizeStudyActivity } from '@/lib/study-activity';
 import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
 import { MATCH_CLEAR_EVENT } from '@/lib/practice-match';
-import { countPracticeClears } from '@/lib/practice-medals';
+import { summarizePracticeClears } from '@/lib/practice-medals';
 
 // In-memory rate limiter: userId → [timestamps]
 const rateLimiter = new Map<string, number[]>();
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       prisma.siteFeedback.count({ where: { userId: payload.userId, createdAt: { lte: asOf } } }),
       prisma.learningEvent.findMany({
         where: { userId: payload.userId, eventType: MATCH_CLEAR_EVENT, createdAt: { lte: asOf } },
-        select: { targetId: true },
+        select: { targetId: true, createdAt: true },
       }),
     ]);
 
@@ -173,7 +173,7 @@ export async function GET(request: Request) {
       experiment_time: allExperiments.reduce((sum, experiment) => sum + Math.max(0, experiment.timeSpent || 0), 0),
       total_points: user?.totalPoints || 0,
       achievements_unlocked: matchedUserAchievements.length,
-      ...countPracticeClears(practiceClearRows.map((row) => row.targetId)),
+      ...summarizePracticeClears(practiceClearRows, asOf),
     };
 
     const achievementList: Array<{

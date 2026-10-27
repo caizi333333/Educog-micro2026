@@ -8,6 +8,8 @@ export interface PointsConfig {
   LEARNING_STREAK: number;
   TIME_MILESTONE: number; // Per hour of learning
   PRACTICE_MATCH_CLEAR: number; // First clear of one match board
+  PRACTICE_MATCH_STREAK: number; // Same board, 3 recorded correct clears
+  PRACTICE_MATCH_DAILY: number; // First recorded clear of a campus day
   
   // Quiz activities
   COMPLETE_QUIZ: number;
@@ -34,6 +36,8 @@ export const POINTS_CONFIG: PointsConfig = {
   LEARNING_STREAK: 15, // Per day
   TIME_MILESTONE: 30, // Per hour
   PRACTICE_MATCH_CLEAR: 15, // First clear of one courseware match board
+  PRACTICE_MATCH_STREAK: 20, // 「连对三次」— 3 recorded clears, one board
+  PRACTICE_MATCH_DAILY: 5, // 「今天练过了」— first recorded clear that campus day
   
   // Quiz activities  
   COMPLETE_QUIZ: 25,

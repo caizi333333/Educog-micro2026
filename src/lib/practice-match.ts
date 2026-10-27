@@ -5,8 +5,9 @@
  * on the other, graded by pair id. Boards shipped so far:
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
- * A later chapter adds another `MatchBoard` and, if it should mint a medal,
- * a catalog row whose criteria.type is `practice_clears:<board id>`.
+ * A later chapter adds another `MatchBoard` and a catalog row whose
+ * criteria.type is `practice_clears:<board id>`. 「连对三次」and「今天练过了」
+ * already apply to every board; they do not need a new row.
  *
  * Grading stays in this module so the browser and the API share one answer
  * key. Points, cooldown, and medals are decided here and written by
@@ -186,8 +187,9 @@ export interface MatchRewardDecision {
 /**
  * First correct clear of a board awards practice points and may unlock medals.
  * The same board stays quiet for `cooldownMs` so refreshing cannot farm events.
- * A later correct clear is stored with 0 practice points; medal targets above 1
- * can still unlock from the new count.
+ * A later correct clear is stored with 0 practice points. Shared medals
+ * (3 recorded clears on this board, or the first recorded clear of the
+ * campus day) can still unlock. A clear inside the cooldown is not stored.
  */
 export function decideMatchReward(input: {
   correct: boolean;
@@ -239,24 +241,35 @@ export function decideMatchReward(input: {
   };
 }
 
+export interface NamedMedalGrant {
+  title: string;
+  points: number;
+}
+
 export function matchClearMessage(input: {
   reason: MatchRewardReason;
   practicePoints: number;
   medalTitle: string | null;
   medalPoints: number;
   cooldownMinutes: number;
+  /** Newly inserted medals. When set, replaces medalTitle. */
+  medals?: readonly NamedMedalGrant[];
 }): string {
   if (input.reason === 'preview') return '对上了。教师或管理员预览不记入学生积分和勋章。';
   if (input.reason === 'incorrect') return '还有没对上的。';
   if (input.reason === 'cooldown') {
     return `已经对上过了。同一题 ${input.cooldownMinutes} 分钟内不再记分，过一会儿可以再练。`;
   }
+  const medals = input.medals ?? (input.medalTitle
+    ? [{ title: input.medalTitle, points: input.medalPoints }]
+    : []);
+  const medalClause = medals.length === 0
+    ? ''
+    : `，解锁勋章${medals.map((medal) => `「${medal.title}」+${medal.points}`).join('、')}`;
   if (input.reason === 'repeat') {
-    return '又对上一次。学习记录已记下，积分和勋章只在首次通关发放。';
+    if (medals.length === 0) return '又对上一次。学习记录已记下，这道题的首次积分不再发放。';
+    return `又对上一次。学习记录已记下${medalClause}。`;
   }
-  const medalClause = input.medalTitle
-    ? `，解锁勋章「${input.medalTitle}」+${input.medalPoints}`
-    : '';
   return `首次对上：+${input.practicePoints} 积分${medalClause}。`;
 }
 

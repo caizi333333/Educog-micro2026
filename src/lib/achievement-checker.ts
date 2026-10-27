@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { ALL_ACHIEVEMENTS, type Achievement } from '@/lib/achievements-v2';
 import { VALID_FEEDBACK_STAT } from '@/lib/feedback-medals';
 import { MATCH_CLEAR_EVENT } from '@/lib/practice-match';
-import { countPracticeClears } from '@/lib/practice-medals';
+import { summarizePracticeClears } from '@/lib/practice-medals';
 import { summarizeStudyActivity } from '@/lib/study-activity';
 
 export interface AchievementCheck {
@@ -72,7 +72,7 @@ export async function checkAndUpdateAchievements(
       prisma.siteFeedback.count({ where: { userId } }),
       prisma.learningEvent.findMany({
         where: { userId, eventType: MATCH_CLEAR_EVENT },
-        select: { targetId: true },
+        select: { targetId: true, createdAt: true },
       }),
     ]);
 
@@ -103,7 +103,7 @@ export async function checkAndUpdateAchievements(
       bugs_reported: await prisma.userActivity.count({ where: { userId, action: 'BUG_REPORT' } }),
       [VALID_FEEDBACK_STAT]: validFeedbackCount,
       continuous_hours: 0,
-      ...countPracticeClears(practiceClearRows.map((row) => row.targetId)),
+      ...summarizePracticeClears(practiceClearRows, new Date()),
     };
 
     const existingSet = new Set(existingAchievements.map(a => a.achievementId));

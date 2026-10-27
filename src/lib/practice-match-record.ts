@@ -3,6 +3,7 @@ import { ACHIEVEMENTS_V2 } from '@/lib/achievements-v2';
 import { grantCatalogAchievements, type AchievementCheck } from '@/lib/achievement-checker';
 import { getActiveClassIdForUser } from '@/lib/classroom';
 import { prisma } from '@/lib/prisma';
+import { campusDayStart } from '@/lib/feedback-policy';
 import { practiceMedalIdsForCount } from '@/lib/practice-medals';
 import {
   MATCH_CLEAR_EVENT,
@@ -12,6 +13,7 @@ import {
   matchClearMessage,
   matchMissMessage,
   type MatchRewardReason,
+  type NamedMedalGrant,
 } from '@/lib/practice-match';
 
 function isUniqueConstraintError(value: unknown): boolean {
@@ -79,7 +81,8 @@ export async function recordMatchAttempt(input: {
 
   try {
     const outcome = await prisma.$transaction(async (tx) => {
-      const [previousClears, latest] = await Promise.all([
+      const dayStart = campusDayStart(input.now);
+      const [previousClears, latest, clearEarlierToday] = await Promise.all([
         tx.learningEvent.count({
           where: { userId: input.userId, eventType: MATCH_CLEAR_EVENT, targetId: board.id },
         }),
@@ -87,6 +90,14 @@ export async function recordMatchAttempt(input: {
           where: { userId: input.userId, eventType: MATCH_CLEAR_EVENT, targetId: board.id },
           orderBy: { createdAt: 'desc' },
           select: { createdAt: true },
+        }),
+        tx.learningEvent.findFirst({
+          where: {
+            userId: input.userId,
+            eventType: MATCH_CLEAR_EVENT,
+            createdAt: { gte: dayStart, lte: input.now },
+          },
+          select: { id: true },
         }),
       ]);
       const decision = decideMatchReward({
@@ -149,7 +160,9 @@ export async function recordMatchAttempt(input: {
       const unlocked = decision.grantMedals
         ? await grantCatalogAchievements(
           input.userId,
-          practiceMedalIdsForCount(board.id, clearCount),
+          practiceMedalIdsForCount(board.id, clearCount, {
+            firstClearOfCampusDay: clearEarlierToday == null,
+          }),
           'practice_match',
           tx,
         )
@@ -161,30 +174,28 @@ export async function recordMatchAttempt(input: {
       where: { id: input.userId },
       select: { totalPoints: true },
     });
-    const medalGrant = outcome.unlocked.find((item) => item.achievementId === board.medalId) ?? null;
-    const medalDefinition = medalGrant
-      ? ACHIEVEMENTS_V2.find((item) => item.id === medalGrant.achievementId) ?? null
-      : null;
-    const medal = medalGrant
-      ? {
-        id: medalGrant.achievementId,
-        title: medalDefinition?.title ?? medalGrant.achievementId,
-        points: medalGrant.points,
-      }
-      : null;
+    const medals: Array<NamedMedalGrant & { id: string }> = outcome.unlocked.flatMap((item) => {
+      const definition = ACHIEVEMENTS_V2.find((entry) => entry.id === item.achievementId);
+      if (!definition) return [];
+      return [{ id: item.achievementId, title: definition.title, points: item.points }];
+    });
+    const boardMedal = medals.find((item) => item.id === board.medalId) ?? null;
+    const medal = boardMedal ?? medals[0] ?? null;
+    const medalPoints = medals.reduce((sum, item) => sum + item.points, 0);
     const cooldownUntilMs = outcome.decision.cooldownUntilMs;
     return {
       correct: true,
       wrongSlotIds: [],
       missingSlotIds: [],
-      pointsAwarded: outcome.practicePointsAwarded + (medal?.points ?? 0),
+      pointsAwarded: outcome.practicePointsAwarded + medalPoints,
       medal,
       reason: outcome.decision.reason,
       message: matchClearMessage({
         reason: outcome.decision.reason,
         practicePoints: outcome.practicePointsAwarded,
-        medalTitle: medal?.title ?? null,
-        medalPoints: medal?.points ?? 0,
+        medalTitle: null,
+        medalPoints: 0,
+        medals,
         cooldownMinutes: Math.round(board.cooldownMs / 60000),
       }),
       cooldownUntil: cooldownUntilMs == null ? null : new Date(cooldownUntilMs).toISOString(),
