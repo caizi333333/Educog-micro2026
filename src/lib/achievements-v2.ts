@@ -292,6 +292,20 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'gold',
   },
 
+  // 课件练一练：同一 criteria.type（practice_clears:<题目 id>）可再追加更高次数的勋章。
+  // 发奖走 practiceMedalIdsForCount，不必为第 2 枚改接口。
+  {
+    id: 'interrupt_source_flags',
+    title: '中断标志对上了',
+    description: '在第 5 章练一练里，把 80C51 的 5 个中断源对上各自的请求标志',
+    icon: '🔔',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-interrupt-source-flags', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+
   // === 隐藏成就 ===
   {
     id: 'easter_egg',

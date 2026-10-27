@@ -7,6 +7,7 @@ export interface PointsConfig {
   DAILY_LOGIN: number;
   LEARNING_STREAK: number;
   TIME_MILESTONE: number; // Per hour of learning
+  PRACTICE_MATCH_CLEAR: number; // First clear of one match board
   
   // Quiz activities
   COMPLETE_QUIZ: number;
@@ -32,6 +33,7 @@ export const POINTS_CONFIG: PointsConfig = {
   DAILY_LOGIN: 10,
   LEARNING_STREAK: 15, // Per day
   TIME_MILESTONE: 30, // Per hour
+  PRACTICE_MATCH_CLEAR: 15, // First clear of one courseware match board
   
   // Quiz activities  
   COMPLETE_QUIZ: 25,

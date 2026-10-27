@@ -52,6 +52,13 @@ describe('LessonNotesPage deep link', () => {
     expect(seam).toContainElement(frame);
   });
 
+  it('opens the interrupt-source match on unit 5 section ③', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#int-3', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-3');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
+  });
+
   it('opens the same pane from a unit link that only carries the hash', async () => {
     const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-2');
