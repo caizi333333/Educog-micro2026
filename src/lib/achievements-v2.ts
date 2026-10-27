@@ -307,6 +307,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'interrupt_vectors',
+    title: '向量地址对上了',
+    description: '在第 5 章练一练里，把 80C51 的 5 个中断源对上各自的入口地址',
+    icon: '🧭',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-interrupt-vectors', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'timer_tmod_modes',
     title: 'TMOD 对上了',
     description: '在第 5 章练一练里，把 80C51 定时器 TMOD 的四种方式和 GATE、C/T 对上各自的含义',

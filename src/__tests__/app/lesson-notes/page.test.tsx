@@ -90,6 +90,20 @@ describe('LessonNotesPage deep link', () => {
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-3');
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the vector-address match on unit 5 section ② and keeps the deep link', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-2');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '中断源 ↔ 向量地址' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照课件②' })).toBeInTheDocument();
+    expect(screen.getByText('外部中断 0')).toBeInTheDocument();
+    expect(screen.getByText('0003H')).toBeInTheDocument();
+    expect(screen.getByText('0023H')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
   });
 
