@@ -183,6 +183,29 @@ h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
 /* 嵌入模式：被 iframe 装载时去掉多余留白 */
 body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
 body.kp-embed .kp-foot{display:none}
+
+/* ---------- 第 2 章入口：三次课，每课两篇，窄屏换行不横滑 ---------- */
+.u2-doors{position:sticky;top:0;z-index:5;margin:14px 0 12px;padding:8px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(7,10,13,.92);max-width:100%}
+.u2-doors-note{font-size:13px;line-height:1.6;color:var(--muted-fg);margin-bottom:8px}
+.u2-lessons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-width:100%}
+.u2-pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px;max-width:100%}
+.u2-lesson,.u2-page{max-width:100%;min-width:0;box-sizing:border-box;
+  cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 14px var(--fs);text-align:left;padding:6px 10px;border-radius:8px;
+  min-height:44px}
+.u2-lesson small{display:block;font-weight:400;font-size:13px;opacity:.75;margin-top:2px}
+.u2-lesson.on,.u2-lesson[aria-pressed="true"]{background:hsl(42 92% 58% / .16);border-color:hsl(42 92% 58% / .65);color:#fff}
+.u2-page.on,.u2-page[aria-current="page"]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.u2-lesson:focus-visible,.u2-page:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+.psw-bits{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-top:12px}
+.psw-bit,.psw-addr{font-size:12px;opacity:.7}
+.psw-name{font-size:14px;font-weight:700}
+.kp-scroll{max-width:100%;overflow-x:auto}
+body.kp-embed .u2-doors{display:none}
+@media(min-width:760px){
+  .u2-lessons{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 @media(max-width:640px){
   .kp-tabs{flex-direction:column}
   .kp-wrap{padding:16px 12px 40px}
@@ -348,6 +371,17 @@ body.kp-embed .kp-foot{display:none}
   .kp-lead,.kp-pit .q{font-size:17px}
   .kp-card p,.kp-pit dd,.kp-opt{font-size:16px}
   .kp-note,.kp-exp,.kp-foot{font-size:15px}
+
+  html,body{overflow-x:hidden;max-width:100%}
+  .kp-wrap,.kp-card,.kp-stage{max-width:100%;min-width:0}
+  .kp-reads{grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr))}
+  .kp-pit dl{grid-template-columns:minmax(0,1fr)}
+  .kp-pit dt{white-space:normal}
+  .psw-bits{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .psw-bit,.psw-addr,.psw-name,.u2-lesson small{font-size:14px}
+  .kp-card p,.kp-pit dd,.kp-lead,.kp-opt{overflow-wrap:anywhere}
+  input[type=range]{min-width:0 !important;max-width:100%}
+  svg{max-width:100%;height:auto}
 }
 </style>
 </head>
@@ -421,6 +455,55 @@ body.kp-embed .kp-foot{display:none}
         }).join('')));
     }
 
+
+    /* ---- 章内入口。嵌入讲解笔记时由外壳显示，本页收起。 ---- */
+    var U2_LESSONS = [
+      { id: 'u2-lesson-a', t: '第 1 次课', s: 'CPU · 存储器', pages: [['u2-cpu-structure', 'CPU 结构'], ['u2-memory', '存储器组织']] },
+      { id: 'u2-lesson-b', t: '第 2 次课', s: 'I/O · 总线', pages: [['u2-io-port', 'I/O 接口'], ['u2-bus', '总线结构']] },
+      { id: 'u2-lesson-c', t: '第 3 次课', s: '时钟 · 复位', pages: [['u2-clock-timing', '时钟与时序'], ['u2-reset', '复位系统']] }
+    ];
+    var hereFile = (location.pathname.split('/').pop() || '').replace(/\.html$/, '').replace(/_单文件$/, '');
+    function u2Go(file) {
+      if (!file || file === hereFile) return;
+      if (document.body.classList.contains('kp-embed')) {
+        try { parent.postMessage({ type: 'lesson-note:open', file: file, hash: '' }, location.origin); } catch (err) {}
+        return;
+      }
+      location.href = file + '.html';
+    }
+    var currentLesson = U2_LESSONS[0];
+    U2_LESSONS.forEach(function (lesson) {
+      lesson.pages.forEach(function (p) { if (p[0] === hereFile) currentLesson = lesson; });
+    });
+    var doors = h('nav', { class: 'u2-doors', 'aria-label': '第 2 章入口' });
+    doors.appendChild(h('p', { class: 'u2-doors-note' }, '先选第几次课，再点这一课的篇名。六篇都在，手机上不用横着滑。'));
+    var lessonRow = h('div', { class: 'u2-lessons', role: 'group', 'aria-label': '课次' });
+    var pageRow = h('div', { class: 'u2-pages', role: 'group', 'aria-label': '这一课的篇' });
+    U2_LESSONS.forEach(function (lesson) {
+      var on = lesson.id === currentLesson.id;
+      var b = h('button', {
+        type: 'button', class: 'u2-lesson' + (on ? ' on' : ''),
+        'aria-pressed': on ? 'true' : 'false', id: lesson.id
+      }, esc(lesson.t) + '<small>' + esc(lesson.s) + '</small>');
+      b.onclick = function () {
+        if (lesson.id === currentLesson.id) return;
+        u2Go(lesson.pages[0][0]);
+      };
+      lessonRow.appendChild(b);
+    });
+    currentLesson.pages.forEach(function (p) {
+      var on = p[0] === hereFile;
+      var b = h('button', {
+        type: 'button', class: 'u2-page' + (on ? ' on' : ''),
+        'aria-current': on ? 'page' : 'false'
+      }, esc(p[1]));
+      b.onclick = function () { u2Go(p[0]); };
+      pageRow.appendChild(b);
+    });
+    doors.appendChild(lessonRow);
+    doors.appendChild(pageRow);
+    wrap.insertBefore(doors, wrap.querySelector('.kp-lead'));
+
     /* ---- 标签页 ---- */
     var TABS = [
       { k: 'teach', n: '01', t: '讲解' },
@@ -435,7 +518,7 @@ body.kp-embed .kp-foot{display:none}
     TABS.forEach(function (t, i) {
       var b = h('button', {
         class: 'kp-tab', role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false',
-        'data-k': t.k
+        'data-k': t.k, id: t.k
       }, '<span class="n">' + t.n + '</span>' + t.t);
       b.onclick = function () { select(t.k); };
       tabsEl.appendChild(b);
@@ -452,6 +535,22 @@ body.kp-embed .kp-foot{display:none}
       for (var key in panels) panels[key].classList.toggle('on', key === k);
       if (k === 'teach' && cfg.onShowTeach) cfg.onShowTeach();
     }
+
+    function applyNoteHash() {
+      var raw = (location.hash || '').replace(/^#/, '');
+      if (raw === 'teach' || raw === 'pit' || raw === 'quiz') {
+        if (panels[raw]) select(raw);
+        return;
+      }
+      var target = null;
+      U2_LESSONS.forEach(function (lesson) {
+        if (lesson.id === raw) target = lesson.pages[0][0];
+        lesson.pages.forEach(function (p) { if (p[0] === raw) target = p[0]; });
+      });
+      if (target && target !== hereFile) u2Go(target);
+    }
+    addEventListener('hashchange', applyNoteHash);
+    applyNoteHash();
 
     /* ---- 讲解 ---- */
     if (cfg.teach) {
@@ -1261,11 +1360,11 @@ KP({
            ['SP','07H','TCON','00H','SBUF','不定'],['DPTR','0000H','TH0','00H','PCON','0×××××××B']];
   var card=document.createElement('div'); card.className='kp-card';
   card.innerHTML='<h3>复位之后 · 教材表 2-7</h3>'+
-    '<table style="width:100%;border-collapse:collapse;font-family:var(--fm);font-size:12px">'+
+    '<div class="kp-scroll"><table style="width:100%;border-collapse:collapse;font-family:var(--fm);font-size:12px">'+
     SFR.map(function(r){return '<tr>'+r.map(function(c,i){
       return '<td style="padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.06);'+
         (i%2?'color:var(--c1);font-weight:600':'color:var(--muted-fg)')+'">'+c+'</td>';
-    }).join('')+'</tr>';}).join('')+'</table>'+
+    }).join('')+'</tr>';}).join('')+'</table></div>'+
     '<p style="margin-top:10px;font-size:12.5px;color:var(--muted-fg);line-height:1.7">'+
     '复位期间不产生 ALE 和 PSEN 信号；专用寄存器都复位为 0，但<b style="color:var(--c2)">不影响片内 RAM 的内容</b>。</p>';
   KP.reads.parentNode.appendChild(card);

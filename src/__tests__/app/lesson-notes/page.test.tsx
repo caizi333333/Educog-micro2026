@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import LessonNotesPage from '@/app/lesson-notes/page';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -89,6 +89,38 @@ describe('LessonNotesPage deep link', () => {
   it('keeps an alias note on its own section instead of a foreign hash', async () => {
     const frame = await openAt('/lesson-notes?note=u3-jump#int-2', '第 3 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u3/u3-overview.html#jump');
+  });
+
+  it('shows chapter 2 as three lessons and only that lesson’s two pages', async () => {
+    window.history.replaceState({}, '', '/lesson-notes?unit=2');
+    render(<LessonNotesPage />);
+    expect(await screen.findByRole('button', { name: /第 1 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /CPU 结构/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /存储器组织/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /I\/O 接口/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '第 2 章课次' })).not.toHaveClass('overflow-x-auto');
+    expect(screen.queryByRole('tablist', { name: '单元 2 讲解笔记' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /第 2 次课/ }));
+    const frame = await screen.findByTitle('I/O 接口 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u2/u2-io-port.html');
+    expect(screen.getByRole('button', { name: /第 2 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /总线结构/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /CPU 结构/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps ?note= and lesson hashes on the original chapter 2 page', async () => {
+    const memory = await openAt('/lesson-notes?note=u2-memory#pit', '存储器组织 · 讲解笔记');
+    expect(memory).toHaveAttribute('src', '/resources/course/courseware/u2/u2-memory.html#pit');
+    expect(screen.getByRole('button', { name: /第 1 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /存储器组织/ })).toHaveAttribute('aria-selected', 'true');
+
+    cleanup();
+    window.history.replaceState({}, '', '/lesson-notes?unit=2#u2-lesson-c');
+    render(<LessonNotesPage />);
+    const clock = await screen.findByTitle('时钟与时序 · 讲解笔记');
+    expect(clock).toHaveAttribute('src', '/resources/course/courseware/u2/u2-clock-timing.html#u2-lesson-c');
+    expect(screen.getByRole('button', { name: /第 3 次课/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('scrolls the pressed unit chip into the strip when a narrow deep link opens unit 5', async () => {
