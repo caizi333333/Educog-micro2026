@@ -413,3 +413,46 @@ describe('HyperExperimentCanvas serial and car controls', () => {
     expect(screen.getByText('P0 = 0x5B')).toBeInTheDocument();
   });
 });
+
+describe('HyperExperimentCanvas LED hardware diagram', () => {
+  it('draws an 80C51 sink-current schematic at a readable size and lights the low pin', () => {
+    const state = new Simulator().getState();
+    state.portValues.P1 = 0xfe;
+    render(<HyperExperimentCanvas experimentId="exp01" simulatorState={state} />);
+
+    const diagram = screen.getByTestId('led-hardware-diagram');
+    expect(diagram).toHaveAttribute('data-variant', 'schematic');
+    expect(diagram).toHaveAttribute('width', '320');
+    expect(diagram).toHaveTextContent('80C51');
+    expect(diagram).not.toHaveTextContent('AT89C52');
+    expect(screen.getAllByText('2kΩ')).toHaveLength(8);
+    for (let pin = 0; pin < 8; pin += 1) {
+      expect(screen.getByText(`P1.${pin}`)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('led-lamp-P1.0')).toHaveAttribute('data-on', 'true');
+    expect(screen.getByTestId('led-lamp-P1.7')).toHaveAttribute('data-on', 'false');
+    expect(screen.getByRole('button', { name: '缩小接线画布' })).toBeDisabled();
+  });
+
+  it('enlarges the vector diagram without shrinking it below the readable size', () => {
+    render(<HyperExperimentCanvas experimentId="exp01" simulatorState={new Simulator().getState()} />);
+    fireEvent.click(screen.getByRole('button', { name: '放大接线画布' }));
+    expect(screen.getByTestId('led-hardware-diagram')).toHaveAttribute('width', '384');
+    fireEvent.click(screen.getByRole('button', { name: '重置接线画布视图' }));
+    expect(screen.getByTestId('led-hardware-diagram')).toHaveAttribute('width', '320');
+  });
+
+  it('keeps the same pin names on the board view and follows the declared LED port', () => {
+    const state = new Simulator().getState();
+    state.portValues.P0 = 0xfe;
+    const { rerender } = render(<HyperExperimentCanvas experimentId="exp01" simulatorState={new Simulator().getState()} />);
+    fireEvent.click(screen.getByRole('button', { name: '板级仿真' }));
+    expect(screen.getByTestId('led-hardware-diagram')).toHaveAttribute('data-variant', 'board');
+    expect(screen.getByText('板级连线')).toBeInTheDocument();
+    expect(screen.getByText('P1.0')).toBeInTheDocument();
+
+    rerender(<HyperExperimentCanvas experimentId="exp03" simulatorState={state} />);
+    expect(screen.getByTestId('led-lamp-P0.0')).toHaveAttribute('data-on', 'true');
+    expect(screen.getByTestId('led-lamp-P0.1')).toHaveAttribute('data-on', 'false');
+  });
+});
