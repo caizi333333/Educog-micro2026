@@ -47,6 +47,16 @@ describe('lesson note deep links', () => {
       .toBe('/resources/course/courseware/u5/u5-overview.html#int-2');
   });
 
+  it('keeps chapter 5 lesson hashes and sends chapter 3 lesson landings to the overview', () => {
+    expect(lessonFileForSection('lesson-a')).toBeNull();
+    expect(lessonFileForSection('u3-lesson-b')).toBe('u3-overview');
+    expect(resolve('u5-overview', null, '#lesson-a')).toEqual({ file: 'u5-overview', hash: '#lesson-a' });
+    expect(resolve('u3-overview', null, '#u3-lesson-b')).toEqual({ file: 'u3-overview', hash: '#u3-lesson-b' });
+    expect(resolve(null, 3, '#u3-lesson-a')).toEqual({ file: 'u3-overview', hash: '#u3-lesson-a' });
+    expect(standaloneCoursewareHref('/resources/course/courseware/u3', 'u3-overview', 'u3-lesson-a'))
+      .toBe('/resources/course/courseware/u3/u3-overview.html#u3-lesson-a');
+  });
+
   it('does not attach a unit 5 anchor to a different note or invent a link with no hash', () => {
     expect(resolve(null, null, '')).toBeNull();
     expect(resolve(null, 5, '')).toEqual({ file: 'u5-overview', hash: '' });

@@ -77,8 +77,9 @@ const U2_NOTES: readonly LessonNote[] = [
 
 const U3_NOTES: readonly LessonNote[] = [
   { file: 'u3-video', title: '讲解视频', sub: '寻址收官：变址·相对·位，11 分 49 秒', pointId: '3.1', pointName: '寻址方式' },
-  { file: 'u3-overview', title: '第 3 章交互总览', sub: '主线：数在哪 → 怎么搬 → 怎么算 → 怎么跳；每节 难题与对比 · 揭晓 · 动手练 · 小测', pointId: '3', pointName: '指令系统' },
-  // 原单页（u3-isa-map、u3-addressing、u3-transfer、u3-arith、u3-logic、u3-jump、u3-bit、u3-classroom、u3-machine-cycle、u3-stack-push-pop）文件仍在 u3/ 目录，已并入总览，入口不再单列
+  { file: 'u3-overview', title: '第 3 章交互总览', sub: '先选第 1–4 次课，再进小节；#jump 等旧锚点仍打开原来那一节', pointId: '3', pointName: '指令系统' },
+  // 原子页仍在 u3/ 目录，教学内容在总览 DATA 里，不删。入口按四次课收进总览，避免十几节摊在一屏。
+  // 旧 ?note=u3-jump 等别名仍打开总览对应锚点（见 NOTE_ALIAS）。#lesson-a 留给第 5 章，第 3 章课次用 #u3-lesson-a。
 ] as const;
 
 const U4_NOTES: readonly LessonNote[] = [
@@ -112,10 +113,10 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     notes: U3_NOTES,
     bannerMid: (
       <>
-        一个总览按课件小节排好：<b className="font-semibold text-amber-100">先当设计者，再看 80C51 怎么做</b>
+        先选课次再进小节：<b className="font-semibold text-amber-100">数在哪 · 怎么搬 · 怎么算 · 怎么跳</b>
       </>
     ),
-    intro: '指令系统难在“看不见”：数从哪取、往哪去、为什么要这样设计。第 3 章交互总览按课件小节排列，每节先抛一个设计难题，你选了方案再看后果和 80C51 的做法，最后动手练、当场小测。',
+    intro: '指令系统难在“看不见”：数从哪取、往哪去、为什么要这样设计。第 3 章总览先出四次课，每次只显示这一课的小节。旧链接 ?note=u3-jump、#addressing 仍打开原来的那一节。每节先抛一个设计难题，你选了方案再看后果和 80C51 的做法，最后动手练、当场小测。',
     figures: '表 3-2~3-6 / 3-13 / 3-14，例 3-1~3-26',
   },
   {
