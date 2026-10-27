@@ -134,7 +134,7 @@ export async function recordMatchAttempt(input: {
             userId: input.userId,
             points: decision.practicePoints,
             type: 'PRACTICE_CLEAR',
-            description: `第5章练一练首次对上：${board.title}`,
+            description: `第${board.chapterId}章练一练首次对上：${board.title}`,
             metadata: JSON.stringify({ boardId: board.id, rule: 'first-clear-once' }),
           },
         });

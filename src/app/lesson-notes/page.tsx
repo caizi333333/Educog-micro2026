@@ -36,10 +36,11 @@ import {
   resolveLessonVisit,
   standaloneCoursewareHref,
 } from '@/lib/classroom-sections';
+import { scrollLeftForChip } from '@/lib/reveal-horizontal-chip';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -181,6 +182,7 @@ export default function LessonNotesPage(): React.JSX.Element {
   // null follows the courseware section; true/false is the student's own open or close.
   const [practiceOpen, setPracticeOpen] = useState<boolean | null>(null);
   const frames = useRef(new Map<string, HTMLIFrameElement>());
+  const unitStripRef = useRef<HTMLDivElement>(null);
   const activeFileRef = useRef(activeFile);
   activeFileRef.current = activeFile;
 
@@ -192,6 +194,7 @@ export default function LessonNotesPage(): React.JSX.Element {
     if (!hit) return;
     const sectionFromHash = hash.startsWith('#') ? hash.slice(1) : '';
     if (/^[\w=%.~-]{1,64}$/.test(sectionFromHash)) setSectionId(sectionFromHash);
+    if (file !== activeFileRef.current) setPracticeOpen(null);
     setActiveFile(file);
     setLastInUnit((prev) => (prev[hit.unit.id] === file ? prev : { ...prev, [hit.unit.id]: file }));
     if (mounted.includes(file)) {
@@ -266,7 +269,33 @@ export default function LessonNotesPage(): React.JSX.Element {
     if (target) openNote(target.file, target.hash);
   }, [openNote]);
 
+  // 窄屏单元条横滑。深链落到靠后的单元时，把当前芯片滚进可视区。
+  useEffect(() => {
+    const strip = unitStripRef.current;
+    const narrow = window.matchMedia?.('(max-width: 639px)')?.matches ?? false;
+    if (!strip || !narrow) return;
+    const chip = strip.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!chip) return;
+    const stripBox = strip.getBoundingClientRect();
+    const chipBox = chip.getBoundingClientRect();
+    const next = scrollLeftForChip(
+      {
+        scrollLeft: strip.scrollLeft,
+        clientWidth: strip.clientWidth,
+        scrollWidth: strip.scrollWidth,
+        stripLeft: stripBox.left,
+      },
+      { left: chipBox.left, width: chipBox.width },
+    );
+    if (next !== strip.scrollLeft) strip.scrollLeft = next;
+  }, [activeFile]);
+
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
+  const practiceBoard: MatchBoard | null = active.file === 'u5-overview'
+    ? INTERRUPT_SOURCE_FLAG_BOARD
+    : active.file === 'u3-overview'
+      ? ADDRESSING_MODE_BOARD
+      : null;
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
     noteFile: active.file,
@@ -366,7 +395,7 @@ export default function LessonNotesPage(): React.JSX.Element {
 
           {/* 单元切换：笔记色。窄屏横滑，避免再占一行高度。 */}
           <p className="mt-3 font-mono text-xs text-slate-500 sm:hidden">左右滑动切换单元</p>
-          <CellSwitch label="选择单元" className="mt-2 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:pb-1 sm:mt-5">
+          <CellSwitch ref={unitStripRef} label="选择单元" className="mt-2 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:pb-1 sm:mt-5">
             {LESSON_UNITS.map((unit) => {
               const selected = unit.id === activeUnit.id;
               return (
@@ -418,14 +447,15 @@ export default function LessonNotesPage(): React.JSX.Element {
             </div>
           </div>
 
-          {active.file === 'u5-overview' && (
+          {practiceBoard && (
             <DragMatchPractice
-              board={INTERRUPT_SOURCE_FLAG_BOARD}
-              expanded={practiceOpen ?? sectionId === INTERRUPT_SOURCE_FLAG_BOARD.sectionId}
+              key={practiceBoard.id}
+              board={practiceBoard}
+              expanded={practiceOpen ?? sectionId === practiceBoard.sectionId}
               onExpandedChange={setPracticeOpen}
               onOpenSection={() => {
                 setPracticeOpen(true);
-                openNote('u5-overview', '#int-3');
+                openNote(practiceBoard.moduleId, `#${practiceBoard.sectionId}`);
               }}
             />
           )}

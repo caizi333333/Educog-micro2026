@@ -348,7 +348,16 @@ select.hx{font:700 18px var(--fm);background:#0b1117;color:#fff;border:1px solid
 .pg span{position:absolute;top:-2px;font:600 12px var(--fm);color:#64748b;transform:translateX(-50%)}
 .pg .pgOn{position:absolute;top:18px;height:22px;background:hsl(184 82% 48% / .25);border:1px solid hsl(184 82% 48% / .6);border-radius:4px}
 .pg .mk{position:absolute;top:14px;width:3px;height:30px;border-radius:2px;transform:translateX(-1px)}
-</style></head>
+</style><style id="phone-type">
+@media (max-width:760px){
+  .kp-eyebrow,.kp-chip,.kp-q .qn,.tab small,.mode .mb,.exb .kd{font-size:14px;letter-spacing:.04em}
+  .kp-tab .n,.kp-card h3,.kp-stagecap,.kp-read .k,.kp-pit .no,.kp-pit dt,.kp-nav-i .s{font-size:13px;letter-spacing:.04em}
+  .kp-lead,.kp-pit .q{font-size:17px}
+  .kp-card p,.kp-pit dd,.kp-opt{font-size:16px}
+  .kp-note,.kp-exp,.kp-foot{font-size:15px}
+}
+</style>
+</head>
 <body><div class="kp-wrap">
 <div class="top"><div class="grow"><div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 控制转移</div><h1 class="kp-h1">控制转移：跳转的地址怎么给</h1></div>
 <div class="zoom">字号 <button class="btn sm on" data-z="0">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button></div></div>
