@@ -149,7 +149,7 @@ function applyBlock(block, session, atHome){
     button.setAttribute('aria-pressed',on?'true':'false');
   });
   document.querySelectorAll('#nav details.sess').forEach(function(group){
-    group.hidden=!atHome && group.dataset.lesson!==block;
+    group.hidden=!atHome && group.dataset.session!==session;
     group.open=!atHome && !!session && group.dataset.session===session;
   });
 }
