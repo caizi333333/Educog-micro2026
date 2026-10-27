@@ -8,6 +8,7 @@ import { ArrowLeft, BarChart3, Check, ClipboardCopy, FileUp, Link2, Loader2, Plu
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { isSmokeTestUsername } from '@/lib/current-term';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -688,7 +689,10 @@ export default function TeacherClassDetailPage(): JSX.Element {
               return (
                 <article key={e.id} className="grid gap-3 p-4 transition-colors hover:bg-muted/30 lg:grid-cols-[minmax(150px,1.1fr)_minmax(120px,0.8fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto] lg:items-center">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{e.user.name ?? '未填写姓名'}</div>
+                    <div className="truncate text-sm font-medium">
+                      {e.user.name ?? '未填写姓名'}
+                      {isSmokeTestUsername(e.user.username) ? <span className="ml-2 text-[11px] font-medium text-amber-700 dark:text-amber-200">自测</span> : null}
+                    </div>
                     <div className="mt-1 truncate font-mono text-xs text-muted-foreground">{e.user.username ?? '未登记用户名'}</div>
                   </div>
                   <div>

@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { getAccessibleClassIds } from '@/lib/classroom';
 import { experiments as experimentCatalog } from '@/lib/experiment-config';
 import { getDataProvenance } from '@/lib/env';
+import { CURRENT_SEMESTER, filterTeachingRoster, isSmokeTestUsername, shouldCapSmokeTests } from '@/lib/current-term';
+import { resolveTeachingScope } from '@/lib/teaching-scope';
 
 const OFFICIAL_EXPERIMENT_IDS = experimentCatalog.map((experiment) => experiment.id);
 const DEMO_ACCOUNT_PREFIX = 'demo_';
@@ -46,21 +47,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const { searchParams } = new URL(request.url);
-    const requestedClassId = searchParams.get('classId');
     const requestedAsOf = searchParams.get('asOf');
     const asOf = requestedAsOf ? new Date(requestedAsOf) : new Date();
     if (Number.isNaN(asOf.getTime())) {
       return NextResponse.json({ error: '数据截止时间格式无效' }, { status: 400 });
     }
-    const accessibleClassIds = await getAccessibleClassIds(payload);
-
-    if (requestedClassId && payload.role !== 'ADMIN' && !accessibleClassIds.includes(requestedClassId)) {
-      return NextResponse.json({ error: '无权查看该班级' }, { status: 403 });
+    const resolvedScope = await resolveTeachingScope(payload, searchParams);
+    if (!resolvedScope.ok) {
+      return NextResponse.json({ error: resolvedScope.error }, { status: resolvedScope.status });
     }
-
-    const activeClassIds = requestedClassId
-      ? [requestedClassId]
-      : accessibleClassIds;
+    const { classIds: activeClassIds, classes: scopedClasses, scope: teachingScope, accessibleClassIds } = resolvedScope.value;
+    const requestedClassId = resolvedScope.value.explicitClassId;
 
     const classEnrollmentWhere = {
       role: 'STUDENT',
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       user: { role: 'STUDENT', status: 'ACTIVE' },
     };
 
-    const classEnrollments = activeClassIds.length === 0
+    const loadedEnrollments = activeClassIds.length === 0
       ? []
       : await prisma.classEnrollment.findMany({
         where: classEnrollmentWhere,
@@ -80,10 +77,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
         orderBy: { joinedAt: 'desc' },
       });
+    const roster = filterTeachingRoster(
+      loadedEnrollments,
+      (enrollment) => ({
+        userId: enrollment.user.id,
+        classId: enrollment.classId,
+        username: enrollment.user.username,
+      }),
+      shouldCapSmokeTests(scopedClasses),
+    );
+    const classEnrollments = roster.rows;
 
-    // 兼容没有班级归属的旧数据：管理员仍能看全部；教师只看自己班级。
+    // 兼容完全没有班级数据的旧库：管理员仍能看全部学生。
+    // 已有班级但当前范围被滤空时，不能把往期学生倒灌进默认总览。
     let students: DashboardStudent[];
-    if (payload.role === 'ADMIN' && !requestedClassId && classEnrollments.length === 0) {
+    if (payload.role === 'ADMIN' && !requestedClassId && accessibleClassIds.length === 0 && classEnrollments.length === 0) {
       const unassignedStudents = await prisma.user.findMany({
         where: { role: 'STUDENT', status: 'ACTIVE' },
         select: { id: true, name: true, username: true, studentId: true, class: true, lastLoginAt: true },
@@ -238,6 +246,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         classGroup: student.classGroup,
         classes: studentClasses[student.id] ?? [],
         analysisEligible: !student.username.toLowerCase().startsWith(DEMO_ACCOUNT_PREFIX),
+        isSmokeTest: isSmokeTestUsername(student.username),
         avgQuizScore: avgQuiz,
         quizAttemptCount: studentQuizAttemptCount[student.id] ?? 0,
         experimentsCompleted: expData.completed,
@@ -297,8 +306,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }));
 
     const classesById = new Map<string, ClassSummary>();
-    for (const enrollment of classEnrollments) {
-      const classGroup = enrollment.classGroup;
+    for (const classGroup of scopedClasses) {
       if (!isTestClass(classGroup.name)) classesById.set(classGroup.id, classGroup);
     }
 
@@ -319,9 +327,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         enrolledStudentCount: uniqueStudents.length,
         includedStudentCount: analysisStudents.length,
         excludedStudentCount: excludedDemoCount,
-        exclusions: excludedDemoCount > 0
-          ? [{ code: 'DEMO_ACCOUNT', label: DEMO_ACCOUNT_EXCLUSION, count: excludedDemoCount }]
-          : [],
+        teachingScope,
+        semester: CURRENT_SEMESTER,
+        omittedSmokeTestCount: roster.omittedSmokeTestCount,
+        exclusions: [
+          ...(excludedDemoCount > 0
+            ? [{ code: 'DEMO_ACCOUNT', label: DEMO_ACCOUNT_EXCLUSION, count: excludedDemoCount }]
+            : []),
+          ...(roster.omittedSmokeTestCount > 0
+            ? [{ code: 'EXTRA_SMOKE_TEST', label: '本学期每个班级只保留一个 TEST 自测账号', count: roster.omittedSmokeTestCount }]
+            : []),
+        ],
         metricSamples: {
           quizStudents: Object.keys(studentQuizAttemptCount).length,
           learningTimeStudents: measuredTimeValues.length,

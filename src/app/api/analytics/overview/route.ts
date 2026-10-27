@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getAccessibleClassIds } from '@/lib/classroom';
 import { getDataProvenance } from '@/lib/env';
+import { filterTeachingRoster, shouldCapSmokeTests } from '@/lib/current-term';
+import { resolveTeachingScope } from '@/lib/teaching-scope';
 import { ALL_ACHIEVEMENTS } from '@/lib/achievements-v2';
 import { DIAGNOSTIC_ACTIVITY_LIMIT } from '@/lib/diagnostic-attempt';
 
@@ -94,19 +95,32 @@ export async function GET(request: NextRequest) {
 
     // Teacher extra data
     if (isTeacher) {
-      const accessibleClassIds = await getAccessibleClassIds(payload);
-      const studentEnrollments = accessibleClassIds.length === 0
+      const resolvedScope = await resolveTeachingScope(payload, new URL(request.url).searchParams);
+      if (!resolvedScope.ok) {
+        return NextResponse.json({ error: resolvedScope.error }, { status: resolvedScope.status });
+      }
+      const { classIds, classes } = resolvedScope.value;
+      const studentEnrollments = classIds.length === 0
         ? []
         : await prisma.classEnrollment.findMany({
           where: {
-            classId: { in: accessibleClassIds },
+            classId: { in: classIds },
             role: 'STUDENT',
             status: 'ACTIVE',
             user: { role: 'STUDENT', status: 'ACTIVE', username: { not: { startsWith: 'demo_' } } },
           },
-          select: { userId: true },
+          select: { userId: true, classId: true, user: { select: { username: true } } },
         });
-      const studentIds = [...new Set(studentEnrollments.map(e => e.userId))];
+      const roster = filterTeachingRoster(
+        studentEnrollments,
+        (enrollment) => ({
+          userId: enrollment.userId,
+          classId: enrollment.classId,
+          username: enrollment.user.username,
+        }),
+        shouldCapSmokeTests(classes),
+      );
+      const studentIds = [...new Set(roster.rows.map((enrollment) => enrollment.userId))];
 
       if (studentIds.length > 0) {
         const [studentQuiz, studentProgress] = await Promise.all([

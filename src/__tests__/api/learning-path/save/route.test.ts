@@ -1741,7 +1741,7 @@ describe('/api/learning-path/save', () => {
   describe('teacher teaching cycle', () => {
     it('counts only experiments explicitly assigned by the current teacher', async () => {
       setupAuthMock(mockVerifyToken, createMockJWTPayload({ userId: 'teacher1', role: 'TEACHER' }));
-      setupPrismaMock(mockPrisma, 'classGroup', 'findMany', [{ id: 'class1' }] as any);
+      setupPrismaMock(mockPrisma, 'classGroup', 'findMany', [{ id: 'class1', name: '0872-001', courseName: '微控制器', semester: '2026-2027-1' }] as any);
       setupPrismaMock(mockPrisma, 'classEnrollment', 'findMany', [
         { userId: 'student1' },
         { userId: 'student2' },

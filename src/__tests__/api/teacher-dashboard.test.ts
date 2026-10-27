@@ -76,6 +76,12 @@ describe('/api/teacher/dashboard', () => {
     mockGetAccessibleClassIds.mockResolvedValue(['class-1']);
 
     const prisma = (globalThis as any).__mockPrisma;
+    prisma.classGroup.findMany.mockResolvedValue([{
+      id: 'class-1',
+      name: '0872-001',
+      courseName: '单片机原理',
+      semester: '2026-2027-1',
+    }]);
     prisma.classEnrollment.findMany.mockResolvedValue([{
       userId: 'student-1',
       classId: 'class-1',
@@ -226,6 +232,76 @@ describe('/api/teacher/dashboard', () => {
     expect(prisma.quizAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ userId: { in: ['student-1'] } }),
     }));
+  });
+
+  it('默认总览只统计本学期班级，往期班和多余自测账号不混入均分', async () => {
+    const prisma = (globalThis as any).__mockPrisma;
+    mockGetAccessibleClassIds.mockResolvedValue(['current-1', 'current-2', 'legacy-1', 'shell-1']);
+    prisma.classGroup.findMany.mockResolvedValue([
+      { id: 'current-1', name: '0872-001', courseName: '微控制器', semester: '2026-2027-1' },
+      { id: 'current-2', name: '3084-001', courseName: '微控制器', semester: '2026-2027-1' },
+      { id: 'legacy-1', name: '机电2401', courseName: '微控制器', semester: '2025-2026-1' },
+      { id: 'shell-1', name: '智工2401', courseName: '微控制器', semester: '2026-2027-1' },
+    ]);
+    const enrollment = (
+      classId: string,
+      name: string,
+      semester: string,
+      user: { id: string; name: string; username: string; studentId: string },
+    ) => ({
+      classId,
+      classGroup: { id: classId, name, courseName: '微控制器', semester },
+      user: { ...user, class: name, lastLoginAt: null },
+    });
+    const rows = [
+      enrollment('current-1', '0872-001', '2026-2027-1', { id: 'real-1', name: '本学期学生', username: 'S001', studentId: 'S001' }),
+      enrollment('current-1', '0872-001', '2026-2027-1', { id: 'test-b', name: '自测乙', username: 'TESTB', studentId: 'TESTB' }),
+      enrollment('current-1', '0872-001', '2026-2027-1', { id: 'test-a', name: '自测甲', username: 'TESTA', studentId: 'TESTA' }),
+      enrollment('current-2', '3084-001', '2026-2027-1', { id: 'test-2', name: '机电自测', username: 'TEST3084', studentId: 'TEST3084' }),
+      enrollment('legacy-1', '机电2401', '2025-2026-1', { id: 'legacy-student', name: '老生', username: 'S2401', studentId: 'S2401' }),
+    ];
+    prisma.classEnrollment.findMany.mockImplementation(async ({ where }: { where: { classId?: { in?: string[] } } }) => {
+      const ids = where.classId?.in ?? [];
+      return rows.filter((row) => ids.includes(row.classId));
+    });
+    prisma.quizAttempt.findMany.mockImplementation(async ({ where }: { where: { userId?: { in?: string[] } } }) => {
+      const ids = new Set(where.userId?.in ?? []);
+      return [
+        { userId: 'real-1', quizId: 'quiz-1', score: 40, completedAt: new Date('2026-10-01T00:00:00.000Z') },
+        { userId: 'legacy-student', quizId: 'quiz-1', score: 90, completedAt: new Date('2026-01-01T00:00:00.000Z') },
+      ].filter((attempt) => ids.has(attempt.userId));
+    });
+
+    const current = await GET({
+      headers: new Headers({ authorization: 'Bearer valid-token' }),
+      url: 'http://localhost/api/teacher/dashboard',
+    } as NextRequest);
+    const currentData = await current.json();
+    expect(current.status).toBe(200);
+    expect(currentData.classes.map((classGroup: { name: string }) => classGroup.name)).toEqual(['0872-001', '3084-001']);
+    expect(currentData.students.map((student: { id: string }) => student.id)).toEqual(['real-1', 'test-a', 'test-2']);
+    expect(currentData.students.find((student: { id: string }) => student.id === 'test-a').isSmokeTest).toBe(true);
+    expect(currentData.overview.avgQuizScore).toBe(40);
+    expect(currentData.overview.totalStudents).toBe(3);
+    expect(currentData.scope).toMatchObject({ teachingScope: 'current', semester: '2026-2027-1', omittedSmokeTestCount: 1 });
+
+    const history = await GET({
+      headers: new Headers({ authorization: 'Bearer valid-token' }),
+      url: 'http://localhost/api/teacher/dashboard?scope=history',
+    } as NextRequest);
+    const historyData = await history.json();
+    expect(historyData.classes.map((classGroup: { name: string }) => classGroup.name)).toEqual(['机电2401', '智工2401']);
+    expect(historyData.students.map((student: { id: string }) => student.id)).toEqual(['legacy-student']);
+    expect(historyData.overview.avgQuizScore).toBe(90);
+
+    const drilled = await GET({
+      headers: new Headers({ authorization: 'Bearer valid-token' }),
+      url: 'http://localhost/api/teacher/dashboard?classId=legacy-1',
+    } as NextRequest);
+    const drilledData = await drilled.json();
+    expect(drilledData.students.map((student: { id: string }) => student.id)).toEqual(['legacy-student']);
+    expect(drilledData.overview.avgQuizScore).toBe(90);
+    expect(drilledData.classes.map((classGroup: { name: string }) => classGroup.name)).toEqual(['机电2401']);
   });
 
   describe('/api/teacher/export', () => {

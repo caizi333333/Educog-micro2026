@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { getAccessibleClassIds } from '@/lib/classroom';
 import { prisma } from '@/lib/prisma';
+import { filterClassesByTeachingScope, filterTeachingRoster, parseTeachingScope, shouldCapSmokeTests } from '@/lib/current-term';
+import { resolveTeachingScope } from '@/lib/teaching-scope';
 import {
   ACTIVITY_EVENT_TYPES,
   buildClassActivity,
@@ -23,31 +24,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
-    const accessibleClassIds = await getAccessibleClassIds(payload);
-    const classes = accessibleClassIds.length === 0
-      ? []
-      : await prisma.classGroup.findMany({
-        where: { id: { in: accessibleClassIds }, status: 'ACTIVE' },
-        select: { id: true, name: true, courseName: true, semester: true },
-        orderBy: { name: 'asc' },
-        take: 50,
-      });
+    const searchParams = new URL(request.url).searchParams;
+    const resolvedScope = await resolveTeachingScope(payload, searchParams);
+    if (!resolvedScope.ok) {
+      return NextResponse.json({ error: resolvedScope.error }, { status: resolvedScope.status });
+    }
+    const teachingScope = parseTeachingScope(searchParams.get('scope'));
+    const requestedClassId = resolvedScope.value.explicitClassId;
+    const scopedClasses = filterClassesByTeachingScope(resolvedScope.value.accessibleClasses, teachingScope);
 
-    const requestedClassId = new URL(request.url).searchParams.get('classId');
     if (!requestedClassId) {
       return NextResponse.json({
-        classes,
+        classes: scopedClasses,
+        scope: teachingScope,
         windowDays: PRESENCE_SUMMARY_WINDOW_DAYS,
       });
     }
-    if (!accessibleClassIds.includes(requestedClassId)) {
-      return NextResponse.json({ error: '无权查看该班级' }, { status: 403 });
-    }
 
-    const classGroup = classes.find((item) => item.id === requestedClassId) ?? null;
+    const classGroup = resolvedScope.value.classes[0]
+      ?? resolvedScope.value.accessibleClasses.find((item) => item.id === requestedClassId)
+      ?? null;
     if (!classGroup) return NextResponse.json({ error: '班级不存在' }, { status: 404 });
+    const classes = scopedClasses.some((item) => item.id === classGroup.id)
+      ? scopedClasses
+      : [classGroup, ...scopedClasses];
 
-    const enrollments = await prisma.classEnrollment.findMany({
+    const loadedEnrollments = await prisma.classEnrollment.findMany({
       where: {
         classId: requestedClassId,
         role: 'STUDENT',
@@ -62,6 +64,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       orderBy: { joinedAt: 'asc' },
       take: ROSTER_LIMIT,
     });
+    const enrollments = filterTeachingRoster(
+      loadedEnrollments,
+      (enrollment) => ({
+        userId: enrollment.user.id,
+        classId: requestedClassId,
+        username: enrollment.user.username,
+      }),
+      shouldCapSmokeTests([classGroup]),
+    ).rows;
 
     const seen = new Set<string>();
     const roster = enrollments.flatMap((enrollment) => {

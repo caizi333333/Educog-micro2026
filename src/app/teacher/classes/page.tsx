@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { getStoredAccessToken } from '@/lib/auth-storage';
+import { CURRENT_CLASS_CODES, CURRENT_SEMESTER, isCurrentTermClass } from '@/lib/current-term';
 import {
   CLIENT_WRITE_TIMEOUT_MS,
   ClientRequestTimeoutError,
@@ -374,7 +375,7 @@ export default function TeacherClassesPage() {
             返回教学仪表板
           </Link>
           <h1 className="mt-1 text-2xl font-bold">班级管理</h1>
-          <p className="text-sm text-muted-foreground">创建班级、复制邀请码给学生、查看名单。</p>
+          <p className="text-sm text-muted-foreground">本学期班级用于学情总览；往期班级仍可打开名单，数据不删除。</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -469,7 +470,7 @@ export default function TeacherClassesPage() {
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
                 disabled={creating || Boolean(pendingCreate)}
-                placeholder="如：2025-2026-1"
+                placeholder={`如：${CURRENT_SEMESTER}`}
                 maxLength={50}
                 className="mt-1 min-h-11 w-full rounded-md border bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               />
@@ -515,53 +516,17 @@ export default function TeacherClassesPage() {
       )}
 
       {rows.length > 0 && (
-        <section aria-label="可管理班级" className="grid gap-3 lg:grid-cols-2">
-          {rows.map((c) => (
-            <article key={c.id} className="rounded-md border bg-card p-4 transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/[0.025]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate text-base font-semibold">{c.name}</h2>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{c.courseName || '未填写课程名称'}</p>
-                </div>
-                <span className={cn(
-                  'shrink-0 rounded-full border px-2 py-1 text-[11px]',
-                  c.status === 'ACTIVE'
-                    ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200'
-                    : 'border-border bg-muted text-muted-foreground',
-                )}>
-                  {c.status === 'ACTIVE' ? '使用中' : c.status === 'ARCHIVED' ? '已归档' : '已停用'}
-                </span>
-              </div>
-              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-4">
-                <div>
-                  <dt className="text-muted-foreground">学期</dt>
-                  <dd className="mt-1 truncate">{c.semester || '未填写'}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">有效学生</dt>
-                  <dd className="mt-1 font-mono">{c._count?.enrollments ?? 0} 人</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">邀请码</dt>
-                  <dd className="mt-1 truncate font-mono">{c.inviteCode}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">负责教师</dt>
-                  <dd className="mt-1 truncate">{c.teacher?.name || c.teacher?.username || '待分配'}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 flex justify-end border-t pt-3">
-                <Link
-                  href={`/teacher/classes/${c.id}`}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:text-cyan-200"
-                  aria-label={`查看${c.name}的学生名单与邀请码`}
-                >
-                  查看名单与邀请
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </article>
-          ))}
+        <section aria-label="可管理班级" className="space-y-6">
+          <ClassSection
+            title="本学期班级"
+            description={`${CURRENT_SEMESTER}：${CURRENT_CLASS_CODES.join('、')}。每个班保留一个 TEST 自测账号，并计入默认学情。`}
+            rows={rows.filter((row) => isCurrentTermClass(row))}
+          />
+          <ClassSection
+            title="往期班级"
+            description="机电2401、机电2402 以及空壳智工班仍保留名单。它们不进入本学期总览的均分和学时。"
+            rows={rows.filter((row) => !isCurrentTermClass(row))}
+          />
         </section>
       )}
 
@@ -573,5 +538,69 @@ export default function TeacherClassesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ClassSection({ title, description, rows }: { title: string; description: string; rows: ClassRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {rows.map((classRow) => <ClassCard key={classRow.id} classRow={classRow} />)}
+      </div>
+    </div>
+  );
+}
+
+function ClassCard({ classRow }: { classRow: ClassRow }) {
+  return (
+    <article className="rounded-md border bg-card p-4 transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/[0.025]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-semibold">{classRow.name}</h3>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{classRow.courseName || '未填写课程名称'}</p>
+        </div>
+        <span className={cn(
+          'shrink-0 rounded-full border px-2 py-1 text-[11px]',
+          classRow.status === 'ACTIVE'
+            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200'
+            : 'border-border bg-muted text-muted-foreground',
+        )}>
+          {classRow.status === 'ACTIVE' ? '使用中' : classRow.status === 'ARCHIVED' ? '已归档' : '已停用'}
+        </span>
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-4">
+        <div>
+          <dt className="text-muted-foreground">学期</dt>
+          <dd className="mt-1 truncate">{classRow.semester || '未填写'}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">有效学生</dt>
+          <dd className="mt-1 font-mono">{classRow._count?.enrollments ?? 0} 人</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">邀请码</dt>
+          <dd className="mt-1 truncate font-mono">{classRow.inviteCode}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">负责教师</dt>
+          <dd className="mt-1 truncate">{classRow.teacher?.name || classRow.teacher?.username || '待分配'}</dd>
+        </div>
+      </dl>
+      <div className="mt-4 flex justify-end border-t pt-3">
+        <Link
+          href={`/teacher/classes/${classRow.id}`}
+          className="inline-flex min-h-11 items-center gap-1 rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:text-cyan-200"
+          aria-label={`查看${classRow.name}的学生名单与邀请码`}
+        >
+          查看名单与邀请
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </article>
   );
 }
