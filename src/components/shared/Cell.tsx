@@ -1,6 +1,6 @@
 'use client';
 
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /** Junction hue shared by student surfaces. Geometry stays the same; the hue marks which area you are in. */
@@ -133,17 +133,21 @@ type CellSwitchProps = {
 };
 
 /**
- * Wrapped unit/tab switch. Items wrap onto the next line instead of adding another horizontal scroller.
+ * Wrapped unit/tab switch. Items wrap onto the next line unless the caller
+ * turns the group into a horizontal scroller. The ref is that scrollport.
  *
  * @param props.label - `aria-label` of the group
  */
-export function CellSwitch({ label, children, className }: CellSwitchProps): React.JSX.Element {
+export const CellSwitch = forwardRef<HTMLDivElement, CellSwitchProps>(function CellSwitch(
+  { label, children, className },
+  ref,
+): React.JSX.Element {
   return (
-    <div role="group" aria-label={label} className={cn('edu-cell-switch', className)}>
+    <div ref={ref} role="group" aria-label={label} className={cn('edu-cell-switch', className)}>
       {children}
     </div>
   );
-}
+});
 
 type CellSwitchItemProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & {
   pressed: boolean;
