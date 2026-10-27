@@ -60,11 +60,11 @@ export async function GET(request: Request) {
     const user = userRecord;
     const asOf = new Date();
 
-    // 5 次并发查询取代原来 14 次：同一 userId 下按 action/status 分别 count 的查询
+    // 少数并发查询取代原来 14 次：同一 userId 下按 action/status 分别 count 的查询
     // 合并成单次 findMany，在内存里派生所有统计值。Neon 连接池并发上限较低，
     // 之前 12 条查询挤在一个 Promise.all 里很容易触发 P1001 连接失败。
     const [
-      userAchievements, allActivities, allLearningProgress, allQuizAttempts, allExperiments
+      userAchievements, allActivities, allLearningProgress, allQuizAttempts, allExperiments, validFeedbackCount
     ] = await Promise.all([
       prisma.userAchievement.findMany({ where: { userId: payload.userId, unlockedAt: { lte: asOf } }, orderBy: { unlockedAt: 'desc' } }),
       prisma.userActivity.findMany({ where: { userId: payload.userId, createdAt: { lte: asOf } }, select: { action: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
@@ -78,6 +78,7 @@ export async function GET(request: Request) {
         },
         select: { experimentId: true, status: true, timeSpent: true },
       }),
+      prisma.siteFeedback.count({ where: { userId: payload.userId, createdAt: { lte: asOf } } }),
     ]);
 
     const currentAchievementIds = new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id));
@@ -156,6 +157,7 @@ export async function GET(request: Request) {
       discussions_started: discussionsStarted,
       easter_egg_found: easterEggFound,
       bugs_reported: bugsReported,
+      valid_feedbacks: validFeedbackCount,
       continuous_hours: continuousHours,
       learning_time: learningStats._sum.timeSpent || 0,
       quizzes_completed: quizStats._count._all || 0,

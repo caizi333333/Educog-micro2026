@@ -70,7 +70,7 @@ const analyticsEvidence = {
     learningProgressRecords: 2,
     experimentRecords: 2,
     achievementRecords: 1,
-    achievementRules: 55,
+    achievementRules: 58,
   },
 };
 

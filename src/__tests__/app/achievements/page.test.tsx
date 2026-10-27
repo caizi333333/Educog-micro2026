@@ -158,7 +158,7 @@ describe('AchievementsPage student access boundary', () => {
       getFilteredAchievements: () => [quizAchievement],
       calculateStats: () => ({
         unlockedCount: 0,
-        totalCount: 55,
+        totalCount: 58,
         totalPoints: 0,
         byTier: { bronze: 0, silver: 0, gold: 0, platinum: 0 },
         completionPercentage: 0,
@@ -171,11 +171,11 @@ describe('AchievementsPage student access boundary', () => {
     expect(screen.getAllByText('完成 1 次专项测评')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /进入专项测评/ })).toHaveAttribute('href', '/quiz');
     expect(screen.getByRole('button', { name: /全部可见/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('0/55');
-    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('55');
+    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('0/58');
+    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('58');
   });
 
-  it('makes 3/55 add up with the visible unearned count and the hidden remainder', () => {
+  it('makes 3/58 add up with the visible unearned count and the hidden remainder', () => {
     const visible = [
       { id: 'first-login', title: '初次登录', description: '第一次进入', icon: '🚪', category: 'progress', criteria: { type: 'daily_streak', target: 1 }, points: 10, rarity: 'common' },
       { id: 'quiz-bronze', title: '测验达人', description: '完成一次测评', icon: '📝', category: 'quiz', criteria: { type: 'quizzes_completed', target: 1 }, points: 20, rarity: 'common' },
@@ -188,7 +188,7 @@ describe('AchievementsPage student access boundary', () => {
       getFilteredAchievements: (category: string) => visible.filter((item) => category === 'all' || item.category === category),
       calculateStats: () => ({
         unlockedCount: 3,
-        totalCount: 55,
+        totalCount: 58,
         totalPoints: 60,
         byTier: { bronze: 3, silver: 0, gold: 0, platinum: 0 },
         completionPercentage: 5,
@@ -197,11 +197,11 @@ describe('AchievementsPage student access boundary', () => {
 
     render(<AchievementsPage />);
 
-    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('3/55');
+    expect(screen.getByRole('button', { name: /全部可见/ })).toHaveTextContent('3/58');
     expect(screen.getByRole('button', { name: /已获得/ })).toHaveTextContent('3');
     expect(screen.getByRole('button', { name: /未获得/ })).toHaveTextContent('1');
-    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('55');
-    expect(screen.getByText(/已解锁 3、未获得 1、隐藏 51，合计规则总数 55/)).toBeInTheDocument();
+    expect(screen.getByText('规则总数').parentElement).toHaveTextContent('58');
+    expect(screen.getByText(/已解锁 3、未获得 1、隐藏 54，合计规则总数 58/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /学习进度/ })).toHaveTextContent('2/2');
     expect(screen.getByRole('button', { name: /实验实践/ })).toHaveTextContent('0/1');
     expect(screen.getByRole('button', { name: /在线测评/ })).toHaveTextContent('1/1');
