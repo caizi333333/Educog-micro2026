@@ -9,6 +9,7 @@ import {
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
   MEMORY_REGION_BOARD,
+  TCON_CONTROL_BITS_BOARD,
   TIMER_TMOD_BOARD,
   decideMatchReward,
   gradeMatch,
@@ -603,6 +604,138 @@ describe('IE enable match board', () => {
       nowMs: now,
       cooldownMs: INTERRUPT_IE_ENABLE_BOARD.cooldownMs,
       firstClearPoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+});
+
+interface GlossaryRow {
+  abbr: string;
+  how: string;
+  cn: string;
+  where: string;
+}
+
+function tconGlossary(html: string): GlossaryRow[] {
+  const start = html.indexOf('四、TCON');
+  const end = html.indexOf('五、SCON', start);
+  if (start < 0 || end < 0) throw new Error('courseware is missing the TCON glossary');
+  const block = html.slice(start, end);
+  return [...block.matchAll(/<td class="abbr">([^<]+)<\/td><td class="how">([^<]+)<\/td><td class="cn">([^<]+)<\/td><td class="where">([^<]+)<\/td>/g)]
+    .map((row) => ({ abbr: row[1] ?? '', how: row[2] ?? '', cn: row[3] ?? '', where: row[4] ?? '' }));
+}
+
+describe('TCON control-bit match board', () => {
+  const overviewHtml = readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8');
+  const lesson1 = readFileSync(join(COURSEWARE, 'u5-lesson-1.html'), 'utf8');
+  const lesson2 = readFileSync(join(COURSEWARE, 'u5-lesson-2.html'), 'utf8');
+  const timerPane = decodeTimerPane(overviewHtml);
+  const glossary = tconGlossary(lesson2);
+  const bitOrder = ['TR0', 'TR1', 'TF0', 'TF1', 'IT0', 'IT1'] as const;
+
+  it('copies TR, TF, and IT from the TCON glossary and leaves request flags on the source board', () => {
+    expect(overviewHtml).toContain('href="#int-4"');
+    expect(decodeOverview(overviewHtml)).toContain('IT0=0 低电平触发，IT0=1 下降沿触发');
+    expect(lesson1).toContain('IT0=0 低电平触发，IT0=1 下降沿触发');
+    expect(lesson1).toContain('写 <code>0</code>＝低电平触发，写 <code>1</code>＝下降沿触发');
+    expect(lesson2).toContain('TF</b>（满了）≠ <b>TR</b>（开跑）');
+    expect(timerPane).toContain('GATE=0：只看 TR');
+    expect(glossary.map((row) => row.abbr)).toEqual([
+      'TCON', 'TF0', 'TF1', 'TR0', 'TR1', 'IE0', 'IE1', 'IT0', 'IT1',
+    ]);
+
+    expect(TCON_CONTROL_BITS_BOARD.chapterId).toBe('5');
+    expect(TCON_CONTROL_BITS_BOARD.knowledgePointId).toBe('5.2');
+    expect(TCON_CONTROL_BITS_BOARD.sectionId).toBe('int-4');
+    expect(TCON_CONTROL_BITS_BOARD.moduleId).toBe('u5-overview');
+    expect(TCON_CONTROL_BITS_BOARD.medalId).toBe('tcon_control_bits');
+    expect(TCON_CONTROL_BITS_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(TCON_CONTROL_BITS_BOARD.zones).toBeUndefined();
+    expect(TCON_CONTROL_BITS_BOARD.pairs).toHaveLength(6);
+    expect(TCON_CONTROL_BITS_BOARD.pairs.map((pair) => pair.prompt)).toEqual([...bitOrder]);
+    expect(TCON_CONTROL_BITS_BOARD.pairs.some((pair) => pair.prompt === 'IE0' || pair.prompt === 'IE1')).toBe(false);
+    expect(TCON_CONTROL_BITS_BOARD.hint).toBe('TF 是满了，TR 是开跑。写 0 是低电平触发，写 1 是下降沿触发。GATE=0：只看 TR。');
+    expect(TCON_CONTROL_BITS_BOARD.hint).not.toContain('TR0');
+    expect(TCON_CONTROL_BITS_BOARD.hint).not.toContain('IE0');
+    expect(TCON_CONTROL_BITS_BOARD.hint).not.toContain('波特');
+    expect(JSON.stringify(TCON_CONTROL_BITS_BOARD)).not.toContain('8052');
+    expect(JSON.stringify(TCON_CONTROL_BITS_BOARD)).not.toContain('波特');
+
+    for (const abbr of bitOrder) {
+      const row = glossary.find((item) => item.abbr === abbr);
+      const pair = TCON_CONTROL_BITS_BOARD.pairs.find((item) => item.prompt === abbr);
+      expect(row).toBeDefined();
+      expect(pair?.target).toBe(row?.cn);
+      expect(pair?.promptHint).toBe(row?.where);
+      expect(pair?.targetDetail).toBe(row?.how);
+    }
+    expect(INTERRUPT_SOURCE_FLAG_BOARD.pairs.map((pair) => pair.target)).toEqual([
+      'IE0', 'TF0', 'IE1', 'TF1', 'RI / TI',
+    ]);
+  });
+
+  it('grades a finished TCON map and keeps a swapped run bit wrong with 0 points', () => {
+    const solved = Object.fromEntries(TCON_CONTROL_BITS_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(TCON_CONTROL_BITS_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, tr0: 'tr1', tr1: 'tr0' };
+    const grade = gradeMatch(TCON_CONTROL_BITS_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['tr0', 'tr1']);
+    expect(matchMissMessage(grade, TCON_CONTROL_BITS_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, TCON_CONTROL_BITS_BOARD)).toContain('GATE=0：只看 TR');
+    expect(matchMissMessage(grade, TCON_CONTROL_BITS_BOARD)).not.toContain('TR0');
+    expect(matchMissMessage(grade, TCON_CONTROL_BITS_BOARD)).not.toContain('IE0');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(TCON_CONTROL_BITS_BOARD.id)).toBe('practice_clears:u5-tcon-control-bits');
+    expect(practiceMedalIdsForCount(TCON_CONTROL_BITS_BOARD.id, 1)).toEqual(['tcon_control_bits']);
+    expect(practiceMedalIdsForCount(TCON_CONTROL_BITS_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'tcon_control_bits',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT_SOURCE_FLAG_BOARD.id, 1)).toEqual(['interrupt_source_flags']);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'tcon_control_bits');
+    expect(medal?.title).toBe('TCON 对上了');
+    expect(medal?.points).toBe(10);
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「TCON 对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
       awardToStudent: true,
     })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
   });

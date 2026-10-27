@@ -10,6 +10,7 @@
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 5 interrupt vectors (overview `#int-2`; addresses from the 入口地址 line)
  * - unit 5 IE source enables (overview `#int-5`; EX0/ET0/EX1/ET1/ES, not EA)
+ * - unit 5 TCON run, overflow, and trigger bits (overview `#int-4`; not IE0/IE1)
  * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and a catalog row whose
@@ -192,6 +193,47 @@ export const INTERRUPT_IE_ENABLE_BOARD: MatchBoard = {
 };
 
 /**
+ * 80C51 TCON run, overflow, and trigger bits, mounted on overview `#int-4`.
+ * Pane ④ is trigger and clear. The lesson-2 glossary on the same overview
+ * names TR0/TR1 as run or stop, TF0/TF1 as overflow, and IT0/IT1 as the
+ * external trigger type (0 level, 1 falling edge). IE0 and IE1 stay on
+ * `u5-interrupt-source-flags`, which already maps those request flags to
+ * sources. `GATE=0：只看 TR` is the timer-pane sentence; GATE itself stays
+ * on the TMOD board. No baud-rate or chip-variant facts.
+ */
+export const TCON_CONTROL_BITS_BOARD: MatchBoard = {
+  id: 'u5-tcon-control-bits',
+  title: 'TCON 位 ↔ 含义',
+  prompt: '把 80C51 的 TCON 里 TR、TF 和 IT 对上各自的含义。',
+  hint: 'TF 是满了，TR 是开跑。写 0 是低电平触发，写 1 是下降沿触发。GATE=0：只看 TR。',
+  chapterId: '5',
+  knowledgePointId: '5.2',
+  sectionId: 'int-4',
+  moduleId: 'u5-overview',
+  medalId: 'tcon_control_bits',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：TCON 位对含义',
+    sectionLink: '对照课件④',
+    expandClosed: '展开练一练：TCON 位对含义',
+    promptSide: 'TCON 位',
+    targetSide: '含义',
+    actionHint: '先点 TCON 位，再点含义。鼠标也可以直接拖过去。',
+    emptyTray: '6 个位都放好了。',
+    slotName: '含义',
+  },
+  pairs: [
+    { id: 'tr0', prompt: 'TR0', promptHint: 'TCON.4 · SETB TR0 开跑', target: 'T0 运行控制（开数/停数）', targetDetail: 'Timer Run 0' },
+    { id: 'tr1', prompt: 'TR1', promptHint: 'TCON.6', target: 'T1 运行控制', targetDetail: 'Timer Run 1' },
+    { id: 'tf0', prompt: 'TF0', promptHint: 'TCON.5 · 响应可硬件清', target: 'T0 溢出标志（满了）', targetDetail: 'Timer Flag 0' },
+    { id: 'tf1', prompt: 'TF1', promptHint: 'TCON.7', target: 'T1 溢出标志', targetDetail: 'Timer Flag 1' },
+    { id: 'it0', prompt: 'IT0', promptHint: 'TCON.0 · 0电平 / 1下降沿', target: 'INT0 触发方式', targetDetail: 'Interrupt Type 0' },
+    { id: 'it1', prompt: 'IT1', promptHint: 'TCON.2', target: 'INT1 触发方式', targetDetail: 'Interrupt Type 1' },
+  ],
+};
+
+/**
  * 80C51 timer/counter TMOD, mounted on the unit 5 overview timer door.
  * Mode widths, the reload sentence, and GATE / C/T wording come from the
  * timer pane (`var DATA.tmr`). M1 M0 codes 00/01/10/11 → 方式 0–3 are the
@@ -360,6 +402,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
+  TCON_CONTROL_BITS_BOARD,
   TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
 ];

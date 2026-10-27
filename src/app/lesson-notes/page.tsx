@@ -42,7 +42,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -256,16 +256,17 @@ const NOTE_ALIAS: Readonly<Record<string, string>> = {
 const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
 
 /**
- * One match cell above the iframe. Unit 5 hosts four boards on the same note:
- * `#int-2` expands the vector board; `#int-5` expands the IE enable board;
- * other interrupt sections keep the source/flag board, expanded on ③
- * (`#int-3`); the timer door (`tmr-*`) swaps in the TMOD board, expanded
- * on 动手练③ (`#tmr-hand`).
+ * One match cell above the iframe. Unit 5 hosts five boards on the same note:
+ * `#int-2` expands the vector board; `#int-4` expands the TCON bit board;
+ * `#int-5` expands the IE enable board; other interrupt sections keep the
+ * source/flag board, expanded on ③ (`#int-3`); the timer door (`tmr-*`)
+ * swaps in the TMOD board, expanded on 动手练③ (`#tmr-hand`).
  */
 function practiceBoardForNote(file: string, sectionId: string): MatchBoard | null {
   if (file === 'u5-overview') {
     if (sectionId.startsWith('tmr-')) return TIMER_TMOD_BOARD;
     if (sectionId === INTERRUPT_VECTOR_BOARD.sectionId) return INTERRUPT_VECTOR_BOARD;
+    if (sectionId === TCON_CONTROL_BITS_BOARD.sectionId) return TCON_CONTROL_BITS_BOARD;
     if (sectionId === INTERRUPT_IE_ENABLE_BOARD.sectionId) return INTERRUPT_IE_ENABLE_BOARD;
     return INTERRUPT_SOURCE_FLAG_BOARD;
   }

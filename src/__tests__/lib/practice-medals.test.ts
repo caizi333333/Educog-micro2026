@@ -5,6 +5,7 @@ import {
   ADDRESSING_MODE_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
+  TCON_CONTROL_BITS_BOARD,
   decideMatchReward,
   matchClearMessage,
 } from '@/lib/practice-match';
@@ -20,6 +21,7 @@ import {
 const INTERRUPT = INTERRUPT_SOURCE_FLAG_BOARD.id;
 const ADDRESSING = ADDRESSING_MODE_BOARD.id;
 const IE_ENABLES = INTERRUPT_IE_ENABLE_BOARD.id;
+const TCON_BITS = TCON_CONTROL_BITS_BOARD.id;
 
 /** 15:30Z is still the 26th in Shanghai; 16:30Z is the 27th. */
 const SHANGHAI_OCT_26_LATE = new Date('2026-10-26T15:30:00.000Z');
@@ -138,6 +140,50 @@ describe('practice match medals', () => {
       nowMs: now,
       cooldownMs: INTERRUPT_IE_ENABLE_BOARD.cooldownMs,
       firstClearPoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('scores the TCON bit board on the shared medal path: a miss and a cooldown add nothing', () => {
+    expect(practiceMedalIdsForCount(TCON_BITS, 1, { firstClearOfCampusDay: true })).toEqual([
+      'tcon_control_bits',
+      PRACTICE_DAILY_MEDAL_ID,
+    ]);
+    expect(practiceMedalIdsForCount(TCON_BITS, 1, { firstClearOfCampusDay: false })).toEqual([
+      'tcon_control_bits',
+    ]);
+    expect(practiceMedalIdsForCount(TCON_BITS, 3, { firstClearOfCampusDay: false })).toEqual([
+      'tcon_control_bits',
+      PRACTICE_STREAK_MEDAL_ID,
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT, 1)).toEqual(['interrupt_source_flags']);
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
+      firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
       awardToStudent: true,
     })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
   });

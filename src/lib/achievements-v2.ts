@@ -329,6 +329,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'tcon_control_bits',
+    title: 'TCON 对上了',
+    description: '在第 5 章练一练里，把 80C51 的 TCON 位 TR0、TR1、TF0、TF1、IT0、IT1 对上各自的含义',
+    icon: '🎚️',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-tcon-control-bits', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'timer_tmod_modes',
     title: 'TMOD 对上了',
     description: '在第 5 章练一练里，把 80C51 定时器 TMOD 的四种方式和 GATE、C/T 对上各自的含义',
