@@ -45,6 +45,11 @@ describe('LessonNotesPage deep link', () => {
       '/resources/course/courseware/u5/u5-overview.html#int-2',
     );
     expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('data-tone', 'notes');
+    expect(screen.getByRole('tab', { name: /第 5 章交互总览/ })).toHaveAttribute('data-tone', 'course');
+    const seam = screen.getByRole('region', { name: '讲解课件' });
+    expect(seam).toHaveAttribute('data-tone', 'notes');
+    expect(seam).toContainElement(frame);
   });
 
   it('opens the same pane from a unit link that only carries the hash', async () => {

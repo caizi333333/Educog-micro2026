@@ -49,6 +49,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { NextStepBanner } from '@/components/onboarding/NextStepBanner';
+import { cellSurfaceClass, CellGrid } from '@/components/shared/Cell';
 import { EvidenceIdentity, PublicSiteHeader } from '@/components/shared/PublicSiteChrome';
 import { ADDRESSING_TASK_PRESET, type LearningTaskStepType } from '@/lib/lesson-tasks';
 import { COURSE_SYLLABUS_TOPICS, COURSE_UNIT_ALIGNMENT } from '@/lib/course-curriculum';
@@ -602,26 +603,34 @@ function ResourceChip({ resource, chapter }: { resource: KnowledgePointResource;
 
 function CourseUnitOverview() {
   return (
-    <section aria-labelledby="unit-overview-title" className="mb-5 rounded-lg border border-white/[0.09] bg-[#0b1117] p-4 sm:p-5">
+    <section aria-labelledby="unit-overview-title" data-tone="course" className="edu-surface edu-cell-enter mb-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <div className="font-mono text-xs uppercase tracking-[0.13em] text-cyan-200">Course Structure · 课程结构</div>
+          <div className="edu-surface-kicker font-mono uppercase tracking-[0.13em]" data-tone="course">Course Structure · 课程结构</div>
           <h2 id="unit-overview-title" className="mt-1.5 text-xl font-semibold text-slate-50">10 个平台单元</h2>
         </div>
         <span className="text-xs text-slate-400">选择单元后查看知识点与资源</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+      <CellGrid className="grid-cols-2 xl:grid-cols-5">
         {courseChapters.map((chapter) => {
           const topicCount = getChildPoints(chapter.id).filter((point) => point.level === 2).length;
           return (
-            <a key={chapter.id} href={`#item-${chapter.chapter}`} className="group min-h-[88px] rounded-md border border-white/[0.08] bg-black/20 p-3 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70">
+            <a
+              key={chapter.id}
+              href={`#item-${chapter.chapter}`}
+              data-tone="course"
+              className={cellSurfaceClass({
+                interactive: true,
+                className: 'group block min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70',
+              })}
+            >
               <span className="font-mono text-xs text-cyan-200">单元 {chapter.chapter}</span>
               <span className="mt-2 block text-sm font-semibold leading-5 text-slate-100 group-hover:text-cyan-50">{chapter.name}</span>
               <span className="mt-1.5 block text-xs text-slate-400">{topicCount} 个主题</span>
             </a>
           );
         })}
-      </div>
+      </CellGrid>
     </section>
   );
 }

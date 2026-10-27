@@ -5,6 +5,7 @@ import { SHOW_DATA_PROVENANCE_NOTICE } from '@/lib/env';
 import Link from 'next/link';
 import { Activity, ArrowRight, BookOpen, CheckCircle2, Circle, Clock, FlaskConical, GitBranch, KeyRound, Loader2, LockKeyhole, PauseCircle, RefreshCw } from 'lucide-react';
 import { z } from 'zod';
+import { CellSkeleton, SurfaceKicker, cellSurfaceClass } from '@/components/shared/Cell';
 import { cn } from '@/lib/utils';
 import { computeStep } from '@/components/onboarding/NextStepBanner';
 import { buildTaskNavigationReceipt, requiresTaskOpenReceiptBeforeNavigation } from '@/lib/lesson-tasks';
@@ -542,10 +543,8 @@ export default function MyTasksPage(): JSX.Element {
   if (authLoading) {
     return (
       <div className="-m-4 min-h-[calc(100vh-3.5rem)] bg-[#070a0d] px-4 py-8 text-slate-100 sm:-m-6 md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-6 text-sm text-slate-400" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          正在确认访问角色...
-        </div>
+        <div className="edu-page-rule mb-4" data-tone="task" aria-hidden="true" />
+        <CellSkeleton label="正在确认访问角色..." tone="task" count={2} />
       </div>
     );
   }
@@ -555,7 +554,7 @@ export default function MyTasksPage(): JSX.Element {
   if (!user) {
     return (
       <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#070a0d] p-6 text-slate-100 sm:-m-6">
-        <div className="w-full max-w-md rounded-md border border-white/[0.08] bg-white/[0.035] p-6 text-center">
+        <div data-tone="task" className={cellSurfaceClass({ className: 'w-full max-w-md p-6 text-center' })}>
           <LockKeyhole className="mx-auto h-6 w-6 text-cyan-200" aria-hidden="true" />
           <h1 className="mt-3 text-lg font-semibold text-slate-50">登录后查看个人学习任务</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">登录成功后将返回当前任务链接，保留批次、步骤和页面位置。</p>
@@ -645,7 +644,11 @@ export default function MyTasksPage(): JSX.Element {
         return (
           <div
             key={path.id}
-            className="overflow-hidden rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+            data-tone="task"
+            className={cellSurfaceClass({
+              enter: true,
+              className: 'edu-cell--flush overflow-hidden border-emerald-300/20 bg-emerald-300/[0.04]',
+            })}
           >
             <div className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -703,8 +706,10 @@ export default function MyTasksPage(): JSX.Element {
                       <li
                         key={stepKey}
                         aria-current={isCurrent ? 'step' : undefined}
+                        data-tone={isCurrent ? 'course' : isCompleted ? 'task' : 'shell'}
+                        data-state={isCurrent ? 'active' : 'idle'}
                         className={cn(
-                          'rounded-md border p-3',
+                          cellSurfaceClass({ compact: true, active: isCurrent }),
                           isCurrent && 'border-cyan-300/35 bg-cyan-300/[0.06]',
                           isCompleted && 'border-emerald-300/15 bg-emerald-300/[0.025]',
                           step.status === 'PENDING' && 'border-white/[0.06] bg-black/15 opacity-70',
@@ -784,14 +789,14 @@ export default function MyTasksPage(): JSX.Element {
   );
 
   return (
-    <div className="-m-4 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100 sm:-m-6">
+      <div className="-m-4 min-h-[calc(100vh-3.5rem)] overflow-auto bg-[#070a0d] text-slate-100 sm:-m-6">
       <div className="border-b border-white/[0.07] bg-[#0c1117]/95 px-4 py-4 backdrop-blur-xl md:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-xs text-cyan-100">
+            <SurfaceKicker tone="task" className="mb-3">
               <Clock className="h-3.5 w-3.5" />
               Tasks · 我的任务
-            </div>
+            </SurfaceKicker>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">我的学习任务</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               老师布置给你的实验和学习路径会自动出现在这里。时间按{CAMPUS_TIME_LABEL}（Asia/Shanghai）显示。
@@ -822,6 +827,7 @@ export default function MyTasksPage(): JSX.Element {
           </div>
         </div>
       </div>
+      <div className="edu-page-rule" data-tone="task" aria-hidden="true" />
 
       <div className="mx-auto max-w-4xl space-y-5 px-4 py-5 md:px-6">
 
@@ -866,16 +872,13 @@ export default function MyTasksPage(): JSX.Element {
         )}
 
         {loading && !data && (
-          <div className="flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-6 text-sm text-slate-400" role="status" aria-live="polite">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            正在读取任务、步骤和完成回执…
-          </div>
+          <CellSkeleton label="正在读取任务、步骤和完成回执…" tone="task" count={3} />
         )}
 
         {data && (
           <>
             {diagnosticFocus?.leads && leadStep && (
-              <section aria-labelledby="diagnostic-next-task-title" className="rounded-md border border-amber-300/25 bg-amber-300/[0.06] p-4">
+              <section aria-labelledby="diagnostic-next-task-title" data-tone="notes" className={cellSurfaceClass({ className: 'border-amber-300/25 bg-amber-300/[0.06] p-4' })}>
                 <div className="mb-2 flex items-center gap-2">
                   <GitBranch className="h-4 w-4 text-amber-100" />
                   <h2 id="diagnostic-next-task-title" className="text-sm font-semibold text-amber-50">当前补学</h2>
@@ -908,7 +911,7 @@ export default function MyTasksPage(): JSX.Element {
                 </p>
               )}
               {defaultActivePaths.length === 0 ? (
-                <div className="rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm leading-6 text-slate-500">
+                <div data-tone="shell" className={cellSurfaceClass({ compact: true, className: 'px-4 py-3 text-sm leading-6 text-slate-500' })}>
                   {defaultPathEmptyCopy(Boolean(diagnosticFocus?.leads), pinnedActivePaths.length)}
                 </div>
               ) : renderActivePathCards(defaultActivePaths)}
@@ -940,7 +943,7 @@ export default function MyTasksPage(): JSX.Element {
                 </p>
               )}
               {data.assignedExperiments.length === 0 ? (
-                <div className="rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-5 text-sm text-slate-500">
+                <div data-tone="shell" className={cellSurfaceClass({ compact: true, className: 'px-4 py-5 text-sm text-slate-500' })}>
                   暂无被布置的实验。
                 </div>
               ) : (
@@ -951,7 +954,11 @@ export default function MyTasksPage(): JSX.Element {
                       <Link
                         key={exp.experimentId}
                         href={exp.href}
-                        className="group block rounded-md border border-white/[0.08] bg-white/[0.035] px-4 py-3 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+                        data-tone="course"
+                        className={cellSurfaceClass({
+                          interactive: true,
+                          className: 'group block border-white/[0.08] bg-white/[0.035] px-4 py-3 hover:border-cyan-300/30 hover:bg-cyan-300/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
+                        })}
                       >
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <span className="rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-2 py-0.5 font-mono text-[10px] text-cyan-100">
@@ -1002,7 +1009,7 @@ export default function MyTasksPage(): JSX.Element {
                 </p>
               )}
               {data.completedPaths.length === 0 ? (
-                <div className="rounded-md border border-white/[0.08] bg-white/[0.025] px-4 py-4 text-sm text-slate-500">尚无已完成的学习路径。</div>
+                <div data-tone="shell" className={cellSurfaceClass({ compact: true, className: 'bg-white/[0.025] px-4 py-4 text-sm text-slate-500' })}>尚无已完成的学习路径。</div>
               ) : (
                 <div className="space-y-2">
                   {data.completedPaths.map((path) => {
@@ -1028,7 +1035,10 @@ export default function MyTasksPage(): JSX.Element {
                       key={path.id}
                       id={taskRecordAnchorId(path.id)}
                       tabIndex={-1}
-                      className="scroll-mt-20 rounded-md border border-emerald-300/15 bg-emerald-300/[0.035] p-4 target:border-cyan-300/45 target:ring-2 target:ring-cyan-300/15"
+                      data-tone="task"
+                      className={cellSurfaceClass({
+                        className: 'scroll-mt-20 border-emerald-300/15 bg-emerald-300/[0.035] p-4 target:border-cyan-300/45 target:ring-2 target:ring-cyan-300/15',
+                      })}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
