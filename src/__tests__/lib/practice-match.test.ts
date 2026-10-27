@@ -87,7 +87,7 @@ function decodeTimerPane(html: string): string {
 
 describe('interrupt source match board', () => {
   const overview = sourceTable(readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8'));
-  const classroom = sourceTable(readFileSync(join(COURSEWARE, 'u5-interrupt-classroom.html'), 'utf8'));
+  const classroom = sourceTable(readFileSync(join(COURSEWARE, 'lib/u5-interrupt-classroom.js'), 'utf8'));
 
   it('copies the five 80C51 sources from the courseware table', () => {
     expect(classroom).toEqual(overview);
@@ -229,7 +229,9 @@ function revealedCode(answer: string): string {
 
 describe('timer TMOD match board', () => {
   const timerPane = decodeTimerPane(readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8'));
-  const classroom = readFileSync(join(COURSEWARE, 'u5-interrupt-classroom.html'), 'utf8');
+  const classroom = ['u5-lesson-1.html', 'u5-lesson-2.html', 'u5-lesson-3.html']
+    .map((name) => readFileSync(join(COURSEWARE, name), 'utf8'))
+    .join('\n');
 
   it('copies 80C51 TMOD mode, GATE, and C/T facts from the timer pane', () => {
     expect(TIMER_TMOD_BOARD.chapterId).toBe('5');
@@ -361,9 +363,11 @@ function vectorAddressLine(html: string): RegExpMatchArray {
 
 describe('interrupt vector match board', () => {
   const overviewHtml = readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8');
-  const classroomHtml = readFileSync(join(COURSEWARE, 'u5-interrupt-classroom.html'), 'utf8');
+  const classroomHtml = ['u5-lesson-1.html', 'u5-lesson-2.html', 'u5-lesson-3.html']
+    .map((name) => readFileSync(join(COURSEWARE, name), 'utf8'))
+    .join('\n');
   const overviewSources = sourceTable(overviewHtml);
-  const classroomSources = sourceTable(classroomHtml);
+  const classroomSources = sourceTable(readFileSync(join(COURSEWARE, 'lib/u5-interrupt-classroom.js'), 'utf8'));
 
   it('copies the five 80C51 vector addresses from the courseware line', () => {
     const overviewLine = vectorAddressLine(overviewHtml);

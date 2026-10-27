@@ -112,10 +112,14 @@ describe('u5 classroom media', () => {
   const overviewInterrupt = overviewDocuments.find((document) => document.includes('id="p2"') && document.includes(FEATURE_FILM_LABEL));
 
   it('keeps the R2 clips and drops the Bilibili player iframe', () => {
-    for (const clip of R2_CLIPS) expect(classroomHtml).toContain(clip);
-    expect(classroomHtml).toContain(FEATURE_FILM_LINK);
-    expect(classroomHtml).toContain(FEATURE_FILM_LABEL);
-    expect(classroomHtml).toContain(FEATURE_FILM_NOTE);
+    const lessons = ['u5-lesson-1.html', 'u5-lesson-2.html', 'u5-lesson-3.html']
+      .map((name) => readFileSync(join(COURSEWARE_ROOT, 'u5', name), 'utf8'))
+      .join('\n');
+    for (const clip of R2_CLIPS) expect(lessons).toContain(clip);
+    expect(lessons).toContain(FEATURE_FILM_LINK);
+    expect(lessons).toContain(FEATURE_FILM_LABEL);
+    expect(lessons).toContain(FEATURE_FILM_NOTE);
+    expect(lessons).not.toContain(PLAYER_SRC);
     expect(classroomHtml).not.toContain(PLAYER_SRC);
   });
 

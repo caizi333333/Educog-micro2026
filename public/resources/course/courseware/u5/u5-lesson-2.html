@@ -1,13 +1,770 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-u5-lesson="b">
 <head>
+<script>(function(){try{var t=localStorage.getItem("mcu-ui-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>第 5 章 · 第 2 次课 · 案例与练习</title>
-<meta http-equiv="refresh" content="0;url=u5-interrupt-classroom.html#lesson-b">
-<script>location.replace('u5-interrupt-classroom.html#lesson-b');</script>
+<link rel="stylesheet" href="lib/u5-interrupt-classroom.css">
+<style id="phone-read">
+/* 手机阅读：页签在条内横滑，不把整页撑宽；粘性层只留这一行导航。 */
+@media (max-width:900px){
+  .zoom{flex-wrap:wrap;min-width:0;max-width:100%}
+  .zoom .btn{min-height:44px}
+  .top .grow{min-width:0;flex-basis:auto}
+  html,body{max-width:100%}
+  .wrap{overflow-x:clip;max-width:100%}
+  .navstack{
+    display:flex;
+    flex-direction:column;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    gap:6px;
+    overflow-x:hidden;
+    max-width:100%;
+    min-width:0;
+    padding-right:6px;
+  }
+  .navstack .lessons,
+  .navstack .tabs{
+    flex:1 1 auto;
+    width:auto;
+    max-width:100%;
+    overflow-x:auto;
+    position:static;
+    margin:0;
+    padding:0;
+    background:transparent;
+  }
+  .lessons,.tabs{
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+    flex-wrap:wrap;
+    scrollbar-width:thin;
+  }
+  .tabs{
+    position:sticky;
+    top:0;
+    z-index:20;
+    padding-right:0;
+    max-width:100%;
+  }
+  .navstack .tabs{padding-right:0;z-index:auto}
+  .lesson,.tab{
+    flex:0 0 auto;
+    min-width:max-content;
+    white-space:nowrap;
+    min-height:44px;
+  }
+  .tab{padding:6px 12px}
+  .tab small,.lesson small{white-space:nowrap}
+  .drill-strip,.qz-calc{position:static;top:auto}
+  .wrap [id]{scroll-margin-top:84px}
+  .grid2>*,.grid3>*,.toc>*,.dual>*,.lh-stage>*,.le-grid>*,.mech-grid>*,.case-split>*,.nz-grid>*{min-width:0;max-width:100%}
+  .reg,.code,.s6-chain,.gloss-wrap,.mem-chain,.case-split,.nz-grid,.src-row{max-width:100%}
+  .reg{overflow-x:auto}
+  #srcs,.src-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #srcs>*,.src-row>*{min-width:0}
+  .case-split,.nz-grid,
+  .pane>[style*="grid-template-columns:330px"],
+  [style*="grid-template-columns:1.15fr"]{grid-template-columns:minmax(0,1fr)!important}
+  .pane>[style*="grid-template-columns:330px"]>*,
+  [style*="grid-template-columns:1.15fr"]>*{min-width:0;max-width:100%}
+  .ie-board .bits{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .ie-board .sw{min-width:0}
+  .row>.btn{white-space:normal;text-align:center}
+}
+@media (max-width:760px){
+  .wrap{padding:12px 12px 40px}
+  .grid2,.grid3,.toc,.lh-stage,.le-grid,.mech-grid,.sel4,.dual,.compare-mini,.media-grid,.analogy-grid,.analogy .pair,.tload-wrap,.rv-grid,.rv-cmp,.ex53f-wall,.gw-vs,.ex53-wrap,.ex51-wrap,.qz-wrap,.gw-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .case-split,.nz-grid,.src-row{grid-template-columns:minmax(0,1fr)!important}
+  .nzLane{flex-wrap:wrap}
+  .nzLane .nm{width:auto;flex:1 1 100%;text-align:left}
+  .nzTrack{flex:1 1 100%;min-width:0}
+  .ie-board .bits{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+</style>
 </head>
 <body>
-<p>正在打开第 2 次课（案例与练习，小节 ⑨–⑬，含例 5-3 整页）。<a href="u5-interrupt-classroom.html#lesson-b">点这里继续</a></p>
+<div class="wrap">
+<div class="top">
+  <div class="grow">
+    <div class="eyebrow">微控制器原理及应用技术 · <b id="lesson-kicker">第 2 次课 · 案例与练习</b> · 80C51</div>
+    <h1>第 2 次课：案例、互动和例 5-3</h1>
+  </div>
+  <div class="zoom">字号 <button class="btn sm" data-z="0" aria-pressed="true">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button>
+    <a class="btn sm amb" href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">开场硬测</a>
+    <a class="btn sm amb" href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">÷256 拆字节</a>
+    <a class="btn sm amb" href="u5-hex-split.html" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">投影单文件</a>
+    <a class="btn sm amb" href="#p17" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">课堂出题台 →</a>
+  </div>
+</div>
+
+<div class="navstack">
+<nav class="lessons" id="lessons" aria-label="第几次课">
+  <a class="lesson" href="u5-lesson-1.html" data-lesson="a" aria-pressed="false">第 1 次课<small>中断入门 · ①–⑧</small></a>
+  <a class="lesson on" href="u5-lesson-2.html" data-lesson="b" aria-pressed="true">第 2 次课<small>案例与练习 · ⑨–⑬</small></a>
+  <a class="lesson" href="u5-lesson-3.html" data-lesson="c" aria-pressed="false">第 3 次课<small>定时与收口 · ⑭起</small></a>
+</nav>
+<div class="tabs" role="tablist" id="tabs" aria-label="本次课小节">
+  <button class="tab" aria-selected="true" role="tab" data-p="9">⑨ 按键计数<small>贯穿案例</small></button>
+  <button class="tab" role="tab" data-p="10">练<small>学生互动 A–D</small></button>
+  <button class="tab" role="tab" data-p="11">⑪ 术语<small>中英拼写</small></button>
+  <button class="tab" role="tab" data-p="12">⑫ 例5-3<small>LED+INT0</small></button>
+  <button class="tab" role="tab" data-p="20">⑳ 例5-3整页<small>源码墙</small></button>
+  <button class="tab" role="tab" data-p="13">⑬ 例5-1<small>单外中断采数</small></button>
+</div>
+</div>
+<p class="note">这一页只有第 2 次课（⑨–⑬，含例 5-3 整页）。入门和收口在另外两次课。 <a href="u5-interrupt-classroom.html">回三次课目录</a> · 口径 80C51。</p>
+<section class="pane on" id="p9">
+  <div class="key">5 个源、5 个入口、4 个寄存器、3 个条件、1 条 RETI。</div>
+  <div class="case-split">
+    <div class="card" style="text-align:center">
+      <div class="seg7" id="seg"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="e"></i><i class="f"></i><i class="g"></i></div>
+      <div class="note">P0 = <b class="mono gold" id="p0v">C0H</b> &nbsp; R2 = <b class="mono" id="r2v">0</b> &nbsp; R1 = <b class="mono" id="r1v">10</b></div>
+      <button class="keybtn" id="k9" style="margin-top:10px">按键<br>P3.2</button>
+      <div class="row" style="justify-content:center"><button class="btn sm" id="sp9">动画：慢</button><button class="btn sm" id="rs9">⟲ 复位</button></div>
+      <div class="flow" id="flow9" style="justify-content:center;margin-top:8px"></div>
+    </div>
+    <div class="card"><div class="h2">S4/SHIYAN42.ASM（实验四，原样摘录）</div><div class="code" id="code9"></div>
+      <div class="note">注：数码管为共阳，P0 输出 0 的段点亮。程序用 R1 从 10 倒数，满 10 次把 R2 归零，所以数显 0～9 循环。服务程序开头 <b>LCALL DELAY</b> 后再判 P3.2，是按键消抖。</div></div>
+  </div>
+
+  <div class="media-local" id="lab4clips">
+    <div class="lbl">实验四讲解 · 0872</div>
+    <video controls playsinline preload="none" src="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4">
+      浏览器不支持 video：请用下方链接打开。
+    </video>
+    <div class="links">
+      <a href="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4" target="_blank" rel="noopener">新窗口打开 0872</a>
+    </div>
+    <div class="lbl">实验四讲解 · 3084 按键</div>
+    <video controls playsinline preload="none" src="https://videos.sunyancai.top/u5/u5-lab4-3084.mp4">
+      浏览器不支持 video：请用下方链接打开。
+    </video>
+    <div class="links">
+      <a href="https://videos.sunyancai.top/u5/u5-lab4-3084.mp4" target="_blank" rel="noopener">新窗口打开 3084 按键</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ⑩ 学生互动 A–D -->
+
+<section class="pane" id="p10">
+  <div class="key">练不是光答题：先动手看出/算出，再抽象一句，再关掉辅助口头复述。</div>
+  <div class="drill-flow">
+    <b>练法</b>：辅助 → 动手看现象 → 一句话 → 会记/会算。按住真按、对决高亮、通关星。
+    <div class="steps-inline"><span>1 辅助</span><span>2 动手</span><span>3 一句话</span><span>4 会记/会算</span></div>
+  </div>
+  <div class="drill-hud" id="drillHud">
+    <div class="prog" id="drillProg">通关 0/4</div>
+    <div class="slots">
+      <div class="slot-h" id="hudA" data-act="A"><span class="star">★</span> A</div>
+      <div class="slot-h" id="hudB" data-act="B"><span class="star">★</span> B</div>
+      <div class="slot-h" id="hudC" data-act="C"><span class="star">★</span> C</div>
+      <div class="slot-h" id="hudD" data-act="D"><span class="star">★</span> D</div>
+    </div>
+    <button class="btn sm snd" type="button" id="sndToggle" aria-pressed="false">音效 关</button>
+  </div>
+  <div class="drill-strip" id="drillNav">
+    <a href="#actA">A 门铃对决</a>
+    <a href="#actB">B 谁替你 LCALL</a>
+    <a href="#actC">C 开关拼字节</a>
+    <a href="#actD">D 选哪种</a>
+  </div>
+
+  <article class="act" id="actA">
+    <div class="act-tag">互动 A · 接课堂④ TCON</div>
+    <div class="act-q">门铃对决：点一下 vs 按住不放，服务几次？</div>
+    <div class="note">左右门铃真按住：按下不松，看次数怎么变。下降沿 vs 低电平——对决。</div>
+
+    <div class="assist" id="aAssist">
+      <div class="ph">对照台 · 真按住对决</div>
+      <div class="hint">按住门铃不松手；松开结束。<b>左栏按住只算 1</b>；<b>右栏按住次数往上爬</b>。</div>
+      <div class="dual">
+        <div class="col" id="aColEdge" data-mode="edge">
+          <h4><span class="mono">IT0=1</span> 下降沿</h4>
+          <button class="bell edge-mode" type="button" id="aBellEdge">门铃<br>按住</button>
+          <div class="wave" aria-hidden="true"><div class="bar" id="aWaveEdge"></div><span class="lab">P3.2</span></div>
+          <div>服务次数 <span class="cnt" id="aEdgeCnt">0</span>
+            <button class="btn sm" type="button" id="aEdgeRst">清零</button></div>
+          <div class="mech">锁存：<b>1→0</b> → IE0<br>清零：应答时 <b>硬件清 IE0</b><br>RETI 后再进？按住也不再进</div>
+        </div>
+        <div class="col" id="aColLvl" data-mode="level">
+          <h4><span class="mono">IT0=0</span> 低电平</h4>
+          <button class="bell lvl-mode" type="button" id="aBellLvl">门铃<br>按住</button>
+          <div class="wave" aria-hidden="true"><div class="bar" id="aWaveLvl"></div><span class="lab">P3.2</span></div>
+          <div>服务次数 <span class="cnt" id="aLvlCnt">0</span>
+            <button class="btn sm" type="button" id="aLvlRst">清零</button></div>
+          <div class="mech">请求：跟着引脚 <b>低</b><br>清零：<span class="bad">IE0 不自动清</span><br>RETI 后再进？仍低 → <span class="bad">再进</span></div>
+        </div>
+      </div>
+      <div class="vs-banner" id="aVs">VS · 下降沿停在 1　｜　低电平还在加 → 差别就在「谁清 IE0」</div>
+    </div>
+
+    <div class="phase gated" id="aPredPhase">
+      <div class="gate-hint" id="aGateHint">建议：左右门铃各真按住一次，再预测</div>
+      <div class="ph">预测</div>
+      <div class="row">针对：
+        <button class="btn sm" id="aIt1" aria-pressed="true" type="button">按住 + 下降沿</button>
+        <button class="btn sm" id="aIt0" aria-pressed="false" type="button">按住 + 低电平</button>
+      </div>
+      <div class="opts" id="aPred" style="margin-top:8px">
+        <button class="opt" data-v="1" type="button">按住不放 → 只服务 1 次</button>
+        <button class="opt" data-v="many" type="button">按住不放 → 服务次数一直加</button>
+        <button class="opt" data-v="0" type="button">按住不放 → 一次也不服务</button>
+      </div>
+      <div class="reveal" id="aReveal"></div>
+    </div>
+    <div class="abs" id="aAbs" hidden>一句话：边沿＝记下“来过一次”，硬件清 IE0；电平＝按住就一直有请求，不自动清。</div>
+    <div class="chk phase" id="aChk" hidden>
+      <div class="ph">会记：谁清 IE0？</div>
+      <div class="opts" id="aQuiz">
+        <button class="opt" data-ans="edge" type="button">下降沿：应答时硬件清 IE0</button>
+        <button class="opt" data-ans="level" type="button">低电平：IE0 也由硬件自动清</button>
+        <button class="opt" data-ans="sw" type="button">两种都要软件 CLR IE0</button>
+      </div>
+      <div class="fb" id="aFb"></div>
+    </div>
+    <div class="goto row">
+      <button class="btn pri" id="aGoto4" type="button">去④加深：机理时间线 + 真按键</button>
+    </div>
+  </article>
+
+  <article class="act" id="actB">
+    <div class="act-tag">互动 B · 接开场 LCALL / 页签⑧</div>
+    <div class="act-q">谁替你 LCALL？应答后 SP 与堆栈里是什么？</div>
+    <div class="note">入口 <b class="mono">0003H</b>。应答前 <b class="mono">SP=07H</b>。把芯片拖进槽（也可先点芯片再点槽）。</div>
+
+    <div class="assist" id="bAssist">
+      <div class="ph">堆栈草稿 · 拖放成长</div>
+      <div class="hint">堆栈向上长：先 SP+1 再写入。只该出现 <b>PC低、PC高</b>——A / PSW 是诱饵。</div>
+      <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <div class="chiprow" id="bChips">
+            <button class="chip" type="button" draggable="true" data-chip="PCL">PC低</button>
+            <button class="chip" type="button" draggable="true" data-chip="PCH">PC高</button>
+            <button class="chip" type="button" draggable="true" data-chip="A">A</button>
+            <button class="chip" type="button" draggable="true" data-chip="PSW">PSW</button>
+          </div>
+          <div class="stack-draft">
+            <div class="lab">SP 初值</div><div class="slot filled" id="bSp0">07H</div>
+            <div class="lab">(08H)</div><div class="slot" id="bSlot08" data-slot="08">拖到这里 / 点选放入</div>
+            <div class="lab">(09H)</div><div class="slot" id="bSlot09" data-slot="09">拖到这里 / 点选放入</div>
+            <div class="lab">应答后 SP</div>
+            <div class="slot" id="bSpAfter" data-slot="sp">
+              <button class="btn sm" type="button" data-sp="07">07H</button>
+              <button class="btn sm" type="button" data-sp="08">08H</button>
+              <button class="btn sm" type="button" data-sp="09">09H</button>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn pri" id="bCheck" type="button">核对草稿</button>
+            <button class="btn" id="bClear" type="button">清空重摆</button>
+            <span class="sub" id="bDraftFb"></span>
+          </div>
+        </div>
+        <div style="width:140px;text-align:center">
+          <div class="sub">堆栈塔</div>
+          <div class="tower" id="bTower">
+            <div class="t" id="t07">07</div>
+            <div class="t" id="t08">08</div>
+            <div class="t" id="t09">09</div>
+          </div>
+          <div>SP <span class="sp-live" id="bSpLive">07H</span></div>
+        </div>
+      </div>
+      <div class="compare-mini">
+        <div class="box"><strong>子程序 LCALL</strong>压 PC → 你写的地址 → <b>RET</b></div>
+        <div class="box"><strong>中断应答</strong>硬件压 PC → <b class="mono">0003H</b> → <b>RETI</b></div>
+      </div>
+    </div>
+
+    <div class="phase gated" id="bPredPhase">
+      <div class="gate-hint">建议：先核对草稿（堆栈塔亮起来），再预测</div>
+      <div class="ph">预测</div>
+      <div class="opts" id="bPred">
+        <button class="opt" data-v="09" type="button">应答后 SP=09H；(08H)=PC低；(09H)=PC高</button>
+        <button class="opt" data-v="08" type="button">应答后 SP=08H；只压了一个字节</button>
+        <button class="opt" data-v="07" type="button">SP 仍是 07H；硬件不碰堆栈</button>
+        <button class="opt" data-v="a" type="button">应答后堆栈里还有 A 和 PSW</button>
+      </div>
+      <div class="reveal" id="bReveal"></div>
+    </div>
+    <div class="abs" id="bAbs" hidden>一句话：中断应答＝硬件替你做 LCALL；堆栈里只有断点 PC，A/PSW 要自己 PUSH。</div>
+    <div class="chk phase" id="bChk" hidden>
+      <div class="ph">会记：硬件自动保护谁？</div>
+      <div class="opts" id="bQuiz">
+        <button class="opt" data-ans="pc" type="button">只保 PC（断点）</button>
+        <button class="opt" data-ans="all" type="button">PC + A + PSW 全保</button>
+        <button class="opt" data-ans="none" type="button">什么都不保</button>
+      </div>
+      <div class="fb" id="bFb"></div>
+    </div>
+    <div class="goto row">
+      <button class="btn pri" id="bGoto8" type="button">去⑧单步看 SP=07H 压栈</button>
+      <button class="btn" id="bGoto1" type="button">回①对比 LCALL 动画</button>
+    </div>
+  </article>
+
+  <article class="act" id="actC">
+    <div class="act-tag">互动 C · 接页签⑤ IE · 会算主场</div>
+    <div class="act-q">开关拼字节：拨开关，自己拼出 IE</div>
+    <div class="note">位序高→低：EA — — ES ET1 EX1 ET0 EX0。未定义位锁死 0。</div>
+
+    <div class="assist" id="cAssist">
+      <div class="ph">IE 位板 · 拨动开关</div>
+      <div class="target-banner" id="cTarget">目标 ①：只要 INT0 + T0 → EA、ET0、EX0 → 83H</div>
+      <div class="ie-board" id="cBoard">
+        <div class="bits" id="cBits"></div>
+        <div class="readout" id="cReadout">IE = <span id="cHex">00H</span><span class="bin" id="cBin">0000 0000B</span></div>
+      </div>
+      <div class="timer-bar" id="cTimer"><i id="cTimerFill"></i></div>
+      <div class="row">
+        <button class="btn pri" id="cCheck83" type="button">核对 83H</button>
+        <button class="btn amb" id="cTarget8A" type="button">换目标 8AH</button>
+        <button class="btn" id="cCheck8A" type="button">核对 8AH</button>
+        <button class="btn sm" id="cRace" type="button">限时 30″ 拼 83H</button>
+        <button class="btn sm" id="cClr" type="button">全关</button>
+      </div>
+      <div class="note" id="cBoardFb" style="min-height:24px"></div>
+    </div>
+
+    <div class="phase gated" id="cQuizPhase">
+      <div class="gate-hint">建议：位板先拼出 83H（开关会自己庆祝），再会算</div>
+      <div class="ph">会算确认</div>
+      <div class="opts" id="cQuiz">
+        <button class="opt" data-ans="83" type="button">只要 INT0+T0 → 83H</button>
+        <button class="opt" data-ans="8A" type="button">例5-1 只要 T0、T1 → 8AH</button>
+        <button class="opt" data-ans="03" type="button">只要 INT0+T0 → 03H（忘总闸）</button>
+        <button class="opt" data-ans="0A" type="button">例5-1 → 0AH（忘 EA）</button>
+      </div>
+      <div class="fb" id="cFb"></div>
+      <div class="reveal" id="cReveal"></div>
+    </div>
+    <div class="abs" id="cAbs" hidden>一句话：总闸 EA 和要用的分闸都得是 1；考的是按需求合闸，不是背一个数。</div>
+    <div class="goto row">
+      <button class="btn pri" id="cGoto5" type="button">去⑤点亮开关核对</button>
+      <button class="btn amb" id="cFill83" type="button">⑤代入 83H</button>
+      <button class="btn amb" id="cFill8A" type="button">⑤代入例5-1 8AH</button>
+    </div>
+  </article>
+
+  <article class="act" id="actD">
+    <div class="act-tag">互动 D · 选型判断 · 可砍</div>
+    <div class="act-q">选哪种？清单亮路，再挑 IT</div>
+
+    <div class="assist" id="dAssist">
+      <div class="ph">选型清单 · 勾选亮提示</div>
+      <div class="check-list" id="dList">
+        <label>
+          <div class="rowc"><input type="checkbox" data-q="once"> 要「来一次办一次」（点一下只加 1）吗？</div>
+          <div class="tip">→ 倾向 <b>下降沿 SETB IT0</b></div>
+        </label>
+        <label>
+          <div class="rowc"><input type="checkbox" data-q="hold"> 故障/请求电平会一直拉低吗？</div>
+          <div class="tip">→ 若要一直伺候，倾向 <b>低电平</b></div>
+        </label>
+        <label>
+          <div class="rowc"><input type="checkbox" data-q="clear"> 服务结束前，低电平能不能撤掉？</div>
+          <div class="tip">→ 低电平才安全；否则 RETI 会连进</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="phase gated" id="dScenePhase">
+      <div class="gate-hint">建议：先勾至少一问，场景卡会更好选</div>
+      <div class="ph">场景卡 1 · 按键计数：点一下加 1，按住也不要连加</div>
+      <div class="opts" id="d1">
+        <button class="opt" data-v="edge" type="button">选下降沿 · SETB IT0</button>
+        <button class="opt" data-v="level" type="button">选低电平 · CLR IT0</button>
+      </div>
+      <div class="scene-path" id="d1path">清单「来一次」→ 下降沿</div>
+      <div class="reveal" id="d1r"></div>
+      <div class="ph" style="margin-top:12px">场景卡 2 · 持续故障：电平一直在，要一直伺候到撤掉</div>
+      <div class="opts" id="d2">
+        <button class="opt" data-v="edge" type="button">选下降沿</button>
+        <button class="opt" data-v="level" type="button">选低电平</button>
+      </div>
+      <div class="scene-path" id="d2path">清单「一直低 + 能撤」→ 低电平</div>
+      <div class="reveal" id="d2r"></div>
+    </div>
+    <div class="abs" id="dAbs" hidden>一句话：要“来一次办一次”用边沿；要“低着就一直办”用电平，且结束前必须撤低。</div>
+    <div class="chk phase" id="dChk" hidden>
+      <div class="ph">会记：低电平方式下，IE0 会不会自动清？</div>
+      <div class="opts" id="dQuiz">
+        <button class="opt" data-ans="no" type="button">不会自动清 ×</button>
+        <button class="opt" data-ans="yes" type="button">会，和下降沿一样</button>
+      </div>
+      <div class="fb" id="dFb"></div>
+    </div>
+    <div class="goto row">
+      <button class="btn pri" id="dGoto4" type="button">回④看选型框与机理时间线</button>
+    </div>
+  </article>
+
+  <div class="note">依据：课件 10–12、14–15、23–24；教材表 5-1、表 5-3；SP=07H、0003H、IE 8AH/83H。体验增强不改变芯片事实。</div>
+</section>
+
+<!-- ⑪ -->
+
+<section class="pane" id="p11">
+  <div class="key">⑪ 术语对照 · 每个缩写拆开英文 + 中文意思（80C51 课堂口径）</div>
+  <div class="note" style="margin-bottom:10px">记法：先看<strong>缩写</strong> → 用<strong>英文拆开</strong>联想 → 落成<strong>中文</strong>。本课返回指令写 <b>RETI</b>（不是 x86 的 IRET）。有的书把总允许叫 EI，本芯片对应位是 <b>EA</b>。</div>
+  <div class="card">
+    <div class="h2">缩写 · 英文拆开（好记）· 中文 · 常在哪</div>
+    <div class="gloss-wrap">
+      <table class="gloss">
+        <thead>
+          <tr><th>缩写</th><th>英文拆开（怎么记）</th><th>中文</th><th>常在哪</th></tr>
+        </thead>
+        <tbody>
+          <tr class="sec"><td colspan="4">一、总概念与指令</td></tr>
+          <tr><td class="abbr">INT</td><td class="how">Interrupt</td><td class="cn">中断</td><td class="where">通称</td></tr>
+          <tr><td class="abbr">INT0</td><td class="how">Interrupt 0</td><td class="cn">外部中断 0</td><td class="where">引脚 P3.2 · 向量 0003H</td></tr>
+          <tr><td class="abbr">INT1</td><td class="how">Interrupt 1</td><td class="cn">外部中断 1</td><td class="where">引脚 P3.3 · 向量 0013H</td></tr>
+          <tr><td class="abbr">IRQ</td><td class="how">Interrupt ReQuest</td><td class="cn">中断请求</td><td class="where">通称</td></tr>
+          <tr><td class="abbr">ISR</td><td class="how">Interrupt Service Routine（R＝Routine 例程，不是 Program）</td><td class="cn">中断服务程序 / 服务例程</td><td class="where">服务入口起</td></tr>
+          <tr><td class="abbr">RETI</td><td class="how">RETurn from Interrupt</td><td class="cn">中断返回</td><td class="where">服务末尾（清优先级锁）</td></tr>
+          <tr><td class="abbr">IRET</td><td class="how">Interrupt RETurn（x86 写法）</td><td class="cn">中断返回（他机用语）</td><td class="where">本课统一写 RETI</td></tr>
+          <tr><td class="abbr">RET</td><td class="how">RETurn</td><td class="cn">子程序返回</td><td class="where">普通 LCALL/ACALL 配对</td></tr>
+          <tr><td class="abbr">LCALL</td><td class="how">Long CALL</td><td class="cn">长调用</td><td class="where">硬件响应≈做一次 LCALL</td></tr>
+          <tr><td class="abbr">ACALL</td><td class="how">Absolute CALL</td><td class="cn">绝对调用（短）</td><td class="where">同 2KB 页内</td></tr>
+          <tr><td class="abbr">AJMP</td><td class="how">Absolute JuMP</td><td class="cn">绝对跳转</td><td class="where">向量区常写 AJMP ISR</td></tr>
+          <tr><td class="abbr">LJMP</td><td class="how">Long JuMP</td><td class="cn">长跳转</td><td class="where">入口只有 8 字节时常 LJMP</td></tr>
+
+          <tr class="sec"><td colspan="4">二、IE —— Interrupt Enable（中断允许寄存器，A8H）</td></tr>
+          <tr><td class="abbr">IE</td><td class="how">Interrupt Enable</td><td class="cn">中断允许寄存器</td><td class="where">位寻址 A8H</td></tr>
+          <tr><td class="abbr">EA</td><td class="how">Enable All</td><td class="cn">总中断允许（总闸）</td><td class="where">IE.7</td></tr>
+          <tr><td class="abbr">EI</td><td class="how">Enable Interrupt（他机/口语）</td><td class="cn">开中断</td><td class="where">本课对应写 EA＝1</td></tr>
+          <tr><td class="abbr">EX0</td><td class="how">Enable eXternal interrupt 0</td><td class="cn">允许外部中断 0</td><td class="where">IE.0</td></tr>
+          <tr><td class="abbr">ET0</td><td class="how">Enable Timer 0</td><td class="cn">允许定时器 0 中断</td><td class="where">IE.1</td></tr>
+          <tr><td class="abbr">EX1</td><td class="how">Enable eXternal interrupt 1</td><td class="cn">允许外部中断 1</td><td class="where">IE.2</td></tr>
+          <tr><td class="abbr">ET1</td><td class="how">Enable Timer 1</td><td class="cn">允许定时器 1 中断</td><td class="where">IE.3</td></tr>
+          <tr><td class="abbr">ES</td><td class="how">Enable Serial</td><td class="cn">允许串口中断</td><td class="where">IE.4</td></tr>
+
+          <tr class="sec"><td colspan="4">三、IP —— Interrupt Priority（中断优先级寄存器，B8H）</td></tr>
+          <tr><td class="abbr">IP</td><td class="how">Interrupt Priority</td><td class="cn">中断优先级寄存器</td><td class="where">位寻址 B8H</td></tr>
+          <tr><td class="abbr">PX0</td><td class="how">Priority of eXternal 0</td><td class="cn">INT0 优先级</td><td class="where">IP.0 · 1＝高</td></tr>
+          <tr><td class="abbr">PT0</td><td class="how">Priority of Timer 0</td><td class="cn">T0 优先级</td><td class="where">IP.1</td></tr>
+          <tr><td class="abbr">PX1</td><td class="how">Priority of eXternal 1</td><td class="cn">INT1 优先级</td><td class="where">IP.2</td></tr>
+          <tr><td class="abbr">PT1</td><td class="how">Priority of Timer 1</td><td class="cn">T1 优先级</td><td class="where">IP.3</td></tr>
+          <tr><td class="abbr">PS</td><td class="how">Priority of Serial</td><td class="cn">串口优先级</td><td class="where">IP.4</td></tr>
+
+          <tr class="sec"><td colspan="4">四、TCON —— Timer CONtrol（定时器控制，88H）</td></tr>
+          <tr><td class="abbr">TCON</td><td class="how">Timer CONtrol</td><td class="cn">定时器控制寄存器</td><td class="where">也管外中断触发/标志</td></tr>
+          <tr><td class="abbr">TF0</td><td class="how">Timer Flag 0</td><td class="cn">T0 溢出标志（满了）</td><td class="where">TCON.5 · 响应可硬件清</td></tr>
+          <tr><td class="abbr">TF1</td><td class="how">Timer Flag 1</td><td class="cn">T1 溢出标志</td><td class="where">TCON.7</td></tr>
+          <tr><td class="abbr">TR0</td><td class="how">Timer Run 0</td><td class="cn">T0 运行控制（开数/停数）</td><td class="where">TCON.4 · SETB TR0 开跑</td></tr>
+          <tr><td class="abbr">TR1</td><td class="how">Timer Run 1</td><td class="cn">T1 运行控制</td><td class="where">TCON.6</td></tr>
+          <tr><td class="abbr">IE0</td><td class="how">Interrupt flag External 0</td><td class="cn">INT0 请求标志</td><td class="where">TCON.1 · 易与寄存器 IE 混</td></tr>
+          <tr><td class="abbr">IE1</td><td class="how">Interrupt flag External 1</td><td class="cn">INT1 请求标志</td><td class="where">TCON.3</td></tr>
+          <tr><td class="abbr">IT0</td><td class="how">Interrupt Type 0</td><td class="cn">INT0 触发方式</td><td class="where">TCON.0 · 0电平 / 1下降沿</td></tr>
+          <tr><td class="abbr">IT1</td><td class="how">Interrupt Type 1</td><td class="cn">INT1 触发方式</td><td class="where">TCON.2</td></tr>
+
+          <tr class="sec"><td colspan="4">五、SCON —— Serial CONtrol（串行口控制，98H）</td></tr>
+          <tr><td class="abbr">SCON</td><td class="how">Serial CONtrol</td><td class="cn">串行口控制寄存器</td><td class="where">串口标志在这里</td></tr>
+          <tr><td class="abbr">RI</td><td class="how">Receive Interrupt</td><td class="cn">接收中断标志</td><td class="where">SCON.0 · 要软件 CLR</td></tr>
+          <tr><td class="abbr">TI</td><td class="how">Transmit Interrupt</td><td class="cn">发送中断标志</td><td class="where">SCON.1 · 要软件 CLR</td></tr>
+          <tr><td class="abbr">RB8</td><td class="how">Receive Bit 8</td><td class="cn">接收到的第 9 位</td><td class="where">SCON.2 · 方式2/3</td></tr>
+          <tr><td class="abbr">TB8</td><td class="how">Transmit Bit 8</td><td class="cn">发送的第 9 位</td><td class="where">SCON.3</td></tr>
+          <tr><td class="abbr">REN</td><td class="how">Receive ENable</td><td class="cn">允许接收</td><td class="where">SCON.4</td></tr>
+          <tr><td class="abbr">SM0/SM1</td><td class="how">Serial Mode bits</td><td class="cn">串口工作方式</td><td class="where">SCON.7 / SCON.6</td></tr>
+
+          <tr class="sec"><td colspan="4">六、定时 / 装值相关</td></tr>
+          <tr><td class="abbr">TMOD</td><td class="how">Timer MODe</td><td class="cn">定时器方式寄存器</td><td class="where">整字节写，别位操作</td></tr>
+          <tr><td class="abbr">C/T</td><td class="how">Counter / Timer</td><td class="cn">计数 / 定时选择</td><td class="where">TMOD · 1＝计数外脉冲</td></tr>
+          <tr><td class="abbr">GATE</td><td class="how">GATE</td><td class="cn">门控</td><td class="where">TMOD · 1＝还要看 INTx</td></tr>
+          <tr><td class="abbr">M1 M0</td><td class="how">Mode bits</td><td class="cn">方式选择</td><td class="where">00/01/10/11→方式0–3</td></tr>
+          <tr><td class="abbr">TH0</td><td class="how">Timer High byte 0</td><td class="cn">T0 高 8 位</td><td class="where">装初值</td></tr>
+          <tr><td class="abbr">TL0</td><td class="how">Timer Low byte 0</td><td class="cn">T0 低 8 位</td><td class="where">装初值</td></tr>
+          <tr><td class="abbr">TH1 / TL1</td><td class="how">Timer High/Low 1</td><td class="cn">T1 高/低字节</td><td class="where">同上</td></tr>
+
+          <tr class="sec"><td colspan="4">七、现场保护常见名</td></tr>
+          <tr><td class="abbr">ACC</td><td class="how">ACCumulator</td><td class="cn">累加器 A</td><td class="where">服务常 PUSH ACC</td></tr>
+          <tr><td class="abbr">PSW</td><td class="how">Program Status Word</td><td class="cn">程序状态字</td><td class="where">含 RS1/RS0、进位等</td></tr>
+          <tr><td class="abbr">RS1 / RS0</td><td class="how">Register bank Select</td><td class="cn">寄存器组选择</td><td class="where">PSW · SETB RS1 换组</td></tr>
+          <tr><td class="abbr">SP</td><td class="how">Stack Pointer</td><td class="cn">堆栈指针</td><td class="where">例里常 MOV SP,#70H</td></tr>
+          <tr><td class="abbr">PC</td><td class="how">Program Counter</td><td class="cn">程序计数器</td><td class="where">断点压栈的就是它</td></tr>
+          <tr><td class="abbr">DPTR</td><td class="how">Data PoinTeR</td><td class="cn">数据指针</td><td class="where">MOVX @DPTR 采数</td></tr>
+          <tr><td class="abbr">PCON</td><td class="how">Power CONtrol</td><td class="cn">电源控制</td><td class="where">含 SMOD 等；本章少考</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px">三条防混：① <b>IE</b>＝允许寄存器，<b>IE0/IE1</b>＝TCON 里的请求标志；② <b>TF</b>（满了）≠ <b>TR</b>（开跑）；③ 服务末尾必须 <b>RETI</b>，不能写成 RET；口语「EI」在本课落到 <b>EA</b>。</div>
+  </div>
+</section>
+
+
+
+<!-- ⑫ 例5-3 -->
+
+<section class="pane" id="p12">
+  <div class="key">例5-3 · P1 八灯循环移位 + INT0 低电平中断服务（共阳：引脚=0 灯亮）</div>
+  <div class="note" style="margin-bottom:8px">更多例题见 <a href="#p15" onclick="show(15);return false">⑮ 例题全览</a> · <a href="#ex53-full" onclick="show(20);try{location.hash='#ex53-full'}catch(e){}return false" style="color:#fbbf24;font-weight:700">⑳ 整页源码（PPT展不开时）</a> · <a href="u5-524-例53整页_单文件.html" style="color:#fbbf24">单文件全屏 →</a>。</div>
+  <div class="ex53-wrap">
+    <div class="ex53-card">
+      <h3>现场演示 · 主循环移位 / 模拟 INT0</h3>
+      <div class="ex53-leds" id="ex53Leds" aria-label="P1.0～P1.7 共阳 LED">
+        <!-- filled by JS -->
+      </div>
+      <div class="ex53-hud">
+        <div class="cell"><div class="k">P1 口</div><div class="v mono" id="ex53P1">#0FFH</div></div>
+        <div class="cell"><div class="k">PC 示意</div><div class="v mono" id="ex53PC">0030H</div></div>
+        <div class="cell"><div class="k">SP 示意</div><div class="v mono" id="ex53SP">70H</div></div>
+        <div class="cell"><div class="k">状态</div><div class="v stat-main" id="ex53Stat">就绪</div></div>
+      </div>
+      <div class="ex53-btns">
+        <button class="btn pri" id="ex53Start" type="button">▶ 开始移位</button>
+        <button class="btn" id="ex53Pause" type="button" disabled>⏸ 暂停</button>
+        <button class="btn" id="ex53Reset" type="button">⟲ 重来</button>
+        <button class="btn amb" id="ex53Int0" type="button">⚠ 模拟 INT0 低电平</button>
+      </div>
+      <div class="note" style="margin-top:8px">依据课件第 27–29 页例5-3；共阳教学板 <b>0=亮 / 1=灭</b>；ISR 顺序按题干 <b>全灭（P1=#FF）→ 全亮（P1=#00）</b>。演示延时已加速，不必等软件 Delay 满。</div>
+      <div class="ex53-init"><b>初始化口径（课件第28页）</b>
+ORG 00H    AJMP ST
+ORG 0003H  AJMP EXT0
+ORG 0030H
+ST:  MOV SP,#70H
+     MOV TCON,#00H   ; 电平触发
+     MOV IP,#01H     ; PX0=1
+     MOV IE,#81H     ; EA+EX0
+RES: MOV A,#0FFH
+     MOV R1,#08H
+Loop:DEC A / MOV P1,A / ACALL Delay / DJNZ R1,Loop → AJMP RES
+EXT0:PUSH ACC / PUSH PSW / SETB RS1 / 全灭→全亮 / POP PSW / POP ACC / RETI</div>
+    </div>
+    <div class="ex53-card">
+      <h3>中断服务步骤 · 高亮时间轴</h3>
+      <ol class="ex53-steps" id="ex53Steps">
+        <li data-s="0"><span class="n">0</span><span>主程序：移位循环（DEC A → MOV P1,A）</span></li>
+        <li data-s="1"><span class="n">1</span><span>响应：PC 压栈（硬件 LCALL 断点）</span></li>
+        <li data-s="2"><span class="n">2</span><span>跳转到向量 0003H</span></li>
+        <li data-s="3"><span class="n">3</span><span>AJMP / LJMP EXT0</span></li>
+        <li data-s="4"><span class="n">4</span><span>PUSH ACC</span></li>
+        <li data-s="5"><span class="n">5</span><span>PUSH PSW</span></li>
+        <li data-s="6"><span class="n">6</span><span>SETB RS1（切寄存器组）</span></li>
+        <li data-s="7"><span class="n">7</span><span>改 P1：全灭 #FF</span></li>
+        <li data-s="8"><span class="n">8</span><span>改 P1：全亮 #00</span></li>
+        <li data-s="9"><span class="n">9</span><span>POP PSW</span></li>
+        <li data-s="10"><span class="n">10</span><span>POP ACC</span></li>
+        <li data-s="11"><span class="n">11</span><span>RETI：弹回 PC，恢复主循环</span></li>
+      </ol>
+      <div class="ex53-aside">短 note：向量口 <code>0003H</code> → 服务入口 EXT0；主循环 A 从 <code>#0FFH</code> 起每次 DEC 写 P1，R1 计 8 次后重装。服务中「模拟 INT0」按钮禁用；若主循环运行中点击则立即切入 ISR。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑬ 例5-1 单外部中断源采数（课件第30–31页 / 教材 P99；非页签⑤ IE「例5-1」） -->
+
+<section class="pane" id="p20">
+  <div class="key" id="ex53-full">⑳ 5.2.4 例5-3 · 整页源码墙</div>
+  <span class="sub" id="p-524">PPT 展不开时的同一屏投影 · 芯片 80C51 · 共阳 0=亮 · 源码按课件 28–29 原文</span>
+  <div class="note" style="margin:8px 0 10px">交互演示仍用 <a href="#ex53" onclick="show(12);try{location.hash='#ex53'}catch(e){}return false" style="color:#fbbf24">⑫</a> ·
+  亦可打开 <a href="u5-524-例53整页_单文件.html" style="color:#fbbf24">单文件全屏</a> ·
+  例题卡片见 <a href="#ex-led" onclick="show(15);try{location.hash='#ex-led'}catch(e){}return false" style="color:#fbbf24">⑮ 例5-3</a>。</div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">中断系统编程 · 5 步（课件第25页）</div>
+    <div class="ex53f-steps">
+      <div class="s"><div class="n">STEP 1</div><div class="t">开中断源</div><div class="d">写 IE（本例 EA+EX0 → #81H）</div></div>
+      <div class="s"><div class="n">STEP 2</div><div class="t">设优先级</div><div class="d">写 IP（本例 PX0=1 → #01H）</div></div>
+      <div class="s"><div class="n">STEP 3</div><div class="t">外中断触发</div><div class="d">写 TCON（本例 IT0=0 电平 → #00H）</div></div>
+      <div class="s"><div class="n">STEP 4</div><div class="t">入口写程序</div><div class="d">向量区 ORG 0003H → AJMP EXT0</div></div>
+      <div class="s"><div class="n">STEP 5</div><div class="t">末条 RETI</div><div class="d">中断子程序最后必须 RETI</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">【例5-3】题干（课件第27页）</div>
+    <div class="ex53f-stem"><span class="tag">例5-3</span>外部中断的应用：8051 单片机的 P1 口控制 8 个 LED 灯，要求 8 个灯加 1 移位点亮，当中断来时，灯<strong>全灭后全亮</strong>，中断返回后灯继续加 1 移位点亮。</div>
+    <div class="ex53f-tags">
+      <div class="ex53f-pill"><span class="k">TCON</span><span class="v">#00H</span><span class="x">IT0=0 · 电平触发</span></div>
+      <div class="ex53f-pill"><span class="k">IP</span><span class="v">#01H</span><span class="x">PX0=1 · 外0 高优先级</span></div>
+      <div class="ex53f-pill"><span class="k">IE</span><span class="v">#81H</span><span class="x">EA+EX0 · 总开 + 外0</span></div>
+    </div>
+    <div class="ex53f-callout"><b>口径旁注（证据）：</b>题干写「全灭→全亮」；本课件第29页源码为先 <span class="mono">MOV A,#00</span>（注释「全亮」）再 <span class="mono">CPL A</span>（注释「全灭」）。讲时可对照，勿擅自改指令。</div>
+  </div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">完整源码 · 课件第28–29页</div>
+    <div class="sub" style="margin-bottom:8px">向量 / 初始化 / 主循环 / 延时 / ISR · 同一屏可滚 · 标点保留课件原文</div>
+    <div class="ex53f-wall">
+      <div>
+        <div class="ex53f-blk vec">
+          <div class="hd"><span class="nm">① 向量区</span><span class="chip">ORG 00H / 0003H</span></div>
+          <pre class="src"><span class="dir">ORG</span> 00H
+<span class="op">AJMP</span> <span class="lbl">ST</span>
+<span class="dir">ORG</span> 0003H
+<span class="op">AJMP</span> <span class="lbl">EXT0</span>
+<span class="dir">ORG</span> 0030H</pre>
+        </div>
+        <div class="ex53f-blk init">
+          <div class="hd"><span class="nm">② 初始化 ST</span><span class="chip">SP / TCON / IP / IE</span></div>
+          <pre class="src"><span class="lbl">ST：</span><span class="op">MOV</span> SP，#70H
+<span class="op">MOV</span> TCON，#00H<span class="cmt">；</span>
+<span class="op">MOV</span> IP，#01H
+<span class="op">MOV</span> IE，#81H</pre>
+        </div>
+        <div class="ex53f-blk main">
+          <div class="hd"><span class="nm">③ 主循环</span><span class="chip">RES / Loop</span></div>
+          <pre class="src"><span class="lbl">RES：</span><span class="op">MOV</span> R1，#0FFH
+<span class="op">MOV</span> A，#0FFH
+<span class="lbl">Loop：</span><span class="op">MOV</span> P1，A
+<span class="op">DEC</span> A
+<span class="op">LCALL</span> <span class="lbl">Delay</span>
+<span class="op">LCALL</span> <span class="lbl">Delay</span>
+<span class="op">DJNZ</span> R1, <span class="lbl">Loop</span>
+<span class="op">SJMP</span> <span class="lbl">RES</span></pre>
+        </div>
+        <div class="ex53f-blk delay">
+          <div class="hd"><span class="nm">④ 延时 Delay</span><span class="chip">双重 DJNZ</span></div>
+          <pre class="src"><span class="lbl">Delay:</span><span class="op">mov</span> r6,#0ffh
+<span class="op">mov</span> r7,#0ffh
+<span class="lbl">Delay1:</span><span class="op">Djnz</span> r6,<span class="lbl">Delay1</span>
+<span class="op">Djnz</span> r7,<span class="lbl">Delay1</span>
+<span class="op">RET</span></pre>
+        </div>
+      </div>
+      <div>
+        <div class="ex53f-blk isr">
+          <div class="hd"><span class="nm">⑤ EXT0 服务程序</span><span class="chip">课件第29页原文</span></div>
+          <pre class="src"><span class="lbl">EXT0：</span><span class="op">PUSH</span> ACC<span class="cmt">；现场保护</span>
+<span class="op">PUSH</span> PSW
+<span class="op">setb</span> rs1<span class="cmt">；切换寄存器</span>
+<span class="op">MOV</span> A，#00<span class="cmt">；全亮</span>
+<span class="op">MOV</span> P1，A
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">CPL</span> A<span class="cmt">；全灭</span>
+<span class="op">MOV</span> P1，A
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">POP</span> PSW
+<span class="op">POP</span> ACC
+<span class="op">RETI</span></pre>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="key" style="font-size:16px">讲台口播要点</div>
+          <div class="note">
+            <b>1.</b> 复位 → 00H 跳 ST；INT0 来 → 0003H 跳 EXT0。<br>
+            <b>2.</b> 主循环 A 从 #0FFH 递减写 P1，R1=#0FFH 轮次后 SJMP RES。<br>
+            <b>3.</b> ISR 先保护 ACC/PSW，SETB RS1 切组，避免踩主程序 R6/R7。<br>
+            <b>4.</b> 末条必须 <span class="mono gold">RETI</span>（不是 RET）。<br>
+            <b>5.</b> 看灯动 → <a href="#ex53" onclick="show(12);try{location.hash='#ex53'}catch(e){}return false" style="color:#fbbf24">⑫ 交互演示</a>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pane" id="p13">
+  <div class="key" id="ex51">例5-1 · 单外部中断源采数（课件第 30–31 页 / 教材 P99）</div>
+  <div class="note" style="margin-bottom:10px">题目：P1 口接外部数据；INT0 低电平来一次，采一个数存入外部 RAM。本页是<strong>课件采数例</strong>；页签⑤ IE 里那道「例5-1→8AH」是另一题，勿混。更多例题见 <a href="#p15" onclick="show(15);return false">⑮ 例题全览</a>。</div>
+  <div class="ex51-wrap">
+    <div class="ex51-card">
+      <h3>采数演示 · 点按 INT0 / 分步高亮</h3>
+      <div class="ex51-hud">
+        <div class="cell"><div class="k">P1 读到</div><div class="v mono" id="ex51P1">—</div></div>
+        <div class="cell"><div class="k">DPTR</div><div class="v mono" id="ex51Dptr">1000H</div></div>
+        <div class="cell"><div class="k">P3.0 选通</div><div class="v mono" id="ex51P30">1</div></div>
+        <div class="cell"><div class="k">状态</div><div class="v stat-main" id="ex51Stat">主循环空转</div></div>
+      </div>
+      <div class="ex51-wave" aria-label="P3.0 选通波形示意">
+        <div class="lab">P3.0 选通波形（CLR → NOP×2 → SETB）</div>
+        <svg viewBox="0 0 360 48" preserveAspectRatio="none" id="ex51WaveSvg">
+          <path class="idle" d="M8 14 H352"/>
+          <path class="pulse" id="ex51Pulse" d="M8 14 H120 V34 H200 V14 H352"/>
+        </svg>
+      </div>
+      <div class="lab" style="font-size:12px;color:var(--muted-fg);margin:4px 0 2px">外部 RAM（从 1000H 起，每次写入一格）</div>
+      <div class="ex51-ram" id="ex51Ram" aria-label="外部 RAM 1000H 起"></div>
+      <div class="ex51-btns">
+        <button class="btn amb" id="ex51Int0" type="button">⚠ 模拟 INT0 低电平（采数一次）</button>
+        <button class="btn pri" id="ex51Next" type="button" disabled>下一步</button>
+        <button class="btn" id="ex51Auto" type="button" disabled>自动</button>
+        <button class="btn" id="ex51Reset" type="button">⟲ 重来</button>
+      </div>
+      <div class="ex51-init"><b>主程序 / 向量（课件第30–31页）</b>
+ORG 0000H  LJMP MAIN
+ORG 0003H  LJMP INT0_ISR
+ORG 0200H  ; 服务体
+MAIN: CLR IT0      ; 电平触发
+      SETB EA
+      SETB EX0
+      MOV DPTR,#1000H
+WAIT: AJMP WAIT   ; 空转等中断
+INT0_ISR:
+  PUSH PSW / PUSH ACC
+  CLR P3.0 / NOP / NOP / SETB P3.0   ; 选通
+  MOV P1,#0FFH / MOV A,P1
+  MOVX @DPTR,A / INC DPTR
+  POP ACC / POP PSW / RETI</div>
+    </div>
+    <div class="ex51-card">
+      <h3>INT0_ISR 步骤 · 琥珀高亮</h3>
+      <ol class="ex51-steps" id="ex51Steps">
+        <li data-s="0"><span class="n">0</span><span>主循环空转（等 INT0）</span></li>
+        <li data-s="1"><span class="n">1</span><span>响应：向量 0003H → LJMP INT0_ISR</span></li>
+        <li data-s="2"><span class="n">2</span><span>PUSH PSW</span></li>
+        <li data-s="3"><span class="n">3</span><span>PUSH ACC</span></li>
+        <li data-s="4"><span class="n">4</span><span>CLR P3.0（选通拉低）</span></li>
+        <li data-s="5"><span class="n">5</span><span>NOP × 2（保持选通）</span></li>
+        <li data-s="6"><span class="n">6</span><span>SETB P3.0（选通恢复）</span></li>
+        <li data-s="7"><span class="n">7</span><span>MOV P1,#0FFH（准输入）</span></li>
+        <li data-s="8"><span class="n">8</span><span>MOV A,P1（读外部数据）</span></li>
+        <li data-s="9"><span class="n">9</span><span>MOVX @DPTR,A（写入外部 RAM）</span></li>
+        <li data-s="10"><span class="n">10</span><span>INC DPTR</span></li>
+        <li data-s="11"><span class="n">11</span><span>POP ACC</span></li>
+        <li data-s="12"><span class="n">12</span><span>POP PSW</span></li>
+        <li data-s="13"><span class="n">13</span><span>RETI → 回主循环空转</span></li>
+      </ol>
+      <div class="ex51-aside">短 note：电平触发 <code>CLR IT0</code>；服务入口在 <code>ORG 0200H</code>。选通低电平期间外部设备把数据放到 P1；<code>MOVX</code> 写入后 DPTR 递增，下次中断写下一格。可连点「模拟 INT0」多次采数。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑭ 装值计算（考试要点） -->
+<div class="foot">先点页顶「第几次课」，← → 只在本次课的小节之间切换 · 依据：课件《80C51的中断系统及定时计数器》第 1–24 页，韩兴国《微控制器原理及应用技术》第 5 章 P92–99<br>
+配套短片：<a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">查询对比与响应过程</a> ·
+<a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a> ·
+<a href="u5-lesson-1.html#media2">课堂②参考动画</a> ·
+<a href="u5-lesson-2.html#lab4clips">实验四 0872 / 3084（页内播放）</a> ·
+<a href="u5-interrupt-classroom.html">三次课目录</a></div>
+
+</div>
+<script src="lib/u5-interrupt-classroom.js"></script>
+<script id="phone-read-tabs">
+(function(){
+  var tabs=document.querySelector('#tabs.tabs, .tabs[role="tablist"]');
+  if(!tabs || typeof MutationObserver!=='function') return;
+  function scrollerOf(el){
+    var node=el.parentElement;
+    while(node && node!==document.documentElement){
+      var overflow=window.getComputedStyle(node).overflowX;
+      if((overflow==='auto'||overflow==='scroll'||overflow==='overlay') && node.scrollWidth>node.clientWidth+2) return node;
+      node=node.parentElement;
+    }
+    return tabs;
+  }
+  function reveal(){
+    var tab=tabs.querySelector('.tab[aria-selected="true"]');
+    if(!tab) return;
+    var scroller=scrollerOf(tab);
+    if(!scroller || scroller.scrollWidth<=scroller.clientWidth+2) return;
+    var tabBox=tab.getBoundingClientRect();
+    var box=scroller.getBoundingClientRect();
+    scroller.scrollLeft+= (tabBox.left+tabBox.width/2)-(box.left+box.width/2);
+  }
+  new MutationObserver(reveal).observe(tabs,{subtree:true,attributes:true,attributeFilter:['aria-selected']});
+  reveal();
+})();
+</script>
 </body>
 </html>
