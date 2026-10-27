@@ -849,7 +849,7 @@ KP({
   note: '本页图为按真实比例重绘的地址映射图（片内 4 KB : 片外 64 KB = 1 : 16）。'
 });
 (function(){
-  var host=document.createElement('div'); KP.stage.appendChild(host);
+  var host=document.createElement('div'); host.id='memory'; KP.stage.appendChild(host);
   var mm=new MemMap(host);
   KP.say('**四个独立编址的空间。**点图上任一块看它的地址范围和访问方式。');
   KP.setReads([['程序空间','片内 4 KB + 片外 64 KB','hi'],

@@ -6,6 +6,7 @@ import {
   ADDRESSING_MODE_BOARD,
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
+  MEMORY_REGION_BOARD,
   decideMatchReward,
   gradeMatch,
   matchClearMessage,
@@ -349,5 +350,69 @@ describe('CPU structure puzzle board', () => {
       firstClearPoints: CPU_STRUCTURE_BOARD.firstClearPoints,
       awardToStudent: true,
     }).reason).toBe('cooldown');
+  });
+});
+
+describe('memory region match board', () => {
+  const courseware = readFileSync(
+    join(__dirname, '../../../public/resources/course/courseware/u2/u2-memory.html'),
+    'utf8',
+  );
+
+  it('matches the five regions on the unit 2 memory map', () => {
+    expect(MEMORY_REGION_BOARD.chapterId).toBe('2');
+    expect(MEMORY_REGION_BOARD.knowledgePointId).toBe('2.2');
+    expect(MEMORY_REGION_BOARD.sectionId).toBe('memory');
+    expect(MEMORY_REGION_BOARD.moduleId).toBe('u2-memory');
+    expect(MEMORY_REGION_BOARD.medalId).toBe('memory_regions');
+    expect(MEMORY_REGION_BOARD.zones).toBeUndefined();
+    expect(MEMORY_REGION_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(MEMORY_REGION_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target])).toEqual([
+      ['bank', '工作寄存器区', '00H ~ 1FH'],
+      ['bit', '位寻址区', '20H ~ 2FH'],
+      ['user', '用户 RAM 区', '30H ~ 7FH'],
+      ['sfr', 'SFR', '80H ~ FFH'],
+      ['xram', '片外数据存储器', 'MOVX + DPTR'],
+    ]);
+    expect(courseware).toContain("host.id='memory'");
+    expect(courseware).toContain('工作寄存器区 00H ~ 1FH');
+    expect(courseware).toContain('位寻址区 20H ~ 2FH');
+    expect(courseware).toContain('用户 RAM 区 30H ~ 7FH');
+    expect(courseware).toContain('80H ~ FFH');
+    expect(courseware).toContain('只能用直接寻址');
+    expect(courseware).toContain('MOVX 指令 + DPTR');
+    expect(MEMORY_REGION_BOARD.hint).not.toContain('20H');
+    expect(MEMORY_REGION_BOARD.hint).toContain('MOVX');
+  });
+
+  it('grades a finished map and keeps a swapped internal band wrong', () => {
+    const solved = Object.fromEntries(MEMORY_REGION_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(MEMORY_REGION_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, bit: 'user', user: 'bit' };
+    const grade = gradeMatch(MEMORY_REGION_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['bit', 'user']);
+    expect(matchMissMessage(grade, MEMORY_REGION_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, MEMORY_REGION_BOARD)).toContain('MOVX');
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(MEMORY_REGION_BOARD.id)).toBe('practice_clears:u2-memory-regions');
+    expect(practiceMedalIdsForCount(MEMORY_REGION_BOARD.id, 1)).toEqual(['memory_regions']);
+    expect(practiceMedalIdsForCount(MEMORY_REGION_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'memory_regions',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'memory_regions');
+    expect(medal?.title).toBe('存储区分清了');
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: MEMORY_REGION_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「存储区分清了」+10。');
   });
 });

@@ -10,6 +10,7 @@ const ALIAS: Readonly<Record<string, string>> = {
 
 const KNOWN = new Set([
   'u2-cpu-structure',
+  'u2-memory',
   'u3-overview',
   'u3-video',
   'u4-classroom',
@@ -18,7 +19,7 @@ const KNOWN = new Set([
 ]);
 
 function notesInUnit(unitId: number): readonly string[] {
-  if (unitId === 2) return ['u2-cpu-structure'];
+  if (unitId === 2) return ['u2-cpu-structure', 'u2-memory'];
   if (unitId === 3) return ['u3-video', 'u3-overview'];
   if (unitId === 4) return ['u4-classroom'];
   if (unitId === 5) return ['u5-overview', 'u5-knowledge'];
@@ -66,6 +67,9 @@ describe('lesson note deep links', () => {
     expect(lessonFileForSection('cpu')).toBe('u2-cpu-structure');
     expect(resolve(null, 2, '#cpu')).toEqual({ file: 'u2-cpu-structure', hash: '#cpu' });
     expect(resolve('u2-cpu-structure', null, '#cpu')).toEqual({ file: 'u2-cpu-structure', hash: '#cpu' });
+    expect(lessonFileForSection('memory')).toBe('u2-memory');
+    expect(resolve(null, 2, '#memory')).toEqual({ file: 'u2-memory', hash: '#memory' });
+    expect(resolve('u2-memory', null, '#memory')).toEqual({ file: 'u2-memory', hash: '#memory' });
     expect(lessonFileForSection('home')).toBeNull();
     expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-overview', '')).toBe(
       '/resources/course/courseware/u5/u5-overview.html',
