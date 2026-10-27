@@ -7027,6 +7027,1192 @@ RET`,
     "chapter": 10,
     "explanation": "涉及身份、凭据和未授权数据的内容一旦提交给外部服务即不可撤回，属于隐私与数据安全红线。"
   },
+  // 改造入库 v1：往年作业册20221127单项选择，以及本学期作业5/6/7数值切片。
+  {
+    "id": 510,
+    "type": "multiple-choice",
+    "questionText": "十进制数92的BCD码是？",
+    "options": [
+      "11101001B",
+      "00101111B",
+      "01100111B",
+      "10010010B"
+    ],
+    "correctAnswer": "10010010B",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#1 · P10]\n92的BCD码高4位为1001、低4位为0010，即10010010B。"
+  },
+  {
+    "id": 511,
+    "type": "multiple-choice",
+    "questionText": "有符号十进制数-1的补码是？",
+    "options": [
+      "FFH",
+      "FCH",
+      "FEH",
+      "F8H"
+    ],
+    "correctAnswer": "FFH",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#2 · P11]\n8位补码中-1由00000001取反加1得到FFH。"
+  },
+  {
+    "id": 512,
+    "type": "multiple-choice",
+    "questionText": "将十进制数48转换成十六进制数为？",
+    "options": [
+      "30H",
+      "31H",
+      "32H",
+      "48H"
+    ],
+    "correctAnswer": "30H",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#3 · P9]\n48=3×16+0，十六进制为30H。"
+  },
+  {
+    "id": 513,
+    "type": "multiple-choice",
+    "questionText": "在计算机科学发展过程中，提出“程序存储”和“二进制计算”的科学家是？",
+    "options": [
+      "冯·诺依曼",
+      "钱学森",
+      "特德·霍夫",
+      "比利"
+    ],
+    "correctAnswer": "冯·诺依曼",
+    "ka": "1.1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#4 · P1]\n存储程序和二进制运算是冯·诺依曼计算机模型的核心思想。"
+  },
+  {
+    "id": 514,
+    "type": "multiple-choice",
+    "questionText": "十进制数67的BCD码是？",
+    "options": [
+      "11101001B",
+      "00101111B",
+      "01100111B",
+      "10010010B"
+    ],
+    "correctAnswer": "01100111B",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#5 · P10]\n67的BCD码高4位为0110、低4位为0111，即01100111B。"
+  },
+  {
+    "id": 515,
+    "type": "multiple-choice",
+    "questionText": "有符号十进制数-4的补码是？",
+    "options": [
+      "FFH",
+      "FCH",
+      "FEH",
+      "F8H"
+    ],
+    "correctAnswer": "FCH",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#6 · P11]\n8位补码中-4等于256-4=252，即FCH。"
+  },
+  {
+    "id": 516,
+    "type": "multiple-choice",
+    "questionText": "将十进制数127转换成二进制数为？",
+    "options": [
+      "11101001B",
+      "00101111B",
+      "01111111B",
+      "10010010B"
+    ],
+    "correctAnswer": "01111111B",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#7 · P9]\n127=64+32+16+8+4+2+1，二进制为01111111B。"
+  },
+  {
+    "id": 517,
+    "type": "multiple-choice",
+    "questionText": "十进制数93的BCD码是？",
+    "options": [
+      "01000100B",
+      "01000101B",
+      "01100111B",
+      "10010011B"
+    ],
+    "correctAnswer": "10010011B",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#8 · P10]\n93的BCD码高4位为1001、低4位为0011，即10010011B。"
+  },
+  {
+    "id": 518,
+    "type": "multiple-choice",
+    "questionText": "有符号十进制数-64的补码是？",
+    "options": [
+      "EFH",
+      "DFH",
+      "C0H",
+      "E0H"
+    ],
+    "correctAnswer": "C0H",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#9 · P11]\n8位补码中-64等于256-64=192，即C0H。"
+  },
+  {
+    "id": 519,
+    "type": "multiple-choice",
+    "questionText": "将十进制数120转换成十六进制数为？",
+    "options": [
+      "78H",
+      "87H",
+      "77H",
+      "88H"
+    ],
+    "correctAnswer": "78H",
+    "ka": "1",
+    "chapter": 1,
+    "explanation": "[source: 往年作业册20221127 作业1 单选#10 · P9]\n120=7×16+8，十六进制为78H。"
+  },
+  {
+    "id": 520,
+    "type": "multiple-choice",
+    "questionText": "在寄存器间接寻址方式中，指定寄存器中存放的是？",
+    "options": [
+      "操作数",
+      "操作数地址",
+      "转移地址",
+      "地址偏移量"
+    ],
+    "correctAnswer": "操作数地址",
+    "ka": "2.1",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#1 · P36]\n寄存器间接寻址时，Ri或DPTR里放的是操作数所在的地址，不是操作数本身。"
+  },
+  {
+    "id": 521,
+    "type": "multiple-choice",
+    "questionText": "单片机复位后，程序状态寄存器PSW的内容是？",
+    "options": [
+      "00H",
+      "07H",
+      "FFH",
+      "31H"
+    ],
+    "correctAnswer": "00H",
+    "ka": "2.5.4",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#2 · P29]\n80C51复位后PSW被清为00H，工作寄存器组、溢出标志和奇偶标志都回到初始状态。"
+  },
+  {
+    "id": 522,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机内部RAM的位寻址区范围是？",
+    "options": [
+      "00H-1FH",
+      "20H-2FH",
+      "30H-7FH",
+      "00H-7FH"
+    ],
+    "correctAnswer": "20H-2FH",
+    "ka": "2.2.4",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#3 · P22]\n片内RAM中只有20H-2FH这16个字节共128位可以按位寻址。"
+  },
+  {
+    "id": 523,
+    "type": "multiple-choice",
+    "questionText": "PC的值是？",
+    "options": [
+      "当前指令前一条指令的地址",
+      "当前正在执行指令的地址",
+      "下一条指令的地址",
+      "控制器中指令寄存器的地址"
+    ],
+    "correctAnswer": "下一条指令的地址",
+    "ka": "2.1.3",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#4 · P19]\n程序计数器PC指出的是下一条要取的指令地址，不是当前指令本身。"
+  },
+  {
+    "id": 524,
+    "type": "multiple-choice",
+    "questionText": "MCS-51单片机在复位过程中RST引脚应为？",
+    "options": [
+      "高电平",
+      "低电平",
+      "脉冲输入",
+      "高阻态"
+    ],
+    "correctAnswer": "高电平",
+    "ka": "2.5",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#5 · P28]\nRST高电平保持两个机器周期以上，80C51进入复位；平时RST应为低。"
+  },
+  {
+    "id": 525,
+    "type": "multiple-choice",
+    "questionText": "单片机89C51内部ROM的存储空间为？",
+    "options": [
+      "2k",
+      "4k",
+      "8k",
+      "64k"
+    ],
+    "correctAnswer": "4k",
+    "ka": "2.2.1",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#6 · P14+P20]\n89C51片内程序存储器为4KB Flash，地址0000H-0FFFH。"
+  },
+  {
+    "id": 526,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的累加器是？",
+    "options": [
+      "SBUF",
+      "ACC",
+      "TMOD",
+      "TCON"
+    ],
+    "correctAnswer": "ACC",
+    "ka": "2.2.3",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#7 · P17]\n累加器A的SFR名称为ACC，字节地址E0H，算术和多数传送都经过它。"
+  },
+  {
+    "id": 527,
+    "type": "multiple-choice",
+    "questionText": "将十进制数127转换成十六进制数为？",
+    "options": [
+      "7FH",
+      "FFH",
+      "7EH",
+      "71H"
+    ],
+    "correctAnswer": "7FH",
+    "ka": "2",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#8 · P9]\n127=7×16+15，十六进制为7FH。"
+  },
+  {
+    "id": 528,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机芯片的引脚个数为？",
+    "options": [
+      "40个",
+      "20个",
+      "30个",
+      "28个"
+    ],
+    "correctAnswer": "40个",
+    "ka": "2.3",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#9 · P15]\n标准80C51采用40引脚双列直插封装。"
+  },
+  {
+    "id": 529,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机外部的程序存储器ROM的最大可扩展为？",
+    "options": [
+      "16KB",
+      "32KB",
+      "64KB",
+      "8KB"
+    ],
+    "correctAnswer": "64KB",
+    "ka": "2.2.5",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#10 · P20]\n程序计数器16位，外部程序存储器最大寻址64KB，即0000H-FFFFH。"
+  },
+  {
+    "id": 530,
+    "type": "multiple-choice",
+    "questionText": "下列寄存器能够进行位寻址的是？",
+    "options": [
+      "PSW",
+      "DPH",
+      "TMOD",
+      "SBUF"
+    ],
+    "correctAnswer": "PSW",
+    "ka": "2.2.3",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#11 · P23]\nPSW的字节地址D0H，可以按位访问；DPH、TMOD和SBUF只能按字节访问。"
+  },
+  {
+    "id": 531,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的定时/计数器T0的工作方式3为？",
+    "options": [
+      "13位定时/计数器",
+      "16位定时/计数器",
+      "8位自动重装定时/计数器",
+      "两个独立的8位定时/计数器"
+    ],
+    "correctAnswer": "两个独立的8位定时/计数器",
+    "ka": "2",
+    "chapter": 2,
+    "explanation": "[source: 往年作业册20221127 作业2 单选#12 · P91]\n方式3把T0拆成两个独立的8位定时/计数器；T1没有方式3。"
+  },
+  {
+    "id": 532,
+    "type": "multiple-choice",
+    "questionText": "假定设置堆栈指针SP的值为37H，在进行子程序调用时把断点地址进栈保护后，SP的值为？",
+    "options": [
+      "60H",
+      "37H",
+      "38H",
+      "39H"
+    ],
+    "correctAnswer": "39H",
+    "ka": "3.5.3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#1 · P41]\n调用时硬件把16位断点PC分两次压栈，SP从37H增加到39H。"
+  },
+  {
+    "id": 533,
+    "type": "multiple-choice",
+    "questionText": "十进制数34的BCD码是？",
+    "options": [
+      "11101001B",
+      "00101111B",
+      "00110100B",
+      "10010010B"
+    ],
+    "correctAnswer": "00110100B",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#2 · P10]\n34的BCD码高4位为0011、低4位为0100，即00110100B。"
+  },
+  {
+    "id": 534,
+    "type": "multiple-choice",
+    "questionText": "有符号十进制数-2的补码是？",
+    "options": [
+      "FFH",
+      "FCH",
+      "FEH",
+      "F8H"
+    ],
+    "correctAnswer": "FEH",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#3 · P11]\n8位补码中-2等于256-2=254，即FEH。"
+  },
+  {
+    "id": 535,
+    "type": "multiple-choice",
+    "questionText": "将十六进制数2FH转换成十进制数为？",
+    "options": [
+      "47",
+      "23",
+      "52",
+      "49"
+    ],
+    "correctAnswer": "47",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#4 · P9]\n2FH=2×16+15=47。"
+  },
+  {
+    "id": 536,
+    "type": "multiple-choice",
+    "questionText": "MCS-51单片机在访问外部数据存储器时，其地址指针可采用？",
+    "options": [
+      "DPTR",
+      "PC",
+      "PSW",
+      "SP"
+    ],
+    "correctAnswer": "DPTR",
+    "ka": "3.2.2",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#6 · P39]\n外部RAM用MOVX配合DPTR（或Ri）间接寻址，DPTR提供16位地址。"
+  },
+  {
+    "id": 537,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机内部的数据存储器RAM的存储容量为？",
+    "options": [
+      "128B",
+      "256B",
+      "4KB",
+      "8KB"
+    ],
+    "correctAnswer": "128B",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#7 · P21]\n80C51/89C51片内低128字节RAM地址为00H-7FH；256B是52子系列的片内RAM。"
+  },
+  {
+    "id": 538,
+    "type": "multiple-choice",
+    "questionText": "MCS-51单片机中最繁忙的寄存器是？",
+    "options": [
+      "PSW",
+      "P0",
+      "TMOD",
+      "A"
+    ],
+    "correctAnswer": "A",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#8 · P17]\n累加器A参与传送、运算和布尔进位以外的绝大多数操作，教材称之为最繁忙的寄存器。"
+  },
+  {
+    "id": 539,
+    "type": "multiple-choice",
+    "questionText": "在80C51单片机的某些串口的工作方式中，需要计算T1的溢出率，此时定时/计数器T1的工作方式0为？",
+    "options": [
+      "13位定时/计数器",
+      "16位定时/计数器",
+      "8位自动重装定时/计数器",
+      "两个独立的8位定时/计数器"
+    ],
+    "correctAnswer": "13位定时/计数器",
+    "ka": "3",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#9 · P91]\n方式0是13位定时/计数器，由TH的高8位和TL的低5位组成。"
+  },
+  {
+    "id": 540,
+    "type": "multiple-choice",
+    "questionText": "MCS-51指令系统的位地址赋值伪指令为？",
+    "options": [
+      "ORG",
+      "END",
+      "EQU",
+      "BIT"
+    ],
+    "correctAnswer": "BIT",
+    "ka": "3.6",
+    "chapter": 3,
+    "explanation": "[source: 往年作业册20221127 作业3 单选#10 · P65]\nBIT把符号名定义到一个位地址，ORG是定位，END是结束，EQU是等值。"
+  },
+  {
+    "id": 541,
+    "type": "multiple-choice",
+    "questionText": "单片机复位后，堆栈指针SP的内容是？",
+    "options": [
+      "00H",
+      "07H",
+      "FFH",
+      "31H"
+    ],
+    "correctAnswer": "07H",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#1 · P19]\n复位后SP=07H，第一次压栈写入08H。"
+  },
+  {
+    "id": 542,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机内部RAM的工作寄存器区范围是？",
+    "options": [
+      "00H-1FH",
+      "20H-2FH",
+      "30H-7FH",
+      "00H-7FH"
+    ],
+    "correctAnswer": "00H-1FH",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#2 · P21]\n00H-1FH共32字节，分成4组工作寄存器，每组R0-R7。"
+  },
+  {
+    "id": 543,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的程序状态字控制寄存器是？",
+    "options": [
+      "PSW",
+      "SBUF",
+      "TMOD",
+      "TCON"
+    ],
+    "correctAnswer": "PSW",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#3 · P18]\n程序状态字是PSW，其中含CY、AC、RS1、RS0、OV和P。"
+  },
+  {
+    "id": 544,
+    "type": "multiple-choice",
+    "questionText": "十进制数32的BCD码是？",
+    "options": [
+      "11101001B",
+      "00101111B",
+      "00110010B",
+      "10010010B"
+    ],
+    "correctAnswer": "00110010B",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#4 · P10]\n32的BCD码高4位为0011、低4位为0010，即00110010B。"
+  },
+  {
+    "id": 545,
+    "type": "multiple-choice",
+    "questionText": "有符号十进制数-5的补码是？",
+    "options": [
+      "FFH",
+      "FCH",
+      "FEH",
+      "FBH"
+    ],
+    "correctAnswer": "FBH",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#5 · P11]\n8位补码中-5等于256-5=251，即FBH。"
+  },
+  {
+    "id": 546,
+    "type": "multiple-choice",
+    "questionText": "将十进制数253转换成二进制数为？",
+    "options": [
+      "11101001B",
+      "01111111B",
+      "11111101B",
+      "10010010B"
+    ],
+    "correctAnswer": "11111101B",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#6 · P9]\n253=255-2，二进制为11111101B。"
+  },
+  {
+    "id": 547,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机串口中断的中断服务程序入口地址是？",
+    "options": [
+      "0003H",
+      "000BH",
+      "0023H",
+      "001BH"
+    ],
+    "correctAnswer": "0023H",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#7 · P21]\n串口中断入口为0023H；0003H、000BH、0013H、001BH分别是INT0、T0、INT1、T1。"
+  },
+  {
+    "id": 548,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机汇编语言，定义字节数据表的伪指令是？",
+    "options": [
+      "DW",
+      "DB",
+      "EQU",
+      "BIT"
+    ],
+    "correctAnswer": "DB",
+    "ka": "4",
+    "chapter": 4,
+    "explanation": "[source: 往年作业册20221127 作业4 单选#8 · P63]\nDB按字节定义数据表，DW按字定义，EQU是等值，BIT是位地址赋值。"
+  },
+  {
+    "id": 549,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机外部中断0的中断服务程序入口地址是？",
+    "options": [
+      "0003H",
+      "000BH",
+      "0013H",
+      "001BH"
+    ],
+    "correctAnswer": "0003H",
+    "ka": "5.2",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#1 · P21]\n外部中断0的入口是0003H。"
+  },
+  {
+    "id": 550,
+    "type": "multiple-choice",
+    "questionText": "单片机复位后，并行口P3的内容是？",
+    "options": [
+      "00H",
+      "07H",
+      "FFH",
+      "31H"
+    ],
+    "correctAnswer": "FFH",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#2 · P29]\n复位后P0-P3的锁存器均为FFH，准双向口对外呈高电平。"
+  },
+  {
+    "id": 551,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机内部RAM的数据缓冲区范围是？",
+    "options": [
+      "00H-1FH",
+      "20H-2FH",
+      "30H-7FH",
+      "00H-7FH"
+    ],
+    "correctAnswer": "30H-7FH",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#3 · P22]\n30H-7FH是用户RAM，可作数据缓冲和堆栈，不能位寻址。"
+  },
+  {
+    "id": 552,
+    "type": "multiple-choice",
+    "questionText": "对于单片机AT89S52，并行口P0口所有引脚的吸收电流总和不能超过？",
+    "options": [
+      "10mA",
+      "15mA",
+      "26mA",
+      "71mA"
+    ],
+    "correctAnswer": "26mA",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#4 · P27]\n作业册给出的答案是P0口吸收电流总和不超过26mA。"
+  },
+  {
+    "id": 553,
+    "type": "multiple-choice",
+    "questionText": "单片机89C51内部RAM的存储空间为？",
+    "options": [
+      "2k",
+      "3k",
+      "128B",
+      "256B"
+    ],
+    "correctAnswer": "128B",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#5 · P21]\n89C51片内低128字节为数据RAM；256B是52子系列。"
+  },
+  {
+    "id": 554,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的堆栈指针是？",
+    "options": [
+      "SP",
+      "SBUF",
+      "TMOD",
+      "TCON"
+    ],
+    "correctAnswer": "SP",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#6 · P19]\n堆栈指针是SP，复位值为07H。"
+  },
+  {
+    "id": 555,
+    "type": "multiple-choice",
+    "questionText": "下列寄存器为16位的是？",
+    "options": [
+      "DPTR",
+      "TCON",
+      "TMOD",
+      "DPH"
+    ],
+    "correctAnswer": "DPTR",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#7 · P19]\nDPTR由DPH和DPL组成，共16位；TCON、TMOD和DPH都是8位。"
+  },
+  {
+    "id": 556,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的定时/计数器T0的工作方式0为？",
+    "options": [
+      "13位定时/计数器",
+      "16位定时/计数器",
+      "8位自动重装定时/计数器",
+      "两个独立的8位定时/计数器"
+    ],
+    "correctAnswer": "13位定时/计数器",
+    "ka": "6.2.1",
+    "chapter": 6,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#8 · P91]\n方式0是13位定时/计数器。"
+  },
+  {
+    "id": 557,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机外部中断0的中断标志为？",
+    "options": [
+      "IE0",
+      "IE1",
+      "TF0",
+      "TF1"
+    ],
+    "correctAnswer": "IE0",
+    "ka": "5.3",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#9 · P82]\n外部中断0的请求标志是TCON中的IE0；IE1、TF0、TF1分别对应INT1、T0和T1。"
+  },
+  {
+    "id": 558,
+    "type": "multiple-choice",
+    "questionText": "MCS-51指令系统的定位伪指令为？",
+    "options": [
+      "ORG",
+      "END",
+      "DB",
+      "BIT"
+    ],
+    "correctAnswer": "ORG",
+    "ka": "5",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#10 · P63]\nORG指定后续目标代码的起始地址；END结束汇编，DB定义字节，BIT定义位地址。"
+  },
+  {
+    "id": 559,
+    "type": "multiple-choice",
+    "questionText": "采用C51进行中断函数的定义时，外部中断1的中断号是？",
+    "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "correctAnswer": "2",
+    "ka": "5.2",
+    "chapter": 5,
+    "explanation": "[source: 往年作业册20221127 作业5 单选#12 · P21+213]\nC51中断号：外部中断0为0，定时器0为1，外部中断1为2，定时器1为3。"
+  },
+  {
+    "id": 560,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的定时/计数器工作方式寄存器是？",
+    "options": [
+      "PSW",
+      "SBUF",
+      "TMOD",
+      "TCON"
+    ],
+    "correctAnswer": "TMOD",
+    "ka": "7.2",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#1 · P90]\n工作方式由TMOD配置，启停和溢出标志在TCON。"
+  },
+  {
+    "id": 561,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机外部中断1的中断服务程序入口地址是？",
+    "options": [
+      "0003H",
+      "000BH",
+      "0013H",
+      "001BH"
+    ],
+    "correctAnswer": "0013H",
+    "ka": "7.1",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#2 · P21]\n外部中断1的入口是0013H。"
+  },
+  {
+    "id": 562,
+    "type": "multiple-choice",
+    "questionText": "用MCS-51定时/计数器选用8位自动重装方式，定时/计数器工作方式是？",
+    "options": [
+      "方式0",
+      "方式1",
+      "方式2",
+      "方式3"
+    ],
+    "correctAnswer": "方式2",
+    "ka": "7.2.3",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#3 · P91]\n8位自动重装是方式2；串口波特率发生器通常就用T1的方式2。"
+  },
+  {
+    "id": 563,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的定时/计数器控制寄存器是？",
+    "options": [
+      "PSW",
+      "SBUF",
+      "TMOD",
+      "TCON"
+    ],
+    "correctAnswer": "TCON",
+    "ka": "7.2",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#4 · P91]\nTCON负责TR0/TR1启停以及TF0/TF1、IE0/IE1标志；TMOD只选方式。"
+  },
+  {
+    "id": 564,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机定时/计数器0溢出中断的中断服务程序入口地址是？",
+    "options": [
+      "0003H",
+      "000BH",
+      "0013H",
+      "001BH"
+    ],
+    "correctAnswer": "000BH",
+    "ka": "7.1",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#5 · P21]\n定时器0溢出中断入口是000BH。"
+  },
+  {
+    "id": 565,
+    "type": "multiple-choice",
+    "questionText": "单片机复位后，程序计数器PC的内容是？",
+    "options": [
+      "0000H",
+      "07H",
+      "FFFFH",
+      "不确定"
+    ],
+    "correctAnswer": "0000H",
+    "ka": "7.1",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#7 · P29]\n复位后PC=0000H，CPU从0000H取第一条指令；07H是SP的复位值。"
+  },
+  {
+    "id": 566,
+    "type": "multiple-choice",
+    "questionText": "下列寄存器不能进行位寻址的是？",
+    "options": [
+      "PSW",
+      "P0",
+      "TMOD",
+      "A"
+    ],
+    "correctAnswer": "TMOD",
+    "ka": "7.2",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#8 · P23]\nPSW、P0和累加器A可以位寻址，TMOD不能。"
+  },
+  {
+    "id": 567,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机的定时/计数器T0的工作方式1为？",
+    "options": [
+      "13位定时/计数器",
+      "16位定时/计数器",
+      "8位自动重装定时/计数器",
+      "两个独立的8位定时/计数器"
+    ],
+    "correctAnswer": "16位定时/计数器",
+    "ka": "7.2",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#9 · P91]\n方式1是16位定时/计数器，TH和TL组成16位计数器。"
+  },
+  {
+    "id": 568,
+    "type": "multiple-choice",
+    "questionText": "80C51单片机外部中断1的中断标志为？",
+    "options": [
+      "IE0",
+      "IE1",
+      "TF0",
+      "TF1"
+    ],
+    "correctAnswer": "IE1",
+    "ka": "7.1",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#10 · P82]\n外部中断1的请求标志是IE1。"
+  },
+  {
+    "id": 569,
+    "type": "multiple-choice",
+    "questionText": "MCS-51指令系统的结束伪指令为？",
+    "options": [
+      "ORG",
+      "END",
+      "DB",
+      "BIT"
+    ],
+    "correctAnswer": "END",
+    "ka": "7.1",
+    "chapter": 7,
+    "explanation": "[source: 往年作业册20221127 作业6 单选#11 · P65]\nEND通知汇编程序源程序结束；ORG定位，DB定义字节，BIT定义位地址。"
+  },
+  {
+    "id": 570,
+    "type": "multiple-choice",
+    "questionText": "用MCS-51串行口扩展并行I/O口，串行口工作方式应选择？",
+    "options": [
+      "方式0",
+      "方式1",
+      "方式2",
+      "方式3"
+    ],
+    "correctAnswer": "方式0",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 往年作业册20221127 作业7 单选#3 · P109]\n方式0是同步移位寄存器方式，可外接串入并出或并入串出器件扩展并行口。适用课号：0872专属。"
+  },
+  {
+    "id": 571,
+    "type": "multiple-choice",
+    "questionText": "当需要从MCS-51单片机程序存储器取数据时，采用的指令为？",
+    "options": [
+      "MOV A, @R1",
+      "MOVC A, @A+DPTR",
+      "MOVX A, @R0",
+      "MOVX A, @DPTR"
+    ],
+    "correctAnswer": "MOVC A, @A+DPTR",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 往年作业册20221127 作业7 单选#4 · P40]\n读程序存储器常数用MOVC；MOVX读的是外部数据存储器。册内选项为小写，入库按站点指令大写。适用课号：0872专属。"
+  },
+  {
+    "id": 572,
+    "type": "multiple-choice",
+    "questionText": "对于单片机AT89S52，并行口每根口线能承受的最大（灌）电流是？",
+    "options": [
+      "10mA",
+      "15mA",
+      "26mA",
+      "71mA"
+    ],
+    "correctAnswer": "10mA",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 往年作业册20221127 作业7 单选#5 · P24]\n作业册给出的答案是每根口线最大灌电流10mA。适用课号：0872专属。"
+  },
+  {
+    "id": 573,
+    "type": "multiple-choice",
+    "questionText": "单片机复位后，并行口P0的内容是？",
+    "options": [
+      "00H",
+      "07H",
+      "FFH",
+      "31H"
+    ],
+    "correctAnswer": "FFH",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 往年作业册20221127 作业7 单选#6 · P29]\n复位后P0锁存器为FFH。适用课号：0872专属。"
+  },
+  {
+    "id": 574,
+    "type": "multiple-choice",
+    "questionText": "采用C51进行中断函数的定义时，外部中断0的中断号是？",
+    "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "correctAnswer": "0",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 往年作业册20221127 作业7 单选#8 · P213]\n册内括号写的是中断号0，对应选项0。C51中外部中断0使用interrupt 0。适用课号：0872专属。"
+  },
+  {
+    "id": 575,
+    "type": "multiple-choice",
+    "questionText": "晶振12 MHz（机器周期1μs），用T0方式1定时20 ms。计数所需的机器周期数N是？",
+    "options": [
+      "20000",
+      "10000",
+      "65536",
+      "2000"
+    ],
+    "correctAnswer": "20000",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 作业5 数值切片 · 同源]\n12 MHz时1个机器周期为1μs，20 ms=20000μs，故N=20000。"
+  },
+  {
+    "id": 576,
+    "type": "multiple-choice",
+    "questionText": "晶振12 MHz（机器周期1μs），用T0方式1定时20 ms。TH0和TL0应装入？",
+    "options": [
+      "TH0=D8H，TL0=F0H",
+      "TH0=B1H，TL0=E0H",
+      "TH0=4EH，TL0=20H",
+      "TH0=FCH，TL0=66H"
+    ],
+    "correctAnswer": "TH0=B1H，TL0=E0H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 作业5 数值切片 · 同源]\nN=20000，X=65536-20000=45536=B1E0H，因此TH0=B1H、TL0=E0H。"
+  },
+  {
+    "id": 577,
+    "type": "multiple-choice",
+    "questionText": "只用T0做定时器、方式1、GATE=0（T1不用）。TMOD应是？",
+    "options": [
+      "00H",
+      "02H",
+      "01H",
+      "10H"
+    ],
+    "correctAnswer": "01H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 作业5 数值切片 · 同源]\nTMOD低4位是T0。GATE=0、C/T=0、方式1的M1M0=01，高4位T1不用为0000，所以TMOD=01H。"
+  },
+  {
+    "id": 578,
+    "type": "multiple-choice",
+    "questionText": "晶振12 MHz（机器周期1μs），用T0方式1定时10 ms。TH0和TL0应装入？",
+    "options": [
+      "TH0=B1H，TL0=E0H",
+      "TH0=27H，TL0=10H",
+      "TH0=D8H，TL0=F0H",
+      "TH0=F0H，TL0=D8H"
+    ],
+    "correctAnswer": "TH0=D8H，TL0=F0H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 作业5 数值切片 · 同源]\nN=10000，X=65536-10000=55536=D8F0H，因此TH0=D8H、TL0=F0H。"
+  },
+  {
+    "id": 579,
+    "type": "multiple-choice",
+    "questionText": "晶振改为11.0592 MHz，用T0方式1定时约1 ms。机器周期按12/fosc，N先计算再四舍五入到整数个机器周期。TH0和TL0应装入？",
+    "options": [
+      "TH0=FCH，TL0=67H",
+      "TH0=FCH，TL0=65H",
+      "TH0=FDH，TL0=00H",
+      "TH0=FCH，TL0=66H"
+    ],
+    "correctAnswer": "TH0=FCH，TL0=66H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 作业5 数值切片 · 同源]\nN=11059200/(12×1000)=921.6，按题面四舍五入为922。X=65536-922=64614=FC66H，故TH0=FCH、TL0=66H。"
+  },
+  {
+    "id": 580,
+    "type": "multiple-choice",
+    "questionText": "晶振11.0592 MHz，SMOD=0，串口方式1，T1方式2，目标波特率9600。TH1（方式2下与TL1相同）应是？",
+    "options": [
+      "F4H",
+      "FAH",
+      "FDH",
+      "FEH"
+    ],
+    "correctAnswer": "FDH",
+    "ka": "7.2.3",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\nSMOD=0时波特率=fosc/(384×(256-TH1))。9600代入得256-TH1=3，TH1=253=FDH。"
+  },
+  {
+    "id": 581,
+    "type": "multiple-choice",
+    "questionText": "晶振11.0592 MHz，SMOD=0，T1方式2，目标波特率2400。TH1应是？",
+    "options": [
+      "FDH",
+      "F4H",
+      "FAH",
+      "E8H"
+    ],
+    "correctAnswer": "F4H",
+    "ka": "7.2.3",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\n2400代入同一公式得256-TH1=12，TH1=244=F4H。E8H是误按SMOD=1计算的结果。"
+  },
+  {
+    "id": 582,
+    "type": "multiple-choice",
+    "questionText": "T1用作波特率发生器、方式2（8位自动重装）、定时、GATE=0，T0不用。TMOD应是？",
+    "options": [
+      "02H",
+      "01H",
+      "20H",
+      "00H"
+    ],
+    "correctAnswer": "20H",
+    "ka": "7.2.3",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\nT1方式2、定时、GATE=0占TMOD高4位0010；T0不用则低4位为0000，TMOD=20H。"
+  },
+  {
+    "id": 583,
+    "type": "multiple-choice",
+    "questionText": "串口波特率发生器为什么常用11.0592 MHz晶振，而不是12 MHz？",
+    "options": [
+      "分频后重装值常为整数，标准波特率误差可为0",
+      "11.0592 MHz使机器周期正好是1μs",
+      "80C51只允许使用11.0592 MHz晶振",
+      "11.0592 MHz比12 MHz功耗更低"
+    ],
+    "correctAnswer": "分频后重装值常为整数，标准波特率误差可为0",
+    "ka": "7.1.3",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\n11.0592 MHz能使常用波特率的(256-TH1)为整数，误差为0。机器周期正好1μs的是12 MHz，不是11.0592 MHz。"
+  },
+  {
+    "id": 584,
+    "type": "multiple-choice",
+    "questionText": "若晶振误用12 MHz，仍按11.0592 MHz、9600、SMOD=0的表装入TH1=FDH，串口方式1会怎样？",
+    "options": [
+      "实际波特率仍精确等于9600",
+      "实际波特率高于9600，相对误差约+8.5%",
+      "实际波特率降为2400",
+      "T1方式2不能在12 MHz下计数"
+    ],
+    "correctAnswer": "实际波特率高于9600，相对误差约+8.5%",
+    "ka": "7.1.3",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\nTH1=FDH时256-TH1=3。12 MHz下波特率=12000000/(384×3)≈10416.7，相对9600约为+8.5%，不能当作精确9600。"
+  },
+  {
+    "id": 585,
+    "type": "multiple-choice",
+    "questionText": "串口方式1的一帧按1位起始、8位数据、1位停止共10位。波特率9600时，传送1字节约需多少时间？",
+    "options": [
+      "104.17μs",
+      "833.33μs",
+      "1041.67μs",
+      "9600μs"
+    ],
+    "correctAnswer": "1041.67μs",
+    "ka": "7.1.4",
+    "chapter": 7,
+    "explanation": "[source: 作业6 数值切片 · 同源]\n按题面10位计，时间=10/9600 s≈1041.67μs。104.17μs只是1位的时间。"
+  },
+  {
+    "id": 586,
+    "type": "multiple-choice",
+    "questionText": "一片8KB RAM，A12-A0接芯片地址线，片选CS接系统A15且低有效。A14、A13不参与译码，约定未用高位为0，只算主镜像。主地址范围是？",
+    "options": [
+      "8000H-9FFFH",
+      "0000H-1FFFH",
+      "0000H-07FFH",
+      "E000H-FFFFH"
+    ],
+    "correctAnswer": "0000H-1FFFH",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 作业7 数值切片 · 同源]\nA15=A14=A13=0且A12-A0覆盖8KB时，主镜像为0000H-1FFFH（含两端）。题面提示即此范围。适用课号：0872专属；3084大纲无并行扩展章。"
+  },
+  {
+    "id": 587,
+    "type": "multiple-choice",
+    "questionText": "同一片8KB RAM，片选改为A15经非门后接入（A15=1时选中），并约定A14=A13=0。主地址范围是？",
+    "options": [
+      "0000H-1FFFH",
+      "8000H-8FFFH",
+      "8000H-9FFFH",
+      "E000H-FFFFH"
+    ],
+    "correctAnswer": "8000H-9FFFH",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 作业7 数值切片 · 同源]\nA15=1、A14=A13=0，A12-A0从0到1FFFH，起点8000H，终点8000H+1FFFH=9FFFH（含两端）。适用课号：0872专属；3084大纲无并行扩展章。"
+  },
+  {
+    "id": 588,
+    "type": "multiple-choice",
+    "questionText": "74HC138的C/B/A接A15/A14/A13，仅A15-A13=000时Y0有效，Y0接2KB ROM的CS（低有效）。ROM只使用A12-A0中的低11根。按未用高位为0的主镜像，该ROM地址范围是？",
+    "options": [
+      "0000H-1FFFH",
+      "0000H-0FFFH",
+      "2000H-27FFH",
+      "0000H-07FFH"
+    ],
+    "correctAnswer": "0000H-07FFH",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 作业7 数值切片 · 同源]\nY0要求A15-A13=000；2KB只用A10-A0。未参加译码的A12、A11按第1题的主镜像约定取0，范围为0000H-07FFH（含两端）。适用课号：0872专属；3084大纲无并行扩展章。"
+  },
 ];
 
 export const COMPREHENSIVE_QUESTIONS_PER_CHAPTER = 2;
