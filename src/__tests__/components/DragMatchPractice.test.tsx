@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 const mockFetch = global.fetch as jest.Mock;
 
@@ -81,6 +81,65 @@ describe('DragMatchPractice', () => {
     );
     expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '展开练一练：中断源对请求标志' })).toHaveClass('min-h-11');
+  });
+
+  it('places every IE enable bit and posts that board', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        correct: true,
+        message: '首次对上：+15 积分，解锁勋章「允许位对上了」+10。',
+      }),
+    });
+    render(
+      <DragMatchPractice
+        board={INTERRUPT_IE_ENABLE_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+
+    expect(document.querySelector('[data-practice="u5-interrupt-ie-enables"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /EX0/ })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: '中断源 外部中断 0，INT0 · P3.2 引脚，空位' })).toHaveClass('min-h-11');
+
+    placeAll(INTERRUPT_IE_ENABLE_BOARD);
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「允许位对上了」');
+    });
+    expect(screen.getByText('EX0 → 外部中断 0（INT0 · P3.2 引脚）')).toBeInTheDocument();
+    expect(screen.getByText('ES → 串行口（串口 · 收完或发完一帧）')).toBeInTheDocument();
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.boardId).toBe('u5-interrupt-ie-enables');
+    expect(body.placements).toEqual({
+      ex0: 'ex0',
+      et0: 'et0',
+      ex1: 'ex1',
+      et1: 'et1',
+      es: 'es',
+    });
+  });
+
+  it('marks a swapped IE bit without calling the server or listing the mapping', async () => {
+    render(
+      <DragMatchPractice
+        board={INTERRUPT_IE_ENABLE_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /EX0/ }));
+    fireEvent.click(screen.getByRole('button', { name: '中断源 定时器 T0，T0 溢出，空位' }));
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('还有 5 处没对上');
+    expect(screen.getByRole('status')).toHaveTextContent('总开关');
+    expect(screen.getByRole('status')).not.toHaveTextContent('EX0');
+    await waitFor(() => expect(mockFetch).not.toHaveBeenCalled());
   });
 
   it('places every addressing instruction and posts that board', async () => {

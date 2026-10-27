@@ -318,6 +318,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'interrupt_ie_enables',
+    title: '允许位对上了',
+    description: '在第 5 章练一练里，把 80C51 的 IE 分开关 EX0、ET0、EX1、ET1、ES 对上各自的中断源',
+    icon: '🔓',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u5-interrupt-ie-enables', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'timer_tmod_modes',
     title: 'TMOD 对上了',
     description: '在第 5 章练一练里，把 80C51 定时器 TMOD 的四种方式和 GATE、C/T 对上各自的含义',

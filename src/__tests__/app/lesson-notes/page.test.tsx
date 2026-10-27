@@ -91,7 +91,33 @@ describe('LessonNotesPage deep link', () => {
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the IE enable match on unit 5 section ⑤ and keeps the deep link', async () => {
+    const frame = await openAt('/lesson-notes?note=u5-overview#int-5', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-5');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照课件⑤' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起练一练' })).toBeInTheDocument();
+    expect(screen.getByText('EX0')).toBeInTheDocument();
+    expect(screen.getByText('ES')).toBeInTheDocument();
+    expect(screen.getByText('外部中断 0')).toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u5-interrupt-ie-enables"]')?.textContent).not.toContain('EA');
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the source-flag match on a neighboring interrupt section', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#int-4', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-4');
+    expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '展开练一练：中断源对请求标志' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
   });
 
   it('opens the vector-address match on unit 5 section ② and keeps the deep link', async () => {
@@ -104,6 +130,7 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByText('0003H')).toBeInTheDocument();
     expect(screen.getByText('0023H')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
   });
 
@@ -116,6 +143,7 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByText('M1 M0 = 00')).toBeInTheDocument();
     expect(screen.getByText('GATE = 1')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
   });
 
   it('opens the same pane from a unit link that only carries the hash', async () => {

@@ -5,6 +5,7 @@ import { practiceClearStat, practiceMedalIdsForCount } from '@/lib/practice-meda
 import {
   ADDRESSING_MODE_BOARD,
   CPU_STRUCTURE_BOARD,
+  INTERRUPT_IE_ENABLE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
   MEMORY_REGION_BOARD,
@@ -474,6 +475,136 @@ describe('interrupt vector match board', () => {
       firstClearPoints: INTERRUPT_VECTOR_BOARD.firstClearPoints,
       awardToStudent: true,
     }).reason).toBe('cooldown');
+  });
+});
+
+/** Pane ⑤ bit order, high bit first: D4 ES … D0 EX0. */
+const IE_SOURCE_BITS = /D4 (ES)，D3 (ET1)，D2 (EX1)，D1 (ET0)，D0 (EX0)/;
+const IE_MASTER_SWITCH = 'IE 里 EA 是总开关，另外 5 位是分开关，两个都打开 CPU 才理。';
+
+function ieSourceBits(html: string): RegExpMatchArray {
+  const text = html.includes('var DATA=') ? decodeOverview(html) : html;
+  const match = text.match(IE_SOURCE_BITS);
+  if (!match) throw new Error('courseware is missing the IE source-bit note');
+  return match;
+}
+
+function ieBitWhere(html: string, abbr: string): string {
+  const match = html.match(new RegExp(`<td class="abbr">${abbr}</td>[\\s\\S]*?<td class="where">(IE\\.\\d)</td>`));
+  if (!match?.[1]) throw new Error(`courseware is missing the ${abbr} bit address`);
+  return match[1];
+}
+
+describe('IE enable match board', () => {
+  const overviewHtml = readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8');
+  const lesson1 = readFileSync(join(COURSEWARE, 'u5-lesson-1.html'), 'utf8');
+  const lesson2 = readFileSync(join(COURSEWARE, 'u5-lesson-2.html'), 'utf8');
+  const sources = sourceTable(overviewHtml);
+
+  it('copies the five 80C51 source enables from pane ⑤ and leaves EA as the master switch', () => {
+    const overviewBits = ieSourceBits(overviewHtml);
+    const lessonBits = ieSourceBits(lesson1);
+    expect(lessonBits.slice(1)).toEqual(overviewBits.slice(1));
+    expect(decodeOverview(overviewHtml)).toContain(IE_MASTER_SWITCH);
+    expect(lesson1).toContain(IE_MASTER_SWITCH);
+    expect(overviewHtml).toContain('href="#int-5"');
+    expect(lesson2).toContain('总中断允许（总闸）');
+    expect(ieBitWhere(lesson2, 'EA')).toBe('IE.7');
+
+    const lowToHigh = [overviewBits[5], overviewBits[4], overviewBits[3], overviewBits[2], overviewBits[1]];
+    expect(INTERRUPT_IE_ENABLE_BOARD.chapterId).toBe('5');
+    expect(INTERRUPT_IE_ENABLE_BOARD.knowledgePointId).toBe('5.2');
+    expect(INTERRUPT_IE_ENABLE_BOARD.sectionId).toBe('int-5');
+    expect(INTERRUPT_IE_ENABLE_BOARD.moduleId).toBe('u5-overview');
+    expect(INTERRUPT_IE_ENABLE_BOARD.medalId).toBe('interrupt_ie_enables');
+    expect(INTERRUPT_IE_ENABLE_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(INTERRUPT_IE_ENABLE_BOARD.zones).toBeUndefined();
+    expect(INTERRUPT_IE_ENABLE_BOARD.pairs).toHaveLength(5);
+    expect(INTERRUPT_IE_ENABLE_BOARD.pairs.map((pair) => pair.prompt)).toEqual(lowToHigh);
+    expect(INTERRUPT_IE_ENABLE_BOARD.pairs.some((pair) => pair.prompt === 'EA')).toBe(false);
+    expect(INTERRUPT_IE_ENABLE_BOARD.hint).toBe(IE_MASTER_SWITCH);
+    expect(INTERRUPT_IE_ENABLE_BOARD.hint).not.toContain('EX0');
+    expect(INTERRUPT_IE_ENABLE_BOARD.hint).not.toContain('外部中断');
+
+    sources.forEach((row, index) => {
+      const pair = INTERRUPT_IE_ENABLE_BOARD.pairs[index];
+      expect(pair?.prompt).toBe(lowToHigh[index]);
+      expect(pair?.promptHint).toBe(`D${index} · ${ieBitWhere(lesson2, pair?.prompt ?? '')}`);
+      expect(pair?.target).toBe(row[0]);
+      expect(pair?.targetDetail).toBe(INTERRUPT_SOURCE_FLAG_BOARD.pairs[index]?.promptHint);
+    });
+    expect(INTERRUPT_IE_ENABLE_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target])).toEqual([
+      ['ex0', 'EX0', '外部中断 0'],
+      ['et0', 'ET0', '定时器 T0'],
+      ['ex1', 'EX1', '外部中断 1'],
+      ['et1', 'ET1', '定时器 T1'],
+      ['es', 'ES', '串行口'],
+    ]);
+  });
+
+  it('grades a finished enable map and keeps a swapped bit wrong with 0 points', () => {
+    const solved = Object.fromEntries(INTERRUPT_IE_ENABLE_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(INTERRUPT_IE_ENABLE_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, ex0: 'et0', et0: 'ex0' };
+    const grade = gradeMatch(INTERRUPT_IE_ENABLE_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['ex0', 'et0']);
+    expect(matchMissMessage(grade, INTERRUPT_IE_ENABLE_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, INTERRUPT_IE_ENABLE_BOARD)).toContain('总开关');
+    expect(matchMissMessage(grade, INTERRUPT_IE_ENABLE_BOARD)).not.toContain('EX0');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_IE_ENABLE_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(INTERRUPT_IE_ENABLE_BOARD.id)).toBe('practice_clears:u5-interrupt-ie-enables');
+    expect(practiceMedalIdsForCount(INTERRUPT_IE_ENABLE_BOARD.id, 1)).toEqual(['interrupt_ie_enables']);
+    expect(practiceMedalIdsForCount(INTERRUPT_IE_ENABLE_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'interrupt_ie_enables',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT_SOURCE_FLAG_BOARD.id, 1)).toEqual(['interrupt_source_flags']);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'interrupt_ie_enables');
+    expect(medal?.title).toBe('允许位对上了');
+    expect(medal?.points).toBe(10);
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「允许位对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_IE_ENABLE_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: INTERRUPT_IE_ENABLE_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_IE_ENABLE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
   });
 });
 
