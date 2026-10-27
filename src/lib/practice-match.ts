@@ -277,8 +277,9 @@ export const TIMER_TMOD_BOARD: MatchBoard = {
 };
 
 /**
- * 80C51 addressing modes, in the order of `var DZ` on the unit 3 overview
- * pane `#addressing` (tab ① 难题与对比). Each chip is the instruction that
+ * 80C51 addressing modes, in the order of `var DZ` on
+ * `u3-addressing-design.html`, the page opened by overview `#addressing`
+ * (tab ① 难题与对比). Each chip is the instruction that
  * pane reveals as「80C51 的做法」.
  * The pane's short labels are 寄存器 / 立即 / 直接 / 间接 / 变址 / 相对 / 位.
  * 间接 there is `MOV A,@R0` (only R0 and R1), so the slot says 寄存器间接寻址.

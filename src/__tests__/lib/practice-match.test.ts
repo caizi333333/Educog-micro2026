@@ -21,7 +21,7 @@ import {
 } from '@/lib/practice-match';
 
 const COURSEWARE = join(__dirname, '../../../public/resources/course/courseware/u5');
-const UNIT3_OVERVIEW = join(__dirname, '../../../public/resources/course/courseware/u3/u3-overview.html');
+const ADDRESSING_DESIGN = join(__dirname, '../../../public/resources/course/courseware/u3/u3-addressing-design.html');
 
 function sourceTable(html: string): string[][] {
   const encoded = html.indexOf('var DATA=');
@@ -193,7 +193,7 @@ describe('interrupt source match board', () => {
   });
 });
 
-/** Short labels on the overview's `var DZ`, and the course name of each slot. */
+/** Short labels on the addressing design page's `var DZ`, and the course name of each slot. */
 const ADDRESSING_MODE_NAME: Readonly<Record<string, string>> = {
   寄存器: '寄存器寻址',
   立即: '立即寻址',
@@ -204,15 +204,8 @@ const ADDRESSING_MODE_NAME: Readonly<Record<string, string>> = {
   位: '位寻址',
 };
 
-function decodeOverviewPane(html: string, key: string): string {
-  const match = html.match(new RegExp(`"${key}"\\s*:\\s*"([A-Za-z0-9+/=]+)"`));
-  if (!match?.[1]) throw new Error(`overview is missing pane ${key}`);
-  return Buffer.from(match[1], 'base64').toString('utf8');
-}
-
 function addressingReveals(html: string): { key: string; instruction: string; answer: string }[] {
-  const pane = decodeOverviewPane(html, 'addr');
-  const block = pane.match(/var DZ = \[([\s\S]*?)\n {2}\];/);
+  const block = html.match(/var DZ = \[([\s\S]*?)\n {2}\];/);
   if (!block?.[1]) throw new Error('addressing pane is missing var DZ');
   const entries = [...block[1].matchAll(/k:\s*'([^']+)'[\s\S]*?ans:\s*'((?:\\'|[^'])*)'/g)];
   return entries.map((entry) => {
@@ -744,7 +737,7 @@ describe('TCON control-bit match board', () => {
 });
 
 describe('addressing mode match board', () => {
-  const reveals = addressingReveals(readFileSync(UNIT3_OVERVIEW, 'utf8'));
+  const reveals = addressingReveals(readFileSync(ADDRESSING_DESIGN, 'utf8'));
 
   it('copies the seven 80C51 instructions the addressing pane reveals', () => {
     expect(reveals.map((row) => row.key)).toEqual(['寄存器', '立即', '直接', '间接', '变址', '相对', '位']);

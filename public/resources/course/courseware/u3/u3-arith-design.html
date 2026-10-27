@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 章 算术运算｜ADD · ADDC · SUBB · DA · MUL · DIV（单文件版）</title>
+<!-- 单文件版：由 build_单文件.py 自动生成，请勿直接编辑；
+     要改内容请改同名的多文件版与 lib/*.js，然后重跑脚本。 -->
+<!-- 内联自 lib/kp-theme.css -->
+<style>
+/* ============================================================
+   kp-theme.css · 知识点讲解页 · 平台同源主题
+   ------------------------------------------------------------
+   设计令牌直接取自 sunyancai.top 运行时（shadcn/ui + Tailwind 深色主题），
+   目的是嵌进平台后看不出是外来的：
+     --background 220 18% 7%     底色
+     --primary    184 82% 48%    青（主色）
+     --accent     42 92% 58%     琥珀（强调）
+     --border     205 16% 18%
+     --radius     0.5rem
+   页面底纹：左上青、右上琥珀两道径向光晕
+   标题渐变：linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859)
+   面板写法：色/[0.08] 底 + 色/25 描边 + 6px 圆角 + 44px 触控高度
+   ============================================================ */
+:root{
+  --bg:hsl(220 18% 7%);
+  --bg-deep:#070a0d;
+  --fg:hsl(190 32% 94%);
+  --card:hsl(220 15% 11%);
+  --popover:hsl(220 14% 13%);
+  --primary:hsl(184 82% 48%);
+  --secondary:hsl(210 14% 16%);
+  --muted:hsl(210 12% 15%);
+  --muted-fg:hsl(195 13% 62%);
+  --accent:hsl(42 92% 58%);
+  --destructive:hsl(0 72% 51%);
+  --border:hsl(205 16% 18%);
+  --ring:hsl(184 82% 48%);
+  --c1:hsl(184 82% 48%);   /* 青 */
+  --c2:hsl(154 62% 48%);   /* 绿 */
+  --c3:hsl(42 92% 58%);    /* 金 */
+  --c4:hsl(210 80% 62%);   /* 蓝 */
+  --c5:hsl(348 72% 62%);   /* 品红 */
+  --radius:.5rem;
+  --slate100:#f1f5f9; --slate300:#cbd5e1; --slate400:#94a3b8;
+  --cyan100:#cffafe; --cyan300:#67e8f9;
+  --emerald200:#a7f3d0; --emerald300:#6ee7b7;
+  --amber200:#fde68a; --amber300:#fcd34d;
+  --rose300:#fda4af;
+  /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),
+    radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);
+  background-attachment:fixed;
+  color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-fade{animation:kpFade .4s ease-out both}
+@keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 头部 ---------- */
+.kp-eyebrow{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:10px}
+.kp-eyebrow b{color:var(--cyan300);font-weight:600}
+h1.kp-h1{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1.25;
+  background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);
+  background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(min-width:768px){h1.kp-h1{font-size:30px}}
+.kp-lead{margin-top:12px;max-width:72ch;color:var(--slate300);font-size:15px;line-height:1.7}
+.kp-lead b{color:var(--cyan100);font-weight:600}
+.kp-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kp-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:11px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px}
+.kp-chip b{color:var(--cyan300);font-weight:600}
+
+/* ---------- 标签页（沿用平台自身的 tab 写法） ---------- */
+.kp-tabs{display:flex;gap:8px;margin-top:22px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px}
+.kp-tab{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:6px;padding:0 12px;font-size:14px;font-weight:500;cursor:pointer;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s;font-family:var(--fs)}
+.kp-tab:hover{color:var(--slate100);background:rgba(255,255,255,.06)}
+.kp-tab[aria-selected="true"]{color:var(--cyan100);background:rgba(103,232,249,.12);
+  border-color:rgba(103,232,249,.25)}
+.kp-tab .n{font-family:var(--fm);font-size:11px;opacity:.8}
+.kp-panel{display:none;margin-top:18px}
+.kp-panel.on{display:block;animation:kpFade .3s ease-out both}
+
+/* ---------- 通用面板 ---------- */
+.kp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px}
+.kp-card + .kp-card{margin-top:12px}
+.kp-card h2{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:6px;color:var(--slate100)}
+.kp-card h3{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:.14em;
+  color:var(--muted-fg);text-transform:uppercase;margin-bottom:12px}
+.kp-card p{font-size:14px;line-height:1.75;color:var(--slate300)}
+.kp-card p + p{margin-top:9px}
+.kp-card b{color:var(--cyan100);font-weight:600}
+.kp-note{font-size:13px;color:var(--muted-fg);line-height:1.7}
+
+/* 图舞台 */
+.kp-stage{position:relative;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px;overflow:hidden}
+.kp-stage svg{width:100%;height:auto;display:block}
+.kp-stagecap{font-family:var(--fm);font-size:11px;color:var(--muted-fg);
+  margin-top:8px;text-align:center}
+
+/* 控件行 */
+.kp-ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kp-btn{min-height:44px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border-radius:6px;padding:8px 13px;font-family:var(--fm);font-size:12px;
+  color:var(--slate300);background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);transition:.18s}
+.kp-btn:hover{color:var(--slate100);border-color:rgba(255,255,255,.18)}
+.kp-btn.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-btn.go{color:var(--emerald200);background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.25)}
+.kp-btn.go:hover{background:rgba(110,231,183,.14)}
+
+/* 读数格 */
+.kp-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.kp-read{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:9px 11px}
+.kp-read .k{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg)}
+.kp-read .v{font-family:var(--fm);font-size:15px;font-weight:600;margin-top:5px;color:var(--slate100)}
+.kp-read .v.hi{color:var(--cyan300)}.kp-read .v.lo{color:var(--slate400)}
+.kp-read .v.warn{color:var(--rose300)}.kp-read .v.gold{color:var(--amber300)}
+
+/* ---------- 疑点卡 ---------- */
+.kp-pit{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--c5);border-radius:0 8px 8px 0;padding:16px 18px}
+.kp-pit + .kp-pit{margin-top:11px}
+.kp-pit .no{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--rose300);
+  text-transform:uppercase}
+.kp-pit .q{font-size:15px;font-weight:600;margin-top:7px;color:var(--slate100);line-height:1.55}
+.kp-pit dl{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:baseline}
+.kp-pit dt{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--muted-fg);white-space:nowrap}
+.kp-pit dd{font-size:13.5px;line-height:1.7;color:var(--slate300)}
+.kp-pit dd b{color:var(--cyan100)}
+.kp-pit .right{color:var(--emerald200)}
+.kp-pit .right b{color:var(--emerald300)}
+
+/* ---------- 自测 ---------- */
+.kp-q{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:16px 18px}
+.kp-q + .kp-q{margin-top:11px}
+.kp-q .qh{display:flex;gap:10px;align-items:baseline}
+.kp-q .qn{font-family:var(--fm);font-size:11px;color:var(--cyan300);flex:none}
+.kp-q .qt{font-size:14.5px;font-weight:600;line-height:1.6;color:var(--slate100)}
+.kp-opt{display:block;width:100%;text-align:left;cursor:pointer;margin-top:8px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;
+  padding:10px 13px;color:var(--slate300);font-size:13.5px;line-height:1.55;
+  font-family:var(--fs);transition:.16s;min-height:44px}
+.kp-opt:hover{border-color:rgba(255,255,255,.16);color:var(--slate100)}
+.kp-opt.ok{background:rgba(110,231,183,.09);border-color:rgba(110,231,183,.3);color:var(--slate100)}
+.kp-opt.no{background:rgba(253,164,175,.09);border-color:rgba(253,164,175,.3)}
+.kp-opt.lock{pointer-events:none;opacity:.5}
+.kp-opt.lock.ok,.kp-opt.lock.no{opacity:1}
+.kp-exp{margin-top:11px;font-size:13px;line-height:1.72;color:var(--slate300);
+  background:rgba(255,255,255,.02);border-left:3px solid var(--c2);
+  border-radius:0 6px 6px 0;padding:11px 13px;display:none}
+.kp-exp.show{display:block}
+.kp-exp.bad{border-left-color:var(--c5)}
+.kp-score{font-family:var(--fm);font-size:12px;color:var(--slate300);text-align:right;margin-top:12px}
+.kp-score b{color:var(--cyan300);font-size:15px}
+
+/* ---------- 页脚 ---------- */
+.kp-foot{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:12px;line-height:1.8;color:var(--muted-fg)}
+.kp-foot b{color:var(--slate300)}
+.kp-rel{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.kp-rel a{text-decoration:none}
+
+/* 嵌入模式：被 iframe 装载时去掉多余留白 */
+body.kp-embed .kp-wrap{padding-top:14px;padding-bottom:22px}
+body.kp-embed .kp-foot{display:none}
+@media(max-width:640px){
+  .kp-tabs{flex-direction:column}
+  .kp-wrap{padding:16px 12px 40px}
+}
+
+/* ---------- 章节导航条（第三章起启用；第二章各篇不传 nav，不出现） ---------- */
+.kp-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding-bottom:2px}
+.kp-nav::-webkit-scrollbar{display:none}
+.kp-nav-i{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;
+  padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--slate300);text-decoration:none;transition:.16s}
+.kp-nav-i .t{font-size:13px;font-weight:600;white-space:nowrap}
+.kp-nav-i .s{font-family:var(--fm);font-size:10.5px;opacity:.62;white-space:nowrap}
+a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.kp-nav-i.on{color:var(--cyan100);background:rgba(103,232,249,.12);border-color:rgba(103,232,249,.25)}
+.kp-nav-i.soon{opacity:.42;cursor:default}
+.kp-embed .kp-nav{margin-bottom:12px}
+
+</style>
+<style>.kp-wrap{max-width:1360px}
+body{font-size:18px}
+body.z1{zoom:1.15} body.z2{zoom:1.3}
+.kp-eyebrow{font-size:14px}
+.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.top .grow{flex:1 1 520px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg)}
+.btn{cursor:pointer;min-height:38px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--slate100);font:500 15px var(--fs);transition:.15s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:hsl(184 82% 48% / .16);border-color:hsl(184 82% 48% / .5);color:var(--cyan100)}
+.btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:32px;padding:3px 10px;font-size:14px}
+.btn.mono{font-family:var(--fm);font-weight:700}
+.tabs{display:flex;gap:8px;margin:18px 0 14px;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.85)}
+.tab{flex:1;min-height:52px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 16px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.tab small{font-weight:400;font-size:14px;opacity:.8}
+.tab:hover{background:rgba(255,255,255,.07)}
+.tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
+.card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
+.h2{font-size:21px;font-weight:700;margin:2px 0 6px}
+.sub{font-size:15px;color:var(--muted-fg);margin-bottom:10px}
+.mono{font-family:var(--fm)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.talk{border-radius:9px;padding:10px 13px;background:hsl(184 82% 48% / .07);border:1px solid hsl(184 82% 48% / .22);font-size:17px;line-height:1.65;color:var(--cyan100);min-height:56px}
+.talk b{color:#fff}
+.say{margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(246,187,49,.07);border-left:3px solid var(--c3);color:var(--amber200);font-size:16px;line-height:1.6}
+.bigq{font-size:26px;font-weight:800;color:#fff;margin:4px 0 8px}.bigq em{font-style:normal;color:var(--amber300)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.opt{display:grid;gap:8px}
+.ob{text-align:left;font:600 16.5px var(--fs);color:var(--slate100);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:10px 12px;cursor:pointer}
+.ob b{display:inline-block;width:24px;color:var(--cyan100)}.ob:hover{background:rgba(255,255,255,.08)}
+.ob.pick{border-color:#f4b740;background:hsl(42 92% 58% / .12)}.ob.ok{border-color:hsl(150 60% 45%);background:hsl(150 60% 40% / .18)}.ob.no{border-color:hsl(350 70% 55%);background:hsl(350 70% 50% / .12)}
+.res{margin-top:10px;font-size:16.5px;line-height:1.6;color:var(--slate100);min-height:28px}.res b{color:var(--amber200)}
+.ans{margin-top:8px;font-size:16.5px;line-height:1.6;color:var(--cyan100);border-radius:9px;padding:10px 12px;background:hsl(184 82% 48% / .08);border:1px solid hsl(184 82% 48% / .3)}.ans b{color:#fff}
+.hide{display:none!important}
+/* RAM 视图 */
+.ram{display:grid;grid-template-columns:44px repeat(8,1fr);gap:2px;font:600 13px var(--fm)}
+.ram .ah{color:#64748b;text-align:right;padding-right:4px;line-height:26px}
+.ram .c{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);color:#94a3b8;position:relative;transition:background .3s}
+.ram .c.bk0{background:hsl(210 60% 50% / .14)}.ram .c.bk1{background:hsl(260 60% 60% / .14)}.ram .c.bk2{background:hsl(300 50% 55% / .12)}.ram .c.bk3{background:hsl(330 60% 55% / .12)}
+.ram .c.bit{background:hsl(150 50% 45% / .12)}
+.ram .c.v{color:#fff}
+.ram .c.sp{outline:2px solid #f4b740;z-index:2}
+.ram .c.hit{background:hsl(42 92% 58% / .55)!important;color:#141006}
+.ram .c.bad{background:hsl(350 70% 50% / .55)!important;color:#fff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--slate300);margin:6px 0}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.regs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.reg{border-radius:7px;padding:5px 10px;background:rgba(255,255,255,.05);font:600 15px var(--fm)}.reg b{color:var(--amber200)}.reg.sp b{color:#f4b740}.reg.chg{outline:2px solid #f4b740}
+.ops{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.micro{display:grid;gap:4px;margin-top:8px}.micro div{border-radius:7px;padding:6px 10px;background:rgba(255,255,255,.04);font-size:15.5px;opacity:.35;transition:opacity .3s}.micro div.on{opacity:1;background:hsl(42 92% 58% / .12)}
+.micro .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:#f4b740;color:#141006;text-align:center;font:800 13px/22px var(--fm);margin-right:8px}
+.stk{display:flex;flex-direction:column-reverse;gap:3px;min-height:150px;border:2px solid rgba(255,255,255,.15);border-top:none;border-radius:0 0 10px 10px;padding:6px;width:180px}
+.stk div{border-radius:6px;padding:5px 8px;background:hsl(184 82% 48% / .18);font:600 14px var(--fm);color:#fff;animation:kpFade .3s}
+.flow{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+textarea{width:100%;min-height:210px;background:#0b1117;color:#e2e8f0;border:1px solid rgba(255,255,255,.15);border-radius:8px;font:600 15px/1.55 var(--fm);padding:8px}
+.lines{font:600 15px/1.8 var(--fm)}.lines div{padding:0 8px;border-radius:5px}.lines div.cur{background:hsl(42 92% 58% / .2)}.lines div.err{background:hsl(350 70% 50% / .25)}
+.log{font-size:15px;line-height:1.6;margin-top:8px;min-height:48px}
+.warn{color:var(--rose300);font-weight:700}
+.qz{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.qq{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}.qq .t{font-size:16.5px;font-weight:700;margin-bottom:6px;line-height:1.5}
+.qq .o{display:block;width:100%;text-align:left;margin:4px 0;font:600 15px var(--fm);padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:none;color:var(--slate100);cursor:pointer}
+.qq .o.ok{background:hsl(150 60% 40%);color:#fff}.qq .o.no{background:hsl(350 70% 50%);color:#fff}
+.qq .e{font-size:15px;line-height:1.55;color:var(--cyan100);margin-top:6px}
+.note{font-size:13.5px;color:var(--slate400);margin-top:8px;line-height:1.55}
+.flow>div{flex:1 1 260px;min-width:0}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:5px 7px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}table.mt th{color:var(--slate300);font-weight:600}
+.cmpt{margin-top:10px;font-size:14.5px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+.lv{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.lv .btn.on{background:hsl(42 92% 58% / .9);color:#141006}
+.stage{min-height:230px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.07);padding:12px;display:flex;flex-direction:column;gap:10px}
+.cap{font-size:15.5px;color:var(--amber200);min-height:24px}
+.bx{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center}
+.cell{min-width:86px;border-radius:9px;padding:6px 10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);text-align:center;transition:all .35s}
+.cell small{display:block;font-size:12.5px;color:var(--slate400)}
+.cell b{display:block;font:700 20px var(--fm);color:#fff}
+.cell.hit{background:hsl(42 92% 58% / .28);border-color:#f4b740}
+.cell.bad{background:hsl(350 70% 50% / .3);border-color:hsl(350 70% 60%)}
+.cell.ok{background:hsl(150 60% 40% / .3);border-color:hsl(150 60% 50%)}
+.cell.rom{border-style:dashed}
+.arw{font:700 22px var(--fm);color:#f4b740}
+.why{margin-top:10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);padding:6px 12px;background:rgba(255,255,255,.02)}
+.why summary{cursor:pointer;color:var(--cyan100);font-weight:700;font-size:15.5px}
+.why div{font-size:15.5px;line-height:1.7;color:var(--slate100);margin:6px 0}
+.inf{display:inline-block;font-size:12px;padding:1px 6px;border-radius:4px;background:hsl(270 50% 50% / .25);color:#e9d5ff;margin-left:4px;vertical-align:1px}
+.bt{display:grid;grid-template-columns:110px 1fr 54px;gap:6px;align-items:center;font-size:14.5px;margin:3px 0}
+.bt .bar{height:14px;border-radius:4px;background:#f4b740;transition:width .5s}
+.bt .bar.c{background:hsl(184 82% 48%)}
+table.mt{border-collapse:collapse;width:100%;font-size:15px}
+table.mt td,table.mt th{border:1px solid rgba(255,255,255,.1);padding:6px 8px;text-align:center}
+table.mt tr.on td{background:hsl(42 92% 58% / .14)}
+table.mt th{color:var(--slate300);font-weight:600}
+.pick2{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+.pick2 .btn.on{background:hsl(184 82% 48% / .35);color:#fff}
+.nib{display:inline-flex;gap:3px}.nib span{display:inline-block;width:34px;text-align:center;border-radius:6px;padding:4px 0;background:rgba(255,255,255,.07);font:700 20px var(--fm);transition:all .4s}
+.nib span.mv{background:hsl(42 92% 58% / .5);color:#141006;transform:translateY(-4px)}
+svg text{font-family:var(--fs)}
+.mini{display:inline-block;width:60px;height:9px;border-radius:3px;background:rgba(255,255,255,.07);margin-right:6px;vertical-align:1px}.mini i{display:block;height:100%;border-radius:3px;background:#f4b740}.mini.c i{background:hsl(184 82% 48%)}
+.cmpt{margin-top:10px;font-size:14.5px}.cmpt td{padding:5px 7px}
+.foot{margin:18px 0 8px;font-size:13px;color:var(--slate400);text-align:center}
+/* 算术、逻辑两节补充样式 */
+.bits{display:grid;grid-template-columns:78px 46px repeat(8,44px);gap:3px;align-items:center;font:700 19px var(--fm);margin:6px 0}
+.bits .lab{font-size:14px;color:var(--slate300);text-align:right;padding-right:6px;font-family:var(--fs)}
+.bits .hd{font-size:12.5px;color:#64748b;text-align:center}
+.bits .bt0{height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);color:#94a3b8;transition:all .25s}
+.bits .bt0.one{background:hsl(184 82% 48% / .3);color:#fff}
+.bits .bt0.clk{cursor:pointer}.bits .bt0.clk:hover{outline:1px solid #94a3b8}
+.bits .bt0.chg{outline:2px solid #f4b740}
+.bits .cr{font-size:14px;color:#64748b;text-align:center;height:20px}
+.bits .cr.c1{color:#f4b740;font-weight:800}
+.bits .cr.mk{background:hsl(42 92% 58% / .22);border-radius:5px}
+.bits .sep{grid-column:1/-1;height:2px;background:rgba(255,255,255,.18)}
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin-top:10px}
+.fl{border-radius:9px;padding:8px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer}
+.fl .k{font:700 15px var(--fm);color:var(--amber200)}.fl b{font:800 24px var(--fm);color:#fff;margin-left:6px}
+.fl div{font-size:14.5px;color:var(--slate300);line-height:1.55;margin-top:3px}
+.fl.on{border-color:#f4b740;background:hsl(42 92% 58% / .1)}
+.fl.same b{color:#64748b}
+.bits .bt0.cur{outline:3px solid #67e8f9;outline-offset:1px}
+.bits .bt0.hot,.bits .cr.hot{background:hsl(42 92% 58% / .55);color:#141006}
+.bits .bt0.dim{opacity:.25}
+.fl.q b{color:#475569}
+.wnib{display:flex;gap:10px;margin:8px 0}.wnib div{width:92px;height:84px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);transition:.3s}
+.wnib b{font:800 34px var(--fm);color:#fff}.wnib i{font-style:normal;font-size:13px;color:#94a3b8}
+.wnib .bad{border-color:#fda4af;background:rgba(244,63,94,.14)}.wnib .fix{border-color:#6ee7b7;background:rgba(16,185,129,.16)}
+.wkp{font:16px var(--fm);line-height:1.75}.wkp div{padding:0 8px;border-radius:5px;color:#94a3b8}.wkp .cur{background:hsl(184 82% 48% / .25);color:#fff}.wkp .done{color:#cbd5e1}.wkp .badl{color:#fda4af}
+.mem{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.mem div{min-width:70px;text-align:center;padding:5px 6px;border-radius:7px;background:rgba(255,255,255,.05);font:15px var(--fm)}.mem div b{display:block;font-size:20px;color:#fff}.mem .chg{outline:2px solid #f4b740;background:hsl(42 92% 58% / .14)}
+input.hx{width:92px;font:700 21px var(--fm);background:#0b1117;color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:7px;padding:4px 8px;text-transform:uppercase}
+input.hx.bad{border-color:hsl(350 70% 60%)}
+.big{font:800 26px var(--fm);color:#fff}
+.dec{font-size:14.5px;color:var(--slate300);margin-top:4px}
+.tt{border-collapse:collapse;font-size:17px;margin:6px 0}.tt td,.tt th{border:1px solid rgba(255,255,255,.12);padding:8px 14px;text-align:center}
+.tt th{color:var(--slate300);font-weight:600}.tt td.c{cursor:pointer}.tt td.on{background:hsl(42 92% 58% / .22)}
+.tt b{font-family:var(--fm);font-size:20px;color:#fff}.tt small{display:block;color:var(--amber200);font-size:13.5px}
+.psw{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-width:560px}.psw div{text-align:center;border-radius:6px;padding:6px 0;background:rgba(255,255,255,.05);font:700 16px var(--fm);cursor:pointer}
+.psw div.k{background:hsl(184 82% 48% / .25);color:#fff}.psw div.on{outline:2px solid #f4b740}
+</style><style id="phone-type">
+@media (max-width:760px){
+  .kp-eyebrow,.kp-chip,.kp-q .qn,.tab small,.mode .mb,.exb .kd{font-size:14px;letter-spacing:.04em}
+  .kp-tab .n,.kp-card h3,.kp-stagecap,.kp-read .k,.kp-pit .no,.kp-pit dt,.kp-nav-i .s{font-size:13px;letter-spacing:.04em}
+  .kp-lead,.kp-pit .q{font-size:17px}
+  .kp-card p,.kp-pit dd,.kp-opt{font-size:16px}
+  .kp-note,.kp-exp,.kp-foot{font-size:15px}
+}
+</style>
+</head>
+<body><div class="kp-wrap">
+<div class="top"><div class="grow"><div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 3 章 指令系统</b> · 算术运算</div><h1 class="kp-h1">算术运算：结果放哪，意外怎么告诉程序</h1></div>
+<div class="zoom">字号 <button class="btn sm on" data-z="0">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button></div></div>
+<div class="tabs" role="tablist">
+<button class="tab" data-p="dz" aria-selected="true">① 难题与对比<small>进位放哪 · 溢出怎么发现</small></button>
+<button class="tab" data-p="show">② 揭晓与原理<small>标志从哪来 · 字节周期怎么推</small></button>
+<button class="tab" data-p="hand">③ 动手练<small>输两个数，看结果和标志</small></button>
+<button class="tab" data-p="qz">④ 小测<small>5 题</small></button></div>
+<section class="pane on" id="p-dz"><div class="card" id="dzBox"></div></section>
+<section class="pane" id="p-show"><div class="card" id="rvBox"></div>
+<div class="card" style="margin-top:12px"><div class="h2">PSW：点一位，看它管什么</div>
+<div class="psw" id="psw"></div><div class="res" id="pswR"></div></div>
+<div class="card" style="margin-top:12px"><div class="h2">字节、周期不用背：点一条，按规则推</div>
+<div class="ops" id="bcOps"></div><div class="res" id="bcR"></div>
+<details class="why"><summary>两条规则</summary><div>字节：操作码 1 个字节；Rn、@Ri、A、DPTR 编在操作码里不另占字节；每带一个 8 位地址或立即数，加 1 个字节。<br>周期：一个机器周期里取指两次，1、2 字节的指令 1 个周期取得完；3 字节的一定 2 个周期；要多走一趟的（16 位 INC DPTR）2 个周期；乘除 4 个周期。</div></details></div>
+</section>
+<section class="pane" id="p-hand"><div class="card">
+<div class="row" style="gap:14px;align-items:flex-end">
+<label>A<br><input class="hx" id="inA" value="3B"></label>
+<label>源操作数<br><input class="hx" id="inB" value="3B"></label>
+<div>原 CY<br><button class="btn mono" id="inC">0</button></div>
+<div class="ops" id="opBtns" style="margin:0"></div>
+<button class="btn pri" id="daBtn">再执行 DA A</button>
+</div>
+<div class="ops" id="preset"></div>
+<div class="g2"><div><div id="col"></div><div class="big" id="outR"></div><div class="dec" id="outD"></div></div>
+<div><div class="flags" id="flg"></div></div></div>
+</div>
+<div class="card" style="margin-top:12px"><div class="h2">看着走一遍</div>
+<div class="ops" id="wkBtns" style="margin:0"><button class="btn" data-w="bit">一位一位算</button><button class="btn" data-w="da">DA 分步</button><button class="btn" data-w="add">ADD 接 ADDC</button><button class="btn" data-w="sub">CLR C 后两次 SUBB</button>
+<label class="btn sm" id="wkBadW" style="display:none;margin-left:8px"><input type="checkbox" id="wkBad"> <span id="wkBadT"></span></label></div>
+<div class="row" style="margin:8px 0"><button class="btn pri" id="wkNext">下一步 ▸</button><button class="btn" id="wkPrev">◂ 上一步</button><button class="btn" id="wkAuto">▶ 自动</button><button class="btn" id="wkRe">⟲ 从头</button><span class="sub" id="wkN"></span></div>
+<div class="g2"><div id="wkStage"></div><div><div class="flags" id="wkFlg"></div></div></div>
+<div class="say" id="wkCap"></div>
+</div>
+</section>
+<section class="pane" id="p-qz"><div class="card"><div class="h2">小测</div><div class="qz" id="qzBox"></div><div class="log" id="qzS"></div></div></section>
+<div class="foot">结果和标志位按 80C51 指令手册逐位计算。标“教学推断”的是对设计原因的解释。</div>
+</div>
+<script>/* 第 3 章新页共用：页签、字号、键盘、设计难题、小测 */
+var K = (function () {
+  'use strict';
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function hx(v, n) { var s = v.toString(16).toUpperCase(); while (s.length < (n || 2)) s = '0' + s; return (/^[A-F]/.test(s) ? '0' : '') + s + 'H'; }
+  function hx2(v) { var s = (v & 255).toString(16).toUpperCase(); return (s.length < 2 ? '0' : '') + s + 'H'; }
+  $$('.zoom .btn').forEach(function (b) { b.onclick = function () { document.body.classList.remove('z1', 'z2'); if (b.dataset.z !== '0') document.body.classList.add('z' + b.dataset.z); $$('.zoom .btn').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  var PANES = $$('.tab').map(function (t) { return t.dataset.p; }), cur = PANES[0], steppers = {};
+  function showPane(k) { cur = k; $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); }); $$('.pane').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + k); }); }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
+  document.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
+    var i = PANES.indexOf(cur);
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPane(PANES[Math.min(PANES.length - 1, i + 1)]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPane(PANES[Math.max(0, i - 1)]); }
+    else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (steppers[cur]) steppers[cur](); }
+  });
+  /* 依次播放几帧：frames = [[说明, html], ...] */
+  function play(stage, frames, ms) {
+    if (stage._t) stage._t.forEach(clearTimeout); stage._t = [];
+    frames.forEach(function (f, i) { stage._t.push(setTimeout(function () { stage.innerHTML = '<div class="cap">' + f[0] + '</div>' + f[1]; }, i * (ms || 1100))); });
+  }
+  function cell(lab, val, cls) { return '<div class="cell ' + (cls || '') + '"><small>' + lab + '</small><b>' + val + '</b></div>'; }
+  function arw(t) { return '<span class="arw">' + (t || '→') + '</span>'; }
+  function bars(rows, maxB, maxT) {
+    return rows.map(function (r) { return '<div class="bt"><span>' + r[0] + '</span><span><div class="bar" style="width:' + (r[1] / maxB * 100) + '%"></div><div class="bar c" style="width:' + (r[2] / maxT * 100) + '%;margin-top:3px"></div></span><span class="mono">' + r[1] + 'B ' + r[2] + 'T</span></div>'; }).join('') + '<div class="note">黄条：字节数　青条：机器周期数（80C51 指令表）</div>';
+  }
+  /* 设计难题：① 难题与对比（root）＋ ② 揭晓与原理动画（rv）。
+     L = [{q, idle, opts:[{t, r, B, T, side, no, est, anim(stage)}], ans, why}] */
+  function cmp(D, mark, hide) {
+    var ok = D.opts.filter(function (o) { return o.ok; })[0], rows = D.opts.filter(function (o) { return o.B != null; });
+    var mb = Math.max.apply(null, rows.map(function (o) { return o.B; }).concat([1])), mt = Math.max.apply(null, rows.map(function (o) { return o.T; }).concat([1]));
+    return '<table class="mt cmpt"><tr><th>方案</th><th>字节</th><th>周期</th><th>副作用 / 代价</th></tr>' + D.opts.map(function (o, j) {
+      var c = (mark === j ? ' class="on"' : '') ;
+      return '<tr' + c + '><td style="text-align:left">' + 'ABCD'[j] + (o.ok && !hide ? ' <b style="color:#4ade80">80C51</b>' : '') + '</td>' +
+        (o.no ? '<td colspan="2" style="color:#fb7185">行不通</td>' : o.B == null ? '<td colspan="2">—</td>' :
+          '<td><div class="mini"><i style="width:' + (o.B / mb * 100) + '%"></i></div>' + o.B + (o.est ? '*' : '') + '</td><td><div class="mini c"><i style="width:' + (o.T / mt * 100) + '%"></i></div>' + o.T + (o.est ? '*' : '') + '</td>') +
+        '<td style="text-align:left">' + (o.side || '') + '</td></tr>';
+    }).join('') + '</table>' + (D.opts.some(function (o) { return o.est; }) ? '<div class="note">* 估算，见“为什么”。</div>' : '');
+  }
+  function design(root, L, rv) {
+    var st = { lv: 0, pick: null };
+    root.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="opt"></div><div class="res"></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn pri" data-k="show">揭晓 80C51 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    rv.innerHTML = '<div class="lv"></div><div class="bigq"></div><div class="g2"><div><div class="ans"></div><details class="why" open><summary>为什么这样设计？</summary><div></div></details>' +
+      '<div class="row" style="margin-top:10px"><button class="btn" data-k="replay">↻ 再演一遍</button><button class="btn pri" data-k="next">下一题 ▶</button></div></div><div><div class="stage"></div><div class="cmpw"></div></div></div>';
+    function chips(el) { el.innerHTML = L.map(function (x, i) { return '<button class="btn sm' + (i === st.lv ? ' on' : '') + '" data-i="' + i + '">难题 ' + (i + 1) + '</button>'; }).join(''); $$('button', el).forEach(function (b) { b.onclick = function () { go(+b.dataset.i); }; }); }
+    function okOf(D) { var k = 0; D.opts.forEach(function (o, j) { if (o.ok) k = j; }); return k; }
+    function render() {
+      var D = L[st.lv];
+      chips($('.lv', root)); chips($('.lv', rv));
+      $('.bigq', root).innerHTML = D.q; $('.bigq', rv).innerHTML = D.q;
+      $('.opt', root).innerHTML = D.opts.map(function (o, j) { return '<button class="ob' + (st.pick === j ? ' pick' : '') + '" data-j="' + j + '"><b>' + 'ABCD'[j] + '</b>' + o.t + '</button>'; }).join('');
+      $$('.ob', root).forEach(function (b) { b.onclick = function () { st.pick = +b.dataset.j; render(); D.opts[st.pick].anim($('.stage', root)); }; });
+      var o = st.pick == null ? null : D.opts[st.pick];
+      $('.res', root).innerHTML = o ? '<b>后果：</b>' + o.r : '先选一个，右边演给你看，下面和别的方案比一比。';
+      $('.cmpw', root).innerHTML = o ? cmp(D, st.pick, 1) : '';
+      if (st.pick == null) $('.stage', root).innerHTML = '<div class="cap">等你选</div>' + (D.idle || '');
+      $('.ans', rv).innerHTML = '<b>80C51：</b>' + D.ans; $('div', $('.why', rv)).innerHTML = D.why;
+      $('.cmpw', rv).innerHTML = cmp(D, okOf(D));
+    }
+    function go(i) { st = { lv: i, pick: null }; render(); }
+    function playOk() { var D = L[st.lv]; D.opts[okOf(D)].anim($('.stage', rv)); }
+    $('[data-k=show]', root).onclick = function () { showPane(PANES[1]); playOk(); };
+    $('[data-k=replay]', rv).onclick = playOk;
+    $('[data-k=next]', rv).onclick = function () { go((st.lv + 1) % L.length); showPane(PANES[0]); };
+    render();
+    steppers[PANES[0]] = function () { if (st.pick == null) { st.pick = 0; render(); L[st.lv].opts[0].anim($('.stage', root)); } else { showPane(PANES[1]); playOk(); } };
+    steppers[PANES[1]] = function () { if (st.lv < L.length - 1) { go(st.lv + 1); showPane(PANES[0]); } };
+    return null;
+  }
+  function quiz(root, out, Q) {
+    var done = {};
+    root.innerHTML = Q.map(function (x, i) { return '<div class="qq"><div class="t">' + (i + 1) + '. ' + x.t + '</div>' + x.o.map(function (o, j) { return '<button class="o" data-i="' + i + '" data-j="' + j + '">' + o + '</button>'; }).join('') + '<div class="e hide"></div></div>'; }).join('');
+    $$('.o', root).forEach(function (b) { b.onclick = function () { var i = +b.dataset.i, j = +b.dataset.j, x = Q[i]; if (done[i] != null) return; done[i] = j === x.a; b.classList.add(j === x.a ? 'ok' : 'no'); $$('.o[data-i="' + i + '"]', root)[x.a].classList.add('ok'); var e = b.parentNode.querySelector('.e'); e.innerHTML = x.e; e.classList.remove('hide'); var n = 0, r = 0; for (var k in done) { n++; if (done[k]) r++; } out.textContent = '已答 ' + n + ' 题，对 ' + r + ' 题。'; }; });
+  }
+  return { $: $, $$: $$, hx: hx2, play: play, cell: cell, arw: arw, bars: bars, design: design, quiz: quiz, steppers: steppers, showPane: showPane };
+})();
+</script>
+<script>
+/*ALU-BEGIN*/
+var ALU = (function () {
+  function P(a) { var n = 0; for (var i = 0; i < 8; i++) n += (a >> i) & 1; return n & 1; }
+  function bits(v) { var r = []; for (var i = 0; i < 8; i++) r.push((v >> i) & 1); return r; }
+  function add(a, b, cy, withC) {
+    var c = withC ? cy : 0, ch = [c], ab = bits(a), bb = bits(b), s = 0;
+    for (var i = 0; i < 8; i++) { var t = ab[i] + bb[i] + ch[i]; s |= (t & 1) << i; ch.push(t >> 1); }
+    return { A: s, CY: ch[8], AC: ch[4], OV: ch[7] ^ ch[8], P: P(s), c7: ch[7], ch: ch, cin: c };
+  }
+  function subb(a, b, cy) {
+    var bw = [cy], ab = bits(a), bb = bits(b), s = 0;
+    for (var i = 0; i < 8; i++) { var t = ab[i] - bb[i] - bw[i]; s |= (t & 1) << i; bw.push(t < 0 ? 1 : 0); }
+    return { A: s, CY: bw[8], AC: bw[4], OV: bw[7] ^ bw[8], P: P(s), c7: bw[7], ch: bw, cin: cy };
+  }
+  function da(a, cy, ac) {
+    var A = a, C = cy, st = [];
+    if ((A & 15) > 9 || ac) { A += 6; st.push('lo'); if (A > 255) C = 1; A &= 255; }
+    if ((A >> 4) > 9 || C) { A += 0x60; st.push('hi'); if (A > 255) C = 1; A &= 255; }
+    return { A: A, CY: C, P: P(A), st: st };
+  }
+  function mul(a, b) { var r = a * b; return { A: r & 255, B: r >> 8, CY: 0, OV: r > 255 ? 1 : 0, P: P(r & 255), prod: r }; }
+  function div(a, b) { if (b === 0) return { A: null, B: null, CY: 0, OV: 1, P: null }; var q = Math.floor(a / b); return { A: q, B: a % b, CY: 0, OV: 0, P: P(q) }; }
+  return { add: add, subb: subb, da: da, mul: mul, div: div, P: P };
+})();
+/*ALU-END*/
+(function () {
+  var $ = K.$, $$ = K.$$, C = K.cell, A = K.arw, hx = function (v) { var t = (v & 255).toString(16).toUpperCase(); if (t.length < 2) t = '0' + t; return (/^[A-F]/.test(t) ? '0' : '') + t + 'H'; };
+  function sg(v) { return v > 127 ? v - 256 : v; }
+  function sgs(v) { var s = sg(v); return s >= 0 ? '+' + s : '−' + (-s); }
+  function pw(v) { var n = bin(v).split('1').length - 1; return 'A=' + bin(v) + 'B，1 有 ' + n + ' 个，' + (n % 2 ? '奇数 → P=1' : '偶数 → P=0'); }
+  function bin(v) { var s = (v & 255).toString(2); while (s.length < 8) s = '0' + s; return s; }
+  /* ① 五道设计题 */
+  var L = [
+    { q: '3BH + C5H，结果超过 FFH。<em>第 9 位</em>放到哪？',
+      idle: '<div class="bx">' + C('A', '3BH') + '<span class="arw">+</span>' + C('源', 'C5H') + '</div>',
+      opts: [
+        { t: '丢掉，A 只留低 8 位', side: '程序以为结果是 0；多字节加法接不上', r: 'A=00H。真实结果是 100H，丢了进位，程序看到的是 0。', anim: function (s) { K.play(s, [['3BH + C5H = 100H', '<div class="bx">' + C('第 9 位', '1', 'bad') + C('A', '00H', 'hit') + '</div>'], ['第 9 位丢了', '<div class="bx">' + C('A', '00H', 'bad') + '</div>']]); } },
+        { t: '放进 B 寄存器', side: 'B 被占；8 位只存 1 位', r: '能存下，可每做一次加法都冲掉 B；进位只有 0、1 两种，用 8 位去装太浪费。', anim: function (s) { K.play(s, [['进位写进 B', '<div class="bx">' + C('B', '01H', 'bad') + C('A', '00H', 'hit') + '</div>'], ['B 原来的数没了', '']]); } },
+        { t: '把 A 加宽成 16 位', side: '整个 CPU 都要改成 16 位', r: '数据通路、RAM、指令全要加宽，就不再是 8 位单片机了。', anim: function (s) { K.play(s, [['A 加宽', '<div class="bx">' + C('A（16 位）', '0100H', 'bad') + '</div>'], ['代价太大', '']]); } },
+        { t: '专门留 1 位“进位标志”', ok: 1, side: '无（CY，在 PSW 最高位）', r: 'A=00H，CY=1。下一条 ADDC 会把 CY 加进去。', anim: function (s) { K.play(s, [['3BH + C5H', '<div class="bx">' + C('A', '3BH') + '<span class="arw">+</span>' + C('源', 'C5H') + '</div>'], ['第 9 位进 CY', '<div class="bx">' + C('CY', '1', 'ok') + C('A', '00H', 'ok') + '</div>']]); } }
+      ],
+      ans: 'PSW 的最高位 CY 接住第 9 位：ADD A,#0C5H 后 A=00H，CY=1。',
+      why: 'CY 只要 1 位，放在 PSW 里不占别的寄存器。ADDC 把它加进下一段，多字节加法就能一段一段接上（课件第 79 页）。无符号数看 CY，就知道结果有没有超过 255。' },
+    { q: '有符号数 <em>+112 + +112</em>：70H+70H=E0H，看着像 −32。程序怎么<em>发现</em>算错了？',
+      idle: '<div class="bx">' + C('A', '70H') + '<span class="arw">+</span>' + C('源', '70H') + A() + C('A', 'E0H') + '</div>',
+      opts: [
+        { t: '看 CY', side: '漏报：CY=0', r: '70H+70H 没超过 FFH，CY=0，发现不了。', anim: function (s) { K.play(s, [['70H + 70H = E0H', '<div class="bx">' + C('CY', '0', 'bad') + C('A', 'E0H') + '</div>'], ['CY 管的是无符号数', '']]); } },
+        { t: '看结果最高位是不是 1', side: '误报：负数相加本来就是 1', r: 'C0H+F0H（−64 + −16）=B0H（−80），最高位是 1，结果却完全正确。', anim: function (s) { K.play(s, [['C0H + F0H = B0H', '<div class="bx">' + C('A', 'B0H', 'hit') + C('= −80', '对的') + '</div>'], ['最高位是 1，却没算错', '']]); } },
+        { t: '设计两套加法：有符号一套、无符号一套', side: '操作码翻倍', r: '两种加法在二进制上一模一样，分两套只是浪费操作码。', anim: function (s) { K.play(s, [['ADD / ADDS ……', '<div class="bx">' + C('操作码', '×2', 'bad') + '</div>']]); } },
+        { t: '加法时顺手比较 D6、D7 两处进位', ok: 1, side: '无（OV = D6 进位 ⊕ D7 进位）', r: 'D6 有进位、D7 没有，两者不同，OV=1。', anim: function (s) { K.play(s, [['70H + 70H', '<div class="bx">' + C('D6 进位', '1', 'hit') + C('D7 进位', '0', 'hit') + '</div>'], ['不同 → OV=1', '<div class="bx">' + C('OV', '1', 'ok') + C('A', 'E0H') + '</div>']]); } }
+      ],
+      ans: '同一个加法器，CY 给无符号数看，OV 给有符号数看。程序员知道自己算的是哪种数，就看哪个标志。',
+      why: '两个同号数相加，结果的符号变了，就是溢出；异号数相加永远不会溢出。落到电路上，正好是“D6 向 D7 的进位”和“D7 向外的进位”不一致，一个异或门就做出来了。' },
+    { q: 'BCD 码 <em>38+49</em>：二进制加得 81H，低 4 位是 1，<em>看着合法</em>。DA 怎么知道还要加 6？',
+      idle: '<div class="bx">' + C('A', '38H') + '<span class="arw">+</span>' + C('源', '49H') + A() + C('A', '81H') + '</div>',
+      opts: [
+        { t: '只看低 4 位是否大于 9', side: '漏调：8+9=17 这种', r: '1 不大于 9，不调，得 81，正确答案是 87。', anim: function (s) { K.play(s, [['低 4 位 = 1', '<div class="bx">' + C('A', '81H', 'bad') + '</div>'], ['38+49 应该是 87', '']]); } },
+        { t: '每次都加 66H', side: '错调：不该调的也调了', r: '38+45=7DH，再加 66H 得 E3H，错。', anim: function (s) { K.play(s, [['7DH + 66H', '<div class="bx">' + C('A', 'E3H', 'bad') + '</div>']]); } },
+        { t: '加法时把低 4 位向高 4 位的进位记下来', ok: 1, side: '无（AC 标志）', r: '8+9 在低 4 位产生进位，AC=1。DA 看到 AC=1 就加 6：81H → 87H。', anim: function (s) { K.play(s, [['38H + 49H = 81H', '<div class="bx">' + C('AC', '1', 'hit') + C('A', '81H') + '</div>'], ['AC=1 → 低 4 位加 6', '<div class="bx">' + C('A', '87H', 'ok') + '</div>']]); } }
+      ],
+      ans: 'AC 记下 D3 向 D4 的进位。DA A：低 4 位大于 9 或 AC=1，加 06H；高 4 位大于 9 或 CY=1，加 60H。',
+      why: 'BCD 一位满 10 进 1，二进制半字节满 16 才进 1，中间差 6。低半字节一旦进过位，剩下的数“看起来合法”，只看结果分不出来，只能在加法那一刻把进位记下，这就是 AC 存在的理由。' },
+    { q: '有 <em>INC DPTR</em>，却没有 DEC DPTR。让你分配操作码，你会怎么做？',
+      idle: '<div class="bx">' + C('DPH', '20H') + C('DPL', '00H') + '</div>',
+      opts: [
+        { t: '加 1、减 1 都给', side: '没有空操作码了', r: '80C51 的 256 个操作码已经用了 255 个，再加一条就得挤掉别的。', anim: function (s) { K.play(s, [['操作码表', '<div class="bx">' + C('已用', '255', 'bad') + C('空位', '1') + '</div>']]); } },
+        { t: '只给常用的 INC DPTR，减 1 用几条拼', ok: 1, B: 1, T: 2, side: '往回走要多写几条', r: 'INC DPTR 1 字节 2 周期。往回走：DEC DPL，若 DPL 原来是 00H 还要 DEC DPH。', anim: function (s) { K.play(s, [['DEC DPL', '<div class="bx">' + C('DPH', '20H', 'bad') + C('DPL', 'FFH', 'hit') + '</div>'], ['DPL 原为 00H，再 DEC DPH', '<div class="bx">' + C('DPH', '1FH', 'ok') + C('DPL', 'FFH', 'ok') + '</div>']]); } },
+        { t: '都不给，DPL、DPH 自己拼', side: '最常用的操作反而最慢', r: '顺序查表、搬一串数据，每一步都要拼好几条。', anim: function (s) { K.play(s, [['每步都拼', '<div class="bx">' + C('INC DPL', '…', 'bad') + C('判断', '…', 'bad') + C('INC DPH', '…', 'bad') + '</div>']]); } }
+      ],
+      ans: 'INC DPTR：1 字节 2 周期。没有 DEC DPTR；用 DEC DPL 代替时，DPL 原为 00H 还要再 DEC DPH。',
+      why: '<span class="inf">教学推断</span>查表、搬数据时指针几乎总是从小地址往大地址走，所以把操作码给了 INC DPTR。DEC 不影响 CY，DPL 从 00H 减成 FFH 时不会提醒你借位，要自己先判断。' },
+    { q: '8 位乘 8 位，积有 16 位，ALU 一次只能加 8 位。<em>MUL AB</em> 你肯花几个周期？',
+      idle: '<div class="bx">' + C('A', '60H') + '<span class="arw">×</span>' + C('B', 'C0H') + '</div>',
+      opts: [
+        { t: '1 个周期：造一个完整的并行乘法器', side: '芯片面积、成本大涨', r: '最快，但乘法阵列要大量门电路，8 位单片机划不来。', anim: function (s) { K.play(s, [['并行乘法阵列', '<div class="bx">' + C('门电路', '很多', 'bad') + '</div>']]); } },
+        { t: '不设乘法指令，用软件移位相加', side: '程序长，几十上百个周期（估算）', r: '8 次移位相加的循环，几十条指令，慢。', anim: function (s) { K.play(s, [['软件循环 8 次', '<div class="bx">' + C('RLC', '…') + C('ADDC', '…') + C('DJNZ', '…') + '</div>'], ['慢', '']]); } },
+        { t: '硬件里按位移位相加，多花几个周期', ok: 1, B: 1, T: 4, side: '比一般指令慢', r: 'MUL AB：1 字节 4 周期，12MHz 时 4μs。', anim: function (s) { K.play(s, [['60H × C0H = 4800H', '<div class="bx">' + C('B', '48H', 'ok') + C('A', '00H', 'ok') + C('OV', '1', 'hit') + '</div>']]); } }
+      ],
+      ans: 'MUL AB：积的高 8 位在 B，低 8 位在 A；积大于 FFH 时 OV=1，CY 总是 0。DIV AB 同样 1 字节 4 周期。',
+      why: '<span class="inf">教学推断</span>乘法就是看乘数每一位，是 1 就把移位后的被乘数加进来，8 位要做 8 步。放进硬件按节拍逐位做，既不用造大阵列，又比软件快得多，代价是比普通指令多几个周期。' }
+  ];
+  K.design($('#dzBox'), L, $('#rvBox'));
+
+  /* ② PSW */
+  var PSW = [['CY', 1, '第 9 位进位/借位。无符号数超出 0–255 时为 1；ADDC、SUBB 把它带进下一段。'], ['AC', 1, 'D3 向 D4 的进位/借位。给 DA A 做十进制调整用。'], ['F0', 0, '用户自己用的标志。'], ['RS1', 0, '和 RS0 一起选工作寄存器组（第 2 章）。'], ['RS0', 0, '和 RS1 一起选工作寄存器组。'], ['OV', 1, '有符号溢出：D6 进位 ⊕ D7 进位。MUL 里表示积超过 FFH，DIV 里表示除数为 0。'], ['—', 0, '保留位。'], ['P', 1, 'A 中 1 的个数为奇数时 P=1。由硬件随时按 A 计算，串行通信做奇偶校验时直接拿来用。']];
+  $('#psw').innerHTML = PSW.map(function (x, i) { return '<div class="' + (x[1] ? 'k' : '') + '" data-i="' + i + '">' + x[0] + '<br><small style="color:#64748b">D' + (7 - i) + '</small></div>'; }).join('');
+  $$('#psw div').forEach(function (d) { d.onclick = function () { $$('#psw div').forEach(function (x) { x.classList.toggle('on', x === d); }); var x = PSW[+d.dataset.i]; $('#pswR').innerHTML = '<b>' + x[0] + '</b>：' + x[2]; }; });
+  $('#pswR').textContent = '青色的四位是算术指令会改的标志。';
+
+  /* ② 字节、周期按规则推 */
+  var BC = [
+    ['ADD A,R3', 1, 1, 'R3 编在操作码低 3 位，不另占字节', '1 字节，1 个周期'],
+    ['ADD A,@R0', 1, 1, 'R0/R1 编在操作码最低位', '1 字节，1 个周期'],
+    ['ADD A,30H', 2, 1, '操作码 + 地址 30H', '2 字节，一个周期里取得完'],
+    ['ADD A,#30H', 2, 1, '操作码 + 立即数', '2 字节，一个周期里取得完'],
+    ['SUBB A,R2', 1, 1, 'R2 编在操作码里', '1 个周期'],
+    ['INC 30H', 2, 1, '操作码 + 地址', '1 个周期'],
+    ['INC DPTR', 1, 2, 'DPTR 编在操作码里', '16 位数要分低、高两次过 8 位 ALU，2 个周期<span class="inf">教学推断</span>'],
+    ['DA A', 1, 1, '只对 A', '1 个周期'],
+    ['MUL AB', 1, 4, 'A、B 都隐含在操作码里', '逐位移位相加，4 个周期'],
+    ['DIV AB', 1, 4, '同上', '逐位移位相减，4 个周期'],
+    ['ANL P1,#0F0H', 3, 2, '操作码 + 地址 P1 + 立即数', '3 字节一定 2 个周期']
+  ];
+  $('#bcOps').innerHTML = BC.map(function (x, i) { return '<button class="btn mono" data-i="' + i + '">' + x[0] + '</button>'; }).join('');
+  $$('#bcOps .btn').forEach(function (b) { b.onclick = function () { $$('#bcOps .btn').forEach(function (x) { x.classList.toggle('on', x === b); }); var x = BC[+b.dataset.i]; $('#bcR').innerHTML = '<b class="mono">' + x[0] + '</b>：' + x[1] + ' 字节（' + x[3] + '）；' + x[2] + ' 个周期（' + x[4] + '）'; }; });
+  $('#bcR').textContent = '先自己推，再点开对答案。';
+
+  /* ③ 动手练 */
+  var OPS = ['ADD', 'ADDC', 'SUBB', 'MUL AB', 'DIV AB'], op = 'ADD', cy = 0, last = null, daOn = false;
+  $('#opBtns').innerHTML = OPS.map(function (o) { return '<button class="btn mono" data-o="' + o + '">' + o + '</button>'; }).join('');
+  var PRE = [['课件77：3BH+3BH', 'ADD', '3B', '3B', 0], ['同型：3BH+C5H', 'ADD', '3B', 'C5', 0], ['课件78：9AH+E3H', 'ADDC', '9A', 'E3', 0], ['同型：9AH+E6H', 'ADDC', '9A', 'E6', 0], ['课件81：C9H−54H', 'SUBB', 'C9', '54', 1], ['同型：C9H−5AH', 'SUBB', 'C9', '5A', 1], ['BCD 38+45', 'ADD', '38', '45', 0], ['BCD 38+49', 'ADD', '38', '49', 0], ['课件87：60H×C0H', 'MUL AB', '60', 'C0', 0], ['课件89：9CH÷0DH', 'DIV AB', '9C', '0D', 0]];
+  $('#preset').innerHTML = PRE.map(function (p, i) { return '<button class="btn sm" data-i="' + i + '">' + p[0] + '</button>'; }).join('');
+  function rd(el) { var t = el.value.trim().replace(/[hH]$/, ''); var ok = /^[0-9a-fA-F]{1,3}$/.test(t) && parseInt(t, 16) <= 255; el.classList.toggle('bad', !ok); return ok ? parseInt(t, 16) : null; }
+  function cellsRow(lab, v, extra, cls) { var h = '<div class="lab">' + lab + '</div><div class="bt0">' + (extra == null ? '' : extra) + '</div>'; for (var i = 7; i >= 0; i--) { var b = (v >> i) & 1; h += '<div class="bt0 ' + (b ? 'one ' : '') + (cls || '') + '">' + b + '</div>'; } return h; }
+  function fl(k, v, why, same) { return '<div class="fl' + (same ? ' same' : '') + '"><span class="k">' + k + '</span><b>' + v + '</b><div>' + why + '</div></div>'; }
+  function hd() { var h = '<div class="lab"></div><div class="hd">CY</div>'; for (var i = 7; i >= 0; i--) h += '<div class="hd">D' + i + '</div>'; return h; }
+  function run() {
+    var a = rd($('#inA')), b = rd($('#inB'));
+    $$('#opBtns .btn').forEach(function (x) { x.classList.toggle('on', x.dataset.o === op); });
+    $('#inC').textContent = cy;
+    $('#daBtn').disabled = !(op === 'ADD' || op === 'ADDC');
+    if (a == null || b == null) { $('#outR').textContent = '请输入 00–FF 的十六进制数'; $('#col').innerHTML = ''; $('#flg').innerHTML = ''; $('#outD').textContent = ''; return; }
+    var h = '<div class="bits">' + hd(), f = '';
+    if (op === 'ADD' || op === 'ADDC' || op === 'SUBB') {
+      var sub = op === 'SUBB', r = sub ? ALU.subb(a, b, cy) : ALU.add(a, b, cy, op === 'ADDC');
+      last = { a: a, b: b, r: r };
+      h += '<div class="lab">' + (sub ? '借位' : '进位') + '</div><div class="cr ' + (r.CY ? 'c1 ' : '') + 'mk">' + r.CY + '</div>';
+      for (var i = 7; i >= 0; i--) { var c = r.ch[i]; var mk = (i === 4 || i === 7) ? ' mk' : ''; h += '<div class="cr' + (c ? ' c1' : '') + mk + '">' + (i === 0 ? (op === 'ADD' ? '' : c) : c) + '</div>'; }
+      h += cellsRow('A', a) + cellsRow(sub ? '− 源' : '+ 源', b) + '<div class="sep"></div>' + cellsRow('结果', r.A, r.CY, 'chg') + '</div>';
+      var ua = a, ub = b, c0 = r.cin, ex = c0 ? (sub ? ' − 1' : ' + 1') : '';
+      var tot = sub ? ua - ub - c0 : ua + ub + c0, lo = sub ? (a & 15) - (b & 15) - c0 : (a & 15) + (b & 15) + c0;
+      var st = sub ? sg(a) - sg(b) - c0 : sg(a) + sg(b) + c0;
+      f += fl('CY', r.CY, (sub ? '无符号 ' + ua + ' − ' + ub + ex + ' = ' + tot + (r.CY ? ' < 0，D7 要向外借位' : ' ≥ 0，不用借位') : '无符号 ' + ua + ' + ' + ub + ex + ' = ' + tot + (r.CY ? ' > 255，D7 向外进位' : ' ≤ 255，没有进位')));
+      f += fl('AC', r.AC, '低 4 位 ' + (a & 15) + (sub ? ' − ' : ' + ') + (b & 15) + (c0 ? (sub ? ' − 1' : ' + 1') : '') + ' = ' + lo + (sub ? (r.AC ? ' < 0，D3 向 D4 借位' : ' ≥ 0，D3 不借位') : (r.AC ? ' > 15，D3 向 D4 进位' : ' ≤ 15，D3 不进位')));
+      f += fl('OV', r.OV, 'D6→D7 ' + (sub ? '借位 ' : '进位 ') + r.c7 + '，D7 向外 ' + r.CY + '，' + (r.OV ? '不同' : '相同') + '。有符号 ' + sgs(a) + (sub ? ' − (' + sgs(b) + ')' : ' + (' + sgs(b) + ')') + (c0 ? (sub ? ' − 1' : ' + 1') : '') + ' = ' + st + (r.OV ? '，超出 −128～127' : '，在 −128～127 内'));
+      f += fl('P', r.P, pw(r.A));
+      $('#outR').textContent = op + ' → A = ' + hx(r.A);
+      $('#outD').textContent = '无符号看作 ' + r.A + '，有符号看作 ' + sg(r.A);
+    } else if (op === 'MUL AB') {
+      var m = ALU.mul(a, b); last = null;
+      h += cellsRow('A', a) + cellsRow('B', b) + '<div class="sep"></div>' + cellsRow('积高 → B', m.B, '', 'chg') + cellsRow('积低 → A', m.A, '', 'chg') + '</div>';
+      f += fl('CY', 0, '乘法后 CY 总是清 0') + fl('OV', m.OV, a + ' × ' + b + ' = ' + m.prod + (m.OV ? ' > 255，B 里有东西' : ' ≤ 255，B=00H')) + fl('P', m.P, pw(m.A)) + fl('AC', '—', '乘法不改 AC', 1);
+      $('#outR').textContent = 'MUL AB → B = ' + hx(m.B) + '，A = ' + hx(m.A); $('#outD').textContent = '积 = ' + m.prod + '（4 个周期）';
+    } else {
+      var d = ALU.div(a, b); last = null;
+      if (d.A == null) { h += cellsRow('A', a) + cellsRow('B', b) + '</div>'; f += fl('OV', 1, '除数为 0，A、B 的结果没有意义') + fl('CY', 0, '除法后 CY 总是清 0'); $('#outR').textContent = 'DIV AB：除数为 0'; $('#outD').textContent = ''; }
+      else { h += cellsRow('A', a) + cellsRow('B', b) + '<div class="sep"></div>' + cellsRow('商 → A', d.A, '', 'chg') + cellsRow('余 → B', d.B, '', 'chg') + '</div>'; f += fl('CY', 0, '除法后 CY 总是清 0') + fl('OV', 0, '除数不为 0') + fl('P', d.P, pw(d.A)) + fl('AC', '—', '除法不改 AC', 1); $('#outR').textContent = 'DIV AB → A = ' + hx(d.A) + '，B = ' + hx(d.B); $('#outD').textContent = a + ' ÷ ' + b + ' = ' + d.A + ' 余 ' + d.B; }
+    }
+    $('#col').innerHTML = h; $('#flg').innerHTML = f;
+    if (typeof WK !== 'undefined' && WK.sync && !WK.tm) WK.sync();
+    if (daOn && last) {
+      var z = ALU.da(last.r.A, last.r.CY, last.r.AC), why = [];
+      if (z.st.indexOf('lo') >= 0) why.push('低 4 位' + ((last.r.A & 15) > 9 ? '大于 9' : '不大于 9 但 AC=1') + '，加 06H');
+      if (z.st.indexOf('hi') >= 0) why.push('高 4 位大于 9 或 CY=1，加 60H');
+      if (!why.length) why.push('两半都不大于 9，AC、CY 都是 0，不调');
+      $('#outR').innerHTML = 'DA A → A = ' + hx(z.A) + '　<small style="color:#94a3b8">（ADD 后是 ' + hx(last.r.A) + '）</small>';
+      $('#outD').textContent = why.join('；') + '。';
+      $('#flg').innerHTML = fl('CY', z.CY, z.CY ? '十进制结果超过 99，有百位' : '十进制结果没超过 99') + fl('P', z.P, pw(z.A)) + fl('AC', '—', 'DA 不改 AC', 1) + fl('OV', '—', 'DA 不改 OV；BCD 加法里 OV 没有意义', 1);
+    }
+  }
+  $$('#opBtns .btn').forEach(function (x) { x.onclick = function () { op = x.dataset.o; daOn = false; run(); }; });
+  $('#inC').onclick = function () { cy ^= 1; daOn = false; run(); };
+  $('#inA').oninput = $('#inB').oninput = function () { daOn = false; run(); };
+  $('#daBtn').onclick = function () { daOn = true; run(); };
+  var pi = -1;
+  function pre(i) { pi = i; var p = PRE[i]; op = p[1]; $('#inA').value = p[2]; $('#inB').value = p[3]; cy = p[4]; daOn = false; $$('#preset .btn').forEach(function (x, j) { x.classList.toggle('on', j === i); }); run(); }
+  $$('#preset .btn').forEach(function (x) { x.onclick = function () { pre(+x.dataset.i); }; });
+  run();
+  K.steppers.hand = function () { pre((pi + 1) % PRE.length); };
+  /* ③ 看着走一遍：逐位进位、DA 分步、多字节加减 */
+  var WK = { k: 'bit', i: 0, fr: [], tm: null, bad: false };
+  function wkFl(k, v, why, on, q) { return '<div class="fl' + (on ? ' on' : '') + (q ? ' q' : '') + '"><span class="k">' + k + '</span><b>' + v + '</b><div>' + why + '</div></div>'; }
+  function wkBit() {
+    var a = rd($('#inA')), b = rd($('#inB'));
+    var o = (op === 'ADDC' || op === 'SUBB') ? op : 'ADD', sub = o === 'SUBB';
+    if (a == null || b == null) return [{ st: '', fl: '', cap: '上面的 A、源操作数先填好。' }];
+    var r = sub ? ALU.subb(a, b, cy) : ALU.add(a, b, cy, o === 'ADDC'), ch = r.ch, fr = [], W = sub ? '借' : '进';
+    function grid(k, mode) {
+      var h = '<div class="bits">' + hd() + '<div class="lab">' + W + '位</div>';
+      h += '<div class="cr' + (k >= 7 && ch[8] ? ' c1' : '') + ((k === 7 && !mode) || mode === 'ov' ? ' hot' : '') + '">' + (k >= 7 ? ch[8] : '') + '</div>';
+      for (var i = 7; i >= 0; i--) { var show = i === 0 ? o !== 'ADD' : i <= k + 1, hot = (!mode && i === k + 1 && i <= 7) || (mode === 'ov' && i === 7) || (!mode && k === -1 && i === 0 && o !== 'ADD');
+        h += '<div class="cr' + (show && ch[i] ? ' c1' : '') + (hot ? ' hot' : '') + '">' + (show ? ch[i] : '') + '</div>'; }
+      function rowx(lab, v, isR) { var t = '<div class="lab">' + lab + '</div><div class="bt0' + (isR && k >= 7 && ch[8] ? ' one' : '') + '">' + (isR && k >= 7 ? ch[8] : '') + '</div>';
+        for (var i = 7; i >= 0; i--) { var bt = (v >> i) & 1, sh = !isR || i <= k, cls = (sh && bt ? ' one' : '') + (!mode && i === k ? ' cur' : '') + (mode === 'p' && isR && bt ? ' hot' : '') + (!isR && k >= 0 && i !== k && !mode ? ' dim' : '');
+          t += '<div class="bt0' + cls + '">' + (sh ? bt : '·') + '</div>'; } return t; }
+      return h + rowx('A', a) + rowx(sub ? '− 源' : '+ 源', b) + '<div class="sep"></div>' + rowx('结果', r.A, 1) + '</div>';
+    }
+    function flags(k, mode) {
+      var q = '?';
+      return wkFl('AC', k >= 3 ? r.AC : q, k >= 3 ? 'D3 向 D4 ' + W + '位 = ' + r.AC : '要等 D3 算完', k === 3 && !mode, k < 3) +
+        wkFl('CY', k >= 7 ? r.CY : q, k >= 7 ? 'D7 向外' + W + '位 = ' + r.CY : '要等 D7 算完', k === 7 && !mode, k < 7) +
+        wkFl('OV', mode === 'ov' || mode === 'p' || mode === 'end' ? r.OV : q, mode ? 'D6 向 D7 ' + W + '位 ' + ch[7] + '，D7 向外 ' + ch[8] + '，' + (r.OV ? '不同 → OV=1' : '相同 → OV=0') : '要看最高两位的' + W + '位', mode === 'ov', !mode) +
+        wkFl('P', mode === 'p' || mode === 'end' ? r.P : q, mode === 'p' || mode === 'end' ? pw(r.A) : '结果出来才数 1 的个数', mode === 'p', !(mode === 'p' || mode === 'end'));
+    }
+    var head = o + (sub ? ' A − 源 − CY' : o === 'ADDC' ? ' A + 源 + CY' : ' A + 源') + '：' + hx(a) + (sub ? ' − ' : ' + ') + hx(b) + (o !== 'ADD' ? (sub ? ' − ' : ' + ') + cy : '');
+    fr.push({ st: grid(-1), fl: flags(-1), cap: head + '。从 D0 开始，一列一列往左算。' + (o === 'ADD' ? 'ADD 不带 CY，D0 没有进位进来。' : '原 CY = ' + cy + '，从 D0 ' + (sub ? '减' : '加') + '进去（标黄那格）。') });
+    for (var k = 0; k < 8; k++) {
+      var x = (a >> k) & 1, y = (b >> k) & 1, c = ch[k], s = (r.A >> k) & 1, t = sub ? x - y - c : x + y + c;
+      var cap = 'D' + k + '：' + x + (sub ? ' − ' : ' + ') + y + (sub ? ' − ' : ' + ') + c + ' = ' + (t < 0 ? '−' + (-t) : t) + ' → 本位 ' + s + '，' + (k < 7 ? '向 D' + (k + 1) + ' ' : '向外') + W + ' ' + ch[k + 1] + '。';
+      if (k === 3) cap += '<b>这个' + W + '位就是 AC = ' + r.AC + '。</b>';
+      if (k === 6) cap += '这个' + W + '位记下来，判 OV 要用。';
+      if (k === 7) cap += '<b>这个' + W + '位就是 CY = ' + r.CY + '。</b>';
+      fr.push({ st: grid(k), fl: flags(k), cap: cap });
+    }
+    fr.push({ st: grid(7, 'ov'), fl: flags(7, 'ov'), cap: 'OV 看最高两位：D6 向 D7 ' + W + ' ' + ch[7] + '，D7 向外' + W + ' ' + ch[8] + '。' + (r.OV ? '两个不一样，有符号结果超出 −128～127，<b>OV = 1</b>。' : '两个一样，<b>OV = 0</b>。') });
+    var n1 = bin(r.A).split('1').length - 1;
+    fr.push({ st: grid(7, 'p'), fl: flags(7, 'p'), cap: '数结果里的 1（标黄）：' + n1 + ' 个，' + (n1 % 2 ? '奇数，<b>P = 1</b>' : '偶数，<b>P = 0</b>') + '。' });
+    fr.push({ st: grid(7, 'end'), fl: flags(7, 'end'), cap: '算完：A = ' + hx(r.A) + '，CY = ' + r.CY + '，AC = ' + r.AC + '，OV = ' + r.OV + '，P = ' + r.P + '。和上面一次算出的结果对一下。' });
+    return fr;
+  }
+  function wkDa() {
+    var a = rd($('#inA')), b = rd($('#inB'));
+    if (a == null || b == null) return [{ st: '', fl: '', cap: '上面的 A、源操作数先填好。' }];
+    var withC = op === 'ADDC', r = ALU.add(a, b, cy, withC), A0 = r.A, CY0 = r.CY, AC = r.AC, fr = [];
+    var bcd = ((a & 15) < 10 && (a >> 4) < 10 && (b & 15) < 10 && (b >> 4) < 10);
+    function nib(A, cls) { return '<div class="wnib"><div class="' + (cls[0] || '') + '"><b>' + (A >> 4).toString(16).toUpperCase() + '</b><i>高 4 位</i></div><div class="' + (cls[1] || '') + '"><b>' + (A & 15).toString(16).toUpperCase() + '</b><i>低 4 位</i></div></div>'; }
+    function st(A, C, cls, extra) { return '<div class="big" style="font-size:22px">A = ' + hx(A) + '　CY = ' + C + '</div>' + nib(A, cls) + (extra || ''); }
+    function f(C, on) { return wkFl('AC', AC, 'ADD 留下的，DA 只读不改', on === 'ac') + wkFl('CY', C, on === 'cy' ? '调整高 4 位时可能被置 1' : 'DA 只会把它置 1，不会清 0', on === 'cy'); }
+    fr.push({ st: st(A0, CY0, []), fl: f(CY0), cap: (withC ? 'ADDC' : 'ADD') + ' 先按二进制加：' + hx(a) + ' + ' + hx(b) + (withC ? ' + ' + cy : '') + ' = ' + hx(A0) + '，AC = ' + AC + '，CY = ' + CY0 + '。' + (bcd ? '两个数都是 BCD 码，下面逐步调整。' : '<b>这两个数不全是 BCD 码，</b>DA 照样按规则调，结果没有十进制意义。') });
+    var A1 = A0, C1 = CY0, lo = (A0 & 15) > 9 || AC;
+    if (lo) { A1 = A0 + 6; if (A1 > 255) C1 = 1; A1 &= 255; }
+    fr.push({ st: st(A0, CY0, [null, lo ? 'bad' : 'fix']), fl: f(CY0, 'ac'), cap: '第一步看低 4 位：' + (A0 & 15) + (lo ? ((A0 & 15) > 9 ? ' 大于 9' : ' 不大于 9，但 AC = 1，说明低 4 位向上进过 16') + '，要加 06H。' : ' 不大于 9，AC = 0，不用调。') });
+    if (lo) fr.push({ st: st(A1, C1, [null, 'fix']), fl: f(C1), cap: hx(A0) + ' + 06H = ' + hx(A1) + '。低 4 位调好了。' });
+    var A2 = A1, C2 = C1, hi = (A1 >> 4) > 9 || C1;
+    if (hi) { A2 = A1 + 0x60; if (A2 > 255) C2 = 1; A2 &= 255; }
+    fr.push({ st: st(A1, C1, [hi ? 'bad' : 'fix', 'fix']), fl: f(C1, 'cy'), cap: '第二步看高 4 位：' + (A1 >> 4) + (hi ? ((A1 >> 4) > 9 ? ' 大于 9' : ' 不大于 9，但 CY = 1') + '，要加 60H。' : ' 不大于 9，CY = 0，不用调。') });
+    if (hi) fr.push({ st: st(A2, C2, ['fix', 'fix']), fl: f(C2, 'cy'), cap: hx(A1) + ' + 60H = ' + hx(A2) + (C2 ? '，向外进位，CY = 1。' : '。') });
+    var z = ALU.da(A0, CY0, AC), dec = (z.CY ? '1' : '') + ((z.A >> 4) & 15).toString(16).toUpperCase() + (z.A & 15).toString(16).toUpperCase();
+    fr.push({ st: st(z.A, z.CY, ['fix', 'fix'], bcd ? '<div class="dec">十进制：' + (a >> 4) + (a & 15) + ' + ' + (b >> 4) + (b & 15) + (withC && cy ? ' + 1' : '') + ' = <b>' + dec.replace(/^0(?=\d)/, '') + '</b></div>' : ''), fl: f(z.CY), cap: 'DA A 后 A = ' + hx(z.A) + '，CY = ' + z.CY + '。' + (bcd ? (z.CY ? 'CY = 1 是百位。' : '') + '读出来正好是十进制的和。' : '') });
+    return fr;
+  }
+  function wkMb(isSub) {
+    var bad = WK.bad, P;
+    if (!isSub) P = [['MOV A,40H', 'mov', 0x40], ['ADD A,42H', 'add', 0x42], ['MOV 44H,A', 'st', 0x44], ['MOV A,41H', 'mov', 0x41], [bad ? 'ADD A,43H' : 'ADDC A,43H', bad ? 'add' : 'addc', 0x43], ['MOV 45H,A', 'st', 0x45]];
+    else P = (bad ? [] : [['CLR C', 'clr']]).concat([['MOV A,40H', 'mov', 0x40], ['SUBB A,42H', 'subb', 0x42], ['MOV 44H,A', 'st', 0x44], ['MOV A,41H', 'mov', 0x41], ['SUBB A,43H', 'subb', 0x43], ['MOV 45H,A', 'st', 0x45]]);
+    var s = { A: 0, CY: isSub && bad ? 1 : (isSub ? 1 : 0), m: { 0x40: 0xAB, 0x41: 0x34, 0x42: 0xF8, 0x43: 0x12, 0x44: null, 0x45: null } }, fr = [];
+    if (!isSub) s.CY = 0;
+    var want = isSub ? 0x21B3 : 0x47A3, nm = isSub ? 'X − Y' : 'X + Y';
+    function stage(i, chg) { var h = '<div class="wkp">' + P.map(function (l, j) { return '<div class="' + (j === i ? 'cur' : j < i ? 'done' : '') + ((bad && /^ADD A,43H/.test(l[0])) ? ' badl' : '') + '">' + l[0] + '</div>'; }).join('') + (isSub && bad ? '<div class="badl">（少了 CLR C）</div>' : '') + '</div>';
+      h += '<div class="mem">' + [0x41, 0x40, 0x43, 0x42, 0x45, 0x44].map(function (ad) { return '<div class="' + (chg.indexOf(ad) >= 0 ? 'chg' : '') + '">' + hx(ad) + '<b>' + (s.m[ad] == null ? '—' : hx(s.m[ad])) + '</b></div>'; }).join('') + '</div>';
+      h += '<div class="mem"><div class="' + (chg.indexOf('A') >= 0 ? 'chg' : '') + '">A<b>' + hx(s.A) + '</b></div><div class="' + (chg.indexOf('CY') >= 0 ? 'chg' : '') + '">CY<b>' + s.CY + '</b></div></div>'; return h; }
+    function f() { return wkFl('CY', s.CY, isSub ? '两个字节之间的借位就靠它传' : '两个字节之间的进位就靠它传', 1); }
+    fr.push({ st: stage(-1, []), fl: f(), cap: 'X = 34ABH（41H 高、40H 低），Y = 12F8H（43H 高、42H 低），' + nm + ' 的低字节放 44H，高字节放 45H。' + (isSub && bad ? '这次 CY 原本是 1，程序又没有先清掉。' : '开始时 CY = ' + s.CY + '。') });
+    P.forEach(function (l, i) {
+      var chg = [], cap = l[0] + '：';
+      if (l[1] === 'clr') { s.CY = 0; chg = ['CY']; cap += 'CY 清 0。第一次 SUBB 也会减 CY，所以先清掉。'; }
+      else if (l[1] === 'mov') { s.A = s.m[l[2]]; chg = ['A']; cap += 'A = ' + hx(s.A) + '。'; }
+      else if (l[1] === 'st') { s.m[l[2]] = s.A; chg = [l[2]]; cap += '存进 ' + hx(l[2]) + '。MOV 不动 CY，CY 还是 ' + s.CY + '。'; }
+      else { var v = s.m[l[2]], c0 = s.CY, r = l[1] === 'subb' ? ALU.subb(s.A, v, c0) : ALU.add(s.A, v, c0, l[1] === 'addc'), a0 = s.A; s.A = r.A; s.CY = r.CY; chg = ['A', 'CY'];
+        if (l[1] === 'subb') cap += hx(a0) + ' − ' + hx(v) + ' − CY(' + c0 + ') = ' + hx(r.A) + (r.CY ? '，不够减，向高字节借 1，CY = 1。' : '，够减，CY = 0。');
+        else if (l[1] === 'addc') cap += hx(a0) + ' + ' + hx(v) + ' + CY(' + c0 + ') = ' + hx(r.A) + (c0 ? '，低字节的进位接上了。' : '。');
+        else cap += hx(a0) + ' + ' + hx(v) + ' = ' + (a0 + v > 255 ? (a0 + v).toString(16).toUpperCase() + 'H，超过 FFH，A = ' + hx(r.A) + '，CY = 1' : hx(r.A) + '，CY = ' + r.CY) + (i > 2 ? '。<b>ADD 不带 CY，刚才那个进位没加进来。</b>' : '，这个 1 要留给高字节。'); }
+      fr.push({ st: stage(i, chg), fl: f(), cap: cap });
+    });
+    var got = (s.m[0x45] << 8) | s.m[0x44], ok = got === want;
+    fr[fr.length - 1].cap += '<br>结果 45H:44H = <b>' + hx(got >> 8).replace(/H$/, '') + hx(got & 255).replace(/^0(?=[A-F])/, '') + '</b>，应为 ' + (isSub ? '21B3H' : '47A3H') + '。' + (ok ? '对了。' : (isSub ? '第一次 SUBB 把原来的 CY = 1 也减掉了，低字节多减了 1。' : '高字节少加了低字节进上来的 1。'));
+    return fr;
+  }
+  function wkBuild() {
+    wkStop(); WK.i = 0;
+    WK.fr = WK.k === 'bit' ? wkBit() : WK.k === 'da' ? wkDa() : wkMb(WK.k === 'sub');
+    $$('#wkBtns [data-w]').forEach(function (x) { x.classList.toggle('on', x.dataset.w === WK.k); });
+    var mb = WK.k === 'add' || WK.k === 'sub'; $('#wkBadW').style.display = mb ? '' : 'none';
+    $('#wkBadT').textContent = WK.k === 'add' ? '第二步误用 ADD' : '忘了 CLR C（CY 原本是 1）';
+    wkDraw();
+  }
+  function wkDraw() { var f = WK.fr[WK.i]; $('#wkStage').innerHTML = f.st; $('#wkFlg').innerHTML = f.fl; $('#wkCap').innerHTML = f.cap; $('#wkN').textContent = (WK.i + 1) + ' / ' + WK.fr.length; $('#wkPrev').disabled = WK.i === 0; $('#wkNext').disabled = WK.i === WK.fr.length - 1; }
+  function wkStop() { if (WK.tm) { clearTimeout(WK.tm); WK.tm = null; } $('#wkAuto').textContent = '▶ 自动'; }
+  function wkGo(d) { WK.i = Math.max(0, Math.min(WK.fr.length - 1, WK.i + d)); wkDraw(); }
+  $$('#wkBtns [data-w]').forEach(function (x) { x.onclick = function () { WK.k = x.dataset.w; if (WK.k === 'da' && op !== 'ADD' && op !== 'ADDC') pre(7); WK.bad = false; $('#wkBad').checked = false; wkBuild(); }; });
+  $('#wkBad').onchange = function () { WK.bad = this.checked; wkBuild(); };
+  $('#wkNext').onclick = function () { wkStop(); wkGo(1); }; $('#wkPrev').onclick = function () { wkStop(); wkGo(-1); };
+  $('#wkRe').onclick = function () { wkStop(); WK.i = 0; wkDraw(); };
+  $('#wkAuto').onclick = function () { if (WK.tm) { wkStop(); return; } if (WK.i >= WK.fr.length - 1) WK.i = 0; wkDraw(); this.textContent = '⏸ 暂停';
+    (function t() { WK.tm = setTimeout(function () { wkGo(1); if (WK.i >= WK.fr.length - 1) { WK.tm = null; $('#wkAuto').textContent = '▶ 自动'; return; } t(); }, 1300); })(); };
+  WK.sync = function () { if (WK.k === 'bit' || WK.k === 'da') wkBuild(); };
+  WK.k = 'bit'; wkBuild();
+
+  K.quiz($('#qzBox'), $('#qzS'), [
+    { t: 'A=0C5H，执行 ADD A,#3BH 后 CY、OV？', o: ['CY=1，OV=0', 'CY=1，OV=1', 'CY=0，OV=0'], a: 0, e: 'A=00H，和为 256，CY=1；一正一负相加不会溢出，OV=0。' },
+    { t: 'ADD A,30H 几字节、几个周期？', o: ['1 字节 1 周期', '2 字节 1 周期', '2 字节 2 周期'], a: 1, e: '多一个地址字节；1、2 字节指令一个机器周期取得完。' },
+    { t: 'BCD 29+19：ADD 后 A=42H。AC=？DA 后 A=？', o: ['AC=0，A=42H', 'AC=1，A=48H', 'AC=1，A=42H'], a: 1, e: '9+9=18，低 4 位进过位，AC=1，DA 加 6 得 48H。' },
+    { t: 'INC、DEC 为什么不改 CY？', o: ['多字节运算里挪指针、计数时不能冲掉进位', 'INC 电路里没有进位', 'CY 只给乘法用'], a: 0, e: '多字节加法循环里，INC R0 夹在两次 ADDC 之间，要是改了 CY，进位就断了。（教学推断）' },
+    { t: 'MUL AB 后 OV=1，说明什么？', o: ['积超过 FFH，B 不为 0', '有符号溢出', '除数为 0'], a: 0, e: 'OV 在乘法里借来表示“积超过 8 位”。' }
+  ]);
+})();
+</script>
+</body></html>
