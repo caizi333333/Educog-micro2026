@@ -384,6 +384,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'external_bus',
+    title: '总线对上了',
+    description: '在第 2 章练一练里，把 80C51 扩展外部存储器时的 P0、P2、ALE、PSEN、EA 和 RD/WR 对上各自的作用',
+    icon: '🔌',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u2-external-bus', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'practice_streak_3',
     title: '连对三次',
     description: '同一道 80C51 练一练记下 3 次正确通关。两次至少隔 10 分钟，答错不计',

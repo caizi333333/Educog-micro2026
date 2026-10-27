@@ -70,6 +70,10 @@ describe('chapter 2 lesson navigation', () => {
     expect(lessonFileForSection('teach')).toBeNull();
     expect(resolve('u2-memory', null, '')).toEqual({ file: 'u2-memory', hash: '' });
     expect(resolve('u2-memory', null, '#pit')).toEqual({ file: 'u2-memory', hash: '#pit' });
+    expect(lessonFileForSection('bus')).toBe('u2-bus');
+    expect(resolve(null, 2, '#bus')).toEqual({ file: 'u2-bus', hash: '#bus' });
+    expect(resolve('u2-bus', null, '#bus')).toEqual({ file: 'u2-bus', hash: '#bus' });
+    expect(describeLearningTarget('2.6#bus')).toContain('总线角色');
     expect(resolve('u2-reset', null, '#quiz')).toEqual({ file: 'u2-reset', hash: '#quiz' });
     expect(resolve(null, 2, '#u2-lesson-b')).toEqual({ file: 'u2-io-port', hash: '#u2-lesson-b' });
     expect(resolve(null, 2, '#quiz')).toEqual({ file: 'u2-cpu-structure', hash: '#quiz' });
