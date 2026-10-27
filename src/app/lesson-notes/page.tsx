@@ -21,6 +21,7 @@
 // 由讲解页 postMessage {type:'lesson-note:open', file, hash} 交给外壳切单元、切页签，
 // 不在 iframe 里再套一层讲解页。只收同源消息，只认下面登记过的篇目。
 // 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=5#int-2 打开第 5 章总览的那一节。
+// 第 2 章 ?unit=2#u2-lesson-b 打开第 2 次课的第一篇，?note=u2-memory 仍打开存储器。
 // 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
 // ---------------------------------------------------------------------------
 
@@ -37,6 +38,7 @@ import {
   standaloneCoursewareHref,
 } from '@/lib/classroom-sections';
 import { scrollLeftForChip } from '@/lib/reveal-horizontal-chip';
+import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
@@ -100,10 +102,10 @@ const LESSON_UNITS: readonly LessonUnit[] = [
     notes: U2_NOTES,
     bannerMid: (
       <>
-        按平台知识点导航逐条展开，每篇含<b className="font-semibold text-amber-100">讲解 / 疑点 / 自测</b>三栏
+        先选课次再进篇：<b className="font-semibold text-amber-100">片子里面 · 口和总线 · 节拍和开机</b>
       </>
     ),
-    intro: '平台的学习闭环里已经有测评和仿真，这一批补的是中间那一环：把教材第 2 章讲不透的地方逐条拆开。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。',
+    intro: '第 2 章六篇都还在，先分成三次课。每次只显示这一课的两篇，手机上不用横着滑。旧链接 ?note=u2-memory 仍打开原来那一篇。每篇仍是讲解、疑点和自测。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。',
     figures: '图 2-1 / 2-3 / 2-5~2-10，表 2-2 / 2-3 / 2-7',
   },
   {
@@ -148,6 +150,90 @@ const LESSON_UNITS: readonly LessonUnit[] = [
 ] as const;
 
 const DEFAULT_UNIT = LESSON_UNITS[0]!;
+
+/**
+ * Chapter 2 entry. Three lessons stay on screen; only the open lesson's two pages are tabs.
+ *
+ * @param props.activeFile - courseware file currently shown
+ * @param props.onOpen - opens that file in the lesson-notes shell
+ */
+function Unit2ChapterNav({
+  activeFile,
+  onOpen,
+}: {
+  activeFile: string;
+  onOpen: (file: string) => void;
+}): React.JSX.Element {
+  const lesson = u2LessonForFile(activeFile) ?? U2_LESSONS[0]!;
+  const notesByFile = new Map(U2_NOTES.map((note) => [note.file, note]));
+  return (
+    <div className="mt-3 max-w-full min-w-0" data-u2-nav="chapter">
+      <p className="mb-2 text-xs leading-5 text-slate-500">先选第几次课。三次课都在这一屏，不用横着滑。</p>
+      <div role="group" aria-label="第 2 章课次" className="grid grid-cols-2 gap-2 min-[760px]:grid-cols-3">
+        {U2_LESSONS.map((item) => {
+          const selected = item.id === lesson.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => {
+                if (item.pages.some((page) => page.file === activeFile)) return;
+                onOpen(item.pages[0].file);
+              }}
+              data-tone={selected ? 'notes' : 'shell'}
+              data-state={selected ? 'active' : 'idle'}
+              className={cellSurfaceClass({
+                compact: true,
+                active: selected,
+                interactive: true,
+                className: cn(
+                  'flex min-h-11 min-w-0 flex-col items-start justify-center gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                  selected ? 'text-amber-50' : 'text-slate-300 hover:text-amber-100',
+                ),
+              })}
+            >
+              <span className="text-sm font-semibold leading-5">{item.title}</span>
+              <span className="text-xs leading-4 opacity-70">{item.topics}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div role="tablist" aria-label="这一课的篇" className="mt-2 grid grid-cols-2 gap-2">
+        {lesson.pages.map((page) => {
+          const note = notesByFile.get(page.file);
+          if (!note) return null;
+          const selected = note.file === activeFile;
+          return (
+            <button
+              key={note.file}
+              type="button"
+              role="tab"
+              id={`note-tab-${note.file}`}
+              aria-selected={selected}
+              aria-controls={`note-panel-${note.file}`}
+              onClick={() => onOpen(note.file)}
+              data-tone={selected ? 'course' : 'shell'}
+              data-state={selected ? 'active' : 'idle'}
+              className={cellSurfaceClass({
+                compact: true,
+                active: selected,
+                interactive: true,
+                className: cn(
+                  'flex min-h-11 min-w-0 flex-col justify-center gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                  selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
+                ),
+              })}
+            >
+              <span className="text-sm font-semibold leading-5">{note.title}</span>
+              <span className="hidden text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function findNote(file: string): { unit: LessonUnit; note: LessonNote } | undefined {
   for (const unit of LESSON_UNITS) {
@@ -429,39 +515,42 @@ export default function LessonNotesPage(): React.JSX.Element {
             })}
           </CellSwitch>
 
-          {/* 页签 */}
-          <div className="mt-3 overflow-x-auto pb-1">
-            <div role="tablist" aria-label={`单元 ${activeUnit.id} 讲解笔记`} className="flex w-max gap-2">
-              {activeUnit.notes.map((note) => {
-                const selected = note.file === activeFile;
-                return (
-                  <button
-                    key={note.file}
-                    type="button"
-                    role="tab"
-                    id={`note-tab-${note.file}`}
-                    aria-selected={selected}
-                    aria-controls={`note-panel-${note.file}`}
-                    onClick={() => openNote(note.file)}
-                    data-tone={selected ? 'course' : 'shell'}
-                    data-state={selected ? 'active' : 'idle'}
-                    className={cellSurfaceClass({
-                      compact: true,
-                      active: selected,
-                      interactive: true,
-                      className: cn(
-                        'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
-                        selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
-                      ),
-                    })}
-                  >
-                    <span className="whitespace-nowrap text-sm font-semibold leading-5">{note.title}</span>
-                    <span className="hidden whitespace-nowrap text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
-                  </button>
-                );
-              })}
+          {activeUnit.id === 2 ? (
+            <Unit2ChapterNav activeFile={activeFile} onOpen={openNote} />
+          ) : (
+            <div className="mt-3 overflow-x-auto pb-1">
+              <div role="tablist" aria-label={`单元 ${activeUnit.id} 讲解笔记`} className="flex w-max gap-2">
+                {activeUnit.notes.map((note) => {
+                  const selected = note.file === activeFile;
+                  return (
+                    <button
+                      key={note.file}
+                      type="button"
+                      role="tab"
+                      id={`note-tab-${note.file}`}
+                      aria-selected={selected}
+                      aria-controls={`note-panel-${note.file}`}
+                      onClick={() => openNote(note.file)}
+                      data-tone={selected ? 'course' : 'shell'}
+                      data-state={selected ? 'active' : 'idle'}
+                      className={cellSurfaceClass({
+                        compact: true,
+                        active: selected,
+                        interactive: true,
+                        className: cn(
+                          'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                          selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
+                        ),
+                      })}
+                    >
+                      <span className="whitespace-nowrap text-sm font-semibold leading-5">{note.title}</span>
+                      <span className="hidden whitespace-nowrap text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {practiceBoard && (
             <DragMatchPractice

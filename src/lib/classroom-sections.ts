@@ -1,4 +1,5 @@
 import { knowledgePoints } from '@/lib/knowledge-points';
+import { u2FileForLesson } from '@/lib/u2-lessons';
 
 const U3_SECTION_POINTS: Readonly<Record<string, string>> = {
   home: '3',
@@ -152,6 +153,9 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   'tmr-show': '定时器原理',
   'tmr-hand': '定时器动手练',
   'tmr-qz': '定时器小测',
+  'u2-lesson-a': '第 1 次课 · 片子里面',
+  'u2-lesson-b': '第 2 次课 · 口和总线',
+  'u2-lesson-c': '第 3 次课 · 节拍和开机',
 };
 
 export type LessonVisit = {
@@ -229,7 +233,7 @@ export function lessonFileForSection(sectionId: string): string | null {
   if (Object.prototype.hasOwnProperty.call(U5_SECTION_POINTS, id)) return 'u5-overview';
   if (Object.prototype.hasOwnProperty.call(U3_SECTION_POINTS, id)) return 'u3-overview';
   if (Object.prototype.hasOwnProperty.call(U4_PANE_POINTS, id)) return 'u4-classroom';
-  return null;
+  return u2FileForLesson(id);
 }
 
 export interface LessonDeepLink {
@@ -265,6 +269,8 @@ export function resolveLessonDeepLink(input: {
     const files = input.notesInUnit(input.unitId);
     const first = files[0];
     if (!first) return null;
+    // 第 2 章三栏（讲解 / 疑点 / 自测）是每篇页内锚点，不是别的章的小节。
+    if (input.unitId === 2 && /^#(teach|pit|quiz)$/.test(hash)) return { file: first, hash };
     if (sectionFile && files.includes(sectionFile)) return { file: sectionFile, hash };
     return { file: first, hash: '' };
   }
