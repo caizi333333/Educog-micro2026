@@ -1323,7 +1323,7 @@ KP({
   note: '本知识点与「I/O 接口」互为表里：那里讲 P0 内部"控制信号"那条支路，这里讲它在整块板子上的样子。'
 });
 (function(){
-  var host=document.createElement('div'); KP.stage.appendChild(host);
+  var host=document.createElement('div'); host.id='bus'; KP.stage.appendChild(host);
   var sys=new MinSysFig(host);
   KP.buttons([{k:'8051',t:'8051 / 8751　片内有 ROM'},{k:'8031',t:'8031　片内无 ROM'}],function(c){
     sys.setChip(c);

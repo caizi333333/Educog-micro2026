@@ -7,6 +7,7 @@
  * Boards shipped so far:
  * - unit 2 memory regions (note `u2-memory`, anchor `#memory`)
  * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
+ * - unit 2 external bus roles (note `u2-bus`, anchor `#bus`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 5 interrupt vectors (overview `#int-2`; addresses from the 入口地址 line)
  * - unit 5 IE source enables (overview `#int-5`; EX0/ET0/EX1/ET1/ES, not EA)
@@ -396,9 +397,50 @@ export const MEMORY_REGION_BOARD: MatchBoard = {
   ],
 };
 
+/**
+ * 80C51 external bus roles on the unit 2 bus note (`u2-bus`, anchor `#bus`).
+ * Every pair is a sentence already on that page: P0 time-shares address and
+ * data, P2 holds A15~A8 for the whole access, ALE's falling edge latches P0
+ * into 74LS373, PSEN strobes external program memory, EA picks on-chip or
+ * off-chip ROM, and RD/WR access external data memory. 8031 grounding EA
+ * is that page's own sentence. No baud rate and no 8052-only fact.
+ */
+export const EXTERNAL_BUS_BOARD: MatchBoard = {
+  id: 'u2-external-bus',
+  title: '总线角色 ↔ 含义',
+  prompt: '把 80C51 扩展外部存储器时的总线角色对上各自的作用。',
+  hint: '锁存器是为分时服务的，不分时就不需要锁存。选通外部 ROM 的是 PSEN，选片内外的是 EA。',
+  chapterId: '2',
+  knowledgePointId: '2.6',
+  sectionId: 'bus',
+  moduleId: 'u2-bus',
+  medalId: 'external_bus',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：总线角色对含义',
+    sectionLink: '对照总线结构',
+    expandClosed: '展开练一练：总线角色对含义',
+    promptSide: '总线角色',
+    targetSide: '含义',
+    actionHint: '先点总线角色，再点含义。鼠标也可以直接拖过去。',
+    emptyTray: '6 个角色都放好了。',
+    slotName: '含义',
+  },
+  pairs: [
+    { id: 'p0', prompt: 'P0', promptHint: '一条线干两件事', target: '低 8 位地址 / 数据分时复用', targetDetail: '先送低 8 位地址，再改作 D7~D0' },
+    { id: 'p2', prompt: 'P2', promptHint: '没有第二个身份', target: '高 8 位地址 A15~A8', targetDetail: '整条指令期间稳定，不需要外接地址锁存器' },
+    { id: 'ale', prompt: 'ALE', promptHint: '地址锁存允许', target: '锁存 P0 低 8 位地址', targetDetail: '下降沿锁进 74LS373' },
+    { id: 'psen', prompt: 'PSEN', promptHint: '低电平有效', target: '选通外部程序存储器', targetDetail: '取指令时由它选通' },
+    { id: 'ea', prompt: 'EA', promptHint: '内外程序存储器选择', target: 'EA = 1 先片内，EA = 0 只片外', targetDetail: '8031 片内没有 ROM，所以 EA 必须接地' },
+    { id: 'rdwr', prompt: 'RD / WR', promptHint: 'P3.7、P3.6 的第二功能', target: '读写外部数据存储器', targetDetail: '外扩数据存储器要用' },
+  ],
+};
+
 const MATCH_BOARDS: readonly MatchBoard[] = [
   MEMORY_REGION_BOARD,
   CPU_STRUCTURE_BOARD,
+  EXTERNAL_BUS_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,

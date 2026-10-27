@@ -88,6 +88,21 @@ describe('成就系统 V2', () => {
       });
     });
 
+    it('unlocks 总线对上了 only from the external-bus clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'external_bus');
+      expect(medal).toMatchObject({
+        title: '总线对上了',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u2-external-bus', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-memory-regions': 1 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-external-bus': 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
+    });
+
     it('unlocks 存储区分清了 only from the memory-region clear count', () => {
       const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'memory_regions');
       expect(medal).toMatchObject({
