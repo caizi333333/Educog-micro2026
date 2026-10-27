@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAchievements } from '@/hooks/useAchievements';
 import { ACHIEVEMENTS_V2, type Achievement, type AchievementProgress } from '@/lib/achievements-v2';
 import { findMatchBoard } from '@/lib/practice-match';
+import { PRACTICE_DAILY_PARTICIPATION, PRACTICE_SAME_BOARD_CLEARS } from '@/lib/practice-medals';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
@@ -57,6 +58,16 @@ function progressFor(progress: AchievementProgress[], id: string) {
 
 function nextActionFor(achievement: Achievement): { href: string; label: string; note: string } {
   const criteriaType = achievement.criteria?.type;
+  if (criteriaType === PRACTICE_SAME_BOARD_CLEARS || criteriaType === PRACTICE_DAILY_PARTICIPATION) {
+    const note = criteriaType === PRACTICE_SAME_BOARD_CLEARS
+      ? '同一道 80C51 练一练记下 3 次正确通关后解锁。两次至少隔 10 分钟，答错不计。'
+      : '北京时间当天，任意一道练一练第一次对上后解锁。同一天再对上不再发这枚。';
+    return {
+      href: '/lesson-notes?unit=5#int-3',
+      label: '去练一练',
+      note,
+    };
+  }
   if (typeof criteriaType === 'string' && criteriaType.startsWith('practice_clears:')) {
     const board = findMatchBoard(criteriaType.slice('practice_clears:'.length));
     if (board) {
@@ -111,6 +122,8 @@ function formatAchievementTarget(achievement: Achievement): string {
   if (criteriaType === 'code_history_viewed') return `${target}行`;
   if (criteriaType === 'achievements_unlocked') return `${target}枚`;
   if (criteriaType === 'valid_feedbacks') return `${target}条`;
+  if (criteriaType === PRACTICE_SAME_BOARD_CLEARS) return `同一题 ${target} 次`;
+  if (criteriaType === PRACTICE_DAILY_PARTICIPATION) return '当天 1 次';
   return `${target}次`;
 }
 

@@ -184,7 +184,7 @@ export function DragMatchPractice({
       {expanded && (
         <div className="border-t border-white/[0.06] px-3 pb-3 pt-2">
           <p className="text-xs leading-5 text-slate-300">
-            {board.prompt}{board.shell.actionHint}首次全部对上 +{board.firstClearPoints} 积分，并解锁勋章。
+            {board.prompt}{board.shell.actionHint}首次全部对上 +{board.firstClearPoints} 积分。同一题连对 3 次解锁「连对三次」；北京时间当天第一次对上解锁「今天练过了」。
           </p>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>

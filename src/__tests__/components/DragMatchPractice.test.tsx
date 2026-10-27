@@ -34,6 +34,8 @@ describe('DragMatchPractice', () => {
       expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「中断标志对上了」');
     });
     expect(screen.getByText('外部中断 0 → IE0（TCON.1）')).toBeInTheDocument();
+    expect(screen.getByText(/连对三次/)).toBeInTheDocument();
+    expect(screen.getByText(/今天练过了/)).toBeInTheDocument();
     expect(document.querySelector('[data-practice] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
     expect(mockFetch).toHaveBeenCalledWith('/api/practice/match', expect.objectContaining({
       method: 'POST',

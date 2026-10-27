@@ -7,6 +7,7 @@
  */
 
 import type { Achievement, AchievementCategory, AchievementRarity } from '../types/global';
+import { POINTS_CONFIG } from '@/lib/points-system';
 
 // Re-export Achievement type for other modules
 export type { Achievement };
@@ -292,8 +293,8 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'gold',
   },
 
-  // 课件练一练：同一 criteria.type（practice_clears:<题目 id>）可再追加更高次数的勋章。
-  // 发奖走 practiceMedalIdsForCount，不必为第 2 枚改接口。
+  // 课件练一练。每道题的首次通关仍是 practice_clears:<题目 id>。
+  // 「连对三次」「今天练过了」对所有题面共用，发奖走 practiceMedalIdsForCount。
   {
     id: 'interrupt_source_flags',
     title: '中断标志对上了',
@@ -313,6 +314,28 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     category: 'practice',
     criteria: { type: 'practice_clears:u3-addressing-modes', target: 1 },
     points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
+    id: 'practice_streak_3',
+    title: '连对三次',
+    description: '同一道 80C51 练一练记下 3 次正确通关。两次至少隔 10 分钟，答错不计',
+    icon: '🔥',
+    category: 'practice',
+    criteria: { type: 'practice_same_board_clears', target: 3 },
+    points: POINTS_CONFIG.PRACTICE_MATCH_STREAK,
+    rarity: 'rare',
+    tier: 'silver',
+  },
+  {
+    id: 'practice_daily',
+    title: '今天练过了',
+    description: '北京时间当天，任意一道 80C51 练一练第一次正确通关',
+    icon: '☀️',
+    category: 'practice',
+    criteria: { type: 'practice_daily_participation', target: 1 },
+    points: POINTS_CONFIG.PRACTICE_MATCH_DAILY,
     rarity: 'common',
     tier: 'bronze',
   },
