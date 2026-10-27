@@ -75,6 +75,39 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByRole('heading', { name: '存储区 ↔ 含义' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照地址图' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'CPU 结构拼图' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '总线角色 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the external-bus match on the unit 2 bus note and keeps the deep link', async () => {
+    const frame = await openAt('/lesson-notes?unit=2#bus', '总线结构 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u2/u2-bus.html#bus');
+    expect(frame.contentWindow?.location.hash).toBe('#bus');
+    expect(screen.getByRole('link', { name: /在新标签单独打开本篇/ })).toHaveAttribute(
+      'href',
+      '/resources/course/courseware/u2/u2-bus.html#bus',
+    );
+    expect(screen.getByRole('button', { name: /第 2 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /总线结构/ })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '总线角色 ↔ 含义' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照总线结构' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起练一练' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^P0/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^RD \/ WR/ })).toBeInTheDocument();
+    expect(screen.getByText('高 8 位地址 A15~A8')).toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u2-external-bus"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(document.querySelector('[data-practice="u2-external-bus"]')?.textContent).not.toContain('8052');
+    expect(document.querySelector('[data-practice="u2-external-bus"]')?.textContent).not.toContain('波特');
+    expect(screen.queryByRole('heading', { name: 'CPU 结构拼图' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '存储区 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('mounts the external-bus match collapsed on the bus note without a hash', async () => {
+    const frame = await openAt('/lesson-notes?note=u2-bus', '总线结构 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u2/u2-bus.html');
+    expect(screen.getByRole('heading', { name: '总线角色 ↔ 含义' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '展开练一练：总线角色对含义' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
   });
 
   it('opens the addressing match on unit 3 section 寻址方式', async () => {

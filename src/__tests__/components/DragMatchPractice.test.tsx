@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 const mockFetch = global.fetch as jest.Mock;
 
@@ -337,6 +337,54 @@ describe('DragMatchPractice', () => {
     expect(body.boardId).toBe('u2-memory-regions');
     expect(body.placements.bit).toBe('bit');
     expect(body.placements.xram).toBe('xram');
+  });
+
+  it('keeps the external-bus board as a tappable two-column match', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        correct: true,
+        message: '首次对上：+15 积分，解锁勋章「总线对上了」+10。',
+      }),
+    });
+    render(
+      <DragMatchPractice
+        board={EXTERNAL_BUS_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+
+    expect(document.querySelector('[data-layout="puzzle"]')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u2-external-bus"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /^P0/ })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: '含义 高 8 位地址 A15~A8，整条指令期间稳定，不需要外接地址锁存器，空位' })).toHaveClass('min-h-11');
+    expect(screen.getByText('练一练 · 80C51')).toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u2-external-bus"]')?.textContent).not.toContain('8052');
+    expect(document.querySelector('[data-practice="u2-external-bus"]')?.textContent).not.toContain('波特');
+
+    for (const pair of EXTERNAL_BUS_BOARD.pairs) {
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${escapeRegExp(pair.prompt)}`) }));
+      fireEvent.click(screen.getByRole('button', {
+        name: `${EXTERNAL_BUS_BOARD.shell.slotName} ${pair.target}，${pair.targetDetail}，空位`,
+      }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「总线对上了」');
+    });
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.boardId).toBe('u2-external-bus');
+    expect(body.placements).toEqual({
+      p0: 'p0',
+      p2: 'p2',
+      ale: 'ale',
+      psen: 'psen',
+      ea: 'ea',
+      rdwr: 'rdwr',
+    });
   });
 });
 

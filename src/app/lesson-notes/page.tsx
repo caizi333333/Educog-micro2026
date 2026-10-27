@@ -22,6 +22,7 @@
 // 不在 iframe 里再套一层讲解页。只收同源消息，只认下面登记过的篇目。
 // 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=5#int-2 打开第 5 章总览的那一节。
 // 第 2 章 ?unit=2#u2-lesson-b 打开第 2 次课的第一篇，?note=u2-memory 仍打开存储器。
+// ?unit=2#bus 与 ?note=u2-bus#bus 打开总线结构，并展开这一篇的练一练。
 // 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
 // ---------------------------------------------------------------------------
 
@@ -42,7 +43,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -105,7 +106,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选课次再进篇：<b className="font-semibold text-amber-100">片子里面 · 口和总线 · 节拍和开机</b>
       </>
     ),
-    intro: '第 2 章六篇都还在，先分成三次课。每次只显示这一课的两篇，手机上不用横着滑。旧链接 ?note=u2-memory 仍打开原来那一篇。每篇仍是讲解、疑点和自测。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。存储器组织这一篇也可以练一练：把片内四个区和片外数据存储器对上地址或访问方式。',
+    intro: '第 2 章六篇都还在，先分成三次课。每次只显示这一课的两篇，手机上不用横着滑。旧链接 ?note=u2-memory 仍打开原来那一篇。每篇仍是讲解、疑点和自测。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。存储器组织这一篇也可以练一练：把片内四个区和片外数据存储器对上地址或访问方式。总线结构这一篇也可以练一练：把 P0、P2、ALE、PSEN、EA 和 RD/WR 对上各自的作用。',
     figures: '图 2-1 / 2-3 / 2-5~2-10，表 2-2 / 2-3 / 2-7',
   },
   {
@@ -256,7 +257,10 @@ const NOTE_ALIAS: Readonly<Record<string, string>> = {
 const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
 
 /**
- * One match cell above the iframe. Unit 5 hosts five boards on the same note:
+ * One match cell above the iframe. Unit 2 mounts the CPU puzzle on
+ * `u2-cpu-structure`, the memory map on `u2-memory`, and the external-bus
+ * roles on `u2-bus` (expanded when the hash is `#bus`). Unit 5 hosts five
+ * boards on the same note:
  * `#int-2` expands the vector board; `#int-4` expands the TCON bit board;
  * `#int-5` expands the IE enable board; other interrupt sections keep the
  * source/flag board, expanded on ③ (`#int-3`); the timer door (`tmr-*`)
@@ -273,6 +277,7 @@ function practiceBoardForNote(file: string, sectionId: string): MatchBoard | nul
   if (file === 'u3-overview') return ADDRESSING_MODE_BOARD;
   if (file === 'u2-cpu-structure') return CPU_STRUCTURE_BOARD;
   if (file === 'u2-memory') return MEMORY_REGION_BOARD;
+  if (file === 'u2-bus') return EXTERNAL_BUS_BOARD;
   return null;
 }
 

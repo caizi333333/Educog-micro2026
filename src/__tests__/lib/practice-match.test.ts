@@ -5,6 +5,7 @@ import { practiceClearStat, practiceMedalIdsForCount } from '@/lib/practice-meda
 import {
   ADDRESSING_MODE_BOARD,
   CPU_STRUCTURE_BOARD,
+  EXTERNAL_BUS_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
@@ -12,6 +13,7 @@ import {
   TCON_CONTROL_BITS_BOARD,
   TIMER_TMOD_BOARD,
   decideMatchReward,
+  findMatchBoard,
   gradeMatch,
   matchClearMessage,
   matchMissMessage,
@@ -952,5 +954,129 @@ describe('memory region match board', () => {
       medalPoints: medal?.points ?? 0,
       cooldownMinutes: 10,
     })).toBe('首次对上：+15 积分，解锁勋章「存储区分清了」+10。');
+  });
+});
+
+describe('external bus match board', () => {
+  const courseware = readFileSync(
+    join(__dirname, '../../../public/resources/course/courseware/u2/u2-bus.html'),
+    'utf8',
+  );
+
+  it('matches the six bus roles written on the unit 2 bus page', () => {
+    expect(findMatchBoard('u2-external-bus')).toBe(EXTERNAL_BUS_BOARD);
+    expect(EXTERNAL_BUS_BOARD.chapterId).toBe('2');
+    expect(EXTERNAL_BUS_BOARD.knowledgePointId).toBe('2.6');
+    expect(EXTERNAL_BUS_BOARD.sectionId).toBe('bus');
+    expect(EXTERNAL_BUS_BOARD.moduleId).toBe('u2-bus');
+    expect(EXTERNAL_BUS_BOARD.medalId).toBe('external_bus');
+    expect(EXTERNAL_BUS_BOARD.zones).toBeUndefined();
+    expect(EXTERNAL_BUS_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(EXTERNAL_BUS_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target])).toEqual([
+      ['p0', 'P0', '低 8 位地址 / 数据分时复用'],
+      ['p2', 'P2', '高 8 位地址 A15~A8'],
+      ['ale', 'ALE', '锁存 P0 低 8 位地址'],
+      ['psen', 'PSEN', '选通外部程序存储器'],
+      ['ea', 'EA', 'EA = 1 先片内，EA = 0 只片外'],
+      ['rdwr', 'RD / WR', '读写外部数据存储器'],
+    ]);
+    expect(courseware).toContain("host.id='bus'");
+    expect(courseware).toContain('P0 一条线干两件事');
+    expect(courseware).toContain('低 8 位地址 / 数据');
+    expect(courseware).toContain('分时复用');
+    expect(courseware).toContain('先送低 8 位地址');
+    expect(courseware).toContain('改作双向数据线 D7~D0');
+    expect(courseware).toContain('它没有第二个身份');
+    expect(courseware).toContain('高 8 位地址 A15~A8');
+    expect(courseware).toContain('整条指令期间稳定');
+    expect(courseware).toContain('不需要外接地址锁存器');
+    expect(courseware).toContain('ALE 地址锁存允许');
+    expect(courseware).toContain('其下降沿把 P0 上的低 8 位地址锁进 74LS373');
+    expect(courseware).toContain('PSEN 外部程序存储器读选通');
+    expect(courseware).toContain('选通外部程序存储器');
+    expect(courseware).toContain('取指令时由它选通');
+    expect(courseware).toContain('低电平有效');
+    expect(courseware).toContain('内外程序存储器选择');
+    expect(courseware).toContain('EA = 1（接 +5V）时，先访问片内 ROM');
+    expect(courseware).toContain('EA = 0（接地）时只访问片外 ROM');
+    expect(courseware).toContain('8031 片内没有 ROM，所以 EA 必须接地');
+    expect(courseware).toContain('P3.7、P3.6 的第二功能');
+    expect(courseware).toContain('读写外部数据存储器');
+    expect(courseware).toContain('外扩数据存储器要用');
+    expect(courseware).toContain('不分时就不需要锁存');
+    expect(courseware).toContain('选通外部 ROM 的是 PSEN，选片内外的是 EA。');
+    const spoken = [
+      EXTERNAL_BUS_BOARD.title,
+      EXTERNAL_BUS_BOARD.prompt,
+      EXTERNAL_BUS_BOARD.hint,
+      ...EXTERNAL_BUS_BOARD.pairs.flatMap((pair) => [pair.prompt, pair.promptHint, pair.target, pair.targetDetail]),
+    ].join('\n');
+    expect(spoken).not.toContain('8052');
+    expect(spoken).not.toContain('波特');
+    expect(spoken).toContain('80C51');
+    expect(EXTERNAL_BUS_BOARD.hint).not.toContain('74LS373');
+    expect(EXTERNAL_BUS_BOARD.hint).not.toContain('A15~A8');
+    expect(EXTERNAL_BUS_BOARD.hint).toContain('不分时就不需要锁存');
+  });
+
+  it('grades a finished bus map and keeps a swapped port wrong', () => {
+    const solved = Object.fromEntries(EXTERNAL_BUS_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(EXTERNAL_BUS_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, p0: 'p2', p2: 'p0' };
+    const grade = gradeMatch(EXTERNAL_BUS_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['p0', 'p2']);
+    expect(matchMissMessage(grade, EXTERNAL_BUS_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, EXTERNAL_BUS_BOARD)).toContain('不分时就不需要锁存');
+    expect(matchMissMessage(grade, EXTERNAL_BUS_BOARD)).not.toContain('74LS373');
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(EXTERNAL_BUS_BOARD.id)).toBe('practice_clears:u2-external-bus');
+    expect(practiceMedalIdsForCount(EXTERNAL_BUS_BOARD.id, 1)).toEqual(['external_bus']);
+    expect(practiceMedalIdsForCount(EXTERNAL_BUS_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'external_bus',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'external_bus');
+    expect(medal?.title).toBe('总线对上了');
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: EXTERNAL_BUS_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「总线对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: EXTERNAL_BUS_BOARD.cooldownMs,
+      firstClearPoints: EXTERNAL_BUS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: EXTERNAL_BUS_BOARD.cooldownMs,
+      firstClearPoints: EXTERNAL_BUS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: EXTERNAL_BUS_BOARD.cooldownMs,
+      firstClearPoints: EXTERNAL_BUS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
   });
 });
