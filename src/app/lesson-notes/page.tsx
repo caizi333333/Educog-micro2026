@@ -38,6 +38,8 @@ import {
 } from '@/lib/classroom-sections';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
+import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
+import { INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -138,7 +140,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选课次再进小节：<b className="font-semibold text-amber-100">第 1 次课入门 · 第 2 次课案例 · 第 3 次课收口</b>
       </>
     ),
-    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。',
+    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。',
     figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
@@ -176,6 +178,8 @@ export default function LessonNotesPage(): React.JSX.Element {
   const [lastInUnit, setLastInUnit] = useState<Readonly<Record<number, string>>>({});
   const [sectionId, setSectionId] = useState('');
   const [frameReady, setFrameReady] = useState<Readonly<Record<string, boolean>>>({});
+  // null follows the courseware section; true/false is the student's own open or close.
+  const [practiceOpen, setPracticeOpen] = useState<boolean | null>(null);
   const frames = useRef(new Map<string, HTMLIFrameElement>());
   const activeFileRef = useRef(activeFile);
   activeFileRef.current = activeFile;
@@ -412,6 +416,18 @@ export default function LessonNotesPage(): React.JSX.Element {
               })}
             </div>
           </div>
+
+          {active.file === 'u5-overview' && (
+            <DragMatchPractice
+              board={INTERRUPT_SOURCE_FLAG_BOARD}
+              expanded={practiceOpen ?? sectionId === INTERRUPT_SOURCE_FLAG_BOARD.sectionId}
+              onExpandedChange={setPracticeOpen}
+              onOpenSection={() => {
+                setPracticeOpen(true);
+                openNote('u5-overview', '#int-3');
+              }}
+            />
+          )}
 
           {/* 内容区：同源 iframe。缝先占住高度，避免外壳和课件之间闪一下空框。 */}
           <CoursewareSeam className="mt-3" ready={Boolean(frameReady[activeFile])} label="这一篇正在打开，版面高度保持不变。">

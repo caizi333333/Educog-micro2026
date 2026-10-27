@@ -9,6 +9,8 @@ import {
 } from '@/lib/achievements-v2';
 import { summarizeStudyActivity } from '@/lib/study-activity';
 import { applyDailyLoginLedger, describeStudyPoints } from '@/lib/study-points';
+import { MATCH_CLEAR_EVENT } from '@/lib/practice-match';
+import { countPracticeClears } from '@/lib/practice-medals';
 
 // In-memory rate limiter: userId → [timestamps]
 const rateLimiter = new Map<string, number[]>();
@@ -64,7 +66,8 @@ export async function GET(request: Request) {
     // 合并成单次 findMany，在内存里派生所有统计值。Neon 连接池并发上限较低，
     // 之前 12 条查询挤在一个 Promise.all 里很容易触发 P1001 连接失败。
     const [
-      userAchievements, allActivities, allLearningProgress, allQuizAttempts, allExperiments, validFeedbackCount
+      userAchievements, allActivities, allLearningProgress, allQuizAttempts, allExperiments, validFeedbackCount,
+      practiceClearRows,
     ] = await Promise.all([
       prisma.userAchievement.findMany({ where: { userId: payload.userId, unlockedAt: { lte: asOf } }, orderBy: { unlockedAt: 'desc' } }),
       prisma.userActivity.findMany({ where: { userId: payload.userId, createdAt: { lte: asOf } }, select: { action: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
@@ -79,6 +82,10 @@ export async function GET(request: Request) {
         select: { experimentId: true, status: true, timeSpent: true },
       }),
       prisma.siteFeedback.count({ where: { userId: payload.userId, createdAt: { lte: asOf } } }),
+      prisma.learningEvent.findMany({
+        where: { userId: payload.userId, eventType: MATCH_CLEAR_EVENT, createdAt: { lte: asOf } },
+        select: { targetId: true },
+      }),
     ]);
 
     const currentAchievementIds = new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id));
@@ -166,6 +173,7 @@ export async function GET(request: Request) {
       experiment_time: allExperiments.reduce((sum, experiment) => sum + Math.max(0, experiment.timeSpent || 0), 0),
       total_points: user?.totalPoints || 0,
       achievements_unlocked: matchedUserAchievements.length,
+      ...countPracticeClears(practiceClearRows.map((row) => row.targetId)),
     };
 
     const achievementList: Array<{

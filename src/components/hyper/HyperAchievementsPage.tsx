@@ -55,6 +55,13 @@ function progressFor(progress: AchievementProgress[], id: string) {
 }
 
 function nextActionFor(achievement: Achievement): { href: string; label: string; note: string } {
+  if (achievement.id === 'interrupt_source_flags') {
+    return {
+      href: '/lesson-notes?unit=5#int-3',
+      label: '去第 5 章练一练',
+      note: '把 80C51 的 5 个中断源对上请求标志。首次对上记积分，并解锁这枚勋章。',
+    };
+  }
   if (achievement.criteria?.type === 'valid_feedbacks') {
     return {
       href: '/feedback',
