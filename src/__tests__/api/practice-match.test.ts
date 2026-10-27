@@ -603,6 +603,7 @@ describe('POST /api/practice/match', () => {
   });
 
   it('scores the external-bus match: a miss pays 0, the first clear pays, a cooldown pays 0', async () => {
+    mockVerifyToken.mockResolvedValue({ userId: 'student-bus', email: 's@example.com', role: 'STUDENT' });
     const missed = await post({
       boardId: EXTERNAL_BUS_BOARD.id,
       placements: { ...solvedPlacements(EXTERNAL_BUS_BOARD), p0: 'p2', p2: 'p0' },
