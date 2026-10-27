@@ -31,7 +31,8 @@ describe('current term class scope', () => {
     for (const classGroup of LEGACY_CLASSES) {
       expect(isCurrentTermClass(classGroup)).toBe(false);
     }
-    expect(isCurrentTermClass({ name: '机电2401', semester: CURRENT_SEMESTER })).toBe(false);
+    const legacyNameWithCurrentSemester = { name: '机电2401', semester: CURRENT_SEMESTER };
+    expect(isCurrentTermClass(legacyNameWithCurrentSemester)).toBe(false);
     expect(isCurrentTermClass({ name: '验证测试班' })).toBe(false);
   });
 
