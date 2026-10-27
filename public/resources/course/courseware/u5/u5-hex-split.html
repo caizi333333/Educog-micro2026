@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>÷256 拆字节 · TH/TL · 80C51 课堂投影</title>
+<script>(function(){try{var t=localStorage.getItem("mcu-ui-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+<style>
+:root{
+  --bg-deep:#070a0d;--muted-fg:hsl(195 13% 62%);
+  --slate100:#f1f5f9;--slate300:#cbd5e1;--slate400:#94a3b8;
+  --cyan100:#cffafe;--cyan300:#67e8f9;--emerald200:#a7f3d0;--emerald300:#6ee7b7;
+  --amber200:#fde68a;--amber300:#fcd34d;--rose300:#fda4af;
+  --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+  --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  --link:#fbbf24;
+  --card:rgba(255,255,255,.03);--kp-border:rgba(255,255,255,.12);--kp-surface:rgba(0,0,0,.28);
+}
+html[data-theme="light"]{
+  --bg-deep:#f4f7fb;--muted-fg:#64748b;
+  --slate100:#0f172a;--slate300:#334155;--slate400:#64748b;
+  --cyan100:#0e7490;--cyan300:#0891b2;--emerald200:#047857;--emerald300:#059669;
+  --amber200:#b45309;--amber300:#d97706;--rose300:#e11d48;
+  --card:#ffffff;--kp-border:#dbe3ee;--kp-surface:#f1f5f9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg-deep);background-image:radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);background-attachment:fixed;color:var(--slate100);font-family:var(--fs);font-size:20px;line-height:1.55;-webkit-font-smoothing:antialiased}
+html[data-theme="light"] body{background-image:radial-gradient(circle at 14% 10%,rgba(8,145,178,.08),transparent 28rem),radial-gradient(circle at 88% 18%,rgba(217,119,6,.07),transparent 26rem)}
+body.z1{zoom:1.12}body.z2{zoom:1.28}
+.wrap{max-width:1180px;margin:0 auto;padding:16px 18px 40px}
+.eyebrow{font-family:var(--fm);font-size:13px;letter-spacing:.14em;color:var(--muted-fg);margin-bottom:6px}
+.eyebrow b{color:var(--cyan300)}
+h1{font-size:28px;font-weight:600;background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:4px}
+html[data-theme="light"] h1{background-image:linear-gradient(135deg,#0e7490,#059669 48%,#d97706)}
+.top{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.top .grow{flex:1 1 420px}
+.zoom{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted-fg);flex-wrap:wrap}
+.btn{cursor:pointer;min-height:38px;padding:5px 14px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--slate100);font:600 15px var(--fs);transition:.15s;white-space:nowrap;user-select:none;text-decoration:none;display:inline-flex;align-items:center}
+.btn:hover{background:rgba(255,255,255,.1)}
+.btn.amb{background:hsl(42 92% 58% / .16);border-color:hsl(42 92% 58% / .55);color:var(--amber200)}
+.btn.on,.btn[aria-pressed=true]{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
+.btn.sm{min-height:30px;padding:3px 10px;font-size:13.5px}
+html[data-theme="light"] .btn{border-color:var(--kp-border);background:var(--kp-surface);color:var(--slate100)}
+html[data-theme="light"] .btn.amb{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.4);color:var(--amber200)}
+a{color:var(--link);text-decoration:none;border-bottom:1px dashed rgba(251,191,36,.45)}
+a:hover{border-bottom-style:solid}
+html[data-theme="light"] a{color:#b45309;border-bottom-color:rgba(180,83,9,.45)}
+.card{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.03);padding:14px 18px;margin-bottom:12px}
+html[data-theme="light"] .card{background:var(--card);border-color:var(--kp-border)}
+.key{font-size:22px;color:var(--amber200);font-weight:600;margin-bottom:8px}
+.note{font-size:16.5px;color:var(--slate300);line-height:1.7}
+.note b{color:var(--cyan100)}
+.mono{font-family:var(--fm)}
+.gold{color:var(--amber300)}
+.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+
+.hexsplit{margin:0;padding:16px 18px;border-radius:12px;border:1px solid hsl(42 92% 58% / .45);background:linear-gradient(160deg,hsl(42 92% 58% / .1),rgba(0,0,0,.22))}
+html[data-theme="light"] .hexsplit{background:linear-gradient(160deg,rgba(217,119,6,.08),var(--card));border-color:rgba(217,119,6,.4)}
+.hs-title{font-size:22px;font-weight:700;color:var(--amber200);margin:0 0 6px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.hs-title .tag{font:700 12px var(--fm);color:#141006;background:var(--amber300);border-radius:4px;padding:2px 8px}
+.hs-why{font-size:17px;color:var(--slate300);line-height:1.7;margin:0 0 14px}
+.hs-why b{color:var(--cyan100)}
+.hs-diagram{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:stretch;margin:8px 0 12px}
+@media(max-width:900px){.hs-diagram{grid-template-columns:1fr}}
+.hs-board{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.32);padding:16px}
+html[data-theme="light"] .hs-board,html[data-theme="light"] .hs-side,html[data-theme="light"] .hs-demo{background:var(--kp-surface);border-color:var(--kp-border)}
+.hs-xrow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.hs-x{font:800 32px/1.1 var(--fm);color:var(--amber300)}
+.hs-eq{font:700 24px var(--fm);color:var(--slate400)}
+.hs-bytes{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.hs-byte{border-radius:10px;border:1px solid hsl(184 72% 48% / .45);background:hsla(184,72%,48%,.1);padding:14px 10px;text-align:center}
+.hs-byte.tl{border-color:hsl(142 50% 45% / .5);background:hsla(142,50%,45%,.1)}
+html[data-theme="light"] .hs-byte{background:rgba(8,145,178,.08);border-color:rgba(8,145,178,.35)}
+html[data-theme="light"] .hs-byte.tl{background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.35)}
+.hs-byte .lab{font:700 13px var(--fm);color:var(--slate400);margin-bottom:4px;letter-spacing:.06em}
+.hs-byte .name{font:800 30px var(--fm);color:var(--cyan100);margin-bottom:4px}
+.hs-byte.tl .name{color:var(--emerald300)}
+.hs-byte .form{font:700 16px/1.45 var(--fm);color:var(--amber300)}
+.hs-byte .hint{font-size:13.5px;color:var(--slate400);margin-top:4px}
+.hs-plus{font:800 32px var(--fm);color:var(--amber300);text-align:center}
+.hs-recon{margin-top:14px;text-align:center;font:700 17px/1.5 var(--fm);color:var(--slate300);padding:12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px dashed rgba(251,191,36,.35)}
+.hs-recon b{color:var(--amber300)}
+html[data-theme="light"] .hs-recon{background:rgba(217,119,6,.06);border-color:rgba(217,119,6,.35)}
+.hs-side{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.28);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.hs-side h4{margin:0;font-size:16px;color:var(--amber200)}
+.hs-pill{border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);padding:10px 12px;font-size:15px;color:var(--slate300);line-height:1.55}
+html[data-theme="light"] .hs-pill{background:var(--card);border-color:var(--kp-border)}
+.hs-pill b{color:var(--cyan100);font-family:var(--fm)}
+.hs-demo{margin-top:4px;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22)}
+.hs-demo .h2{font-size:17px;font-weight:700;color:var(--amber200);margin:0 0 8px}
+.hs-demo .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.hs-demo label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted-fg)}
+.hs-demo input{min-height:40px;padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:var(--slate100);font:700 20px var(--fm);width:150px}
+html[data-theme="light"] .hs-demo input{background:rgba(15,23,42,.04);border-color:var(--kp-border);color:var(--slate300)}
+.hs-out{margin-top:12px;font:700 20px/1.55 var(--fm);color:var(--amber300)}
+.hs-out span{color:var(--cyan100);margin:0 4px}
+.hs-out .tlc{color:var(--emerald300)}
+.hs-out .combo{display:inline-block;margin-top:4px;padding:4px 10px;border-radius:6px;background:hsl(42 92% 58% / .16);border:1px solid hsl(42 92% 58% / .45);color:var(--amber200)}
+.foot{margin-top:14px;font-size:14px;color:var(--muted-fg)}
+</style>
+</head>
+<body>
+<button type="button" class="btn sm kp-theme-toggle" id="themeBtn" aria-label="切换浅/深色">浅色</button>
+<div class="wrap">
+  <div class="top">
+    <div class="grow">
+      <div class="eyebrow">U5 · ⑭ 装值计算 · 子知识点 <b>#hex-split</b> · 芯片 <b>80C51</b></div>
+      <h1>16 位数 ÷256 / mod 256 → TH / TL</h1>
+    </div>
+    <div class="zoom">
+      字号
+      <button class="btn sm" data-z="0" aria-pressed="true">标准</button>
+      <button class="btn sm" data-z="1">大</button>
+      <button class="btn sm" data-z="2">特大</button>
+      <a class="btn sm amb" href="u5-interrupt-classroom.html#hex-split">回课堂页 ⑭</a>
+    </div>
+  </div>
+
+  <div class="hexsplit" id="hex-split">
+    <div class="hs-title" id="rev-hex"><span class="tag">子知识点</span>TH = X÷256（取整）　TL = X mod 256</div>
+    <p class="hs-why"><b>所以然：</b>256 = 2<sup>8</sup>。对任意 16 位初值 X，切高 8 / 低 8 与「整除 256 + 取余」是同一件事；合写 <span class="mono gold">X = TH×256 + TL</span>。</p>
+
+    <div class="hs-diagram">
+      <div class="hs-board" aria-label="原理图">
+        <div class="hs-xrow">
+          <span class="hs-x">16 位 X</span>
+          <span class="hs-eq">→</span>
+          <span class="hs-x" style="font-size:24px;color:var(--cyan100)">TH</span>
+          <span class="hs-eq">∥</span>
+          <span class="hs-x" style="font-size:24px;color:var(--emerald300)">TL</span>
+        </div>
+        <div class="hs-bytes">
+          <div class="hs-byte">
+            <div class="lab">HIGH 8</div>
+            <div class="name">TH</div>
+            <div class="form">X ÷ 256<br>（取整）</div>
+            <div class="hint">右移 8 位 · 高字节</div>
+          </div>
+          <div class="hs-plus">+</div>
+          <div class="hs-byte tl">
+            <div class="lab">LOW 8</div>
+            <div class="name">TL</div>
+            <div class="form">X mod 256</div>
+            <div class="hint">低 8 位 · 余数</div>
+          </div>
+        </div>
+        <div class="hs-recon">合写：<b>X = TH×256 + TL</b>　·　十六进制合写即 <b>THTLH</b></div>
+      </div>
+      <div class="hs-side">
+        <h4>课上死例子 · 12MHz · 1ms</h4>
+        <div class="hs-pill">初值 X = <b>64536</b><br>
+        TH = 64536÷256 = <span class="gold">252 = FCH</span><br>
+        TL = 64536 mod 256 = <span class="gold">24 = 18H</span><br>
+        合写 → <span class="gold">FC18H</span></div>
+        <div class="hs-pill">一圈：<b>65535 = FFFFH</b>；<b>65536 = 10000H</b>。<br>方式1：<span class="gold">初值 = 65536 − N</span>。</div>
+        <div class="hs-pill">芯片 <b>80C51</b>：方式1 用满 16 位；装值 = 把这 16 位拆进 TH/TL。</div>
+      </div>
+    </div>
+
+    <div class="hs-demo">
+      <div class="h2">手算演示 · 输入十进制初值 X</div>
+      <div class="row">
+        <label>初值 X（十进制）<input type="number" id="hsX" value="64536" min="0" max="65535" step="1"></label>
+        <button class="btn amb" type="button" id="hsCalc">拆成 TH / TL</button>
+        <button class="btn sm" type="button" id="hsEx">填 64536</button>
+        <button class="btn sm" type="button" id="hsFF">填 65535</button>
+      </div>
+      <div class="hs-out" id="hsOut">X = <span id="hsDec">64536</span> → TH=<span id="hsTH">FCH</span>（252）　TL=<span class="tlc" id="hsTL">18H</span>（24）　合写 <span class="combo" id="hsCombo">FC18H</span></div>
+      <div class="note" id="hsHint" style="margin-top:6px">验算：252×256 + 24 = 64536。与位切高8/低8相同。</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="key">与课堂页的关系</div>
+    <div class="note">本页是 <b>u5-interrupt-classroom.html</b> ⑭装值计算内子块 <a href="u5-interrupt-classroom.html#hex-split">#hex-split</a> / <a href="u5-interrupt-classroom.html#rev-hex">#rev-hex</a> 的投影单文件。未改 PPT；网站部署交给芯智育才。</div>
+  </div>
+  <p class="foot">备课本地 · 2026-10-27 · 链接琥珀 #fbbf24 · 浅/深跟 u5</p>
+</div>
+<script>
+(function(){
+  function $(id){return document.getElementById(id)}
+  document.querySelectorAll('.zoom [data-z]').forEach(function(b){
+    b.onclick=function(){
+      document.body.className=b.dataset.z>0?'z'+b.dataset.z:'';
+      document.querySelectorAll('.zoom [data-z]').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+    };
+  });
+  var tb=$('themeBtn');
+  function syncThemeBtn(){
+    var t=document.documentElement.getAttribute('data-theme')||'dark';
+    if(tb) tb.textContent=t==='light'?'深色':'浅色';
+  }
+  syncThemeBtn();
+  if(tb) tb.onclick=function(){
+    var cur=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+    var next=cur==='light'?'dark':'light';
+    document.documentElement.setAttribute('data-theme',next);
+    try{localStorage.setItem('mcu-ui-theme',next)}catch(e){}
+    syncThemeBtn();
+  };
+  function hex2(n){ n=n&0xFF; return (n<16?'0':'')+n.toString(16).toUpperCase()+'H'; }
+  function hex4(n){ n=n&0xFFFF; var h=n.toString(16).toUpperCase(); while(h.length<4)h='0'+h; return h+'H'; }
+  function run(){
+    var xin=$('hsX'); if(!xin) return;
+    var x=parseInt(xin.value,10);
+    var hint=$('hsHint');
+    if(isNaN(x)||x<0||x>65535){ if(hint) hint.textContent='请输入 0～65535 的十进制初值。'; return; }
+    var th=(x/256)|0, tl=x%256;
+    var line=$('hsOut');
+    if(line) line.innerHTML='X = <span id="hsDec">'+x+'</span> → TH=<span id="hsTH">'+hex2(th)+'</span>（'+th+'）　TL=<span class="tlc" id="hsTL">'+hex2(tl)+'</span>（'+tl+'）　合写 <span class="combo" id="hsCombo">'+hex4(x)+'</span>';
+    if(hint) hint.textContent='验算：'+th+'×256 + '+tl+' = '+(th*256+tl)+'。与位切高8/低8相同。';
+  }
+  $('hsCalc').onclick=run;
+  $('hsX').addEventListener('keydown',function(e){ if(e.key==='Enter'){e.preventDefault();run();} });
+  $('hsEx').onclick=function(){ $('hsX').value=64536; run(); };
+  $('hsFF').onclick=function(){ $('hsX').value=65535; run(); };
+})();
+</script>
+</body>
+</html>

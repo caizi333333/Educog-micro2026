@@ -83,7 +83,7 @@ const U4_NOTES: readonly LessonNote[] = [
 ] as const;
 
 const U5_NOTES: readonly LessonNote[] = [
-  { file: 'u5-overview', title: '第 5 章交互总览', sub: '中断系统 + 定时/计数器；含例题全览、速记、课末测', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-overview', title: '第 5 章交互总览', sub: '中断系统 + 定时/计数器；含例题全览、速记、课末测；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
   { file: 'u5-knowledge', title: '知识导览', sub: '第五章结构与媒资入口', pointId: '5', pointName: '中断系统' },
 ] as const;
 
