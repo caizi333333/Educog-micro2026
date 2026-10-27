@@ -475,6 +475,13 @@
   .edu-cell-seam__frame.is-ready {
     opacity: 1;
   }
+
+  @media (max-width: 639px) {
+    .edu-cell-seam,
+    .edu-cell-seam__frame {
+      min-height: calc(100dvh - 14rem);
+    }
+  }
 }
 
 @keyframes cell-enter {

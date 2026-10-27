@@ -1065,6 +1065,87 @@ html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,
 .gw-vs h4{font-size:15px;color:var(--amber200);margin:0 0 6px}
 
 </style>
+<style id="phone-read">
+/* 手机阅读：页签在条内横滑，不把整页撑宽；粘性层只留这一行导航。 */
+@media (max-width:900px){
+  .zoom{flex-wrap:wrap;min-width:0;max-width:100%}
+  .zoom .btn{min-height:44px}
+  .top .grow{min-width:0;flex-basis:auto}
+  .navstack{
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    gap:6px;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+    min-width:0;
+    scrollbar-width:thin;
+    padding-right:84px;
+  }
+  .navstack .lessons,
+  .navstack .tabs{
+    flex:0 0 auto;
+    width:max-content;
+    max-width:none;
+    overflow:visible;
+    position:static;
+    margin:0;
+    padding:0;
+    background:transparent;
+  }
+  .lessons,.tabs{
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+    flex-wrap:nowrap;
+    scrollbar-width:thin;
+  }
+  .tabs{
+    position:sticky;
+    top:0;
+    z-index:20;
+    padding-right:84px;
+  }
+  .navstack .tabs{padding-right:0;z-index:auto}
+  .lesson,.tab{
+    flex:0 0 auto;
+    min-width:max-content;
+    white-space:nowrap;
+    min-height:44px;
+  }
+  .tab{padding:6px 12px}
+  .tab small,.lesson small{white-space:nowrap}
+  .drill-strip,.qz-calc{position:static;top:auto}
+  .wrap [id]{scroll-margin-top:84px}
+  .grid2>*,.grid3>*,.toc>*,.dual>*,.lh-stage>*,.le-grid>*,.mech-grid>*,.case-split>*,.nz-grid>*{min-width:0;max-width:100%}
+  .reg,.code,.s6-chain,.gloss-wrap,.mem-chain,.case-split,.nz-grid,.src-row{max-width:100%}
+  .reg{overflow-x:auto}
+  #srcs,.src-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #srcs>*,.src-row>*{min-width:0}
+  .case-split,.nz-grid,
+  .pane>[style*="grid-template-columns:330px"],
+  [style*="grid-template-columns:1.15fr"]{grid-template-columns:minmax(0,1fr)!important}
+  .pane>[style*="grid-template-columns:330px"]>*,
+  [style*="grid-template-columns:1.15fr"]>*{min-width:0;max-width:100%}
+  .ie-board .bits{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .ie-board .sw{min-width:0}
+  .row>.btn{white-space:normal;text-align:center}
+}
+@media (max-width:760px){
+  .wrap{padding:12px 12px 40px}
+  .grid2,.grid3,.toc,.lh-stage,.le-grid,.mech-grid,.sel4,.dual,.compare-mini,.media-grid,.analogy-grid,.analogy .pair,.tload-wrap,.rv-grid,.rv-cmp,.ex53f-wall,.gw-vs,.ex53-wrap,.ex51-wrap,.qz-wrap,.gw-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .case-split,.nz-grid,.src-row{grid-template-columns:minmax(0,1fr)!important}
+  .nzLane{flex-wrap:wrap}
+  .nzLane .nm{width:auto;flex:1 1 100%;text-align:left}
+  .nzTrack{flex:1 1 100%;min-width:0}
+  .ie-board .bits{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -5624,6 +5705,32 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
 })();
 
 
+</script>
+<script id="phone-read-tabs">
+(function(){
+  var tabs=document.querySelector('#tabs.tabs, .tabs[role="tablist"]');
+  if(!tabs || typeof MutationObserver!=='function') return;
+  function scrollerOf(el){
+    var node=el.parentElement;
+    while(node && node!==document.documentElement){
+      var overflow=window.getComputedStyle(node).overflowX;
+      if((overflow==='auto'||overflow==='scroll'||overflow==='overlay') && node.scrollWidth>node.clientWidth+2) return node;
+      node=node.parentElement;
+    }
+    return tabs;
+  }
+  function reveal(){
+    var tab=tabs.querySelector('.tab[aria-selected="true"]');
+    if(!tab) return;
+    var scroller=scrollerOf(tab);
+    if(!scroller || scroller.scrollWidth<=scroller.clientWidth+2) return;
+    var tabBox=tab.getBoundingClientRect();
+    var box=scroller.getBoundingClientRect();
+    scroller.scrollLeft+= (tabBox.left+tabBox.width/2)-(box.left+box.width/2);
+  }
+  new MutationObserver(reveal).observe(tabs,{subtree:true,attributes:true,attributeFilter:['aria-selected']});
+  reveal();
+})();
 </script>
 </body>
 </html>
