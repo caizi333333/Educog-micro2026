@@ -92,6 +92,7 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
   });
 
@@ -108,15 +109,40 @@ describe('LessonNotesPage deep link', () => {
     expect(document.querySelector('[data-practice="u5-interrupt-ie-enables"]')?.textContent).not.toContain('EA');
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('opens the TCON bit match on unit 5 section ④ and keeps the deep link', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#int-4', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-4');
+    expect(screen.getByRole('link', { name: /在新标签单独打开本篇/ })).toHaveAttribute(
+      'href',
+      '/resources/course/courseware/u5/u5-overview.html#int-4',
+    );
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'TCON 位 ↔ 含义' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照课件④' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起练一练' })).toBeInTheDocument();
+    expect(screen.getByText('TR0')).toBeInTheDocument();
+    expect(screen.getByText('TF1')).toBeInTheDocument();
+    expect(screen.getByText('IT0')).toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u5-tcon-control-bits"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /TR0/ })).toHaveClass('min-h-11');
+    expect(document.querySelector('[data-practice="u5-tcon-control-bits"]')?.textContent).not.toContain('IE0');
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
   });
 
   it('keeps the source-flag match on a neighboring interrupt section', async () => {
-    const frame = await openAt('/lesson-notes?unit=5#int-4', '第 5 章交互总览 · 讲解笔记');
-    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-4');
+    const frame = await openAt('/lesson-notes?unit=5#int-6', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-6');
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '展开练一练：中断源对请求标志' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
   });
 
@@ -131,6 +157,7 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByText('0023H')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).not.toBeInTheDocument();
   });
 
@@ -144,6 +171,7 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByText('GATE = 1')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
   });
 
   it('opens the same pane from a unit link that only carries the hash', async () => {

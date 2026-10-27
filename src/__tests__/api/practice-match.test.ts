@@ -2,7 +2,7 @@ import { POST } from '@/app/api/practice/match/route';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TIMER_TMOD_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD } from '@/lib/practice-match';
 import { PRACTICE_DAILY_MEDAL_ID, PRACTICE_STREAK_MEDAL_ID } from '@/lib/practice-medals';
 
 jest.mock('@/lib/auth', () => ({ verifyToken: jest.fn() }));
@@ -448,6 +448,66 @@ describe('POST /api/practice/match', () => {
     const cooled = await post({
       boardId: INTERRUPT_IE_ENABLE_BOARD.id,
       placements: solvedPlacements(INTERRUPT_IE_ENABLE_BOARD),
+    });
+    const cooledBody = await cooled.json();
+    expect(cooledBody.reason).toBe('cooldown');
+    expect(cooledBody.pointsAwarded).toBe(0);
+    expect(cooledBody.medal).toBeNull();
+    expect(prisma.learningEvent.create).not.toHaveBeenCalled();
+    expect(prisma.userPointsTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it('scores the TCON bit match: a miss pays 0, the first clear pays, a cooldown pays 0', async () => {
+    const missed = await post({
+      boardId: TCON_CONTROL_BITS_BOARD.id,
+      placements: { ...solvedPlacements(TCON_CONTROL_BITS_BOARD), tr0: 'tr1', tr1: 'tr0' },
+    });
+    const missedBody = await missed.json();
+    expect(missedBody.correct).toBe(false);
+    expect(missedBody.pointsAwarded).toBe(0);
+    expect(missedBody.medal).toBeNull();
+    expect(missedBody.message).toContain('只看 TR');
+    expect(missedBody.message).not.toContain('TR0');
+    expect(missedBody.message).not.toContain('IE0');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    const cleared = await post({
+      boardId: TCON_CONTROL_BITS_BOARD.id,
+      placements: solvedPlacements(TCON_CONTROL_BITS_BOARD),
+    });
+    const body = await cleared.json();
+    expect(body).toMatchObject({
+      correct: true,
+      reason: 'first_clear',
+      pointsAwarded: 30,
+      medal: { id: 'tcon_control_bits', title: 'TCON 对上了', points: 10 },
+    });
+    expect(body.message).toBe('首次对上：+15 积分，解锁勋章「TCON 对上了」+10、「今天练过了」+5。');
+    expect(prisma.learningEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        eventType: 'PRACTICE_CLEAR',
+        targetId: 'u5-tcon-control-bits',
+        targetType: 'PRACTICE',
+        chapterId: '5',
+        moduleId: 'u5-overview',
+      }),
+    }));
+    expect(prisma.userPointsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        type: 'PRACTICE_CLEAR',
+        points: 15,
+        description: '第5章练一练首次对上：TCON 位 ↔ 含义',
+      }),
+    }));
+    expect(requestedMedalIds()).toEqual(['tcon_control_bits', 'practice_daily']);
+
+    (prisma.learningEvent.create as jest.Mock).mockClear();
+    (prisma.userPointsTransaction.create as jest.Mock).mockClear();
+    (prisma.learningEvent.count as jest.Mock).mockResolvedValue(1);
+    (prisma.learningEvent.findFirst as jest.Mock).mockResolvedValue({ createdAt: new Date() });
+    const cooled = await post({
+      boardId: TCON_CONTROL_BITS_BOARD.id,
+      placements: solvedPlacements(TCON_CONTROL_BITS_BOARD),
     });
     const cooledBody = await cooled.json();
     expect(cooledBody.reason).toBe('cooldown');

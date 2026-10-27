@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 const mockFetch = global.fetch as jest.Mock;
 
@@ -139,6 +139,68 @@ describe('DragMatchPractice', () => {
     expect(screen.getByRole('status')).toHaveTextContent('还有 5 处没对上');
     expect(screen.getByRole('status')).toHaveTextContent('总开关');
     expect(screen.getByRole('status')).not.toHaveTextContent('EX0');
+    await waitFor(() => expect(mockFetch).not.toHaveBeenCalled());
+  });
+
+  it('places every TCON bit and posts that board', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        correct: true,
+        message: '首次对上：+15 积分，解锁勋章「TCON 对上了」+10。',
+      }),
+    });
+    render(
+      <DragMatchPractice
+        board={TCON_CONTROL_BITS_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+
+    expect(document.querySelector('[data-practice="u5-tcon-control-bits"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /TR0/ })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: '含义 T0 运行控制（开数/停数），Timer Run 0，空位' })).toHaveClass('min-h-11');
+    expect(document.querySelector('[data-practice="u5-tcon-control-bits"]')?.textContent).not.toContain('IE0');
+
+    placeAll(TCON_CONTROL_BITS_BOARD);
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「TCON 对上了」');
+    });
+    expect(screen.getByText('TR0 → T0 运行控制（开数/停数）（Timer Run 0）')).toBeInTheDocument();
+    expect(screen.getByText('IT1 → INT1 触发方式（Interrupt Type 1）')).toBeInTheDocument();
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.boardId).toBe('u5-tcon-control-bits');
+    expect(body.placements).toEqual({
+      tr0: 'tr0',
+      tr1: 'tr1',
+      tf0: 'tf0',
+      tf1: 'tf1',
+      it0: 'it0',
+      it1: 'it1',
+    });
+  });
+
+  it('marks a swapped TCON bit without calling the server or listing the mapping', async () => {
+    render(
+      <DragMatchPractice
+        board={TCON_CONTROL_BITS_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /TR0/ }));
+    fireEvent.click(screen.getByRole('button', { name: '含义 T1 运行控制，Timer Run 1，空位' }));
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('还有 6 处没对上');
+    expect(screen.getByRole('status')).toHaveTextContent('只看 TR');
+    expect(screen.getByRole('status')).not.toHaveTextContent('TR0');
+    expect(screen.getByRole('status')).not.toHaveTextContent('IE0');
     await waitFor(() => expect(mockFetch).not.toHaveBeenCalled());
   });
 
