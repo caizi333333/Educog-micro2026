@@ -1,4 +1,4 @@
-import { quizQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
+import { quizQuestions, getComprehensiveQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { getTeachingContent } from '@/lib/teaching-content';
 import {
@@ -472,6 +472,76 @@ describe('Quiz Data Tests', () => {
         expect(maxCount / minCount).toBeLessThan(50);
       }
     });
+  });
+});
+
+describe('往年作业册与作业5/6/7数值切片', () => {
+  const additions = quizQuestions.filter((question) => question.id >= 510);
+
+  it('从510连续编号，且综合测评仍只抽原题库每章前两题', () => {
+    expect(additions.map((question) => question.id)).toEqual(
+      Array.from({ length: additions.length }, (_, index) => 510 + index),
+    );
+    expect(additions.length).toBe(79);
+    const legacy = quizQuestions.filter((question) => question.id <= 509);
+    const selectedByChapter = new Map<number, number[]>();
+    for (const question of legacy) {
+      const selected = selectedByChapter.get(question.chapter) ?? [];
+      if (selected.length >= 2) continue;
+      selected.push(question.id);
+      selectedByChapter.set(question.chapter, selected);
+    }
+    const expectedIds = [...selectedByChapter.entries()]
+      .sort(([chapterA], [chapterB]) => chapterA - chapterB)
+      .flatMap(([, ids]) => ids);
+    expect(getComprehensiveQuestions().map((question) => question.id)).toEqual(expectedIds);
+    expect(getComprehensiveQuestions().some((question) => question.id >= 510)).toBe(false);
+  });
+
+  it('解析首行标来源，正确答案等于选项原文，作业7注明0872', () => {
+    for (const question of additions) {
+      if (question.type !== 'multiple-choice') throw new Error(`question ${question.id} is not multiple-choice`);
+      const [sourceLine, ...rest] = (question.explanation ?? '').split('\n');
+      expect(sourceLine).toMatch(
+        /^\[source: (往年作业册20221127 作业[1-7] 单选#\d+ · P\d+(\+P?\d+)?|作业[567] 数值切片 · 同源)\]$/,
+      );
+      expect(rest.join('\n').trim().length).toBeGreaterThan(8);
+      expect(question.options.filter((option) => option === question.correctAnswer)).toHaveLength(1);
+      if (sourceLine.includes('作业7')) {
+        expect(question.chapter).toBe(8);
+        expect(question.explanation).toContain('0872');
+      }
+    }
+  });
+
+  it('作业5/6/7的初值、波特率和地址范围与公式一致', () => {
+    const answer = (id: number) => quizQuestions.find((question) => question.id === id)?.correctAnswer;
+    const hexByte = (value: number) => `${value.toString(16).toUpperCase().padStart(2, '0')}H`;
+    const hexWord = (value: number) => `${value.toString(16).toUpperCase().padStart(4, '0')}H`;
+    const splitTimer = (reload: number) => `TH0=${hexByte(reload >> 8)}，TL0=${hexByte(reload & 0xff)}`;
+    const tmod = (timer1Mode: number, timer0Mode: number) => hexByte((timer1Mode << 4) | timer0Mode);
+    const reloadForBaud = (baud: number) => hexByte(256 - 11059200 / (12 * 32 * baud));
+    const addressRange = (start: number, size: number) => `${hexWord(start)}-${hexWord(start + size - 1)}`;
+
+    expect(answer(575)).toBe(String(20 * 1000));
+    expect(answer(576)).toBe(splitTimer(65536 - 20000));
+    expect(answer(577)).toBe(tmod(0, 1));
+    expect(answer(578)).toBe(splitTimer(65536 - 10000));
+    const roundedCycles = Math.round(11059200 / 12 / 1000);
+    expect(roundedCycles).toBe(922);
+    expect(answer(579)).toBe(splitTimer(65536 - roundedCycles));
+    expect(answer(580)).toBe(reloadForBaud(9600));
+    expect(answer(581)).toBe(reloadForBaud(2400));
+    expect(answer(582)).toBe(tmod(2, 0));
+    expect(answer(583)).toBe('分频后重装值常为整数，标准波特率误差可为0');
+    const actualBaud = 12000000 / (12 * 32 * (256 - 0xfd));
+    expect(actualBaud).toBeGreaterThan(9600);
+    expect(((actualBaud / 9600) - 1) * 100).toBeCloseTo(8.51, 1);
+    expect(answer(584)).toBe('实际波特率高于9600，相对误差约+8.5%');
+    expect(answer(585)).toBe(`${((10 / 9600) * 1e6).toFixed(2)}μs`);
+    expect(answer(586)).toBe(addressRange(0x0000, 0x2000));
+    expect(answer(587)).toBe(addressRange(0x8000, 0x2000));
+    expect(answer(588)).toBe(addressRange(0x0000, 0x0800));
   });
 });
 
