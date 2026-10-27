@@ -206,14 +206,16 @@ a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-c
 /* ============================================================
    第 4 章课堂互动台
    ------------------------------------------------------------
-   三个页签：① 复习第 3 章 ② 第 4 章例程（单步台） ③ 当堂自测
+   一级：五种互动（回炉 / 第 1 次课 / 第 2 次课分支 / 第 2 次课循环 / 自测）
+   二级：本次只显示这一类的小节，每类不超过 8 个。
+   旧锚点 #p-rev、#p-run、#p-quiz、#s-mode、#s-map 仍打开原来那一屏。
    所有"跑一下"都交给 mcs51.js 引擎真跑：汇编 → 单步 → 读寄存器/RAM。
    版面规矩：按钮在哪，效果就在哪（同一屏、紧挨着），不自动滚动。
    ============================================================ */
-.kp-wrap{max-width:1360px}
+.kp-wrap{max-width:1360px;min-width:0}
 body.z1{zoom:1.15} body.z2{zoom:1.3}
 .top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
-.top .grow{flex:1 1 520px}
+.top .grow{flex:1 1 240px;min-width:0}
 .zoom{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted-fg)}
 .btn{cursor:pointer;min-height:36px;padding:6px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
   background:rgba(255,255,255,.04);color:var(--slate100);font:500 13.5px var(--fs);transition:.15s;white-space:nowrap}
@@ -224,12 +226,18 @@ body.z1{zoom:1.15} body.z2{zoom:1.3}
 .btn.amb{background:hsl(42 92% 58% / .14);border-color:hsl(42 92% 58% / .5);color:var(--amber200)}
 .btn.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
 .btn.sm{min-height:30px;padding:3px 10px;font-size:12.5px}
-.tabs{display:flex;gap:8px;margin:20px 0 16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:5px;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);background-color:rgba(7,10,13,.82)}
-.tab{flex:1;min-height:48px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
-  color:var(--slate300);font:600 14.5px var(--fs);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
-.tab small{font-weight:400;font-size:11px;opacity:.7}
-.tab:hover{background:rgba(255,255,255,.07)}
+.navstack{position:sticky;top:0;z-index:20;margin:16px 0 14px;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:rgba(7,10,13,.9);backdrop-filter:blur(8px);max-width:100%}
+.lessons{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.lesson{flex:1 1 148px;min-width:0;min-height:48px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--slate300);font:600 14px var(--fs);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;line-height:1.25;padding:6px 10px;text-align:left}
+.lesson small{font-weight:400;font-size:13px;opacity:.75}
+.lesson.on,.lesson[aria-pressed=true]{background:hsl(42 92% 58% / .16);border-color:hsl(42 92% 58% / .65);color:#fff}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;border:0;background:transparent}
+.tab{flex:1 1 120px;min-width:0;min-height:44px;border-radius:6px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03);
+  color:var(--slate300);font:600 14px var(--fs);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;line-height:1.25;padding:6px 10px;text-align:left;white-space:normal}
+.tab small{font-weight:400;font-size:13px;opacity:.75}
+.tab:hover,.lesson:hover{background:rgba(255,255,255,.07)}
 .tab[aria-selected=true]{background:hsl(184 82% 48% / .14);border-color:hsl(184 82% 48% / .45);color:var(--cyan100)}
+.lesson:focus-visible,.tab:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
 .pane{display:none}.pane.on{display:block;animation:kpFade .3s ease-out both}
 .card{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);padding:14px 16px}
 .h2{font-size:18px;font-weight:700;margin:4px 0 4px}
@@ -408,6 +416,10 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 
 /* ---------- ④ 自测 ---------- */
 .quiz{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.quiz.one{grid-template-columns:minmax(0,1fr)}
+.quiz.one .qz{display:none}
+.quiz.one .qz.on{display:block}
+#quizWrap[hidden],#hwCard[hidden]{display:none !important}
 .qz{border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);padding:12px 14px}
 .qz .t{font-weight:700;font-size:15px;margin-bottom:8px}
 .qz pre{font:13.5px/1.65 var(--fm);background:#0a0f16;border-radius:7px;padding:8px 11px;border:1px solid rgba(255,255,255,.06);color:var(--slate100);overflow:auto}
@@ -421,7 +433,20 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 .hw{margin-top:14px}
 .hw li{margin:6px 0 6px 20px;font-size:14px;color:var(--slate300);line-height:1.6}
 .foot{margin-top:28px;font-size:12px;color:var(--muted-fg);text-align:center}
-@media(max-width:1100px){.stage,.mapgrid,.modebox,.quiz{grid-template-columns:1fr}.structs{grid-template-columns:repeat(2,1fr)}.teams{grid-template-columns:repeat(3,1fr)}.modes{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1100px){.stage,.mapgrid,.modebox,.quiz{grid-template-columns:minmax(0,1fr)}.structs{grid-template-columns:repeat(2,minmax(0,1fr))}.teams{grid-template-columns:repeat(3,minmax(0,1fr))}.modes{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){
+  html,body{overflow-x:hidden;max-width:100%}
+  .kp-wrap{overflow-x:hidden;max-width:100%}
+  .top .grow{flex-basis:100%}
+  .lesson,.tab{flex:1 1 calc(50% - 6px);max-width:100%}
+  .teams,.modes,.groups{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stage,.mapgrid,.modebox,.quiz,.structs{grid-template-columns:minmax(0,1fr)}
+  .ctl{flex-wrap:wrap}
+  .ctl .sp,.keyhint{display:none}
+  .lz-stk,.lz-fork,.lz-callr,.lz-box,.lz-swapx{min-width:0}
+  .code,#groupDetail{max-width:100%;overflow-x:auto}
+  .zoom{flex-wrap:wrap}
+}
 
 /* ---------- 简洁版版面 ---------- */
 .hint1{font-size:13.5px;color:var(--slate400);margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -439,7 +464,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 .taskcard .init{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed rgba(255,255,255,.08)}
 .taskcard .il{font-size:12.5px;color:var(--muted-fg)}
 .taskcard .ih{font-size:11.5px;color:var(--muted-fg);margin-left:4px}
-.ctl{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .ctl .sp{flex:1}
 .btn.big{min-height:44px;padding:8px 20px;font-size:15.5px;font-weight:600}
 .btn.big.pri{padding:8px 34px}
@@ -564,7 +589,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 .lz-nop{font-size:15px;color:var(--slate300);padding:6px 0}
 @media (prefers-reduced-motion: reduce){.lz *{animation-duration:.01ms!important;animation-delay:0ms!important}}
 
-.jbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.jbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .jsc{font-size:14px;color:var(--slate300);margin-right:auto}.jsc b{color:var(--emerald300);font-size:17px}
 .jq{border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);padding:26px 24px;text-align:center;min-height:250px}
 .jins{font:800 40px var(--fm);color:#fff;letter-spacing:1px}
@@ -604,7 +629,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 <div class="kp-wrap">
   <div class="top">
     <div class="grow">
-      <div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 4 章 汇编语言程序设计</b></div>
+      <div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 4 章 汇编语言程序设计</b> · 80C51 · <b id="lesson-kicker">回炉复习</b></div>
       <h1 class="kp-h1">课堂互动台：分支 · 循环 · 子程序</h1>
     </div>
     <div class="zoom">字号
@@ -614,20 +639,19 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
     </div>
   </div>
 
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" data-p="rev" aria-selected="true">① 复习第 3 章</button>
-    <button class="tab" role="tab" data-p="run">② 第 4 章例程</button>
-    <button class="tab" role="tab" data-p="quiz">③ 当堂自测</button>
+  <div class="navstack">
+    <nav class="lessons" id="lessons" aria-label="互动类型">
+      <button type="button" class="lesson on" data-lesson="a" aria-pressed="true">回炉复习<small>判对错 · 寻址 · 111 条</small></button>
+      <button type="button" class="lesson" data-lesson="b" aria-pressed="false">第 1 次课<small>顺序 · 查表</small></button>
+      <button type="button" class="lesson" data-lesson="c" aria-pressed="false">第 2 次课<small>分支 · 散转</small></button>
+      <button type="button" class="lesson" data-lesson="d" aria-pressed="false">第 2 次课<small>循环 · 子程序</small></button>
+      <button type="button" class="lesson" data-lesson="e" aria-pressed="false">当堂自测<small>逐题 · 一览 · 作业</small></button>
+    </nav>
+    <div class="tabs" role="tablist" id="subtabs" aria-label="本次课小节"></div>
   </div>
 
   <!-- ================= ① 复习第 3 章 ================= -->
   <section class="pane on" id="p-rev">
-    <div class="seg" id="revSeg">
-      <button data-s="judge" aria-pressed="true">指令判对错</button>
-      <button data-s="mode">七种寻址方式</button>
-      <button data-s="map">111 条全景</button>
-    </div>
-
     <div class="sec on" id="s-judge">
       <div id="judge"></div>
       <div class="try">
@@ -654,13 +678,6 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 
   <!-- ================= ② 第 4 章例程 ================= -->
   <section class="pane" id="p-run">
-    <div class="pickrow">
-      <div class="seg lesson" id="lessonSeg">
-        <button data-l="1">第 1 次课</button>
-        <button data-l="2" aria-pressed="true">第 2 次课</button>
-      </div>
-      <div class="picker" id="picker"></div>
-    </div>
     <div class="taskcard" id="task"></div>
     <div class="ctl">
       <button class="btn big" id="bReset">⟲ 复位</button>
@@ -692,20 +709,23 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 
   <!-- ================= ④ 自测 ================= -->
   <section class="pane" id="p-quiz">
-    <div class="h2">读程序写结果</div>
-    <div class="sub">先在空里写答案，再点"核对"——引擎把这段程序真跑一遍对答案。</div>
-    <div class="quiz" id="quiz"></div>
-    <div class="card hw">
+    <div id="quizWrap">
+      <div class="h2" id="quizTitle">读程序写结果</div>
+      <div class="sub" id="quizLead">一次一题。先在空里写答案，再点「核对」——引擎把这段程序真跑一遍对答案。六题对照和课后作业在上面的小节里，内容都还在。</div>
+      <div class="jbar" id="quizBar"></div>
+      <div class="quiz one" id="quiz"></div>
+    </div>
+    <div class="card hw" id="hwCard" hidden>
       <div class="h2">课后作业</div>
       <ol>
-        <li>判断指令正误：课件例题 1 的 12 条（"复习第 3 章"页里都有，课后可以自己再点一遍）。</li>
+        <li>判断指令正误：课件例题 1 的 12 条（「回炉复习」里都有，课后可以自己再点一遍）。</li>
         <li>读程序写结果：本页 6 题中当堂没做完的。</li>
-        <li>思考题：① 汇编语言程序设计的步骤是什么？② 举例说明多分支程序的应用；③ 设计子程序：把 R0 所指内部 RAM 中 6 个单字节无符号数从小到大排序（提示：双重循环 + CJNE 比较 + XCH 交换，可以在"第 4 章例程"页点"更多 → 改代码"自己跑通）。</li>
+        <li>思考题：① 汇编语言程序设计的步骤是什么？② 举例说明多分支程序的应用；③ 设计子程序：把 R0 所指内部 RAM 中 6 个单字节无符号数从小到大排序（提示：双重循环 + CJNE 比较 + XCH 交换，可以在例程小节点「更多 → 改代码」自己跑通）。</li>
       </ol>
     </div>
   </section>
 
-  <div class="foot">80C51 · 韩兴国《微控制器原理及应用技术》第 3、4 章 · 0872 / 3084 通用 · 执行引擎与第 3 章讲义同源</div>
+  <div class="foot">先点页顶互动类型，再进小节，每屏只留一种练法。80C51 · 韩兴国《微控制器原理及应用技术》第 3、4 章 · 0872 / 3084 通用 · 执行引擎与第 3 章讲义同源</div>
 </div>
 
 <!-- 内联自 lib/mcs51-isa.js -->
@@ -2987,19 +3007,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
   });
   $('.zoom .btn').classList.add('on');
 
-  /* ---------- 页签 ---------- */
-  function showPane(k) {
-    $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === k); });
-    $$('.pane').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + k); });
-    if (k !== 'run') stopPlay();
-  }
-  $$('.tab').forEach(function (t) { t.onclick = function () { showPane(t.dataset.p); }; });
-  $$('#revSeg button').forEach(function (b) {
-    b.onclick = function () {
-      $$('#revSeg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
-      $$('#p-rev .sec').forEach(function (s) { s.classList.toggle('on', s.id === 's-' + b.dataset.s); });
-    };
-  });
+  /* 页签在脚本末尾接上：先等例程表和自测题装好，再按互动类型打开一屏。 */
 
   /* ---------- 状态快照与差异（"跑一次"的前后对照） ---------- */
   function snap(c, xr) {
@@ -3207,24 +3215,13 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 
   S.lesson = 2;
   function drawPicker() {
-    var h = '', lastKind = '';
-    EXS.forEach(function (e) {
-      if (e.lesson !== S.lesson) return;
-      var kd = e.kind === '延时' || e.kind === '位操作' ? '其他' : e.kind;
-      if (kd !== lastKind) { h += '<span class="lbl">' + kd + '</span>'; lastKind = kd; }
-      h += '<button class="exb" data-ex="' + e.id + '" aria-pressed="' + (S.ex && S.ex.id === e.id) + '">例 ' + e.id.replace('b', '′') + '</button>';
+    if (!S.ex) return;
+    S.lesson = S.ex.lesson;
+    $$('#subtabs .tab').forEach(function (b) {
+      var on = b.dataset.sub === S.ex.id;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    $('#picker').innerHTML = h;
-    $$('#picker .exb').forEach(function (b) { b.onclick = function () { loadEx(b.dataset.ex); }; });
-    $$('#lessonSeg button').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.l === S.lesson); });
   }
-  $$('#lessonSeg button').forEach(function (b) {
-    b.onclick = function () {
-      S.lesson = +b.dataset.l;
-      var first = EXS.filter(function (e) { return e.lesson === S.lesson; })[0];
-      loadEx(S.lesson === 2 ? '4-7' : first.id);
-    };
-  });
 
   function paramVal(p) { var k = pkey(p); return S.vals[k]; }
   function pkey(p) { return p.k + ':' + (p.a != null ? p.a : p.n != null ? p.n : p.line); }
@@ -3795,8 +3792,177 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
     };
   });
 
-  /* 默认打开第 2 次课的主角：例 4-7 */
-  loadEx('4-7');
+  /* ---------- 互动类型：一屏一种练法，旧锚点仍落到原小节 ---------- */
+  var LESSONS = {
+    "a": ["judge", "mode", "map"],
+    "b": ["4-1", "4-2", "4-3", "4-4"],
+    "c": ["4-5", "4-6", "4-6b", "4-7", "4-9"],
+    "d": ["4-11", "4-12", "4-14", "4-15", "4-16"],
+    "e": ["quiz", "quiz-all", "hw"]
+  };
+  var LESSON_LABEL = {
+    a: '回炉复习 · 第 3 章',
+    b: '第 1 次课 · 顺序与查表',
+    c: '第 2 次课 · 分支与散转',
+    d: '第 2 次课 · 循环、子程序、延时与位操作',
+    e: '当堂自测'
+  };
+  var HASH_ALIAS = {
+    'p-rev': 'judge',
+    's-judge': 'judge',
+    'judge': 'judge',
+    'u4-lesson-a': 'judge',
+    's-mode': 'mode',
+    'modes': 'mode',
+    'mode': 'mode',
+    's-map': 'map',
+    'map': 'map',
+    'teams': 'map',
+    'groups': 'map',
+    'p-run': '4-7',
+    'u4-lesson-b': '4-1',
+    'u4-lesson-c': '4-5',
+    'u4-lesson-d': '4-11',
+    'u4-lesson-e': 'quiz',
+    'p-quiz': 'quiz',
+    'quiz': 'quiz',
+    'quiz-all': 'quiz-all',
+    'u4-quiz-all': 'quiz-all',
+    'hw': 'hw',
+    'u4-hw': 'hw'
+  };
+  var curLesson = 'a', curSub = 'judge';
+  var QZ = { i: 0 };
+
+  function lessonOf(sub) {
+    var ids = ['a', 'b', 'c', 'd', 'e'], i, list;
+    for (i = 0; i < ids.length; i++) {
+      list = LESSONS[ids[i]];
+      if (list.indexOf(sub) >= 0) return ids[i];
+    }
+    return '';
+  }
+  function paneOf(lesson) {
+    if (lesson === 'a') return 'rev';
+    if (lesson === 'e') return 'quiz';
+    return 'run';
+  }
+  function subLabel(id) {
+    if (id === 'judge') return '① 指令判对错';
+    if (id === 'mode') return '② 七种寻址';
+    if (id === 'map') return '③ 111 条全景';
+    if (id === 'quiz') return '① 逐题';
+    if (id === 'quiz-all') return '② 六题一览';
+    if (id === 'hw') return '③ 课后作业';
+    var ex = EXM[id];
+    var name = '例 ' + id.replace('b', '′');
+    return ex ? name + '<small>' + esc(ex.kind) + '</small>' : name;
+  }
+  function canonicalHash(sub) {
+    if (sub === 'judge') return '#p-rev';
+    if (sub === 'mode') return '#s-mode';
+    if (sub === 'map') return '#s-map';
+    if (sub === 'quiz') return '#p-quiz';
+    if (sub === 'quiz-all') return '#quiz-all';
+    if (sub === 'hw') return '#hw';
+    return '#ex-' + sub;
+  }
+  function targetFromHash(hash) {
+    var token = String(hash || '').replace(/^#/, '').split(/[?&]/)[0];
+    if (!token) return '';
+    if (HASH_ALIAS[token]) return HASH_ALIAS[token];
+    if (token.indexOf('ex-') === 0) token = token.slice(3);
+    return lessonOf(token) ? token : '';
+  }
+  function applyLesson(id) {
+    $$('#lessons .lesson').forEach(function (button) {
+      var on = button.dataset.lesson === id;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var kicker = $('#lesson-kicker');
+    if (kicker) kicker.textContent = LESSON_LABEL[id];
+  }
+  function renderSubs(lesson, sub) {
+    var host = $('#subtabs');
+    if (!host) return;
+    host.innerHTML = LESSONS[lesson].map(function (id) {
+      return '<button type="button" class="tab" role="tab" data-sub="' + id + '" aria-selected="' + (id === sub ? 'true' : 'false') + '">' + subLabel(id) + '</button>';
+    }).join('');
+    $$('#subtabs .tab').forEach(function (button) {
+      button.onclick = function () { showSub(button.dataset.sub, false); };
+    });
+  }
+  function paintQuiz() {
+    var mode = curSub === 'hw' ? 'hw' : (curSub === 'quiz-all' ? 'all' : 'one');
+    var wrap = $('#quizWrap'), card = $('#hwCard'), box = $('#quiz'), bar = $('#quizBar');
+    if (wrap) wrap.hidden = mode === 'hw';
+    if (card) card.hidden = mode !== 'hw';
+    if (!box) return;
+    box.classList.toggle('one', mode !== 'all');
+    $$('#quiz .qz').forEach(function (q) {
+      q.classList.toggle('on', mode === 'all' || (mode === 'one' && +q.dataset.i === QZ.i));
+    });
+    if (!bar || mode === 'hw') return;
+    var n = D.READS.length, dots = '', i;
+    for (i = 0; i < n; i++) {
+      dots += '<button type="button" class="jdot' + (mode === 'one' && i === QZ.i ? ' cur' : '') + '" data-i="' + i + '">' + (i + 1) + '</button>';
+    }
+    bar.innerHTML = '<span class="jsc">' + (mode === 'one' ? ('第 ' + (QZ.i + 1) + ' / ' + n + ' 题') : '六题对照，题干和答案都还在') + '</span>' +
+      (mode === 'one' ? '<button type="button" class="btn sm" id="qPrev">上一题</button><button type="button" class="btn sm" id="qNext">下一题</button>' : '') +
+      '<span class="jdots">' + dots + '</span>';
+    $$('#quizBar .jdot').forEach(function (button) {
+      button.onclick = function () {
+        QZ.i = +button.dataset.i;
+        if (curSub !== 'quiz') showSub('quiz', false);
+        else paintQuiz();
+      };
+    });
+    if ($('#qPrev')) $('#qPrev').onclick = function () { QZ.i = (QZ.i + n - 1) % n; paintQuiz(); };
+    if ($('#qNext')) $('#qNext').onclick = function () { QZ.i = (QZ.i + 1) % n; paintQuiz(); };
+  }
+  function syncHash(sub) {
+    if (targetFromHash(location.hash) === sub) return;
+    var want = canonicalHash(sub);
+    try { if (location.hash !== want) history.replaceState(null, '', want); } catch (err) { /* 嵌入页写不了地址时仍停在当前小节 */ }
+  }
+  function showSub(sub, keepHash) {
+    var lesson = lessonOf(sub);
+    if (!lesson) return;
+    curLesson = lesson;
+    curSub = sub;
+    applyLesson(lesson);
+    renderSubs(lesson, sub);
+    var pane = paneOf(lesson);
+    $$('.pane').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + pane); });
+    if (pane !== 'run') stopPlay();
+    if (pane === 'rev') {
+      $$('#p-rev .sec').forEach(function (s) { s.classList.toggle('on', s.id === 's-' + sub); });
+    }
+    if (pane === 'quiz') paintQuiz();
+    if (pane === 'run' && (!S.ex || S.ex.id !== sub)) loadEx(sub);
+    if (!keepHash) syncHash(sub);
+  }
+  $$('#lessons .lesson').forEach(function (button) {
+    button.onclick = function () {
+      var id = button.dataset.lesson;
+      if (id === curLesson) return;
+      showSub(LESSONS[id][0], false);
+    };
+  });
+  window.addEventListener('hashchange', function () {
+    var sub = targetFromHash(location.hash);
+    if (!sub) return;
+    if (sub === curSub) {
+      if (paneOf(lessonOf(sub)) === 'quiz') paintQuiz();
+      return;
+    }
+    showSub(sub, true);
+  });
+  (function () {
+    var sub = targetFromHash(location.hash);
+    showSub(sub || 'judge', true);
+  })();
 })();
 </script>
 </body>
