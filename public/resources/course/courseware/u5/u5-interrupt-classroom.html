@@ -111,6 +111,10 @@ select{font:600 16px var(--fs);padding:6px 8px;border-radius:6px;background:#111
 .gloss td.en{font-family:var(--fm);color:var(--cyan100);font-size:15.5px}
 .gloss td.abbr{font-family:var(--fm);color:var(--amber300);font-weight:700;font-size:15.5px;white-space:nowrap}
 .gloss td.cn{color:var(--slate100);font-weight:600}
+.gloss td.how{font-family:var(--fm);color:var(--cyan100);font-size:14.5px;line-height:1.45}
+.gloss td.where{font-size:13.5px;color:var(--slate400);white-space:nowrap}
+.gloss tr.sec td{background:rgba(251,191,36,.1);color:var(--amber200);font-weight:700;font-size:14px;padding:9px 14px;border-bottom:1px solid rgba(251,191,36,.25)}
+html[data-theme="light"] .gloss tr.sec td{background:rgba(217,119,6,.08);color:#b45309;border-bottom-color:rgba(217,119,6,.25)}
 html[data-theme="light"] .gloss-wrap{border-color:var(--kp-border)}
 html[data-theme="light"] .gloss th{background:var(--kp-surface);border-bottom-color:var(--kp-border)}
 html[data-theme="light"] .gloss td{border-bottom-color:var(--kp-border)}
@@ -290,8 +294,8 @@ html[data-theme="light"] .tab[aria-selected=true]{
 html[data-theme="light"] .tabs{background-color:rgba(238,242,246,.92)!important}
 html[data-theme="light"] .btn.pri{background:rgba(8,145,178,.12);border-color:rgba(8,145,178,.4);color:var(--cyan100)}
 html[data-theme="light"] .btn.amb{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.4);color:var(--amber200)}
-.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.18)}
-html[data-theme="light"] .kp-theme-toggle{border-color:rgba(15,23,42,.12);background:#fff;color:var(--fg,#0f172a);box-shadow:0 2px 10px rgba(15,23,42,.12)}
+.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+html[data-theme="light"] .kp-theme-toggle{box-shadow:0 2px 10px rgba(15,23,42,.12)}
 @media print{.kp-theme-toggle{display:none!important}}
 
 /* interrupt classroom light extras */
@@ -513,7 +517,7 @@ html[data-theme="light"] .foot a:hover{color:#d97706;border-bottom-color:#d97706
 .media-card a{font:600 15px var(--fs);color:#fbbf24;text-decoration:none;border-bottom:1px solid rgba(251,191,36,.55)}
 .media-card a:hover{color:#fde68a;border-bottom-color:#fde68a}
 .media-local{margin:10px 0 6px}
-.media-local video{display:block;width:100%;aspect-ratio:16/9;height:auto;max-height:min(42vh,320px);object-fit:contain;border-radius:8px;background:#000;border:1px solid rgba(255,255,255,.1)}
+.media-local video{width:100%;max-height:280px;border-radius:8px;background:#000;border:1px solid rgba(255,255,255,.1)}
 .media-local .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:14px}
 .media-local .links a{color:#fbbf24;font-weight:600;border-bottom:1px solid rgba(251,191,36,.55)}
 .media-local .links a:hover{color:#fde68a}
@@ -690,6 +694,50 @@ html[data-theme="light"] .qz-out{background:rgba(15,23,42,.04);border-color:rgba
 html[data-theme="light"] .tload-card{background:var(--card);border-color:var(--kp-border)}
 html[data-theme="light"] .tload-card .formula,html[data-theme="light"] .tload-calc input,html[data-theme="light"] .tload-calc select{background:rgba(15,23,42,.04);border-color:var(--kp-border);color:var(--slate300)}
 html[data-theme="light"] .tload-qz{background:var(--kp-surface);border-color:var(--kp-border)}
+/* ---------- ⑭ 子知识点 · ÷256 拆字节 ---------- */
+.hexsplit{margin:12px 0;padding:16px 18px;border-radius:12px;border:1px solid hsl(42 92% 58% / .45);background:linear-gradient(160deg,hsl(42 92% 58% / .1),rgba(0,0,0,.22));}
+.hexsplit .hs-title{font-size:20px;font-weight:700;color:var(--amber200);margin:0 0 6px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.hexsplit .hs-title .tag{font:700 12px var(--fm);color:#141006;background:var(--amber300);border-radius:4px;padding:2px 8px}
+.hexsplit .hs-why{font-size:16.5px;color:var(--slate300);line-height:1.7;margin:0 0 12px}
+.hexsplit .hs-why b{color:var(--cyan100)}
+.hexsplit .hs-diagram{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:stretch;margin:8px 0 12px}
+@media(max-width:900px){.hexsplit .hs-diagram{grid-template-columns:1fr}}
+.hexsplit .hs-board{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.32);padding:14px 16px}
+.hexsplit .hs-xrow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.hexsplit .hs-x{font:800 28px/1.1 var(--fm);color:var(--amber300);letter-spacing:.02em}
+.hexsplit .hs-eq{font:700 22px var(--fm);color:var(--slate400)}
+.hexsplit .hs-bytes{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.hexsplit .hs-byte{border-radius:10px;border:1px solid hsl(184 72% 48% / .45);background:hsla(184,72%,48%,.1);padding:12px 10px;text-align:center}
+.hexsplit .hs-byte.tl{border-color:hsl(142 50% 45% / .5);background:hsla(142,50%,45%,.1)}
+.hexsplit .hs-byte .lab{font:700 13px var(--fm);color:var(--slate400);margin-bottom:4px;letter-spacing:.06em}
+.hexsplit .hs-byte .name{font:800 26px var(--fm);color:var(--cyan100);margin-bottom:4px}
+.hexsplit .hs-byte.tl .name{color:var(--emerald300)}
+.hexsplit .hs-byte .form{font:700 15px/1.45 var(--fm);color:var(--amber300)}
+.hexsplit .hs-byte .hint{font-size:13px;color:var(--slate400);margin-top:4px;line-height:1.4}
+.hexsplit .hs-plus{font:800 28px var(--fm);color:var(--amber300);text-align:center}
+.hexsplit .hs-recon{margin-top:12px;text-align:center;font:700 16px/1.5 var(--fm);color:var(--slate300);padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px dashed rgba(251,191,36,.35)}
+.hexsplit .hs-recon b{color:var(--amber300)}
+.hexsplit .hs-side{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.28);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.hexsplit .hs-side h4{margin:0;font-size:15px;color:var(--amber200)}
+.hexsplit .hs-pill{border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);padding:10px 12px;font-size:14.5px;color:var(--slate300);line-height:1.55}
+.hexsplit .hs-pill b{color:var(--cyan100);font-family:var(--fm)}
+.hexsplit .hs-pill .gold{color:var(--amber300);font-family:var(--fm);font-weight:700}
+.hexsplit .hs-demo{margin-top:4px;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22)}
+.hexsplit .hs-demo .h2{font-size:16px;font-weight:700;color:var(--amber200);margin:0 0 8px}
+.hexsplit .hs-demo .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.hexsplit .hs-demo label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted-fg)}
+.hexsplit .hs-demo input{min-height:38px;padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:var(--slate100);font:700 18px var(--fm);width:140px}
+.hexsplit .hs-out{margin-top:10px;font:700 18px/1.55 var(--fm);color:var(--amber300)}
+.hexsplit .hs-out span{color:var(--cyan100);margin:0 4px}
+.hexsplit .hs-out .tlc{color:var(--emerald300)}
+.hexsplit .hs-out .combo{display:inline-block;margin-top:4px;padding:4px 10px;border-radius:6px;background:hsl(42 92% 58% / .16);border:1px solid hsl(42 92% 58% / .45);color:var(--amber200)}
+html[data-theme="light"] .hexsplit{background:linear-gradient(160deg,rgba(217,119,6,.08),var(--card));border-color:rgba(217,119,6,.4)}
+html[data-theme="light"] .hexsplit .hs-board,html[data-theme="light"] .hexsplit .hs-side,html[data-theme="light"] .hexsplit .hs-demo{background:var(--kp-surface);border-color:var(--kp-border)}
+html[data-theme="light"] .hexsplit .hs-byte{background:rgba(8,145,178,.08);border-color:rgba(8,145,178,.35)}
+html[data-theme="light"] .hexsplit .hs-byte.tl{background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.35)}
+html[data-theme="light"] .hexsplit .hs-demo input{background:rgba(15,23,42,.04);border-color:var(--kp-border);color:var(--slate300)}
+html[data-theme="light"] .hexsplit .hs-recon{background:rgba(217,119,6,.06);border-color:rgba(217,119,6,.35)}
+html[data-theme="light"] .hexsplit .hs-pill{background:var(--card);border-color:var(--kp-border)}
 /* ---------- ⑬ 例5-1 单外部中断源采数 ---------- */
 .ex51-wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
 @media(max-width:980px){.ex51-wrap{grid-template-columns:1fr}}
@@ -734,6 +782,267 @@ html[data-theme="light"] .ex51-steps li{background:var(--kp-surface)}
 html[data-theme="light"] .ex51-steps li.cur{background:rgba(217,119,6,.1);border-color:rgba(217,119,6,.4)}
 html[data-theme="light"] .ex51-init{background:rgba(15,23,42,.04);border-color:var(--kp-border);color:var(--slate300)}
 html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);border-color:rgba(217,119,6,.45)}
+
+/* ---------- ⑱ 全复习 ---------- */
+.tab[data-p="18"] small{color:var(--amber300)}
+.rv-lead{font-size:17px;line-height:1.7;color:var(--slate300);margin:0 0 12px}
+.rv-lead b{color:var(--amber200)}
+.rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.rv-grid{grid-template-columns:1fr}}
+.rv-card{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.03);padding:0;overflow:hidden}
+.rv-card>summary{list-style:none;cursor:pointer;padding:12px 14px;font-weight:700;font-size:15px;color:var(--amber200);display:flex;gap:8px;align-items:flex-start;user-select:none}
+.rv-card>summary::-webkit-details-marker{display:none}
+.rv-card>summary .n{flex:0 0 28px;font:700 13px var(--fm);color:#141006;background:var(--amber300);border-radius:6px;text-align:center;padding:2px 0;margin-top:1px}
+.rv-card>summary .t{flex:1;line-height:1.45}
+.rv-card[open]>summary{border-bottom:1px solid rgba(255,255,255,.08);background:hsl(42 92% 58% / .08)}
+.rv-card .body{padding:12px 14px 14px;font-size:14.5px;color:var(--slate300);line-height:1.7}
+.rv-card .body .tip{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:hsl(42 92% 58% / .1);border:1px dashed hsl(42 92% 58% / .4);color:var(--amber200);font-weight:600}
+.rv-card .body .jump{display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.rv-card .body .jump button{cursor:pointer;min-height:32px;padding:4px 10px;border-radius:6px;border:1px solid hsl(42 92% 58% / .45);background:hsl(42 92% 58% / .12);color:var(--amber200);font:600 13px var(--fs)}
+.rv-card .body .jump button:hover{background:hsl(42 92% 58% / .22)}
+.rv-cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+@media(max-width:700px){.rv-cmp{grid-template-columns:1fr}}
+.rv-cmp .col{border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.22);padding:10px 12px}
+.rv-cmp .col h4{margin:0 0 6px;font-size:14px;color:var(--amber300)}
+.rv-cmp .col.good{border-color:rgba(110,231,183,.45);background:rgba(110,231,183,.08)}
+.rv-cmp .col.bad{border-color:rgba(253,164,175,.45);background:rgba(253,164,175,.08)}
+.rv-cmp .col code{font-family:var(--fm);color:var(--amber300);font-size:13px}
+.rv-quad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+@media(max-width:900px){.rv-quad{grid-template-columns:1fr 1fr}}
+.rv-q{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);padding:12px 10px;text-align:center;transition:.2s;opacity:.55}
+.rv-q .qn{display:block;font:700 12px var(--fm);color:var(--slate400);margin-bottom:4px}
+.rv-q .qt{display:block;font:700 15px var(--fs);color:var(--slate300);margin-bottom:4px}
+.rv-q .qd{display:block;font-size:12.5px;color:var(--slate400);line-height:1.45}
+.rv-q.on{opacity:1;border-color:hsl(42 92% 58% / .55);background:hsl(42 92% 58% / .14);box-shadow:0 0 0 1px rgba(251,191,36,.15)}
+.rv-q.on .qn,.rv-q.on .qt{color:var(--amber300)}
+.rv-q.on .qd{color:var(--slate300)}
+.rv-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.rv-cap{margin-top:8px;padding:10px 12px;border-radius:8px;background:hsl(42 92% 58% / .1);border:1px solid hsl(42 92% 58% / .35);color:var(--amber200);font-weight:600;font-size:14.5px;line-height:1.6;min-height:48px}
+.rv-toggle{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.rv-toggle button{cursor:pointer;min-height:36px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--slate300);font:600 14px var(--fs)}
+.rv-toggle button.on{border-color:hsl(42 92% 58% / .55);background:hsl(42 92% 58% / .16);color:var(--amber200)}
+.rv-panel{display:none;margin-top:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.22);font-size:14.5px;color:var(--slate300);line-height:1.65}
+.rv-panel.on{display:block}
+.rv-panel b{color:var(--amber200)}
+.rv-panel code{font-family:var(--fm);color:var(--amber300);font-size:13px}
+.rv-foot{margin-top:14px;padding:12px 14px;border-radius:10px;border:1px solid hsl(42 92% 58% / .35);background:hsl(42 92% 58% / .08);font-size:15px;color:var(--slate300);line-height:1.7}
+html[data-theme="light"] .rv-card{background:var(--card);border-color:var(--kp-border)}
+html[data-theme="light"] .rv-cmp .col,html[data-theme="light"] .rv-q,html[data-theme="light"] .rv-panel{background:var(--kp-surface);border-color:var(--kp-border)}
+html[data-theme="light"] .rv-toggle button{border-color:var(--kp-border);background:#fff;color:var(--slate300)}
+
+
+/* ---------- ⑱ 考点梳理四卡 ---------- */
+.kd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0 14px}
+@media(max-width:980px){.kd-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.kd-grid{grid-template-columns:1fr}}
+.kd-card{border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.2);overflow:hidden}
+html[data-theme="light"] .kd-card{background:var(--card);border-color:var(--border)}
+.kd-card>summary{list-style:none;cursor:pointer;padding:14px 12px 12px;line-height:1.35}
+.kd-card>summary::-webkit-details-marker{display:none}
+.kd-card .kd-lab{display:inline-block;font:800 12px/1 var(--fm);letter-spacing:.04em;padding:3px 8px;border-radius:5px;margin-bottom:8px}
+.kd-card .kd-title{display:block;font:800 1.25em/1.25 var(--fs);color:#fff;margin:2px 0 4px}
+html[data-theme="light"] .kd-card .kd-title{color:var(--fg)}
+.kd-card .kd-hint{display:block;font-size:12.5px;color:var(--slate400,#94a3b8)}
+.kd-card[open]>summary{border-bottom:1px solid rgba(255,255,255,.08);background:hsl(42 92% 58%/.1)}
+.kd-card .kd-body{padding:10px 12px 14px;font-size:14.5px;color:var(--slate300,#cbd5e1);line-height:1.7}
+.kd-card .kd-body ul{margin:4px 0 0;padding-left:1.15em}
+.kd-card .kd-body li{margin:5px 0}
+.kd-card .kd-body b{color:var(--amber200)}
+.kd-card .kd-body code{font-family:var(--fm);color:var(--amber300,#fbbf24)}
+.kd-card .kd-why{margin-top:8px;padding:8px 9px;border-radius:8px;background:hsl(42 92% 58%/.1);
+  border-left:3px solid var(--amber300,#fbbf24);font-size:13.5px;color:var(--amber200);line-height:1.6}
+.kd-imp .kd-lab{background:hsl(184 70% 42%);color:#041018}
+.kd-hard .kd-lab{background:hsl(350 70% 52%);color:#fff}
+.kd-exam .kd-lab{background:hsl(42 92% 58%);color:#141006}
+.kd-ess .kd-lab{background:hsl(270 55% 52%);color:#fff}
+
+/* ---------- ⑱ 三块加厚：对照 / 所以然 / 精巧思政 ---------- */
+.rv-nav3{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.rv-nav3 a{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border-radius:8px;border:1px solid hsl(42 92% 58% / .45);background:hsl(42 92% 58% / .1);color:var(--amber200);font:600 14px var(--fs);text-decoration:none}
+.rv-nav3 a:hover{background:hsl(42 92% 58% / .2)}
+.rv-sec{margin:0 0 16px;padding:14px 14px 12px;border-radius:12px;border:1px solid hsl(42 92% 58% / .35);background:rgba(255,255,255,.03)}
+.rv-sec>h3{margin:0 0 8px;font-size:17px;color:var(--amber200);font-weight:700}
+.rv-sec>h3 .tag{display:inline-block;font:700 12px var(--fm);color:#141006;background:var(--amber300);border-radius:5px;padding:1px 7px;margin-right:8px;vertical-align:2px}
+.rv-sec .sub{margin:0 0 10px;font-size:14px;color:var(--slate300);line-height:1.65}
+.rv-sec .sub a{color:var(--amber200);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+html[data-theme="light"] .rv-sec{background:var(--card);border-color:rgba(180,83,9,.28)}
+html[data-theme="light"] .rv-nav3 a{color:#b45309;border-color:rgba(180,83,9,.4);background:rgba(180,83,9,.06)}
+/* A 对照台 */
+.rv-sym-tools{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.rv-sym-tools button{cursor:pointer;min-height:34px;padding:5px 11px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--slate300);font:600 13.5px var(--fs)}
+.rv-sym-tools button.on{border-color:hsl(42 92% 58% / .55);background:hsl(42 92% 58% / .16);color:var(--amber200)}
+.rv-sym-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.rv-sym-table th{text-align:left;padding:8px 10px;color:var(--amber200);border-bottom:1px solid rgba(255,255,255,.12);font-weight:600;white-space:nowrap}
+.rv-sym-table td{padding:0;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+.rv-sym-row{display:grid;grid-template-columns:88px 1.1fr .7fr 1.4fr;gap:0;cursor:pointer;user-select:none}
+.rv-sym-row>span{padding:9px 10px;line-height:1.45;color:var(--slate300)}
+.rv-sym-row .abbr{font-family:var(--fm);color:var(--amber300);font-weight:700}
+.rv-sym-row:hover{background:hsl(42 92% 58% / .06)}
+.rv-sym-row.open{background:hsl(42 92% 58% / .1)}
+.rv-sym-more{display:none;padding:0 10px 10px 10px;color:var(--slate300);line-height:1.65;font-size:13.5px}
+.rv-sym-row.open+.rv-sym-more{display:block}
+.rv-sym-more .mix{margin-top:4px;padding:7px 9px;border-radius:7px;background:hsl(42 92% 58% / .08);border:1px dashed hsl(42 92% 58% / .4);color:var(--amber200)}
+.rv-sym-more b{color:var(--amber200)}
+.rv-path{margin-top:10px;padding:10px 12px;border-radius:8px;background:hsl(42 92% 58% / .08);border:1px solid hsl(42 92% 58% / .3);font-size:14px;color:var(--slate300);line-height:1.7}
+.rv-path a{color:var(--amber200);font-weight:600}
+@media(max-width:800px){.rv-sym-row{grid-template-columns:1fr 1fr}.rv-sym-row>span:nth-child(3),.rv-sym-row>span:nth-child(4){grid-column:1/-1}}
+/* B 所以然 */
+.rv-why{display:grid;gap:8px}
+.rv-why details{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.18);overflow:hidden}
+.rv-why summary{list-style:none;cursor:pointer;padding:11px 13px;font-weight:700;font-size:14.5px;color:var(--amber200);line-height:1.45}
+.rv-why summary::-webkit-details-marker{display:none}
+.rv-why summary .nq{display:inline-block;min-width:22px;margin-right:6px;font:700 12px var(--fm);color:#141006;background:var(--amber300);border-radius:5px;text-align:center;padding:1px 5px}
+.rv-why[open] summary,.rv-why details[open]>summary{border-bottom:1px solid rgba(255,255,255,.08);background:hsl(42 92% 58% / .08)}
+.rv-why .ans{padding:10px 13px 12px;font-size:14px;color:var(--slate300);line-height:1.7}
+.rv-why .ans .tech{margin:0 0 6px}
+.rv-why .ans .trade{margin:0 0 8px;padding:7px 9px;border-radius:7px;background:rgba(255,255,255,.04);border-left:3px solid var(--amber300);color:var(--slate300)}
+.rv-why .ans .trade b{color:var(--amber200)}
+.rv-why .ans .jump{display:inline-flex;gap:6px;flex-wrap:wrap}
+.rv-why .ans .jump button{cursor:pointer;min-height:30px;padding:3px 9px;border-radius:6px;border:1px solid hsl(42 92% 58% / .45);background:hsl(42 92% 58% / .12);color:var(--amber200);font:600 12.5px var(--fs)}
+html[data-theme="light"] .rv-why details{background:var(--kp-surface);border-color:var(--kp-border)}
+/* C 精巧+思政 */
+.rv-sz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+@media(max-width:900px){.rv-sz-grid{grid-template-columns:1fr}}
+.rv-sz-step{border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);padding:12px 11px;opacity:.55;transition:.2s}
+.rv-sz-step.on{opacity:1;border-color:hsl(42 92% 58% / .55);background:hsl(42 92% 58% / .14);box-shadow:0 0 0 1px rgba(251,191,36,.12)}
+.rv-sz-step .sn{display:block;font:700 12px var(--fm);color:var(--slate400);margin-bottom:4px}
+.rv-sz-step.on .sn{color:var(--amber300)}
+.rv-sz-step .st{display:block;font:700 15px var(--fs);color:var(--slate300);margin-bottom:6px}
+.rv-sz-step.on .st{color:var(--amber200)}
+.rv-sz-step .sd{font-size:13px;color:var(--slate400);line-height:1.55}
+.rv-sz-step.on .sd{color:var(--slate300)}
+.rv-sz-cap{margin-top:8px;padding:10px 12px;border-radius:8px;background:hsl(42 92% 58% / .1);border:1px solid hsl(42 92% 58% / .35);color:var(--amber200);font-weight:600;font-size:14.5px;line-height:1.65;min-height:48px}
+.rv-sz-embed{margin-top:12px;padding:11px 12px;border-radius:9px;border:1px dashed hsl(42 92% 58% / .45);background:rgba(0,0,0,.15);font-size:14px;color:var(--slate300);line-height:1.7}
+.rv-sz-embed b{color:var(--amber200)}
+.rv-sz-embed li{margin:4px 0 0 1.1em}
+html[data-theme="light"] .rv-sz-step{background:var(--kp-surface);border-color:var(--kp-border)}
+.rv-hr{margin:18px 0 12px;border:0;border-top:1px dashed rgba(251,191,36,.35)}
+.rv-hr-lab{display:block;text-align:center;margin:-22px auto 10px;width:fit-content;padding:0 10px;background:var(--bg);color:var(--amber200);font:700 13px var(--fs)}
+html[data-theme="light"] .rv-hr-lab{background:var(--bg)}
+.rv-foot a{color:var(--amber200);font-weight:600}
+html[data-theme="light"] .rv-foot a,html[data-theme="light"] .rv-sec .sub a,html[data-theme="light"] .rv-path a{color:#b45309}
+
+/* ---------- ⑱ 开场硬测 ---------- */
+.rv-warm{margin:0 0 16px;padding:14px 14px 12px;border-radius:12px;border:2px solid hsl(42 92% 58% / .65);background:hsl(42 92% 58% / .12)}
+.rv-warm>h3{margin:0 0 6px;font-size:17px;color:var(--amber200);font-weight:800}
+.rv-warm>h3 .tag{display:inline-block;font:700 12px var(--fm);color:#141006;background:var(--amber300);border-radius:5px;padding:1px 7px;margin-right:8px;vertical-align:2px}
+.rv-warm .sub{margin:0 0 10px;font-size:14px;color:var(--slate300);line-height:1.65}
+.rv-warm .sub b{color:var(--amber200)}
+.rv-warm-steps{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+@media(max-width:800px){.rv-warm-steps{grid-template-columns:1fr}}
+.rv-warm-card{border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);padding:12px 12px 10px}
+html[data-theme="light"] .rv-warm{background:rgba(180,83,9,.08);border-color:rgba(180,83,9,.45)}
+html[data-theme="light"] .rv-warm-card{background:var(--kp-surface);border-color:var(--kp-border)}
+.rv-warm-card .wn{display:inline-block;font:800 12px var(--fm);color:#141006;background:var(--amber300);border-radius:5px;padding:2px 8px;margin-bottom:8px}
+.rv-warm-card .wq{font:700 15.5px/1.55 var(--fs);color:var(--slate100,#f1f5f9);margin:0 0 8px}
+html[data-theme="light"] .rv-warm-card .wq{color:var(--fg)}
+.rv-warm-card .wo{margin:0;padding:0;list-style:none}
+.rv-warm-card .wo li{margin:4px 0;padding:7px 9px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);font-size:14px;color:var(--slate300);line-height:1.5;cursor:default}
+html[data-theme="light"] .rv-warm-card .wo li{border-color:var(--kp-border);background:#fff}
+.rv-warm-card .wa{display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:hsl(142 50% 40% / .15);border:1px solid hsl(142 50% 40% / .45);color:var(--emerald200,#6ee7b7);font-size:13.5px;line-height:1.6;font-weight:600}
+.rv-warm-card.revealed .wa{display:block}
+.rv-warm-card.revealed .wo li.ok{border-color:hsl(142 50% 40% / .55);background:hsl(142 50% 40% / .12);color:var(--emerald200,#6ee7b7);font-weight:700}
+.rv-warm-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.rv-warm-score{margin-top:10px;padding:10px 12px;border-radius:8px;border:1px dashed hsl(42 92% 58% / .5);background:rgba(0,0,0,.15);font-size:14px;color:var(--slate300);line-height:1.7}
+.rv-warm-score b{color:var(--amber200)}
+html[data-theme="light"] .rv-warm-score{background:rgba(180,83,9,.05);border-color:rgba(180,83,9,.35)}
+html[data-theme="light"] .rv-warm a,html[data-theme="light"] .rv-warm .sub a{color:#b45309}
+
+/* ---------- ⑲ GATE 计时窗口 ---------- */
+.tab[data-p="19"] small{color:var(--amber300)}
+.tab[data-p="20"] small{color:var(--amber300)}
+/* ---------- ⑳ 例5-3 整页源码墙 ---------- */
+.ex53f-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 4px}
+@media(max-width:980px){.ex53f-steps{grid-template-columns:1fr 1fr}}
+.ex53f-steps .s{border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:10px 12px;background:rgba(0,0,0,.22)}
+.ex53f-steps .s .n{font:700 12.5px var(--fm);color:var(--amber300);letter-spacing:.04em;margin-bottom:4px}
+.ex53f-steps .s .t{font-size:15px;font-weight:700;color:var(--slate100);line-height:1.35}
+.ex53f-steps .s .d{font-size:13px;color:var(--slate400);margin-top:4px;line-height:1.4}
+.ex53f-stem{font-size:17.5px;line-height:1.7;color:var(--slate100);padding:12px 14px;border-radius:9px;border:1px solid hsl(42 92% 58% / .35);background:hsl(42 92% 58% / .08)}
+.ex53f-stem .tag{display:inline-block;font:700 12.5px var(--fm);color:#141006;background:var(--amber300);border-radius:4px;padding:1px 8px;margin-right:8px;vertical-align:2px}
+.ex53f-tags{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.ex53f-pill{border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.28);padding:8px 12px;font-size:14px;line-height:1.45}
+.ex53f-pill .k{font:700 13.5px var(--fm);color:var(--cyan100)}
+.ex53f-pill .v{font:700 14.5px var(--fm);color:var(--amber300);margin:0 4px}
+.ex53f-pill .x{color:var(--slate400)}
+.ex53f-callout{margin:10px 0 0;padding:10px 14px;border-radius:8px;border-left:3px solid var(--rose300);background:rgba(253,164,175,.08);font-size:14.5px;color:var(--slate300);line-height:1.65}
+.ex53f-callout b{color:var(--rose300)}
+.ex53f-wall{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+@media(max-width:900px){.ex53f-wall{grid-template-columns:1fr}}
+.ex53f-blk{border:1px solid rgba(255,255,255,.12);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.32);margin-bottom:10px}
+.ex53f-blk .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+.ex53f-blk .hd .nm{font:700 14.5px var(--fs);color:var(--amber200)}
+.ex53f-blk .hd .chip{font:700 11.5px var(--fm);padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.14);color:var(--slate400)}
+.ex53f-blk.vec .hd{background:hsla(184,82%,48%,.14);border-bottom-color:hsla(184,82%,48%,.35)}
+.ex53f-blk.vec .hd .nm{color:var(--cyan100)}
+.ex53f-blk.init .hd{background:hsla(142,50%,45%,.12);border-bottom-color:hsla(142,50%,45%,.35)}
+.ex53f-blk.init .hd .nm{color:var(--emerald300)}
+.ex53f-blk.main .hd{background:hsla(42,92%,58%,.12);border-bottom-color:hsla(42,92%,58%,.4)}
+.ex53f-blk.delay .hd{background:hsla(260,40%,55%,.14);border-bottom-color:hsla(260,40%,55%,.35)}
+.ex53f-blk.delay .hd .nm{color:#c4b5fd}
+.ex53f-blk.isr .hd{background:hsla(350,70%,65%,.12);border-bottom-color:hsla(350,70%,65%,.4)}
+.ex53f-blk.isr .hd .nm{color:var(--rose300)}
+.ex53f-blk pre.src{margin:0;padding:10px 14px 14px;font:16.5px/1.55 var(--fm);color:var(--slate100);white-space:pre;overflow:auto}
+.ex53f-blk pre.src .cmt{color:var(--slate400)}
+.ex53f-blk pre.src .lbl{color:var(--amber300);font-weight:700}
+.ex53f-blk pre.src .dir{color:var(--cyan300)}
+.ex53f-blk pre.src .op{color:var(--emerald200)}
+html[data-theme="light"] .ex53f-steps .s,html[data-theme="light"] .ex53f-pill,html[data-theme="light"] .ex53f-blk{background:var(--kp-surface);border-color:var(--kp-border)}
+html[data-theme="light"] .ex53f-stem{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.35)}
+a.ex53f-a, .note a.ex53f-a{color:#fbbf24}
+.gw-hero{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:8px}
+.gw-hero .key{margin:0;font-size:26px}
+.gw-hero .sub{font-size:15px}
+.gw-grid{display:grid;grid-template-columns:1.35fr .95fr;gap:14px;margin-top:10px}
+@media(max-width:980px){.gw-grid{grid-template-columns:1fr}}
+.gw-stage{border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.03);padding:14px 16px}
+html[data-theme="light"] .gw-stage{background:var(--card);border-color:var(--kp-border);box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 14px rgba(15,23,42,.04)}
+.gw-stage h3{font-size:16px;font-weight:700;color:var(--amber200);margin:0 0 10px}
+.gw-axis{position:relative;height:110px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.22);overflow:hidden;margin:6px 0 4px}
+html[data-theme="light"] .gw-axis{background:#f8fafc;border-color:var(--kp-border)}
+.gw-axis .tlab{position:absolute;left:10px;top:6px;font:600 12px var(--fm);color:var(--slate400)}
+.gw-wave{position:absolute;left:0;right:0;top:28px;height:44px}
+.gw-wave svg{width:100%;height:100%;display:block}
+.gw-wave .trace{fill:none;stroke:var(--cyan300);stroke-width:2.4}
+.gw-wave .win{fill:hsl(42 92% 58% / .22);stroke:var(--amber300);stroke-width:1.5}
+html[data-theme="light"] .gw-wave .win{fill:rgba(217,119,6,.14);stroke:#d97706}
+.gw-playhead{position:absolute;top:22px;bottom:8px;width:2px;background:var(--rose300);box-shadow:0 0 8px rgba(253,164,175,.55);transform:translateX(-1px);z-index:3}
+.gw-ticks{position:absolute;left:8%;right:4%;bottom:8px;display:flex;justify-content:space-between;font:11px var(--fm);color:var(--slate400)}
+.gw-countbox{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin-top:10px}
+.gw-reg{flex:1 1 120px;min-width:110px;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;background:rgba(0,0,0,.2);text-align:center}
+html[data-theme="light"] .gw-reg{background:rgba(15,23,42,.04);border-color:var(--kp-border)}
+.gw-reg .k{font:600 12px var(--fm);color:var(--slate400);letter-spacing:.04em}
+.gw-reg .v{font:700 28px var(--fm);color:var(--amber300);margin-top:2px}
+.gw-reg.run{border-color:hsl(142 50% 45% / .55);background:hsl(142 50% 40% / .12);box-shadow:0 0 0 1px hsl(142 50% 45% / .15)}
+.gw-reg.run .v{color:var(--emerald300)}
+.gw-reg.stop .v{color:var(--slate400)}
+.gw-status{margin-top:10px;padding:10px 12px;border-radius:8px;border:1px dashed hsl(42 92% 58% / .45);background:hsl(42 92% 58% / .08);font-size:15px;line-height:1.65;color:var(--slate300);min-height:3.2em}
+.gw-status b{color:var(--amber200)}
+html[data-theme="light"] .gw-status{background:rgba(180,83,9,.06);border-color:rgba(180,83,9,.35)}
+.gw-ctrls{display:flex;flex-direction:column;gap:10px}
+.gw-swrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.gw-swrow .lbl{font:700 14px var(--fs);color:var(--slate300);min-width:4.5em}
+.gw-and{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:4px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02)}
+html[data-theme="light"] .gw-and{background:var(--kp-surface);border-color:var(--kp-border)}
+.gw-and .term{text-align:center;padding:8px;border-radius:7px;border:1px solid rgba(255,255,255,.12);font:700 15px var(--fm)}
+.gw-and .term.on{background:hsl(142 50% 40% / .18);border-color:hsl(142 50% 45% / .55);color:var(--emerald300)}
+.gw-and .term.off{background:rgba(253,164,175,.08);border-color:rgba(253,164,175,.35);color:var(--rose300)}
+.gw-and .op{font:700 22px var(--fm);color:var(--amber300);text-align:center}
+.gw-and .out{grid-column:1/-1;text-align:center;font:700 16px var(--fm);padding:8px;border-radius:7px;margin-top:2px}
+.gw-and .out.yes{background:hsl(142 50% 40% / .16);color:var(--emerald300);border:1px solid hsl(142 50% 45% / .45)}
+.gw-and .out.no{background:rgba(100,116,139,.12);color:var(--slate400);border:1px solid rgba(100,116,139,.35)}
+.gw-formula{font:600 15px var(--fm);padding:10px 12px;border-radius:8px;border:1px solid hsl(184 82% 48% / .35);background:rgba(22,209,223,.06);color:var(--cyan100);line-height:1.55;margin-top:8px}
+html[data-theme="light"] .gw-formula{background:rgba(8,145,178,.06);border-color:rgba(8,145,178,.3);color:var(--cyan100)}
+.gw-sz{margin-top:12px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);font-size:14.5px;color:var(--slate300);line-height:1.7}
+html[data-theme="light"] .gw-sz{background:var(--kp-surface);border-color:var(--kp-border)}
+.gw-sz b{color:var(--amber200)}
+.gw-sz a{color:var(--amber300);text-decoration:none;border-bottom:1px solid hsl(42 92% 58% / .45)}
+html[data-theme="light"] .gw-sz a{color:#b45309;border-bottom-color:rgba(180,83,9,.4)}
+.gw-vs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+@media(max-width:700px){.gw-vs{grid-template-columns:1fr}}
+.gw-vs .card{margin:0}
+.gw-vs h4{font-size:15px;color:var(--amber200);margin:0 0 6px}
+
 </style>
 </head>
 <body>
@@ -743,7 +1052,12 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
     <div class="eyebrow">微控制器原理及应用技术 · <b>第 5 章 中断系统 · 第 1 次课</b></div>
     <h1>课堂互动台：一个按键怎么让 CPU 停下来</h1>
   </div>
-  <div class="zoom">字号 <button class="btn sm" data-z="0" aria-pressed="true">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button></div>
+  <div class="zoom">字号 <button class="btn sm" data-z="0" aria-pressed="true">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button>
+    <a class="btn sm amb" href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">开场硬测</a>
+    <a class="btn sm amb" href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">÷256 拆字节</a>
+    <a class="btn sm amb" href="u5-hex-split.html" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">投影单文件</a>
+    <a class="btn sm amb" href="#p17" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">课堂出题台 →</a>
+  </div>
 </div>
 
 <div class="tabs" role="tablist" id="tabs">
@@ -764,6 +1078,9 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
   <button class="tab" role="tab" data-p="15">⑮ 例题<small>全览</small></button>
   <button class="tab" role="tab" data-p="16">⑯ 速记<small>寄存器</small></button>
   <button class="tab" role="tab" data-p="17">⑰ 测试<small>课末</small></button>
+  <button class="tab" role="tab" data-p="18">⑱ 全复习<small>总复习</small></button>
+  <button class="tab" role="tab" data-p="19">⑲ GATE<small>计时窗口</small></button>
+  <button class="tab" role="tab" data-p="20">⑳ 例5-3整页<small>源码墙</small></button>
 </div>
 
 <!-- ① -->
@@ -774,10 +1091,17 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
   </div>
   <div class="toc" id="toc"></div>
   <div class="card" style="margin-top:10px">
-    <div class="h2">参考 · 例题 / 速记 / 课末测</div>
+    <div class="h2">参考 · 例题 / 速记 / 课末测 / 全复习</div>
     <div class="note"><a href="#p15" onclick="show(15);return false">⑮ 例题全览</a> ·
     <a href="#p16" onclick="show(16);return false">⑯ 快速记忆</a> ·
-    <a href="#p17" onclick="show(17);return false">⑰ 课末测试</a></div>
+    <a href="#p17" onclick="show(17);return false">⑰ 课末测试</a> ·
+    <a href="#p18" onclick="show(18);return false">⑱ 全复习</a> ·
+    <a href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="color:#fbbf24;font-weight:700">⑭ ÷256 拆字节</a> ·
+    <a href="#gate-win" onclick="show(19);return false">⑲ GATE 计时窗口</a> ·
+    <a href="#ex53-full" onclick="show(20);return false" style="color:#fbbf24">⑳ 例5-3整页源码</a> ·
+    <a href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">开场硬测</a> ·
+    <a href="#p17">课堂出题台 →</a>
+    <span style="margin-left:8px;color:var(--amber300,#fbbf24)">· 下午收尾：⑮→例5-4起</span></div>
   </div>
   <div class="card" style="margin-top:12px">
     <div class="h2">LCALL 与中断响应：同一套动作，谁来叫不一样</div>
@@ -943,16 +1267,6 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
 <!-- ② -->
 <section class="pane" id="p2">
   <div class="key">查询是 CPU 一遍遍去看，中断是外设有事来叫 CPU。</div>
-  <div class="media-local" id="media2">
-    <div class="lbl" style="margin-top:0">短片 · 查询对比与响应过程（约 3:51）</div>
-    <video controls playsinline preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
-      浏览器不支持 video：请用下方链接打开。
-    </video>
-    <div class="links">
-      <a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">打开对比短片</a>
-      <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>
-    </div>
-  </div>
   <div class="row"><button class="btn pri" id="tlStart">▶ 开始</button><button class="btn amb" id="tlKey">按键！</button><button class="btn" id="tlReset">⟲ 重来</button>
     <span class="sub">随时点“按键”，看两种方式各自什么时候发现</span></div>
   <div class="lbl">查询方式：主程序反复读 P3.2，“到了吗？”</div>
@@ -1022,7 +1336,7 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
       </div>
 
       <div class="analogy">
-        <div class="who">收口一句</div>
+        <div class="who">一句话</div>
         <div class="title">谁主动？</div>
         <div class="pair">
           <div class="side q"><b>查询</b>CPU 是提问的人：「好了吗？好了吗？」</div>
@@ -1035,9 +1349,19 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
     <div class="analogy-one">课上硬指标：点 2～3 人复述——「实验一里 <strong>LCALL Delay</strong> 时 CPU 在干什么？」答「空转／什么正经事都没干」才过。然后再问：「中断来了像什么？」期望听到「有人喊一声／硬件帮你 LCALL」。</div>
   </div>
 
-  <div class="media-ref">
+  <div class="media-ref" id="media2">
     <div class="h2">参考动画 / 视频</div>
-    <p class="teach">对比短片在本页签顶部。下面是外链模拟器，作加深；DMA 标「今晚不讲」。中断系统正片仍用 B站。</p>
+    <p class="teach">老师用：先播/点<strong>对比短片</strong>，再进本页时间轴演示；外链模拟器作加深，DMA 标「今晚不讲」。</p>
+    <div class="media-local">
+      <div class="lbl" style="margin-top:0">短片 · 查询对比与响应过程（约 3:51）</div>
+      <video controls preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
+        浏览器不支持 video：请用下方链接打开。
+      </video>
+      <div class="links">
+        <a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">打开对比短片</a>
+        <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>
+      </div>
+    </div>
     <div class="media-grid">
       <div class="media-card">
         <div class="t">CodeBrick · 查询 / 中断 / DMA 并排</div>
@@ -1309,6 +1633,7 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
     <div class="card"><div class="h2">S4/SHIYAN42.ASM（实验四，原样摘录）</div><div class="code" id="code9"></div>
       <div class="note">注：数码管为共阳，P0 输出 0 的段点亮。程序用 R1 从 10 倒数，满 10 次把 R2 归零，所以数显 0～9 循环。服务程序开头 <b>LCALL DELAY</b> 后再判 P3.2，是按键消抖。</div></div>
   </div>
+
   <div class="media-local" id="lab4clips">
     <div class="lbl">实验四讲解 · 0872</div>
     <video controls playsinline preload="none" src="https://videos.sunyancai.top/u5/u5-lab4-0872.mp4">
@@ -1587,39 +1912,89 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
 
 <!-- ⑪ -->
 <section class="pane" id="p11">
-  <div class="key">中断术语 · 中文 · 英文全称 · 缩写——方便记拼写；缩写以 80C51 / 课堂常用为准。</div>
+  <div class="key">⑪ 术语对照 · 每个缩写拆开英文 + 中文意思（80C51 课堂口径）</div>
+  <div class="note" style="margin-bottom:10px">记法：先看<strong>缩写</strong> → 用<strong>英文拆开</strong>联想 → 落成<strong>中文</strong>。本课返回指令写 <b>RETI</b>（不是 x86 的 IRET）。有的书把总允许叫 EI，本芯片对应位是 <b>EA</b>。</div>
   <div class="card">
-    <div class="h2">简写全英文拼写对照</div>
-    <div class="note" style="margin-bottom:12px">先会中文意思，再记英文全称，最后记缩写。寄存器名（IE、IP、TCON）本身就是缩写，全称也要会写。</div>
+    <div class="h2">缩写 · 英文拆开（好记）· 中文 · 常在哪</div>
     <div class="gloss-wrap">
       <table class="gloss">
         <thead>
-          <tr><th>中文术语</th><th>英文全称</th><th>英文缩写</th></tr>
+          <tr><th>缩写</th><th>英文拆开（怎么记）</th><th>中文</th><th>常在哪</th></tr>
         </thead>
         <tbody>
-          <tr><td class="cn">中断</td><td class="en">Interrupt</td><td class="abbr">INT</td></tr>
-          <tr><td class="cn">中断源</td><td class="en">Interrupt Source</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">中断请求</td><td class="en">Interrupt Request</td><td class="abbr">IRQ</td></tr>
-          <tr><td class="cn">中断响应</td><td class="en">Interrupt Response</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">中断优先级</td><td class="en">Interrupt Priority</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">中断服务程序</td><td class="en">Interrupt Service Routine</td><td class="abbr">ISR</td></tr>
-          <tr><td class="cn">中断返回</td><td class="en">Return from Interrupt</td><td class="abbr">RETI</td></tr>
-          <tr><td class="cn">查询方式</td><td class="en">Polling</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">外部中断</td><td class="en">External Interrupt</td><td class="abbr">INT0 / INT1</td></tr>
-          <tr><td class="cn">中断允许寄存器</td><td class="en">Interrupt Enable</td><td class="abbr">IE</td></tr>
-          <tr><td class="cn">中断优先级寄存器</td><td class="en">Interrupt Priority</td><td class="abbr">IP</td></tr>
-          <tr><td class="cn">总中断允许</td><td class="en">Enable All</td><td class="abbr">EA</td></tr>
-          <tr><td class="cn">请求标志</td><td class="en">Interrupt Flag / Request Flag</td><td class="abbr">IE0 · TF0 · RI…</td></tr>
-          <tr><td class="cn">中断嵌套</td><td class="en">Interrupt Nesting</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">中断向量 / 入口</td><td class="en">Interrupt Vector</td><td class="abbr">—</td></tr>
-          <tr><td class="cn">定时器控制寄存器</td><td class="en">Timer Control</td><td class="abbr">TCON</td></tr>
-          <tr><td class="cn">串行口控制寄存器</td><td class="en">Serial Control</td><td class="abbr">SCON</td></tr>
-          <tr><td class="cn">长调用</td><td class="en">Long Call</td><td class="abbr">LCALL</td></tr>
-          <tr><td class="cn">子程序返回</td><td class="en">Return</td><td class="abbr">RET</td></tr>
+          <tr class="sec"><td colspan="4">一、总概念与指令</td></tr>
+          <tr><td class="abbr">INT</td><td class="how">Interrupt</td><td class="cn">中断</td><td class="where">通称</td></tr>
+          <tr><td class="abbr">INT0</td><td class="how">Interrupt 0</td><td class="cn">外部中断 0</td><td class="where">引脚 P3.2 · 向量 0003H</td></tr>
+          <tr><td class="abbr">INT1</td><td class="how">Interrupt 1</td><td class="cn">外部中断 1</td><td class="where">引脚 P3.3 · 向量 0013H</td></tr>
+          <tr><td class="abbr">IRQ</td><td class="how">Interrupt ReQuest</td><td class="cn">中断请求</td><td class="where">通称</td></tr>
+          <tr><td class="abbr">ISR</td><td class="how">Interrupt Service Routine（R＝Routine 例程，不是 Program）</td><td class="cn">中断服务程序 / 服务例程</td><td class="where">服务入口起</td></tr>
+          <tr><td class="abbr">RETI</td><td class="how">RETurn from Interrupt</td><td class="cn">中断返回</td><td class="where">服务末尾（清优先级锁）</td></tr>
+          <tr><td class="abbr">IRET</td><td class="how">Interrupt RETurn（x86 写法）</td><td class="cn">中断返回（他机用语）</td><td class="where">本课统一写 RETI</td></tr>
+          <tr><td class="abbr">RET</td><td class="how">RETurn</td><td class="cn">子程序返回</td><td class="where">普通 LCALL/ACALL 配对</td></tr>
+          <tr><td class="abbr">LCALL</td><td class="how">Long CALL</td><td class="cn">长调用</td><td class="where">硬件响应≈做一次 LCALL</td></tr>
+          <tr><td class="abbr">ACALL</td><td class="how">Absolute CALL</td><td class="cn">绝对调用（短）</td><td class="where">同 2KB 页内</td></tr>
+          <tr><td class="abbr">AJMP</td><td class="how">Absolute JuMP</td><td class="cn">绝对跳转</td><td class="where">向量区常写 AJMP ISR</td></tr>
+          <tr><td class="abbr">LJMP</td><td class="how">Long JuMP</td><td class="cn">长跳转</td><td class="where">入口只有 8 字节时常 LJMP</td></tr>
+
+          <tr class="sec"><td colspan="4">二、IE —— Interrupt Enable（中断允许寄存器，A8H）</td></tr>
+          <tr><td class="abbr">IE</td><td class="how">Interrupt Enable</td><td class="cn">中断允许寄存器</td><td class="where">位寻址 A8H</td></tr>
+          <tr><td class="abbr">EA</td><td class="how">Enable All</td><td class="cn">总中断允许（总闸）</td><td class="where">IE.7</td></tr>
+          <tr><td class="abbr">EI</td><td class="how">Enable Interrupt（他机/口语）</td><td class="cn">开中断</td><td class="where">本课对应写 EA＝1</td></tr>
+          <tr><td class="abbr">EX0</td><td class="how">Enable eXternal interrupt 0</td><td class="cn">允许外部中断 0</td><td class="where">IE.0</td></tr>
+          <tr><td class="abbr">ET0</td><td class="how">Enable Timer 0</td><td class="cn">允许定时器 0 中断</td><td class="where">IE.1</td></tr>
+          <tr><td class="abbr">EX1</td><td class="how">Enable eXternal interrupt 1</td><td class="cn">允许外部中断 1</td><td class="where">IE.2</td></tr>
+          <tr><td class="abbr">ET1</td><td class="how">Enable Timer 1</td><td class="cn">允许定时器 1 中断</td><td class="where">IE.3</td></tr>
+          <tr><td class="abbr">ES</td><td class="how">Enable Serial</td><td class="cn">允许串口中断</td><td class="where">IE.4</td></tr>
+
+          <tr class="sec"><td colspan="4">三、IP —— Interrupt Priority（中断优先级寄存器，B8H）</td></tr>
+          <tr><td class="abbr">IP</td><td class="how">Interrupt Priority</td><td class="cn">中断优先级寄存器</td><td class="where">位寻址 B8H</td></tr>
+          <tr><td class="abbr">PX0</td><td class="how">Priority of eXternal 0</td><td class="cn">INT0 优先级</td><td class="where">IP.0 · 1＝高</td></tr>
+          <tr><td class="abbr">PT0</td><td class="how">Priority of Timer 0</td><td class="cn">T0 优先级</td><td class="where">IP.1</td></tr>
+          <tr><td class="abbr">PX1</td><td class="how">Priority of eXternal 1</td><td class="cn">INT1 优先级</td><td class="where">IP.2</td></tr>
+          <tr><td class="abbr">PT1</td><td class="how">Priority of Timer 1</td><td class="cn">T1 优先级</td><td class="where">IP.3</td></tr>
+          <tr><td class="abbr">PS</td><td class="how">Priority of Serial</td><td class="cn">串口优先级</td><td class="where">IP.4</td></tr>
+
+          <tr class="sec"><td colspan="4">四、TCON —— Timer CONtrol（定时器控制，88H）</td></tr>
+          <tr><td class="abbr">TCON</td><td class="how">Timer CONtrol</td><td class="cn">定时器控制寄存器</td><td class="where">也管外中断触发/标志</td></tr>
+          <tr><td class="abbr">TF0</td><td class="how">Timer Flag 0</td><td class="cn">T0 溢出标志（满了）</td><td class="where">TCON.5 · 响应可硬件清</td></tr>
+          <tr><td class="abbr">TF1</td><td class="how">Timer Flag 1</td><td class="cn">T1 溢出标志</td><td class="where">TCON.7</td></tr>
+          <tr><td class="abbr">TR0</td><td class="how">Timer Run 0</td><td class="cn">T0 运行控制（开数/停数）</td><td class="where">TCON.4 · SETB TR0 开跑</td></tr>
+          <tr><td class="abbr">TR1</td><td class="how">Timer Run 1</td><td class="cn">T1 运行控制</td><td class="where">TCON.6</td></tr>
+          <tr><td class="abbr">IE0</td><td class="how">Interrupt flag External 0</td><td class="cn">INT0 请求标志</td><td class="where">TCON.1 · 易与寄存器 IE 混</td></tr>
+          <tr><td class="abbr">IE1</td><td class="how">Interrupt flag External 1</td><td class="cn">INT1 请求标志</td><td class="where">TCON.3</td></tr>
+          <tr><td class="abbr">IT0</td><td class="how">Interrupt Type 0</td><td class="cn">INT0 触发方式</td><td class="where">TCON.0 · 0电平 / 1下降沿</td></tr>
+          <tr><td class="abbr">IT1</td><td class="how">Interrupt Type 1</td><td class="cn">INT1 触发方式</td><td class="where">TCON.2</td></tr>
+
+          <tr class="sec"><td colspan="4">五、SCON —— Serial CONtrol（串行口控制，98H）</td></tr>
+          <tr><td class="abbr">SCON</td><td class="how">Serial CONtrol</td><td class="cn">串行口控制寄存器</td><td class="where">串口标志在这里</td></tr>
+          <tr><td class="abbr">RI</td><td class="how">Receive Interrupt</td><td class="cn">接收中断标志</td><td class="where">SCON.0 · 要软件 CLR</td></tr>
+          <tr><td class="abbr">TI</td><td class="how">Transmit Interrupt</td><td class="cn">发送中断标志</td><td class="where">SCON.1 · 要软件 CLR</td></tr>
+          <tr><td class="abbr">RB8</td><td class="how">Receive Bit 8</td><td class="cn">接收到的第 9 位</td><td class="where">SCON.2 · 方式2/3</td></tr>
+          <tr><td class="abbr">TB8</td><td class="how">Transmit Bit 8</td><td class="cn">发送的第 9 位</td><td class="where">SCON.3</td></tr>
+          <tr><td class="abbr">REN</td><td class="how">Receive ENable</td><td class="cn">允许接收</td><td class="where">SCON.4</td></tr>
+          <tr><td class="abbr">SM0/SM1</td><td class="how">Serial Mode bits</td><td class="cn">串口工作方式</td><td class="where">SCON.7 / SCON.6</td></tr>
+
+          <tr class="sec"><td colspan="4">六、定时 / 装值相关</td></tr>
+          <tr><td class="abbr">TMOD</td><td class="how">Timer MODe</td><td class="cn">定时器方式寄存器</td><td class="where">整字节写，别位操作</td></tr>
+          <tr><td class="abbr">C/T</td><td class="how">Counter / Timer</td><td class="cn">计数 / 定时选择</td><td class="where">TMOD · 1＝计数外脉冲</td></tr>
+          <tr><td class="abbr">GATE</td><td class="how">GATE</td><td class="cn">门控</td><td class="where">TMOD · 1＝还要看 INTx</td></tr>
+          <tr><td class="abbr">M1 M0</td><td class="how">Mode bits</td><td class="cn">方式选择</td><td class="where">00/01/10/11→方式0–3</td></tr>
+          <tr><td class="abbr">TH0</td><td class="how">Timer High byte 0</td><td class="cn">T0 高 8 位</td><td class="where">装初值</td></tr>
+          <tr><td class="abbr">TL0</td><td class="how">Timer Low byte 0</td><td class="cn">T0 低 8 位</td><td class="where">装初值</td></tr>
+          <tr><td class="abbr">TH1 / TL1</td><td class="how">Timer High/Low 1</td><td class="cn">T1 高/低字节</td><td class="where">同上</td></tr>
+
+          <tr class="sec"><td colspan="4">七、现场保护常见名</td></tr>
+          <tr><td class="abbr">ACC</td><td class="how">ACCumulator</td><td class="cn">累加器 A</td><td class="where">服务常 PUSH ACC</td></tr>
+          <tr><td class="abbr">PSW</td><td class="how">Program Status Word</td><td class="cn">程序状态字</td><td class="where">含 RS1/RS0、进位等</td></tr>
+          <tr><td class="abbr">RS1 / RS0</td><td class="how">Register bank Select</td><td class="cn">寄存器组选择</td><td class="where">PSW · SETB RS1 换组</td></tr>
+          <tr><td class="abbr">SP</td><td class="how">Stack Pointer</td><td class="cn">堆栈指针</td><td class="where">例里常 MOV SP,#70H</td></tr>
+          <tr><td class="abbr">PC</td><td class="how">Program Counter</td><td class="cn">程序计数器</td><td class="where">断点压栈的就是它</td></tr>
+          <tr><td class="abbr">DPTR</td><td class="how">Data PoinTeR</td><td class="cn">数据指针</td><td class="where">MOVX @DPTR 采数</td></tr>
+          <tr><td class="abbr">PCON</td><td class="how">Power CONtrol</td><td class="cn">电源控制</td><td class="where">含 SMOD 等；本章少考</td></tr>
         </tbody>
       </table>
     </div>
-    <div class="note" style="margin-top:12px">易混：<b>IE</b>＝寄存器 Interrupt Enable；<b>IE0 / IE1</b>＝外中断请求标志（在 TCON）。服务完必须 <b>RETI</b>，不能写成 RET。</div>
+    <div class="note" style="margin-top:12px">三条防混：① <b>IE</b>＝允许寄存器，<b>IE0/IE1</b>＝TCON 里的请求标志；② <b>TF</b>（满了）≠ <b>TR</b>（开跑）；③ 服务末尾必须 <b>RETI</b>，不能写成 RET；口语「EI」在本课落到 <b>EA</b>。</div>
   </div>
 </section>
 
@@ -1628,7 +2003,7 @@ html[data-theme="light"] .ex51-ram .cell.just{background:rgba(217,119,6,.1);bord
 <!-- ⑫ 例5-3 -->
 <section class="pane" id="p12">
   <div class="key">例5-3 · P1 八灯循环移位 + INT0 低电平中断服务（共阳：引脚=0 灯亮）</div>
-  <div class="note" style="margin-bottom:8px">更多例题见 <a href="#p15" onclick="show(15);return false">⑮ 例题全览</a>。</div>
+  <div class="note" style="margin-bottom:8px">更多例题见 <a href="#p15" onclick="show(15);return false">⑮ 例题全览</a> · <a href="#ex53-full" onclick="show(20);try{location.hash='#ex53-full'}catch(e){}return false" style="color:#fbbf24;font-weight:700">⑳ 整页源码（PPT展不开时）</a> · <a href="u5-524-例53整页_单文件.html" style="color:#fbbf24">单文件全屏 →</a>。</div>
   <div class="ex53-wrap">
     <div class="ex53-card">
       <h3>现场演示 · 主循环移位 / 模拟 INT0</h3>
@@ -1752,7 +2127,64 @@ INT0_ISR:
 <!-- ⑭ 装值计算（考试要点） -->
 <section class="pane" id="p14">
   <div class="key" id="tload">⑭ 定时器 / 计数器装值计算 · 考试要点（80C51）</div>
-  <div class="note" style="margin-bottom:10px" id="装值">依据课件第32页起定时器部分 + Intel「16-bit timer/counter」溢出置 TF。芯片口径：<b>80C51</b>（12 振荡周期 = 1 机器周期）。公式用等宽突出，先背方式1，再迁到方式0/2。</div>
+  <div class="note" style="margin-bottom:10px" id="装值">依据课件第32页起定时器部分 + Intel「16-bit timer/counter」溢出置 TF。芯片口径：<b>80C51</b>（12 振荡周期 = 1 机器周期）。公式用等宽突出，先背方式1，再迁到方式0/2。
+  · 子知识点：<a href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="color:#fbbf24;font-weight:700">÷256 拆字节 #hex-split</a> · <a href="u5-hex-split.html" style="color:#fbbf24;font-weight:700">投影单文件</a></div>
+
+  <!-- 子知识点：16位数 ÷256 / mod 256 → TH/TL -->
+  <div class="hexsplit" id="hex-split">
+    <div class="hs-title" id="rev-hex"><span class="tag">子知识点</span>16 位数 ÷256 / mod 256 → TH / TL</div>
+    <p class="hs-why"><b>所以然：</b>256 = 2<sup>8</sup>。对任意 16 位初值 X，<span class="mono gold">TH = X÷256（取整）</span>、<span class="mono gold">TL = X mod 256</span>，与「切高 8 位 / 低 8 位」是同一件事；合写即 <span class="mono gold">X = TH×256 + TL</span>。</p>
+
+    <div class="hs-diagram">
+      <div class="hs-board" aria-label="原理图">
+        <div class="hs-xrow">
+          <span class="hs-x">16 位 X</span>
+          <span class="hs-eq">→</span>
+          <span class="hs-x" style="font-size:22px;color:var(--cyan100)">TH</span>
+          <span class="hs-eq">∥</span>
+          <span class="hs-x" style="font-size:22px;color:var(--emerald300)">TL</span>
+        </div>
+        <div class="hs-bytes">
+          <div class="hs-byte">
+            <div class="lab">HIGH 8</div>
+            <div class="name">TH</div>
+            <div class="form">X ÷ 256<br>（取整）</div>
+            <div class="hint">右移 8 位 · 高字节</div>
+          </div>
+          <div class="hs-plus">+</div>
+          <div class="hs-byte tl">
+            <div class="lab">LOW 8</div>
+            <div class="name">TL</div>
+            <div class="form">X mod 256</div>
+            <div class="hint">低 8 位 · 余数</div>
+          </div>
+        </div>
+        <div class="hs-recon">合写：<b>X = TH×256 + TL</b>　·　十六进制合写即 <b>THTLH</b></div>
+      </div>
+
+      <div class="hs-side">
+        <h4>课上死例子 · 12MHz · 1ms</h4>
+        <div class="hs-pill">初值 X = <b>64536</b><br>
+        TH = 64536÷256 = <span class="gold">252 = FCH</span><br>
+        TL = 64536 mod 256 = <span class="gold">24 = 18H</span><br>
+        合写 → <span class="gold">FC18H</span></div>
+        <div class="hs-pill">一圈边界：<b>65535 = FFFFH</b>；<b>65536 = 10000H</b>（溢出一圈）。方式1：<span class="gold">初值 = 65536 − N</span>。</div>
+        <div class="hs-pill">芯片口径 <b>80C51</b>：方式1 用满 16 位计数器；装值就是把这 16 位拆进 TH/TL。</div>
+      </div>
+    </div>
+
+    <div class="hs-demo">
+      <div class="h2">手算演示 · 输入十进制初值 X</div>
+      <div class="row">
+        <label>初值 X（十进制）<input type="number" id="hsX" value="64536" min="0" max="65535" step="1"></label>
+        <button class="btn amb" type="button" id="hsCalc">拆成 TH / TL</button>
+        <button class="btn sm" type="button" id="hsEx">填 64536</button>
+        <button class="btn sm" type="button" id="hsFF">填 65535</button>
+      </div>
+      <div class="hs-out" id="hsOut">X = <span id="hsDec">64536</span> → TH=<span id="hsTH">FCH</span>（252）　TL=<span class="tlc" id="hsTL">18H</span>（24）　合写 <span class="combo" id="hsCombo">FC18H</span></div>
+      <div class="note" id="hsHint" style="margin-top:6px">验算：252×256 + 24 = 64536。与位切高8/低8相同。</div>
+    </div>
+  </div>
 
   <div class="tload-wrap">
     <div class="tload-card">
@@ -1821,9 +2253,199 @@ INT0_ISR:
 → <b>TH = TL = 9CH</b>（TH 作重装值，与 TL 初值相同）。</div>
     </div>
   </div>
+  <div class="card" style="margin-top:12px">
+    <div class="h2">下一页 · GATE 计时窗口</div>
+    <div class="note">装值会算之后，再看「许不许加」：GATE=1 时 TR 与 INT 相与才计数——测脉宽就靠这扇门。
+    <a href="#gate-win" onclick="show(19);try{location.hash='#gate-win'}catch(e){}return false" style="color:var(--amber300);font-weight:700">→ ⑲ GATE：计时窗口</a></div>
+  </div>
 </section>
 
 
+
+
+<!-- ⑲ GATE 计时窗口 -->
+<section class="pane" id="p19">
+  <div class="gw-hero">
+    <div class="key" id="gate-win">⑲ GATE：计时窗口</div>
+    <span class="sub" id="p-gate">不是外部计数器，而是电平门控「许不许加」· 80C51</span>
+  </div>
+  <div class="note" style="margin-bottom:8px">与 <b>C/T</b> 分开记：<b>C/T</b> 管数机器周期还是 T0/T1 脚脉冲；<b>GATE</b> 只管「窗口开了才加」。T0 看 <span class="mono">INT0</span>，T1 看 <span class="mono">INT1</span>。</div>
+
+  <div class="gw-grid">
+    <div class="gw-stage">
+      <h3>时间轴 · 窗口开合时 TH/TL 才走</h3>
+      <div class="gw-axis" id="gwAxis" aria-label="计时窗口示意">
+        <div class="tlab">INTx 电平（窗口）</div>
+        <div class="gw-wave">
+          <svg viewBox="0 0 400 44" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="win" id="gwWinRect" x="120" y="4" width="160" height="36" rx="3"/>
+            <polyline class="trace" id="gwTrace" points="0,36 120,36 120,8 280,8 280,36 400,36"/>
+          </svg>
+        </div>
+        <div class="gw-playhead" id="gwHead" style="left:8%"></div>
+        <div class="gw-ticks"><span>低</span><span>高 · 窗口开</span><span>低 · 窗口关</span></div>
+      </div>
+      <div class="gw-countbox">
+        <div class="gw-reg" id="gwTH"><div class="k">TH0</div><div class="v" id="gwTHv">00</div></div>
+        <div class="gw-reg" id="gwTL"><div class="k">TL0</div><div class="v" id="gwTLv">00</div></div>
+        <div class="gw-reg" id="gwRunLamp"><div class="k">计数</div><div class="v" id="gwRunTxt">停</div></div>
+      </div>
+      <div class="gw-status" id="gwCap">点右侧开关：先把 GATE 拨到 1，再拨 TR=1、INT0=高，看窗口内 TH/TL 走动。</div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn amb" type="button" id="gwDemo">▶ 演示测脉宽</button>
+        <button class="btn" type="button" id="gwReset">⟲ 清零重来</button>
+        <button class="btn sm" type="button" id="gwPause" disabled>⏸ 暂停演示</button>
+      </div>
+    </div>
+
+    <div class="gw-stage gw-ctrls">
+      <h3>拨开关 · 看「加不加」</h3>
+      <div class="gw-swrow">
+        <span class="lbl">GATE</span>
+        <button class="btn sm" type="button" id="gwGate0" aria-pressed="true">GATE=0</button>
+        <button class="btn sm" type="button" id="gwGate1" aria-pressed="false">GATE=1</button>
+      </div>
+      <div class="gw-swrow">
+        <span class="lbl">TR0</span>
+        <button class="btn sm" type="button" id="gwTR" aria-pressed="false">TR0 = 0</button>
+      </div>
+      <div class="gw-swrow">
+        <span class="lbl">INT0</span>
+        <button class="btn sm" type="button" id="gwINT" aria-pressed="false">INT0 = 低</button>
+      </div>
+
+      <div class="gw-and" id="gwAnd" aria-live="polite">
+        <div class="term off" id="gwTermTR">TR0</div>
+        <div class="op" id="gwOp">·</div>
+        <div class="term off" id="gwTermINT">INT0</div>
+        <div class="out no" id="gwOut">→ 不加（窗口关或未启动）</div>
+      </div>
+
+      <div class="gw-formula" id="gwFormula">GATE=0：只要 TR=1 就加<br>GATE=1：TR=1 <b>且</b> INT0 为高才加</div>
+    </div>
+  </div>
+
+  <div class="gw-vs">
+    <div class="card">
+      <h4>用途直觉 · 测外部高电平脉宽</h4>
+      <div class="note">先软件 <span class="mono">TR=1</span>（门栓拉开），外面变高 → 窗口打开开始计；变低 → 窗口关停。读出的 TH/TL 就是这段高电平里走过的机器周期数（C/T=0 时）。对照⑮例5-8。</div>
+      <div class="row" style="margin-top:6px"><button class="btn sm amb" type="button" onclick="show(15);try{location.hash='#ex-58'}catch(e){}">→ ⑮ 例5-8</button>
+      <button class="btn sm" type="button" onclick="show(14)">← ⑭ 装值</button></div>
+    </div>
+    <div class="card">
+      <h4>和 C/T 别混</h4>
+      <div class="note"><b>C/T=0</b>：每个机器周期尝试加 1（定时）。<b>C/T=1</b>：T0/T1 脚来脉冲才加（计数）。两者都还要过 GATE 这扇门——GATE 不决定「数什么」，只决定「许不许加」。</div>
+    </div>
+  </div>
+
+  <div class="gw-sz" id="gwSzNote">
+    <b>嵌进技术点 · 有限资源干大事：</b>80C51 不专设「测脉宽」外设——TMOD 里 1 位 GATE，再复用已有 INT 脚，就给现有 TH/TL 加了一扇门，组合出测宽能力。「该开才开」对应门控条件；工程师守的是条件边界，不是口号。
+    <span style="margin-left:6px">同语气见 <a href="#rev-sz" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sz');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">#rev-sz</a>。</span>
+  </div>
+</section>
+
+<!-- ⑳ 例5-3 整页源码墙（PPT 第25+27–29；对应单文件 u5-524-例53整页_单文件.html） -->
+<section class="pane" id="p20">
+  <div class="key" id="ex53-full">⑳ 5.2.4 例5-3 · 整页源码墙</div>
+  <span class="sub" id="p-524">PPT 展不开时的同一屏投影 · 芯片 80C51 · 共阳 0=亮 · 源码按课件 28–29 原文</span>
+  <div class="note" style="margin:8px 0 10px">交互演示仍用 <a href="#ex53" onclick="show(12);try{location.hash='#ex53'}catch(e){}return false" style="color:#fbbf24">⑫</a> ·
+  亦可打开 <a href="u5-524-例53整页_单文件.html" style="color:#fbbf24">单文件全屏</a> ·
+  例题卡片见 <a href="#ex-led" onclick="show(15);try{location.hash='#ex-led'}catch(e){}return false" style="color:#fbbf24">⑮ 例5-3</a>。</div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">中断系统编程 · 5 步（课件第25页）</div>
+    <div class="ex53f-steps">
+      <div class="s"><div class="n">STEP 1</div><div class="t">开中断源</div><div class="d">写 IE（本例 EA+EX0 → #81H）</div></div>
+      <div class="s"><div class="n">STEP 2</div><div class="t">设优先级</div><div class="d">写 IP（本例 PX0=1 → #01H）</div></div>
+      <div class="s"><div class="n">STEP 3</div><div class="t">外中断触发</div><div class="d">写 TCON（本例 IT0=0 电平 → #00H）</div></div>
+      <div class="s"><div class="n">STEP 4</div><div class="t">入口写程序</div><div class="d">向量区 ORG 0003H → AJMP EXT0</div></div>
+      <div class="s"><div class="n">STEP 5</div><div class="t">末条 RETI</div><div class="d">中断子程序最后必须 RETI</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">【例5-3】题干（课件第27页）</div>
+    <div class="ex53f-stem"><span class="tag">例5-3</span>外部中断的应用：8051 单片机的 P1 口控制 8 个 LED 灯，要求 8 个灯加 1 移位点亮，当中断来时，灯<strong>全灭后全亮</strong>，中断返回后灯继续加 1 移位点亮。</div>
+    <div class="ex53f-tags">
+      <div class="ex53f-pill"><span class="k">TCON</span><span class="v">#00H</span><span class="x">IT0=0 · 电平触发</span></div>
+      <div class="ex53f-pill"><span class="k">IP</span><span class="v">#01H</span><span class="x">PX0=1 · 外0 高优先级</span></div>
+      <div class="ex53f-pill"><span class="k">IE</span><span class="v">#81H</span><span class="x">EA+EX0 · 总开 + 外0</span></div>
+    </div>
+    <div class="ex53f-callout"><b>口径旁注（证据）：</b>题干写「全灭→全亮」；本课件第29页源码为先 <span class="mono">MOV A,#00</span>（注释「全亮」）再 <span class="mono">CPL A</span>（注释「全灭」）。讲时可对照，勿擅自改指令。</div>
+  </div>
+
+  <div class="card">
+    <div class="key" style="font-size:18px">完整源码 · 课件第28–29页</div>
+    <div class="sub" style="margin-bottom:8px">向量 / 初始化 / 主循环 / 延时 / ISR · 同一屏可滚 · 标点保留课件原文</div>
+    <div class="ex53f-wall">
+      <div>
+        <div class="ex53f-blk vec">
+          <div class="hd"><span class="nm">① 向量区</span><span class="chip">ORG 00H / 0003H</span></div>
+          <pre class="src"><span class="dir">ORG</span> 00H
+<span class="op">AJMP</span> <span class="lbl">ST</span>
+<span class="dir">ORG</span> 0003H
+<span class="op">AJMP</span> <span class="lbl">EXT0</span>
+<span class="dir">ORG</span> 0030H</pre>
+        </div>
+        <div class="ex53f-blk init">
+          <div class="hd"><span class="nm">② 初始化 ST</span><span class="chip">SP / TCON / IP / IE</span></div>
+          <pre class="src"><span class="lbl">ST：</span><span class="op">MOV</span> SP，#70H
+<span class="op">MOV</span> TCON，#00H<span class="cmt">；</span>
+<span class="op">MOV</span> IP，#01H
+<span class="op">MOV</span> IE，#81H</pre>
+        </div>
+        <div class="ex53f-blk main">
+          <div class="hd"><span class="nm">③ 主循环</span><span class="chip">RES / Loop</span></div>
+          <pre class="src"><span class="lbl">RES：</span><span class="op">MOV</span> R1，#0FFH
+<span class="op">MOV</span> A，#0FFH
+<span class="lbl">Loop：</span><span class="op">MOV</span> P1，A
+<span class="op">DEC</span> A
+<span class="op">LCALL</span> <span class="lbl">Delay</span>
+<span class="op">LCALL</span> <span class="lbl">Delay</span>
+<span class="op">DJNZ</span> R1, <span class="lbl">Loop</span>
+<span class="op">SJMP</span> <span class="lbl">RES</span></pre>
+        </div>
+        <div class="ex53f-blk delay">
+          <div class="hd"><span class="nm">④ 延时 Delay</span><span class="chip">双重 DJNZ</span></div>
+          <pre class="src"><span class="lbl">Delay:</span><span class="op">mov</span> r6,#0ffh
+<span class="op">mov</span> r7,#0ffh
+<span class="lbl">Delay1:</span><span class="op">Djnz</span> r6,<span class="lbl">Delay1</span>
+<span class="op">Djnz</span> r7,<span class="lbl">Delay1</span>
+<span class="op">RET</span></pre>
+        </div>
+      </div>
+      <div>
+        <div class="ex53f-blk isr">
+          <div class="hd"><span class="nm">⑤ EXT0 服务程序</span><span class="chip">课件第29页原文</span></div>
+          <pre class="src"><span class="lbl">EXT0：</span><span class="op">PUSH</span> ACC<span class="cmt">；现场保护</span>
+<span class="op">PUSH</span> PSW
+<span class="op">setb</span> rs1<span class="cmt">；切换寄存器</span>
+<span class="op">MOV</span> A，#00<span class="cmt">；全亮</span>
+<span class="op">MOV</span> P1，A
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">CPL</span> A<span class="cmt">；全灭</span>
+<span class="op">MOV</span> P1，A
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">ACALL</span> <span class="lbl">Delay</span>
+<span class="op">POP</span> PSW
+<span class="op">POP</span> ACC
+<span class="op">RETI</span></pre>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="key" style="font-size:16px">讲台口播要点</div>
+          <div class="note">
+            <b>1.</b> 复位 → 00H 跳 ST；INT0 来 → 0003H 跳 EXT0。<br>
+            <b>2.</b> 主循环 A 从 #0FFH 递减写 P1，R1=#0FFH 轮次后 SJMP RES。<br>
+            <b>3.</b> ISR 先保护 ACC/PSW，SETB RS1 切组，避免踩主程序 R6/R7。<br>
+            <b>4.</b> 末条必须 <span class="mono gold">RETI</span>（不是 RET）。<br>
+            <b>5.</b> 看灯动 → <a href="#ex53" onclick="show(12);try{location.hash='#ex53'}catch(e){}return false" style="color:#fbbf24">⑫ 交互演示</a>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="pane" id="p15">
   <div class="key">⑮ 例题全览 · 课件《80C51的中断系统及定时计数器》</div>
@@ -1921,7 +2543,9 @@ RETI</pre>
       <li>ISR：按课件先 MOV A,#00 写 P1，再 CPL A 写 P1；课堂讲解按题干「先全灭#FF 再全亮#00」（共阳 0=亮）。</li>
       <li>保护 ACC/PSW，用 RETI 返回。</li>
     </ol>
-    <div class="exg-actions"><button class="btn sm amb" type="button" onclick="show(12);try{location.hash='#ex53'}catch(e){}">打开⑫演示</button></div>
+    <div class="exg-actions"><button class="btn sm amb" type="button" onclick="show(12);try{location.hash='#ex53'}catch(e){}">打开⑫演示</button>
+    <button class="btn sm amb" type="button" onclick="show(20);try{location.hash='#ex53-full'}catch(e){}">⑳ 整页源码</button>
+    <a class="btn sm" href="u5-524-例53整页_单文件.html" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center;color:#fbbf24">单文件全屏 →</a></div>
   </article>
 
   <article class="exg-card" id="ex-acq">
@@ -2101,6 +2725,7 @@ END</pre>
       <li>等 INT0 变低后 SETB TR0；再等上升、再等下降，测正脉宽。</li>
       <li>CLR TR0 后读 TL/TH 写入 31H/30H。</li>
     </ol>
+    <div class="exg-actions"><button class="btn sm amb" type="button" onclick="show(19);try{location.hash='#gate-win'}catch(e){}">打开⑲ GATE 计时窗口</button></div>
   </article>
 
   <article class="exg-card" id="ex-59">
@@ -2243,12 +2868,19 @@ RETI</pre>
     <div class="mem-kou">TCON 管定时，SCON 管串口，IE 管允许，IP 管优先</div>
     <div class="mem-kou">总闸 EA，分闸 EX0/ET0/EX1/ET1/ES；先开总再开分</div>
     <div class="mem-kou">高优先打断低，同级不互打断；同级靠自然序 INT0&gt;T0&gt;INT1&gt;T1&gt;串口</div>
+    <div class="mem-kou">硬件只保 PC，现场自己压；服务结尾必须 RETI</div>
+    <div class="mem-kou">方式1 溢出须重装；装一次不等于永远 1ms</div>
+    <div class="mem-kou">向量只跳、服务在后；入口仅 8 字节放 LJMP/AJMP</div>
+    <div class="mem-kou">TMOD 整字节写，不能 SETB TMOD.0（不能位寻址）</div>
+    <div class="mem-kou">程序四块：初始化 → 向量 LJMP → ISR（PUSH/RETI）→ 主循环</div>
+    <div class="mem-kou">所以然：像 LCALL 只保 PC；入口 8 字节只跳；IE 开闸、IP 排队；返回必须 RETI</div>
+    <div class="mem-kou">精巧：几个 SFR 位 + 五条向量，主程序干活、外设来叫、时间自己数——有限组合干大事</div>
   </div>
 </section>
 
 <section class="pane" id="p17">
   <div class="key">⑰ 课末测试 · 即时对错 + 装值小算</div>
-  <div class="note">约 10 题，核对本题即反馈；交卷后看总分与薄弱点。芯片口径：80C51。</div>
+  <div class="note">约 18 题（含「所以然」理解题），核对本题即反馈；交卷后看总分与薄弱点。芯片口径：80C51。</div>
   <div class="qz-wrap">
     <aside class="qz-calc">
       <h3>装值计算器</h3>
@@ -2375,6 +3007,111 @@ RETI</pre>
         <div class="qz-fb"></div>
       </div>
 
+      <!-- Q11 -->
+      <div class="qz-item" data-q="11" data-tag="只保PC" data-type="mc" data-ans="b">
+        <div class="qz-q"><span class="tag">只保PC</span>11. 中断响应时硬件自动保护的是？服务里 A/PSW 怎么办？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz11" value="a"> 自动保护 A、PSW、PC；自己不用管</label>
+          <label><input type="radio" name="qz11" value="b"> 硬件只保 PC；A/PSW 自己 PUSH，结尾 RETI</label>
+          <label><input type="radio" name="qz11" value="c"> 硬件只保 A；PC 自己压栈</label>
+          <label><input type="radio" name="qz11" value="d"> 什么都不保，全靠软件</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="11">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q12 -->
+      <div class="qz-item" data-q="12" data-tag="重装" data-type="mc" data-ans="c">
+        <div class="qz-q"><span class="tag">重装</span>12. 方式1 定时器溢出后，若不重装初值会怎样？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz12" value="a"> 自动保持上次初值，周期不变</label>
+          <label><input type="radio" name="qz12" value="b"> 立刻停转，不再计数</label>
+          <label><input type="radio" name="qz12" value="c"> 从 0000H 接着数，下一周期变长（约满量程）</label>
+          <label><input type="radio" name="qz12" value="d"> 自动切到方式2</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="12">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q13 -->
+      <div class="qz-item" data-q="13" data-tag="TMOD" data-type="mc" data-ans="d">
+        <div class="qz-q"><span class="tag">TMOD</span>13. 关于 TMOD，哪句正确？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz13" value="a"> 可以 SETB TMOD.0 单独改某一位</label>
+          <label><input type="radio" name="qz13" value="b"> TMOD 与 TCON 一样可位寻址</label>
+          <label><input type="radio" name="qz13" value="c"> 只能用 CLR 写，不能用 MOV</label>
+          <label><input type="radio" name="qz13" value="d"> TMOD 不能位寻址，须整字节写（如 MOV TMOD,#01H）</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="13">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q14 -->
+      <div class="qz-item" data-q="14" data-tag="触发清零" data-type="mc" data-ans="a">
+        <div class="qz-q"><span class="tag">触发清零</span>14. IT=1（下沿）与 IT=0（低电平）关于 IE0 清零，正确的是？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz14" value="a"> 下沿：应答时硬件清；电平：不自动清，按住会再进</label>
+          <label><input type="radio" name="qz14" value="b"> 两种都硬件自动清，按住也不会再进</label>
+          <label><input type="radio" name="qz14" value="c"> 两种都不清，全靠软件 CLR IE0</label>
+          <label><input type="radio" name="qz14" value="d"> 电平硬件清，下沿不自动清</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="14">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q15 -->
+      <div class="qz-item" data-q="15" data-tag="程序四块" data-type="mc" data-ans="c">
+        <div class="qz-q"><span class="tag">程序四块</span>15. 中断向量入口处通常放什么？为何？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz15" value="a"> 整段服务程序，因为入口够大</label>
+          <label><input type="radio" name="qz15" value="b"> RETI，直接返回</label>
+          <label><input type="radio" name="qz15" value="c"> LJMP/AJMP 跳到后面的服务程序（入口仅约 8 字节）</label>
+          <label><input type="radio" name="qz15" value="d"> MOV IE,#0 关中断</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="15">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q16 -->
+      <div class="qz-item" data-q="16" data-tag="晶振初值" data-type="mc" data-ans="b">
+        <div class="qz-q"><span class="tag">晶振初值</span>16. 方式1、定时 1ms：6MHz 与 12MHz 的初值分别是？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz16" value="a"> 都是 FE0CH</label>
+          <label><input type="radio" name="qz16" value="b"> 6MHz→FE0CH；12MHz→FC18H（勿混用）</label>
+          <label><input type="radio" name="qz16" value="c"> 6MHz→FC18H；12MHz→FE0CH</label>
+          <label><input type="radio" name="qz16" value="d"> 都是 FC18H</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="16">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+
+      <!-- Q17 所以然 -->
+      <div class="qz-item" data-q="17" data-tag="所以然" data-type="mc" data-ans="b">
+        <div class="qz-q"><span class="tag">所以然</span>17. 为何中断返回必须用 RETI，不能只用 RET？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz17" value="a"> RETI 更快；RET 太慢</label>
+          <label><input type="radio" name="qz17" value="b"> RETI 弹 PC 并清当前优先级锁；RET 只弹 PC，嵌套/再响应会卡住</label>
+          <label><input type="radio" name="qz17" value="c"> RETI 会自动重装 TH/TL</label>
+          <label><input type="radio" name="qz17" value="d"> RET 会清 IE，RETI 不会</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="17">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
+      <!-- Q18 所以然 -->
+      <div class="qz-item" data-q="18" data-tag="所以然" data-type="mc" data-ans="c">
+        <div class="qz-q"><span class="tag">所以然</span>18. 为何中断响应像 LCALL，却只自动保护 PC？</div>
+        <div class="qz-opts">
+          <label><input type="radio" name="qz18" value="a"> 因为 A、PSW 从不需要保护</label>
+          <label><input type="radio" name="qz18" value="b"> 因为硬件其实把全部寄存器都压了，教材写错了</label>
+          <label><input type="radio" name="qz18" value="c"> 硬件只保断点 PC（省硅片/时间）；A/PSW 等按 ISR 需要自己 PUSH</label>
+          <label><input type="radio" name="qz18" value="d"> 因为只能保护一个字节，PC 刚好一个字节</label>
+        </div>
+        <button class="btn sm amb" type="button" data-check="18">核对本题</button>
+        <div class="qz-fb"></div>
+      </div>
+
       <div class="qz-bar">
         <button class="btn pri" type="button" id="qzSubmit">交卷看总分</button>
         <button class="btn" type="button" id="qzReset">清空重做</button>
@@ -2388,6 +3125,442 @@ RETI</pre>
   </div>
 </section>
 
+
+
+<section class="pane" id="p18">
+  <div class="key">⑱ 全复习 · 开场硬测 + 考点梳理 + 对照 / 所以然 / 精巧 + 必会要点</div>
+  <p class="rv-lead"><b>外面有事来叫（中断），时间自己来数（定时器）——CPU 不必空等。</b>
+  下午建议：先投 <a href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">#rev-warm</a>
+  （开场硬测两小步）→ <a href="#rev-kd" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-kd');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">#rev-kd</a>
+  → 三块对照/所以然/精巧 → 必会 9 + 易错 9。口径：80C51。</p>
+
+  <!-- ===== 开场硬测（全班同答 · 点人记分 · 题面抽自⑰/课堂测）===== -->
+  <div class="rv-warm" id="rev-warm">
+    <h3><span class="tag">暖</span>开场硬测 · 两小步（约 4 分钟）</h3>
+    <p class="sub">组织：<b>全班同时写/选</b> → 教师点 <b>2–3 人</b>对照记分卡（不靠举手）→ 再揭晓。题面取自⑰课末测 / 课堂出题台（IE 开闸、方式1 装值），不另编教材外题。</p>
+    <div class="rv-warm-steps">
+      <div class="rv-warm-card" id="warm1" data-ans="b">
+        <span class="wn">小步 1 · IE</span>
+        <p class="wq">要响应 INT0，关于 EA 与分闸，正确的是？</p>
+        <ul class="wo">
+          <li data-k="a">A. 只开 EX0 即可，不必 EA</li>
+          <li class="ok" data-k="b">B. 先开总闸 EA，再开对应分闸 EX0</li>
+          <li data-k="c">C. 只开 EA 即可响应所有中断</li>
+          <li data-k="d">D. IP 代替 IE</li>
+        </ul>
+        <div class="wa">揭晓：B。总开关 EA 与分开关（EX0）要同时开——出处：⑰ Q10 / 课堂测 u5-01。</div>
+      </div>
+      <div class="rv-warm-card" id="warm2" data-ans="a">
+        <span class="wn">小步 2 · 装值</span>
+        <p class="wq">12MHz、方式1、定时 1ms，初值常选？</p>
+        <ul class="wo">
+          <li class="ok" data-k="a">A. FC18H</li>
+          <li data-k="b">B. FE0CH（那是 6MHz→1ms 锚，见例5-4）</li>
+          <li data-k="c">C. FF9CH</li>
+          <li data-k="d">D. 0000H</li>
+        </ul>
+        <div class="wa">揭晓：A. FC18H（Tcy=1μs，N=1000，65536−1000=64536）。FE0CH 留给例5-4（6MHz）学生先算——出处：⑰ Q8 / 课堂测 u5-05。</div>
+      </div>
+    </div>
+    <div class="rv-warm-tools">
+      <button class="btn amb" type="button" id="warmReveal1">揭晓小步1</button>
+      <button class="btn amb" type="button" id="warmReveal2">揭晓小步2</button>
+      <button class="btn" type="button" id="warmRevealAll">两步一起揭晓</button>
+      <button class="btn" type="button" id="warmHide">收回答案（再测）</button>
+      <a class="btn sm amb" href="#p17" style="text-decoration:none">课堂出题台（四拍）→</a>
+    </div>
+    <div class="rv-warm-score"><b>记分卡提示：</b>随机点 2–3 人（座号/学号尾数），各报选项字母；对记 √、错记 × 并口头纠一句。勿整班举手。第三道加练可切
+      <a href="#p17" onclick="show(17);return false">⑰</a>「RETI vs RET」或课堂测同题。</div>
+  </div>
+
+  <!-- ===== A/B/C 三块（记忆理解 · 所以然 · 精巧思政）===== -->
+  <div class="rv-nav3" id="revTopNav" aria-label="全复习导航">
+    <a href="#rev-warm" style="background:hsl(42 92% 58%/.25);border-color:hsl(42 92% 58%/.8)" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">开场硬测</a>
+    <a href="#rev-kd" style="background:hsl(42 92% 58%/.2);border-color:hsl(42 92% 58%/.7)" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-kd');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">考点梳理 · 重点难点</a>
+    <a href="#rev-sym" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sym');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">A · 概念符号对照</a>
+    <a href="#rev-why" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-why');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">B · 所以然</a>
+    <a href="#rev-sz" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sz');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">C · 有限资源精巧与思政</a>
+  </div>
+
+  <div class="rv-sec" id="rev-sym">
+    <h3><span class="tag">A</span>概念·符号 · 速记对照</h3>
+    <p class="sub">怎么记：<b>缩写拆开</b>（英文联想）→ 落成中文 → 一句话理解。位图看
+      <a href="#p16" onclick="show(16);return false">⑯ 速记</a>；全表看
+      <a href="#p11" onclick="show(11);return false">⑪ 术语对照</a>。点行展开「易混」。</p>
+    <div class="rv-sym-tools" id="rvSymFilter">
+      <button type="button" data-f="all" class="on">全部</button>
+      <button type="button" data-f="core">指令/概念</button>
+      <button type="button" data-f="ieip">IE / IP</button>
+      <button type="button" data-f="tcon">TCON / TMOD</button>
+      <button type="button" data-f="vec">向量 / 装值</button>
+      <button type="button" id="rvSymExpand">展开全部</button>
+      <button type="button" id="rvSymCollapse">收起</button>
+    </div>
+    <table class="rv-sym-table" aria-label="符号速记对照台">
+      <thead><tr><th>符号</th><th>英文拆开</th><th>中文</th><th>一句话理解</th></tr></thead>
+      <tbody id="rvSymBody">
+        <!-- rows injected / static below -->
+        <tr data-g="core"><td colspan="4">
+          <div class="rv-sym-row" data-k="INT"><span class="abbr">INT</span><span>Interrupt</span><span>中断</span><span>外面有事来叫，CPU 先办急事</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>In-terrupt＝打断。<span class="mix">易混：别和「入口地址」搅在一起；断点≠入口。</span></div>
+        </td></tr>
+        <tr data-g="core"><td colspan="4">
+          <div class="rv-sym-row" data-k="ISR"><span class="abbr">ISR</span><span>Interrupt Service Routine</span><span>中断服务程序</span><span>被叫之后真正办事的那段代码</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Service Routine＝服务例程（R≠Program）。<span class="mix">易混：ISR 在向量后面，不堆在 0003H。</span></div>
+        </td></tr>
+        <tr data-g="core"><td colspan="4">
+          <div class="rv-sym-row" data-k="RETI"><span class="abbr">RETI</span><span>RETurn from Interrupt</span><span>中断返回</span><span>弹 PC，并清「当前优先级锁」</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>RET + I（Interrupt）。<span class="mix">易混：RET 只弹 PC，不清优先级——嵌套会卡死。</span></div>
+        </td></tr>
+        <tr data-g="core"><td colspan="4">
+          <div class="rv-sym-row" data-k="LCALL"><span class="abbr">LCALL</span><span>Long CALL</span><span>长调用</span><span>硬件响应≈逼着做了一次 LCALL</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Long Call。<span class="mix">易混：像 LCALL，但硬件只自动保 PC，A/PSW 自己压。</span></div>
+        </td></tr>
+        <tr data-g="ieip"><td colspan="4">
+          <div class="rv-sym-row" data-k="IE"><span class="abbr">IE</span><span>Interrupt Enable</span><span>中断允许</span><span>允不允许响——总闸+分闸</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Enable＝允许。<span class="mix">易混：IE（寄存器）≠ IE0/IE1（TCON 里的请求标志）。</span></div>
+        </td></tr>
+        <tr data-g="ieip"><td colspan="4">
+          <div class="rv-sym-row" data-k="EA"><span class="abbr">EA</span><span>Enable All</span><span>总中断允许</span><span>总闸：关了，分闸全白开</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>E-All。<span class="mix">易混：口语「EI」在本课落到 EA＝1。</span></div>
+        </td></tr>
+        <tr data-g="ieip"><td colspan="4">
+          <div class="rv-sym-row" data-k="EXx"><span class="abbr">EXx/ETx</span><span>Enable eXternal / Timer</span><span>外中断/定时允许</span><span>分闸：EX0 ET0 EX1 ET1（+ES）</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>X＝eXternal，T＝Timer。<span class="mix">易混：先合 EA，再合分闸。</span></div>
+        </td></tr>
+        <tr data-g="ieip"><td colspan="4">
+          <div class="rv-sym-row" data-k="IP"><span class="abbr">IP</span><span>Interrupt Priority</span><span>中断优先级</span><span>谁优先——高可打断低</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Priority。<span class="mix">易混：IE 管「能不能进」，IP 管「谁先谁后」。</span></div>
+        </td></tr>
+        <tr data-g="ieip"><td colspan="4">
+          <div class="rv-sym-row" data-k="PXx"><span class="abbr">PXx/PTx</span><span>Priority of X/T</span><span>各源优先位</span><span>1＝高优先；同级靠自然序</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>P + 源名。<span class="mix">易混：同级自然序 INT0&gt;T0&gt;INT1&gt;T1&gt;串口。</span></div>
+        </td></tr>
+        <tr data-g="tcon"><td colspan="4">
+          <div class="rv-sym-row" data-k="TCON"><span class="abbr">TCON</span><span>Timer CONtrol</span><span>定时器控制</span><span>也管外中断：IT/IE 标志</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Timer Control。<span class="mix">易混：TF＝满了，TR＝开跑；IE0≠寄存器 IE。</span></div>
+        </td></tr>
+        <tr data-g="tcon"><td colspan="4">
+          <div class="rv-sym-row" data-k="IT"><span class="abbr">IT0/IT1</span><span>Interrupt Type</span><span>触发方式</span><span>0＝低电平；1＝下沿</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Type＝类型。<span class="mix">易混：下沿硬件清 IE0；电平不自动清，按住会再进。</span></div>
+        </td></tr>
+        <tr data-g="tcon"><td colspan="4">
+          <div class="rv-sym-row" data-k="TFTR"><span class="abbr">TF/TR</span><span>Timer Flag / Run</span><span>溢出标志 / 运行</span><span>TF＝满了喊一声；TR＝开数/停数</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Flag vs Run。<span class="mix">易混：别把 TF 当 TR。</span></div>
+        </td></tr>
+        <tr data-g="tcon"><td colspan="4">
+          <div class="rv-sym-row" data-k="TMOD"><span class="abbr">TMOD</span><span>Timer MODe</span><span>工作方式</span><span>GATE · C/T · M1M0（整字节写）</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>Mode。<span class="mix">易混：TMOD 不能位寻址，禁 SETB TMOD.0。</span></div>
+        </td></tr>
+        <tr data-g="tcon"><td colspan="4">
+          <div class="rv-sym-row" data-k="GATE"><span class="abbr">GATE/C/T/M</span><span>GATE · Counter/Timer · Mode</span><span>门控/计定/方式</span><span>半字节管一只定时器</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>高半 T1、低半 T0。<span class="mix">易混：C/T＝1 计数外脉冲；M1M0＝方式。</span></div>
+        </td></tr>
+        <tr data-g="vec"><td colspan="4">
+          <div class="rv-sym-row" data-k="VEC"><span class="abbr">五向量</span><span>0003…0023H</span><span>入口地址</span><span>INT0=0003 · T0=000B · INT1=0013 · T1=001B · 串口=0023</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>各隔 8 字节；只放 LJMP。<span class="mix">易混：断点地址 ≠ 向量入口。</span></div>
+        </td></tr>
+        <tr data-g="vec"><td colspan="4">
+          <div class="rv-sym-row" data-k="THTL"><span class="abbr">TH/TL</span><span>Timer High / Low</span><span>装值高低字节</span><span>方式1 十六位计数器的初值</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>High / Low。<span class="mix">易混：溢出后须重装，装一次≠永远 1ms。</span></div>
+        </td></tr>
+        <tr data-g="vec"><td colspan="4">
+          <div class="rv-sym-row" data-k="FE"><span class="abbr">FE0CH/FC18H</span><span>初值 SSOT</span><span>1ms 例题锁</span><span>6MHz→FE0CH；12MHz→FC18H</span></div>
+          <div class="rv-sym-more"><b>怎么记：</b>晶振不同，初值不同。<span class="mix">易混：口改晶振却照抄另一初值＝必错。</span></div>
+        </td></tr>
+      </tbody>
+    </table>
+    <div class="rv-path">记忆路径：本台（拆开+易混）→ <a href="#p11" onclick="show(11);return false">⑪ 术语全表</a> → <a href="#p16" onclick="show(16);return false">⑯ 位图+口诀</a>。上课先拆缩写，再链位图。</div>
+  </div>
+
+  <div class="rv-sec" id="rev-why">
+    <h3><span class="tag">B</span>所以然 · 为什么这样</h3>
+    <p class="sub">每条：技术一句 + 设计取舍一句。点开讲透即可，不必全念。</p>
+    <div class="rv-why" id="rvWhyList">
+      <details><summary><span class="nq">1</span>为何中断响应像 LCALL 却只自动保 PC？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>硬件把断点 PC 压栈并跳到向量——像做了一次 LCALL；A、PSW、DPTR 等不自动压。</p>
+          <p class="trade"><b>设计取舍：</b>省硅片与时间——现场因 ISR 而异，留给程序员按需 PUSH；全自动保护会又慢又贵。</p>
+          <div class="jump"><button type="button" data-jump="1">→ ① LCALL</button><button type="button" data-jump="8">→ ⑧ 响应过程</button></div>
+        </div></details>
+      <details><summary><span class="nq">2</span>为何相邻入口只隔 8 字节、向量处只放 LJMP？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>五源固定入口，彼此只留约 8 字节；服务程序通常更长，所以入口只跳。</p>
+          <p class="trade"><b>设计取舍：</b>用极少 ROM 槽位换「一源一地址」；空间不够就 LJMP 出去，骨架清晰。</p>
+          <div class="jump"><button type="button" data-jump="3">→ ③ 五源</button><button type="button" data-jump="12">→ ⑫ 例5-3</button></div>
+        </div></details>
+      <details><summary><span class="nq">3</span>为何要分 IE（允不允许）和 IP（谁优先）？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>IE＝总闸+分闸（能不能进）；IP＝高/低优先（谁可打断谁）。</p>
+          <p class="trade"><b>设计取舍：</b>把「开关」和「排队」拆开，几个位就能调度多源，不必另做复杂仲裁器。</p>
+          <div class="jump"><button type="button" data-jump="5">→ ⑤ IE</button><button type="button" data-jump="6">→ ⑥ IP</button></div>
+        </div></details>
+      <details><summary><span class="nq">4</span>为何外中断要 IT 选下沿/电平，清零规则不同？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>IT＝1 认 1→0 边沿，应答时硬件清标志；IT＝0 跟低电平，不自动清，仍低会再进。</p>
+          <p class="trade"><b>设计取舍：</b>点一下只加 1 用下沿；持续故障要一直伺候用电平——一种硬件两种用法。</p>
+          <div class="jump"><button type="button" data-jump="4">→ ④ TCON</button></div>
+        </div></details>
+      <details><summary><span class="nq">5</span>为何 TMOD 不能位寻址、须整字节？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>TMOD 不在位寻址区；改方式用 <code>MOV TMOD,#xxH</code>，禁 <code>SETB TMOD.0</code>。</p>
+          <p class="trade"><b>设计取舍：</b>方式字常整字节配置；位寻址留给真正要频繁置位的标志（如 IE、TCON）。</p>
+          <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button><button type="button" data-jump="16">→ ⑯ 速记</button></div>
+        </div></details>
+      <details><summary><span class="nq">6</span>为何方式1 溢出必须重装？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>方式1 满后从 0000H 接着数，不会自动回到你写的初值。</p>
+          <p class="trade"><b>设计取舍：</b>通用 16 位计数器省硬件；要固定周期就在 ISR 里重装——方式2 才是「自动重装」的取舍。</p>
+          <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button></div>
+        </div></details>
+      <details><summary><span class="nq">7</span>为何返回必须用 RETI 不能只用 RET？</summary>
+        <div class="ans">
+          <p class="tech"><b>技术：</b>RETI 弹 PC 并清当前优先级触发器；RET 只弹 PC。</p>
+          <p class="trade"><b>设计取舍：</b>有了优先级锁，才能嵌套又不会乱；错用 RET，高级/同级响应会卡住。</p>
+          <div class="jump"><button type="button" data-jump="6">→ ⑥ 嵌套</button><button type="button" data-jump="8">→ ⑧</button></div>
+        </div></details>
+    </div>
+  </div>
+
+  <div class="rv-sec" id="rev-sz">
+    <h3><span class="tag">C</span>有限资源的精巧 + 课程思政</h3>
+    <p class="sub">技术主线在前：几个 SFR 位 + 五条向量，就能调度「主程序干活 / 外设来叫 / 时间自己数」。思政嵌进技术点，一句话带过。</p>
+    <div class="rv-sz-grid" id="rvSzSteps">
+      <div class="rv-sz-step" data-step="0"><span class="sn">① 资源清单</span><span class="st">位 · 向量</span><span class="sd">IE / IP / TCON / TMOD 若干位<br>五入口 0003H…0023H</span></div>
+      <div class="rv-sz-step" data-step="1"><span class="sn">② 能办成的事</span><span class="st">有限组合干大事</span><span class="sd">主程序继续干活<br>外设来叫 · 定时自己数</span></div>
+      <div class="rv-sz-step" data-step="2"><span class="sn">③ 工程师边界</span><span class="st">开闸 · 清零 · 重装 · RETI</span><span class="sd">少一条保护 / 写错入口<br>现场就回不来</span></div>
+    </div>
+    <div class="rv-btns">
+      <button class="btn amb" type="button" id="rvSzNext">▶ 下一步</button>
+      <button class="btn" type="button" id="rvSzAuto">自动</button>
+      <button class="btn" type="button" id="rvSzReset">复位</button>
+    </div>
+    <div class="rv-sz-cap" id="rvSzCap">点「下一步」：先看芯片给你哪些「少量组合」。</div>
+    <div class="rv-sz-embed">
+      <b>嵌进技术点的思政（沿用教案口径，不另起口号）：</b>
+      <ul>
+        <li><b>对立统一：</b>主程序与 ISR 争 CPU，看着是一对矛盾；有了中断机制，两边都能照顾到。</li>
+        <li><b>细节定可靠性：</b>入口 / 现场保护 / RETI——少写一条保护或写错入口，现场就回不来。</li>
+        <li><b>透过现象看本质：</b>灯在闪是现象；本质是 CPU 被打断又回来。</li>
+      </ul>
+      <div class="jump" style="margin-top:8px"><button type="button" data-jump="2">→ ② 查询与中断</button><button type="button" data-jump="8">→ ⑧ 响应过程</button><button type="button" data-rv="quad">↓ 程序四块</button></div>
+    </div>
+  </div>
+
+  
+  <!-- ===== 考点梳理四卡（重点≈必会摘要 · 难点≈易错摘要 · 考点短表 · 精华→#rev-sz）===== -->
+  <div class="rv-sec" id="rev-kd">
+    <h3><span class="tag">KD</span>整章考点梳理 · 重点 / 难点 / 考点 / 次重点精华</h3>
+    <p class="sub">投影大字四卡。与下方必会9/易错9对齐映射，避免重复堆砌——点开看短条目。口径 <b>80C51</b>。</p>
+    <div class="kd-grid">
+      <details class="kd-card kd-imp" open>
+        <summary>
+          <span class="kd-lab">重点</span>
+          <span class="kd-title">六步 · 开闸 · 向量 · 装值</span>
+          <span class="kd-hint">≈ 必会摘要</span>
+        </summary>
+        <div class="kd-body">
+          <ul>
+            <li><b>中断六步</b>（请求→判优→响应→服务→返回…）</li>
+            <li><b>IE 开闸</b>：EA + 分开关</li>
+            <li><b>五源向量</b>：0003H…0023H</li>
+            <li><b>RETI</b>（不是 RET）</li>
+            <li><b>TMOD / 方式1 装值</b></li>
+            <li><b>查询 vs 中断</b></li>
+          </ul>
+          <div class="kd-why">所以然：先抓「谁来叫 / 开哪扇闸 / 从哪进 / 怎么回」——再下钻必会9。</div>
+        </div>
+      </details>
+      <details class="kd-card kd-hard">
+        <summary>
+          <span class="kd-lab">难点</span>
+          <span class="kd-title">保护 · 清零 · 重装 · 初值</span>
+          <span class="kd-hint">≈ 易错摘要</span>
+        </summary>
+        <div class="kd-body">
+          <ul>
+            <li><b>硬件只保 PC</b>（A/PSW 自 PUSH）</li>
+            <li><b>IT 下沿清 vs 电平不清</b></li>
+            <li><b>方式1 溢出须重装</b></li>
+            <li><b>FE0CH（6MHz）vs FC18H（12MHz）</b></li>
+            <li><b>TMOD 须整字节写</b></li>
+          </ul>
+          <div class="kd-why">所以然：少一条保护或混用晶振初值，现场就对不上——链易错9。</div>
+        </div>
+      </details>
+      <details class="kd-card kd-exam">
+        <summary>
+          <span class="kd-lab">考点</span>
+          <span class="kd-title">拼字节 · 入口 · 装值题</span>
+          <span class="kd-hint">易出计算/判断</span>
+        </summary>
+        <div class="kd-body">
+          <ul>
+            <li>IE 拼字节（例 8AH）</li>
+            <li>入口地址默写</li>
+            <li>RET vs RETI</li>
+            <li>装值计算（X=65536−N）</li>
+            <li>例5-4 / 例5-5 类算题</li>
+          </ul>
+          <div class="kd-why">所以然：考的是会拼、会算、会选返回指令——链⑭装值与⑰课末测。</div>
+        </div>
+      </details>
+      <details class="kd-card kd-ess">
+        <summary>
+          <span class="kd-lab">次重点·精华</span>
+          <span class="kd-title">少量位干大事</span>
+          <span class="kd-hint">嵌技术 · 不另喊口号</span>
+        </summary>
+        <div class="kd-body">
+          <ul>
+            <li>几个 <b>SFR 位</b> + <b>五条向量</b></li>
+            <li>办成：「主程序干活 / 外设来叫 / 时间自己数」</li>
+            <li><b>细节定可靠性</b>：少一条保护就回不来</li>
+          </ul>
+          <div class="kd-why">沿用教案口径（对立统一 · 细节定可靠性 · 透过现象看本质）——嵌在技术点里。链 <a href="#rev-sz" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sz');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">#rev-sz</a>。</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+
+  <hr class="rv-hr"><span class="rv-hr-lab">↓ 原有总复习：必会 9 · 易错 9 · 程序四块（保留）</span>
+
+
+  <div class="card">
+    <div class="h2">必会重点（9 · 点开看纠错一句）</div>
+    <div class="rv-grid" id="rvImp">
+      <details class="rv-card"><summary><span class="n">1</span><span class="t">查询 vs 中断：空等 vs 被叫</span></summary>
+        <div class="body">查询：CPU 反复问外设，空等多。中断：外设来叫，主程序可继续干活。<div class="tip">设计动机一句：别让 CPU 空等 Delay，让硬件来叫。</div>
+        <div class="jump"><button type="button" data-jump="2">→ ② 查询与中断</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">2</span><span class="t">五源及入口：INT0=0003H…</span></summary>
+        <div class="body">INT0 <code>0003H</code>、T0 <code>000BH</code>、INT1 <code>0013H</code>、T1 <code>001BH</code>、串口 <code>0023H</code>；各隔 8 字节。
+        <div class="jump"><button type="button" data-jump="3">→ ③ 五源</button><button type="button" data-jump="8">→ ⑧ 响应过程</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">3</span><span class="t">TCON：IT/IE 触发与清零</span></summary>
+        <div class="body">外中断：IT 选下沿/电平；IE0/IE1 是请求标志。串口 RI/TI 软件清。
+        <div class="jump"><button type="button" data-jump="4">→ ④ TCON</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">4</span><span class="t">IE 拼字节：例 → 8AH</span></summary>
+        <div class="body">先合总闸 EA，再合分闸。允许定时器中断例：EA+ET1+ET0 → <b>8AH</b>。
+        <div class="jump"><button type="button" data-jump="5">→ ⑤ IE</button><button type="button" data-jump="10">→ 练 C</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">5</span><span class="t">硬件只保 PC；A/PSW 自 PUSH；RETI</span></summary>
+        <div class="body">像 LCALL 只压断点。现场（A/PSW 等）自己压；结尾必须 <b>RETI</b>（不是 RET）。
+        <div class="jump"><button type="button" data-jump="8">→ ⑧ 响应过程</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">6</span><span class="t">入口 8 字节 → LJMP；程序四块</span></summary>
+        <div class="body">向量处只放跳转；服务程序放后面。四块：初始化 / 向量 LJMP / ISR / 主循环。
+        <div class="jump"><button type="button" data-jump="12">→ ⑫ 例5-3</button><button type="button" data-rv="quad">↓ 看四块动画</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">7</span><span class="t">TMOD 整字节写；禁 SETB TMOD.0</span></summary>
+        <div class="body">TMOD <b>不能位寻址</b>。正确：<code>MOV TMOD,#01H</code>。错误：<code>SETB TMOD.0</code>。
+        <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button><button type="button" data-jump="16">→ ⑯ 速记</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">8</span><span class="t">方式1 初值：6MHz→FE0CH</span></summary>
+        <div class="body"><code>X=65536−N</code>。SSOT 锁：6MHz、1ms → <b>FE0CH</b>；12MHz、1ms → <b>FC18H</b>。勿混用。
+        <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值计算</button></div></div></details>
+      <details class="rv-card"><summary><span class="n">9</span><span class="t">方式1 溢出须重装</span></summary>
+        <div class="body">装一次≠永远 1ms。溢出后从 0000H 接着数；ISR 里重装 TH/TL。
+        <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button><button type="button" data-jump="17">→ ⑰ 测试</button></div></div></details>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="h2">易错难点（9 · 含对比条 / 短交互）</div>
+    <div class="rv-grid" id="rvHard">
+      <details class="rv-card"><summary><span class="n">1</span><span class="t">IE 拼字节：先总闸再分闸</span></summary>
+        <div class="body">典型错：背 8AH 不会按需求合闸，或忘 EA。<div class="tip">先合总闸，再合分闸，末用位写 0。</div>
+        <div class="jump"><button type="button" data-jump="5">→ ⑤ IE</button></div></div></details>
+
+      <details class="rv-card" open><summary><span class="n">2</span><span class="t">硬件只保 PC（对比）</span></summary>
+        <div class="body">
+          <div class="rv-cmp">
+            <div class="col bad"><h4>✗ 错觉</h4>以为 A、PSW、PC 全都自动保护</div>
+            <div class="col good"><h4>✓ 事实</h4>硬件只保 <b>PC</b>；A/PSW 自己 <code>PUSH</code>；结尾 <code>RETI</code></div>
+          </div>
+          <div class="jump"><button type="button" data-jump="8">→ ⑧ 响应过程</button></div>
+        </div></details>
+
+      <details class="rv-card" open><summary><span class="n">3</span><span class="t">方式1 溢出须重装（对比）</span></summary>
+        <div class="body">
+          <div class="rv-cmp">
+            <div class="col bad"><h4>✗ 错觉</h4>主程序装一次，永远 1ms</div>
+            <div class="col good"><h4>✓ 事实</h4>溢出从 <code>0000H</code> 接着数；ISR 内重装 TH/TL</div>
+          </div>
+          <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button></div>
+        </div></details>
+
+      <details class="rv-card"><summary><span class="n">4</span><span class="t">晶振与初值：FE0CH ≠ FC18H</span></summary>
+        <div class="body">
+          <div class="rv-cmp">
+            <div class="col good"><h4>6MHz · 1ms</h4>Tcy=2μs · N=500 · <b>FE0CH</b></div>
+            <div class="col good"><h4>12MHz · 1ms</h4>Tcy=1μs · N=1000 · <b>FC18H</b></div>
+          </div>
+          <div class="tip">口改晶振却照抄另一初值 = 必错。例题锁 SSOT。</div>
+          <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button></div>
+        </div></details>
+
+      <details class="rv-card"><summary><span class="n">5</span><span class="t">入口 8 字节放 LJMP</span></summary>
+        <div class="body">典型错：服务程序直接堆在 0003H。<div class="tip">向量处只跳，服务放后面。</div>
+        <div class="jump"><button type="button" data-jump="12">→ ⑫ 例5-3</button></div></div></details>
+
+      <details class="rv-card"><summary><span class="n">6</span><span class="t">RET 写成 RETI</span></summary>
+        <div class="body">RET 弹 PC 但不清优先级触发器；中断必须 <b>RETI</b>。
+        <div class="jump"><button type="button" data-jump="6">→ ⑥ IP/嵌套</button><button type="button" data-jump="8">→ ⑧</button></div></div></details>
+
+      <details class="rv-card"><summary><span class="n">7</span><span class="t">字母开头十六进制加 0</span></summary>
+        <div class="body">写 <code>#FEH</code> 可能被当标号；应写 <code>#0FEH</code>。<div class="tip">字母开头的十六进制常数前加 0。</div>
+        <div class="jump"><button type="button" data-jump="14">→ ⑭ 装值</button></div></div></details>
+
+      <details class="rv-card" open><summary><span class="n">8</span><span class="t">TMOD 禁位寻址（对比）</span></summary>
+        <div class="body">
+          <div class="rv-cmp">
+            <div class="col bad"><h4>✗ 禁</h4><code>SETB TMOD.0</code><br>TMOD 不能位寻址</div>
+            <div class="col good"><h4>✓ 对</h4><code>MOV TMOD,#01H</code><br>整字节写方式字</div>
+          </div>
+          <div class="jump"><button type="button" data-jump="16">→ ⑯ 速记 TMOD</button></div>
+        </div></details>
+
+      <details class="rv-card" open><summary><span class="n">9</span><span class="t">下沿 vs 低电平（短交互）</span></summary>
+        <div class="body">
+          <div class="rv-toggle" id="rvEdgeToggle">
+            <button type="button" data-mode="edge" class="on">IT=1 下沿</button>
+            <button type="button" data-mode="level">IT=0 低电平</button>
+          </div>
+          <div class="rv-panel on" id="rvEdgePanel" data-show="edge"><b>下沿：</b>检测 1→0 后锁存 IE0；CPU 应答时 <b>硬件清零</b>。按住不放也不再进（本次边沿已清）。选型：点一下只加 1 → <code>SETB IT0</code>。</div>
+          <div class="rv-panel" id="rvLevelPanel" data-show="level"><b>低电平：</b>请求跟随引脚低；<b>不自动清</b>。若 RETI 时仍低 → <b>再进 ISR</b>。须在服务结束前撤低。选型：持续故障要一直伺候。</div>
+          <div class="jump"><button type="button" data-jump="4">→ ④ TCON 机理</button></div>
+        </div></details>
+    </div>
+  </div>
+
+  <div class="card" id="rvQuadCard">
+    <div class="h2">程序四块 · 逐步高亮（对齐课件编程骨架）</div>
+    <div class="note">初始化 → 向量入口 LJMP → 服务程序（PUSH / 处理 / RETI）→ 主循环。点「下一步」或点某一格。</div>
+    <div class="rv-quad" id="rvQuad">
+      <div class="rv-q" data-step="0"><span class="qn">①</span><span class="qt">主程序初始化</span><span class="qd">TMOD / IE / IP / IT<br>开 TR、EA…</span></div>
+      <div class="rv-q" data-step="1"><span class="qn">②</span><span class="qt">向量入口 LJMP</span><span class="qd">ORG 0003H 等<br>只跳，不堆服务</span></div>
+      <div class="rv-q" data-step="2"><span class="qn">③</span><span class="qt">服务程序 ISR</span><span class="qd">PUSH 现场 → 处理<br>→ POP → RETI</span></div>
+      <div class="rv-q" data-step="3"><span class="qn">④</span><span class="qt">主循环</span><span class="qd">SJMP $ 或业务<br>等被叫、被溢</span></div>
+    </div>
+    <div class="rv-btns">
+      <button class="btn amb" type="button" id="rvQuadNext">▶ 下一步</button>
+      <button class="btn" type="button" id="rvQuadAuto">自动播放</button>
+      <button class="btn" type="button" id="rvQuadReset">复位</button>
+      <button class="btn" type="button" data-jump="12">→ ⑫ 例5-3 看骨架</button>
+    </div>
+    <div class="rv-cap" id="rvQuadCap">点「下一步」：先看主程序如何开闸与装方式。</div>
+  </div>
+
+  <div class="rv-foot">
+    总复习链：
+    <a href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">开场硬测</a> ·
+    <a href="#rev-kd" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-kd');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">KD 考点</a> ·
+    <a href="#rev-sym" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sym');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">A 对照</a> ·
+    <a href="#rev-why" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-why');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">B 所以然</a> ·
+    <a href="#rev-sz" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-sz');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">C 精巧思政</a> ·
+    <a href="#p16" onclick="show(16);return false">⑯ 速记口诀</a> ·
+    <a href="#p17" onclick="show(17);return false">⑰ 课末测试（含所以然题）</a> ·
+    <a href="#p17" style="font-weight:700">课堂出题台（四拍投影）→</a> ·
+    <a href="u5-knowledge.html">知识导览</a> ·
+    <a href="u5-overview.html">总览左侧 ⑱</a>
+  </div>
+</section>
 
 <div class="foot">← → 键切换页签 · 依据：课件《80C51的中断系统及定时计数器》第 1–24 页，韩兴国《微控制器原理及应用技术》第 5 章 P92–99<br>
 配套短片：<a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">查询对比与响应过程</a> ·
@@ -2405,27 +3578,33 @@ function bin8(n){var s=n.toString(2);while(s.length<8)s='0'+s;return s.slice(0,4
 
 /* ---------- 页签 ---------- */
 var cur=1;
-function show(n){cur=n;$$('.tab').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.p)===String(n));});$$('.pane').forEach(function(p){p.classList.toggle('on',p.id==='p'+n);});
+function show(n){cur=n;$$('.tab').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.p)===String(n));});$$('.pane').forEach(function(p){p.classList.toggle('on',p.id==='p'+n);});try{window.show=show}catch(e){}
   var hashWant=(n===10)?'#p10':'#p'+n;
-  try{if(location.hash!==hashWant && location.hash!=='#drill' && !/^#(struct6|struct|lcall-hw|lcall|level-edge|it-mode|ex53|例5-3|ex51|例5-1|tload|装值|exg|例题|mem|速记|快速记忆|quiz|测试|media2|lab4clips)$/.test(location.hash) && !(n===10 && /^#act[A-D]$/.test(location.hash)))history.replaceState(null,'',hashWant)}catch(e){}
-  setTimeout(function(){
-    var pane=document.getElementById('p'+n);
-    if(!pane) return;
-    pane.querySelectorAll('video').forEach(function(v){ if(v.readyState===0){ try{ v.load(); }catch(e){} } });
-  },0);
+  try{if(location.hash!==hashWant && location.hash!=='#drill' && !/^#(struct6|struct|lcall-hw|lcall|level-edge|it-mode|ex53|例5-3|ex51|例5-1|tload|装值|hex-split|rev-hex|media2|lab4clips|exg|例题|mem|速记|快速记忆|quiz|测试|review|全复习|rev-sym|rev-why|rev-sz|rev-kd|rev-warm|gate-win|p-gate|gate|ex-58|ex53-full|p-524|p20)$/.test(location.hash) && !(n===10 && /^#act[A-D]$/.test(location.hash)))history.replaceState(null,'',hashWant)}catch(e){}
 }
 $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
 (function(){
   var h=location.hash||'';
-  var m=h.match(/^#p(1[0-7]|[1-9])$/); if(m){show(+m[1]);return}
+  var m=h.match(/^#p(20|1[0-9]|[1-9])$/); if(m){show(+m[1]);return}
+  if(h==='#gate-win' || h==='#p-gate' || h==='#gate' || h==='#p19'){show(19);return}
+  if(h==='#ex53-full' || h==='#p-524' || h==='#p20'){show(20);return}
+  if(h==='#ex-58'){show(15);setTimeout(function(){var e=document.getElementById('ex-58');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},80);return}
   if(h==='#ex53' || h==='#例5-3'){show(12);return}
   if(h==='#ex51' || h==='#例5-1'){show(13);return}
   if(h==='#tload' || h==='#装值'){show(14);return}
+  if(h==='#hex-split' || h==='#rev-hex'){show(14);setTimeout(function(){var e=document.getElementById(h.slice(1)==='rev-hex'?'rev-hex':'hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},80);return}
+  if(h==='#media2'){show(2);setTimeout(function(){var e=document.getElementById('media2');if(e)e.scrollIntoView({block:'start'});},80);return}
+  if(h==='#lab4clips'){show(9);setTimeout(function(){var e=document.getElementById('lab4clips');if(e)e.scrollIntoView({block:'start'});},80);return}
   if(h==='#exg' || h==='#例题' || h==='#p15'){show(15);return}
   if(h==='#mem' || h==='#速记' || h==='#快速记忆' || h==='#p16'){show(16);return}
   if(h==='#quiz' || h==='#测试' || h==='#p17'){show(17);return}
-  if(h==='#media2'){show(2);setTimeout(function(){var e=document.getElementById('media2');if(e)e.scrollIntoView({block:'start'});},80);return}
-  if(h==='#lab4clips'){show(9);setTimeout(function(){var e=document.getElementById('lab4clips');if(e)e.scrollIntoView({block:'start'});},80);return}
+  if(h==='#review' || h==='#全复习' || h==='#p18' || h==='#rev-sym' || h==='#rev-why' || h==='#rev-sz' || h==='#rev-kd' || h==='#rev-warm'){
+    show(18);
+    if(h==='#rev-sym'||h==='#rev-why'||h==='#rev-sz'||h==='#rev-kd'||h==='#rev-warm'){
+      setTimeout(function(){var e=document.getElementById(h.slice(1)); if(e) e.scrollIntoView({behavior:'smooth',block:'start'});},80);
+    }
+    return
+  }
   if(h==='#struct6' || h==='#struct'){show(1);setTimeout(function(){var e=document.getElementById('struct6');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
   if(h==='#lcall-hw' || h==='#lcall'){show(1);setTimeout(function(){var e=document.getElementById('lcall-hw');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
   if(h==='#level-edge' || h==='#it-mode'){show(1);setTimeout(function(){var e=document.getElementById('level-edge');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},100);return}
@@ -2439,8 +3618,8 @@ $$('.tab').forEach(function(t){t.onclick=function(){show(+t.dataset.p)}});
 })();
 document.addEventListener('keydown',function(e){
   var tg=e.target;if(tg.tagName==='SELECT'||tg.tagName==='TEXTAREA'||(tg.tagName==='INPUT'&&tg.type!=='checkbox'))return;
-  if(e.key==='ArrowRight'){show(cur%17+1);e.preventDefault()}
-  else if(e.key==='ArrowLeft'){show((cur+15)%17+1);e.preventDefault()}
+  if(e.key==='ArrowRight'){show(cur%20+1);e.preventDefault()}
+  else if(e.key==='ArrowLeft'){show((cur+18)%20+1);e.preventDefault()}
   else if(e.key===' '&&cur===8){e.preventDefault();stepGo(1)}
   else if(e.key===' '&&cur===6){e.preventDefault();nzStepGo(1)}
 });
@@ -2720,8 +3899,8 @@ var IEB=['EA','—','—','ES','ET1','EX1','ET0','EX0'];
 var IPB=['—','—','—','PS','PT1','PX1','PT0','PX0'];
 
 /* ---------- ① ---------- */
-var tocT=['① 接上第4章：LCALL','② 查询与中断','③ 5 个中断源和标志','④ TCON：触发与清零','⑤ IE：总开关和分开关','⑥ IP：优先级与嵌套','⑦ 响应条件与封锁','⑧ 响应过程单步','⑨ 按键计数总览','练 学生互动 A–D','⑪ 术语中英拼写','⑫ 例5-3 LED+INT0','⑬ 例5-1 单外中断采数','⑭ 装值计算（定时器）','⑮ 例题全览','⑯ 速记寄存器','⑰ 课末测试'];
-var tocS=['中断响应就是硬件执行了一次 LCALL','CPU 去看 / 外设来叫','外0、定0、外1、定1、串口','IT0、IE0、TI/RI 谁来清','EA + 5 个分开关','先比级别，再比自然顺序','三个条件，三种封锁','PC、SP、堆栈一步步看','一张图串起整节课','门铃对决 / 谁替你 LCALL / 拼字节 / 选哪种','中文 · 英文全称 · 缩写','八灯移位 + 模拟 INT0 服务','课件30–31页 / P99 · INT0 采数入外 RAM','方式1/0/2 初值公式与练习','课件例题卡片（含重号说明）','TCON→IE→IP 记忆链与位图','即时对错 + 装值计算器'];
+var tocT=['① 接上第4章：LCALL','② 查询与中断','③ 5 个中断源和标志','④ TCON：触发与清零','⑤ IE：总开关和分开关','⑥ IP：优先级与嵌套','⑦ 响应条件与封锁','⑧ 响应过程单步','⑨ 按键计数总览','练 学生互动 A–D','⑪ 术语中英拼写','⑫ 例5-3 LED+INT0','⑬ 例5-1 单外中断采数','⑭ 装值计算（定时器）','⑮ 例题全览','⑯ 速记寄存器','⑰ 课末测试','⑱ 全复习','⑲ GATE 计时窗口','⑳ 例5-3整页源码'];
+var tocS=['中断响应就是硬件执行了一次 LCALL','CPU 去看 / 外设来叫','外0、定0、外1、定1、串口','IT0、IE0、TI/RI 谁来清','EA + 5 个分开关','先比级别，再比自然顺序','三个条件，三种封锁','PC、SP、堆栈一步步看','一张图串起整节课','门铃对决 / 谁替你 LCALL / 拼字节 / 选哪种','中文 · 英文全称 · 缩写','八灯移位 + 模拟 INT0 服务','课件30–31页 / P99 · INT0 采数入外 RAM','方式1/0/2 初值公式与练习','课件例题卡片（含重号说明）','TCON→IE→IP 记忆链与位图','即时对错 + 装值计算器','必会重点 + 易错难点总复习','GATE 门控：计时窗口开合','PPT 25+27–29 整页源码墙'];
 $('#toc').innerHTML=tocT.map(function(t,i){return '<button data-g="'+(i+1)+'"><b>'+t+'</b>'+tocS[i]+'</button>'}).join('');
 $$('#toc button').forEach(function(b){b.onclick=function(){show(+b.dataset.g)}});
 var LC=['主程序执行 LCALL','PC 压栈（断点）','转到子程序','执行子程序','RET：弹回 PC','回到主程序'];
@@ -3508,15 +4687,30 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
       show(12);
     }else if(h==='#ex51'||h==='#例5-1'||h==='#p13'){
       show(13);
+    }else if(h==='#hex-split'||h==='#rev-hex'){
+      show(14); setTimeout(function(){ var e=document.getElementById(h==='#rev-hex'?'rev-hex':'hex-split'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
+    }else if(h==='#media2'){
+      show(2); setTimeout(function(){ var e=document.getElementById('media2'); if(e) e.scrollIntoView({block:'start'}); },60);
+    }else if(h==='#lab4clips'){
+      show(9); setTimeout(function(){ var e=document.getElementById('lab4clips'); if(e) e.scrollIntoView({block:'start'}); },60);
     }else if(h==='#tload'||h==='#装值'||h==='#p14'){
       show(14);
+    }else if(h==='#gate-win'||h==='#p-gate'||h==='#gate'||h==='#p19'){
+      show(19);
+    }else if(h==='#ex53-full'||h==='#p-524'||h==='#p20'){
+      show(20);
+    }else if(h==='#ex-58'){
+      show(15); setTimeout(function(){ var e=document.getElementById('ex-58'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
     }else if(h==='#exg'||h==='#例题'||h==='#p15'){
       show(15);
     }else if(h==='#mem'||h==='#速记'||h==='#快速记忆'||h==='#p16'){
       show(16);
     }else if(h==='#quiz'||h==='#测试'||h==='#p17'){
       show(17);
-    }else if(/^#p(1[0-7]|[1-9])$/.test(h)){
+    }else if(h==='#review'||h==='#全复习'||h==='#p18'||h==='#rev-sym'||h==='#rev-why'||h==='#rev-sz'||h==='#rev-kd'||h==='#rev-warm'){
+      show(18);
+      if(h==='#rev-sym'||h==='#rev-why'||h==='#rev-sz'||h==='#rev-kd'||h==='#rev-warm') setTimeout(function(){ var e=document.getElementById(h.slice(1)); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
+    }else if(/^#p(20|1[0-9]|[1-9])$/.test(h)){
       show(+h.slice(2));
     }else if(h==='#lcall-hw'||h==='#lcall'){
       show(1); setTimeout(function(){ var e=document.getElementById('lcall-hw'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
@@ -3524,10 +4718,6 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
       show(1); setTimeout(function(){ var e=document.getElementById('struct6'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
     }else if(h==='#level-edge'||h==='#it-mode'){
       show(1); setTimeout(function(){ var e=document.getElementById('level-edge'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-    }else if(h==='#media2'){
-      show(2); setTimeout(function(){ var e=document.getElementById('media2'); if(e) e.scrollIntoView({block:'start'}); },80);
-    }else if(h==='#lab4clips'){
-      show(9); setTimeout(function(){ var e=document.getElementById('lab4clips'); if(e) e.scrollIntoView({block:'start'}); },80);
     }
     syncDrillNav();
   });
@@ -3868,6 +5058,36 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
   resetAll();
 })();
 
+})();
+</script>
+<script src="lib/kp-theme-toggle.js">
+/* ---------- ⑭ 子知识点 · ÷256 手算演示 ---------- */
+(function(){
+  var xin=$('#hsX'), btn=$('#hsCalc'), outDec=$('#hsDec'), outTH=$('#hsTH'), outTL=$('#hsTL'), outCombo=$('#hsCombo'), hint=$('#hsHint');
+  function hex2(n){ n=n&0xFF; return (n<16?'0':'')+n.toString(16).toUpperCase()+'H'; }
+  function hex4(n){ n=n&0xFFFF; var h=n.toString(16).toUpperCase(); while(h.length<4)h='0'+h; return h+'H'; }
+  function run(){
+    if(!xin) return;
+    var x=parseInt(xin.value,10);
+    if(isNaN(x) || x<0 || x>65535){
+      if(hint) hint.textContent='请输入 0～65535 的十进制初值（方式1 16 位）。';
+      return;
+    }
+    var th=(x/256)|0, tl=x%256;
+    if(outDec) outDec.textContent=String(x);
+    var line=$('#hsOut');
+    if(line){
+      line.innerHTML='X = <span id="hsDec">'+x+'</span> → TH=<span id="hsTH">'+hex2(th)+'</span>（'+th+'）　TL=<span class="tlc" id="hsTL">'+hex2(tl)+'</span>（'+tl+'）　合写 <span class="combo" id="hsCombo">'+hex4(x)+'</span>';
+    }
+    if(hint) hint.textContent='验算：'+th+'×256 + '+tl+' = '+(th*256+tl)+'。与位切高8/低8相同'+(x===65535?'；FFFFH 满圈前一刻。':(x===0?'。':'。'));
+  }
+  if(btn) btn.onclick=run;
+  if(xin){ xin.addEventListener('keydown',function(e){ if(e.key==='Enter'){e.preventDefault();run();} }); }
+  var ex=$('#hsEx'), ff=$('#hsFF');
+  if(ex) ex.onclick=function(){ if(xin) xin.value=64536; run(); };
+  if(ff) ff.onclick=function(){ if(xin) xin.value=65535; run(); };
+})();
+
 /* ---------- ⑭ 装值计算：小计算器 + 看答案 ---------- */
 (function(){
   var calc=$('#tlCalc'), outDec=$('#tlDec'), outHex=$('#tlHex'), outTH=$('#tlTH'), outTL=$('#tlTL'), hint=$('#tlHint');
@@ -3904,7 +5124,7 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
 
 
 
-/* ---------- ⑮⑯⑰ 例题导航 / 速记跳转 / 课末测试 ---------- */
+/* ---------- ⑮⑯⑰⑱ 例题导航 / 速记跳转 / 课末测试 / 全复习 ---------- */
 (function(){
   $$('.exg-nav button').forEach(function(b){
     b.onclick=function(){
@@ -3970,7 +5190,15 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
     7:{ok:'a', tip:'INT0=0003H，串口=0023H。'},
     8:{ok:['FC18H','FC18'], tip:'12MHz→Tcy=1μs；1ms→N=1000；65536−1000=64536=FC18H。'},
     9:{ok:'d', tip:'中断返回用 RETI（清优先级状态），不能只用 RET。'},
-    10:{ok:'b', tip:'先开总闸 EA，再开分闸。'}
+    10:{ok:'b', tip:'先开总闸 EA，再开分闸。'},
+    11:{ok:'b', tip:'硬件只保 PC；A/PSW 自己 PUSH；结尾必须 RETI。'},
+    12:{ok:'c', tip:'方式1 溢出后从 0000H 接着数，须在 ISR 重装初值。'},
+    13:{ok:'d', tip:'TMOD 不能位寻址；禁 SETB TMOD.0，用 MOV 整字节写。'},
+    14:{ok:'a', tip:'下沿硬件清 IE0；低电平不自动清，按住会再进。'},
+    15:{ok:'c', tip:'入口仅约 8 字节，放 LJMP/AJMP；服务程序在后。程序四块之一。'},
+    16:{ok:'b', tip:'SSOT：6MHz→FE0CH；12MHz→FC18H。晶振不同初值不同，勿混用。'},
+    17:{ok:'b', tip:'RETI 清优先级锁；只用 RET 嵌套/再响应会卡住（见⑱所以然）。'},
+    18:{ok:'c', tip:'像 LCALL 只保 PC；现场自 PUSH——设计取舍：省硅片与时间（见⑱所以然）。'}
   };
   function normHex(s){
     s=(s||'').trim().toUpperCase().replace(/\s+/g,'');
@@ -4027,10 +5255,17 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
         IE:'IE 总闸/分闸与拼字节还要练',
         IP:'IP 软件优先级与同级自然序还需多记',
         向量:'向量地址还需多记（0003/000B/0013/001B/0023）',
-        装值:'装值公式（65536−N 等）再算几遍'};
+        装值:'装值公式（65536−N 等）再算几遍',
+        只保PC:'硬件只保 PC；现场自己压；结尾 RETI（见⑱全复习）',
+        重装:'方式1 溢出须重装，装一次≠永远 1ms',
+        TMOD:'TMOD 整字节写，禁 SETB TMOD.0',
+        触发清零:'下沿硬件清 / 电平不自动清、按住再进（见④与⑱）',
+        程序四块:'向量只跳 LJMP；服务在后；对齐程序四块',
+        晶振初值:'6MHz↔FE0CH，12MHz↔FC18H，勿混用',
+        所以然:'多问一句「为什么」：RETI 清锁、只保 PC 是设计取舍（见⑱ B）'};
       hints.push('· '+(map[t]||('「'+t+'」相关题目易错')));
     });
-    if(weak) weak.innerHTML=hints.length?('<b>薄弱点：</b><br>'+hints.join('<br>')):'全对。保持：EA 先开、RETI 返回、向量与装值公式。';
+    if(weak) weak.innerHTML=hints.length?('<b>薄弱点：</b><br>'+hints.join('<br>')):'全对。保持：只保PC+RETI、溢出重装、TMOD整字节、FE0CH/FC18H 勿混。';
   }
   var sub=$('#qzSubmit'); if(sub) sub.onclick=gradeAll;
   var rst=$('#qzReset');
@@ -4046,8 +5281,254 @@ draw3();draw4();draw5();draw6();draw7();drawSt();draw9();hl(14);flow9(-1);
 })();
 
 
+
+/* ---------- ⑱ 开场硬测 ---------- */
+(function(){
+  function reveal(id){ var c=document.getElementById(id); if(c) c.classList.add('revealed'); }
+  function hideAll(){ ['warm1','warm2'].forEach(function(id){ var c=document.getElementById(id); if(c) c.classList.remove('revealed'); }); }
+  var b1=document.getElementById('warmReveal1'); if(b1) b1.onclick=function(){ reveal('warm1'); };
+  var b2=document.getElementById('warmReveal2'); if(b2) b2.onclick=function(){ reveal('warm2'); };
+  var ba=document.getElementById('warmRevealAll'); if(ba) ba.onclick=function(){ reveal('warm1'); reveal('warm2'); };
+  var bh=document.getElementById('warmHide'); if(bh) bh.onclick=hideAll;
 })();
+
+/* ---------- ⑱ 全复习交互 ---------- */
+(function(){
+  if(!document.getElementById('p18')) return;
+  $$('#p18 [data-jump]').forEach(function(b){
+    b.addEventListener('click', function(){ var j=b.getAttribute('data-jump'); if(j) show(+j); });
+  });
+  $$('#p18 [data-rv="quad"]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var c=document.getElementById('rvQuadCard'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+  // edge/level toggle
+  var tog=$('#rvEdgeToggle');
+  if(tog){
+    $$('#rvEdgeToggle button').forEach(function(btn){
+      btn.onclick=function(){
+        $$('#rvEdgeToggle button').forEach(function(x){x.classList.toggle('on',x===btn)});
+        var mode=btn.getAttribute('data-mode');
+        $$('#p18 .rv-panel').forEach(function(p){p.classList.toggle('on', p.getAttribute('data-show')===mode)});
+      };
+    });
+  }
+  // program four blocks
+  var caps=[
+    '① 主程序初始化：写 TMOD 方式字、IE/IP、外中断 IT，开 TR/EA。',
+    '② 向量入口：ORG 0003H（等）处只放 LJMP/AJMP，入口仅约 8 字节。',
+    '③ 服务程序：PUSH 现场 → 办事（可重装初值）→ POP → 必须 RETI。',
+    '④ 主循环：SJMP $ 或业务循环；平时干活，等被叫、被溢。'
+  ];
+  var step=-1, timer=null;
+  function paint(i){
+    step=i;
+    $$('#rvQuad .rv-q').forEach(function(q){
+      var s=+q.getAttribute('data-step');
+      q.classList.toggle('on', s===step);
+    });
+    var cap=$('#rvQuadCap'); if(cap) cap.textContent=step<0?'点「下一步」：先看主程序如何开闸与装方式。':caps[step];
+  }
+  $$('#rvQuad .rv-q').forEach(function(q){
+    q.style.cursor='pointer';
+    q.onclick=function(){ paint(+q.getAttribute('data-step')); };
+  });
+  var bn=$('#rvQuadNext'); if(bn) bn.onclick=function(){ paint(step<0?0:((step+1)%4)); };
+  var br=$('#rvQuadReset'); if(br) br.onclick=function(){ if(timer){clearInterval(timer);timer=null;} paint(-1); };
+  var ba=$('#rvQuadAuto');
+  if(ba) ba.onclick=function(){
+    if(timer){clearInterval(timer);timer=null;ba.textContent='自动播放';return;}
+    paint(0); ba.textContent='停止';
+    timer=setInterval(function(){ if(step>=3){clearInterval(timer);timer=null;ba.textContent='自动播放';return;} paint(step+1); }, 1400);
+  };
+  paint(-1);
+})();
+
+
+/* ---------- ⑱ A/B/C 对照台 · 所以然 · 精巧思政 ---------- */
+(function(){
+  if(!document.getElementById('rev-sym')) return;
+  // A: row expand
+  function bindRows(){
+    $$('#rvSymBody .rv-sym-row').forEach(function(row){
+      row.onclick=function(){ row.classList.toggle('open'); };
+    });
+  }
+  bindRows();
+  var fil=$('#rvSymFilter');
+  if(fil){
+    $$('#rvSymFilter button[data-f]').forEach(function(btn){
+      btn.onclick=function(){
+        $$('#rvSymFilter button[data-f]').forEach(function(x){x.classList.toggle('on',x===btn)});
+        var f=btn.getAttribute('data-f');
+        $$('#rvSymBody tr[data-g]').forEach(function(tr){
+          tr.style.display=(f==='all'||tr.getAttribute('data-g')===f)?'':'none';
+        });
+      };
+    });
+  }
+  var ex=$('#rvSymExpand'); if(ex) ex.onclick=function(){ $$('#rvSymBody .rv-sym-row').forEach(function(r){r.classList.add('open')}); };
+  var cl=$('#rvSymCollapse'); if(cl) cl.onclick=function(){ $$('#rvSymBody .rv-sym-row').forEach(function(r){r.classList.remove('open')}); };
+
+  // C: three-step
+  var caps=[
+    '① 资源清单：IE/IP/TCON/TMOD 若干位 + 五条向量——芯片给你的「少量组合」。',
+    '② 能办成的事：主程序继续干活，外设来叫，定时自己数——有限资源干大事。',
+    '③ 工程师要守的边界：开闸、清零、重装、RETI；少一条保护或写错入口，现场回不来。'
+  ];
+  var step=-1, timer=null;
+  function paint(i){
+    step=i;
+    $$('#rvSzSteps .rv-sz-step').forEach(function(q){
+      var s=+q.getAttribute('data-step');
+      q.classList.toggle('on', s===step);
+    });
+    var cap=$('#rvSzCap'); if(cap) cap.textContent=step<0?'点「下一步」：先看芯片给你哪些「少量组合」。':caps[step];
+  }
+  $$('#rvSzSteps .rv-sz-step').forEach(function(q){
+    q.style.cursor='pointer';
+    q.onclick=function(){ paint(+q.getAttribute('data-step')); };
+  });
+  var bn=$('#rvSzNext'); if(bn) bn.onclick=function(){ paint(step<0?0:((step+1)%3)); };
+  var br=$('#rvSzReset'); if(br) br.onclick=function(){ if(timer){clearInterval(timer);timer=null;} paint(-1); };
+  var ba=$('#rvSzAuto');
+  if(ba) ba.onclick=function(){
+    if(timer){clearInterval(timer);timer=null;ba.textContent='自动';return;}
+    paint(0); ba.textContent='停止';
+    timer=setInterval(function(){ if(step>=2){clearInterval(timer);timer=null;ba.textContent='自动';return;} paint(step+1); }, 1500);
+  };
+  paint(-1);
+})();
+
+
+/* ---------- ⑲ GATE 计时窗口 ---------- */
+(function(){
+  if(!document.getElementById('gate-win')) return;
+  var gate=0, tr=0, intx=0, th=0, tl=0;
+  var tickTimer=null, demoTimer=null, demoStep=-1;
+  var $id=function(id){return document.getElementById(id)};
+
+  function hex2(n){ n=n&0xFF; return (n<16?'0':'')+n.toString(16).toUpperCase(); }
+  function canCount(){
+    if(!tr) return false;
+    if(gate===0) return true;
+    return !!intx;
+  }
+  function paint(){
+    var g0=$id('gwGate0'), g1=$id('gwGate1');
+    if(g0) g0.setAttribute('aria-pressed', gate===0?'true':'false');
+    if(g1) g1.setAttribute('aria-pressed', gate===1?'true':'false');
+    if(g0) g0.classList.toggle('on', gate===0);
+    if(g1) g1.classList.toggle('on', gate===1);
+    var trb=$id('gwTR'); if(trb){ trb.setAttribute('aria-pressed', tr?'true':'false'); trb.classList.toggle('on',!!tr); trb.textContent='TR0 = '+(tr?1:0); }
+    var ib=$id('gwINT'); if(ib){ ib.setAttribute('aria-pressed', intx?'true':'false'); ib.classList.toggle('on',!!intx); ib.textContent='INT0 = '+(intx?'高':'低'); }
+    var tTR=$id('gwTermTR'), tIN=$id('gwTermINT'), op=$id('gwOp'), out=$id('gwOut');
+    if(tTR){ tTR.textContent='TR0='+(tr?1:0); tTR.className='term '+(tr?'on':'off'); }
+    if(gate===0){
+      if(tIN){ tIN.textContent='(GATE=0 不看 INT)'; tIN.className='term '+(tr?'on':'off'); }
+      if(op) op.textContent='→';
+    }else{
+      if(tIN){ tIN.textContent='INT0='+(intx?'高':'低'); tIN.className='term '+(intx?'on':'off'); }
+      if(op) op.textContent='∧';
+    }
+    var run=canCount();
+    if(out){
+      out.className='out '+(run?'yes':'no');
+      if(gate===0) out.textContent=run?'→ 加（GATE=0，仅看 TR）':'→ 不加（TR=0）';
+      else out.textContent=run?'→ 加（TR∧INT0 都真）':'→ 不加（窗口关或 TR=0）';
+    }
+    var form=$id('gwFormula');
+    if(form) form.innerHTML=gate===0
+      ? '当前 <b>GATE=0</b>：只要 <span class="mono">TR=1</span> 就加（不看 INT）'
+      : '当前 <b>GATE=1</b>：<span class="mono">TR=1</span> <b>且</b> <span class="mono">INT0</span> 为高才加';
+    $id('gwTHv').textContent=hex2(th);
+    $id('gwTLv').textContent=hex2(tl);
+    var runEl=$id('gwRunLamp'), runTxt=$id('gwRunTxt');
+    Array.prototype.forEach.call(document.querySelectorAll('#gwTH,#gwTL,#gwRunLamp'), function(el){
+      el.classList.toggle('run', run);
+      el.classList.toggle('stop', !run);
+    });
+    if(runTxt) runTxt.textContent=run?'走':'停';
+    // window visual: when GATE=0, whole axis "open" tint; when GATE=1 show high pulse
+    var win=$id('gwWinRect'), trace=$id('gwTrace');
+    if(gate===0){
+      if(win){ win.setAttribute('x','0'); win.setAttribute('width','400'); win.style.opacity=tr?'.35':'.08'; }
+      if(trace) trace.setAttribute('points','0,8 400,8');
+    }else{
+      if(win){ win.setAttribute('x','120'); win.setAttribute('width','160'); win.style.opacity=intx?'.55':'.18'; }
+      if(trace){
+        if(intx) trace.setAttribute('points','0,36 100,36 100,8 300,8 300,36 400,36');
+        else trace.setAttribute('points','0,36 400,36');
+      }
+    }
+    var head=$id('gwHead');
+    if(head){
+      if(gate===1 && intx) head.style.left='50%';
+      else if(gate===0 && tr) head.style.left='50%';
+      else head.style.left='12%';
+    }
+    var cap=$id('gwCap');
+    if(cap && demoStep<0){
+      if(run) cap.innerHTML='<b>正在加：</b>窗口开着（或 GATE=0），TH/TL 走动。';
+      else if(!tr) cap.innerHTML='TR=0：软件还没启动定时器——门栓没拉开。';
+      else cap.innerHTML='GATE=1 且 INT0 为低：窗口关着，即使 TR=1 也不加。';
+    }
+  }
+  function tick(){
+    if(!canCount()) return;
+    tl=(tl+1)&0xFF;
+    if(tl===0) th=(th+1)&0xFF;
+    paint();
+  }
+  function ensureTick(){
+    if(tickTimer) return;
+    tickTimer=setInterval(tick, 80);
+  }
+  function stopDemo(){
+    if(demoTimer){ clearTimeout(demoTimer); demoTimer=null; }
+    demoStep=-1;
+    var p=$id('gwPause'); if(p) p.disabled=true;
+  }
+  function resetAll(){
+    stopDemo();
+    th=0; tl=0; tr=0; intx=0; gate=0;
+    paint();
+    var cap=$id('gwCap');
+    if(cap) cap.textContent='已清零。建议：GATE→1，TR→1，再拨 INT0 高/低，看窗口开合。';
+  }
+  function runDemo(){
+    stopDemo();
+    th=0; tl=0; gate=1; tr=0; intx=0; paint();
+    var steps=[
+      {d:600, fn:function(){ tr=1; paint(); $id('gwCap').innerHTML='① 软件 <b>TR=1</b>（门栓拉开），外面还是低 → 窗口关，不加。'; }},
+      {d:1100, fn:function(){ intx=1; paint(); $id('gwCap').innerHTML='② 外面变高 → <b>窗口打开</b>，TR∧INT 为真，开始计。'; }},
+      {d:2200, fn:function(){ intx=0; paint(); $id('gwCap').innerHTML='③ 外面变低 → <b>窗口关停</b>；TH/TL 停在脉宽对应的计数值。'; }},
+      {d:900, fn:function(){ $id('gwCap').innerHTML='④ 读 TH/TL 即这段高电平走过的机器周期数（C/T=0）。对照例5-8。'; demoStep=-1; var p=$id('gwPause'); if(p) p.disabled=true; }}
+    ];
+    var i=0;
+    var p=$id('gwPause'); if(p) p.disabled=false;
+    function next(){
+      if(i>=steps.length){ demoStep=-1; return; }
+      demoStep=i;
+      var s=steps[i++];
+      s.fn();
+      demoTimer=setTimeout(next, s.d);
+    }
+    next();
+  }
+  $id('gwGate0').onclick=function(){ gate=0; paint(); };
+  $id('gwGate1').onclick=function(){ gate=1; paint(); };
+  $id('gwTR').onclick=function(){ tr=tr?0:1; paint(); };
+  $id('gwINT').onclick=function(){ intx=intx?0:1; paint(); };
+  $id('gwReset').onclick=resetAll;
+  $id('gwDemo').onclick=runDemo;
+  $id('gwPause').onclick=function(){ stopDemo(); $id('gwCap').textContent='演示已暂停，可继续拨开关。'; };
+  ensureTick();
+  paint();
+})();
+
+
 </script>
-<script src="lib/kp-theme-toggle.js"></script>
 </body>
 </html>
