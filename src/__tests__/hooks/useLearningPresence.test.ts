@@ -31,7 +31,10 @@ async function advance(ms: number) {
 // registered listener with the browser's event shape to exercise that boundary.
 function trustedInput(doc: Document = document) {
   const spy = doc.addEventListener as jest.Mock;
-  const listener = [...spy.mock.calls].reverse().find((call) => call[0] === 'pointerdown')?.[1] as EventListener;
+  // jsdom can fire an iframe load synchronously when it is appended, before
+  // a spy can be installed on its new document. The registered handler is shared.
+  const calls = [...spy.mock.calls, ...(document.addEventListener as jest.Mock).mock.calls];
+  const listener = [...calls].reverse().find((call) => call[0] === 'pointerdown')?.[1] as EventListener;
   expect(listener).toBeDefined();
   act(() => listener({ isTrusted: true, currentTarget: doc } as unknown as Event));
 }
@@ -293,6 +296,113 @@ describe('useLearningPresence', () => {
     expect(sent()[1].clientTime).toBe(initial.clientTime);
     expect(sent()[1].metadata.presenceBucket).toBe(initial.metadata.presenceBucket);
     expect(sent()[1].duration).toBeGreaterThanOrEqual(180);
+  });
+
+  it('keeps nested same-origin classroom interaction active beyond the idle cutoff', async () => {
+    const outer = document.createElement('iframe');
+    document.body.appendChild(outer);
+    const inner = outer.contentDocument!.createElement('iframe');
+    outer.contentDocument!.body.appendChild(inner);
+    const innerDoc = inner.contentDocument!;
+    jest.spyOn(innerDoc, 'addEventListener');
+    renderHook(() => useLearningPresence('section', target));
+    await advance(1500);
+    await activeFor(5 * 60_000, innerDoc);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    await advance(0);
+    expect(persistedTotal()).toBe(300);
+    outer.remove();
+  });
+
+  it.each(['hidden', 'display', 'visibility'])('ignores nested classroom input when an outer ancestor is %s', async (hiding) => {
+    const panel = document.createElement('div');
+    const outer = document.createElement('iframe');
+    panel.appendChild(outer);
+    document.body.appendChild(panel);
+    if (hiding === 'hidden') panel.hidden = true;
+    else if (hiding === 'display') panel.style.display = 'none';
+    else panel.style.visibility = 'hidden';
+    const inner = outer.contentDocument!.createElement('iframe');
+    outer.contentDocument!.body.appendChild(inner);
+    const innerDoc = inner.contentDocument!;
+    jest.spyOn(innerDoc, 'addEventListener');
+    renderHook(() => useLearningPresence('section', target));
+    await advance(1500);
+    await activeFor(5 * 60_000, innerDoc);
+    expect(persistedTotal()).toBeLessThanOrEqual(120);
+    panel.remove();
+  });
+
+  it('attaches a dynamically loaded nested classroom immediately and replaces navigated documents', async () => {
+    const outer = document.createElement('iframe');
+    document.body.appendChild(outer);
+    renderHook(() => useLearningPresence('section', target));
+    await advance(1500);
+    await advance(180_000); // become idle before the new document is attached
+    const before = persistedTotal();
+    const inner = outer.contentDocument!.createElement('iframe');
+    outer.contentDocument!.body.appendChild(inner);
+    const firstDoc = inner.contentDocument!;
+    jest.spyOn(firstDoc, 'addEventListener');
+    const removeFirst = jest.spyOn(firstDoc, 'removeEventListener');
+    // This load is delivered in the overview document, not the top app window.
+    act(() => inner.dispatchEvent(new Event('load')));
+    trustedInput(firstDoc); // no interval tick needed
+    await activeFor(150_000, firstDoc);
+    inner.src = 'about:blank#next-classroom';
+    const nextDoc = inner.contentDocument!;
+    expect(nextDoc).not.toBe(firstDoc);
+    jest.spyOn(nextDoc, 'addEventListener');
+    act(() => inner.dispatchEvent(new Event('load')));
+    expect(removeFirst).toHaveBeenCalledWith('pointerdown', expect.any(Function), true);
+    expect(removeFirst).toHaveBeenCalledWith('load', expect.any(Function), true);
+    trustedInput(nextDoc); // replacement attaches before the next 30-second scan
+    await activeFor(150_000, nextDoc);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    await advance(0);
+    expect(persistedTotal() - before).toBe(300);
+    outer.remove();
+  });
+
+  it('skips inaccessible nested frames without losing accessible sibling activity', async () => {
+    const outer = document.createElement('iframe');
+    document.body.appendChild(outer);
+    const parent = outer.contentDocument!;
+    const foreign = parent.createElement('iframe');
+    const local = parent.createElement('iframe');
+    parent.body.append(foreign, local);
+    Object.defineProperty(foreign, 'contentDocument', {
+      configurable: true,
+      get() { throw new DOMException('Blocked cross-origin frame', 'SecurityError'); },
+    });
+    const localDoc = local.contentDocument!;
+    jest.spyOn(localDoc, 'addEventListener');
+    renderHook(() => useLearningPresence('section', target));
+    await advance(1500);
+    await activeFor(150_000, localDoc);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    await advance(0);
+    expect(persistedTotal()).toBe(150);
+    outer.remove();
+  });
+
+  it('removes input and load listeners throughout the iframe tree when tracking stops', async () => {
+    const outer = document.createElement('iframe');
+    document.body.appendChild(outer);
+    const outerDoc = outer.contentDocument!;
+    const inner = outerDoc.createElement('iframe');
+    outerDoc.body.appendChild(inner);
+    const innerDoc = inner.contentDocument!;
+    const removers = [outerDoc, innerDoc].map((doc) => jest.spyOn(doc, 'removeEventListener'));
+    const hook = renderHook(() => useLearningPresence('section', target));
+    await advance(1500);
+    hook.unmount();
+    await advance(0);
+    for (const remove of removers) {
+      expect(remove).toHaveBeenCalledWith('pointerdown', expect.any(Function), true);
+      expect(remove).toHaveBeenCalledWith('load', expect.any(Function), true);
+    }
+    outer.remove();
   });
 
 });

@@ -229,31 +229,62 @@ async function flush(): Promise<void> {
   }
 }
 
+function inputDocumentVisible(input: Document): boolean {
+  // An inner classroom may be srcdoc inside an overview iframe. Its events do
+  // not bubble across documents, and an outer lesson pane can hide the whole
+  // subtree while every element inside the inner frame still looks visible.
+  let current = input;
+  const visited = new Set<Document>();
+  while (current !== document) {
+    if (visited.has(current)) return false;
+    visited.add(current);
+    try {
+      const frame = current.defaultView?.frameElement;
+      if (!frame) return false;
+      for (let element: Element | null = frame; element; element = element.parentElement) {
+        const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+        if (element.hasAttribute('hidden') || style?.display === 'none' || style?.visibility === 'hidden') return false;
+      }
+      current = frame.ownerDocument;
+    } catch { return false; } // A changed origin must never supply learning evidence.
+  }
+  return true;
+}
+
 function onInput(event: Event): void {
   if (!event.isTrusted || !foreground()) return;
-  const owner = (event.currentTarget as Document).defaultView?.frameElement;
-  // Lesson-note panes stay mounted when hidden; only the visible pane counts.
-  for (let element = owner; element; element = element.parentElement) {
-    if (element.hasAttribute('hidden') || getComputedStyle(element).display === 'none' || getComputedStyle(element).visibility === 'hidden') return;
-  }
+  const input = event.currentTarget as Document;
+  if (!inputDocuments.has(input) || !inputDocumentVisible(input)) return;
   const now = Date.now();
   sample(now); // settle the old lease before starting another; do not fill idle gaps
   activeUntil = now + IDLE_MS;
 }
 
+function onFrameLoad(event: Event): void {
+  if ((event.target as Element | null)?.tagName === 'IFRAME') attachInputs();
+}
+
 function attachInputs(): void {
   const documents = new Set<Document>([document]);
-  for (const frame of document.querySelectorAll('iframe')) {
-    try { if (frame.contentDocument) documents.add(frame.contentDocument); } catch { /* cross-origin frames are not learning evidence */ }
+  // Set iteration also visits newly discovered same-origin child documents.
+  // Cross-origin frames return null or throw; neither is traversed.
+  for (const parent of documents) {
+    for (const frame of parent.querySelectorAll('iframe')) {
+      try { if (frame.contentDocument) documents.add(frame.contentDocument); } catch { /* inaccessible frame */ }
+    }
   }
   for (const old of inputDocuments) {
     if (documents.has(old)) continue;
     for (const event of INPUT_EVENTS) old.removeEventListener(event, onInput, true);
+    old.removeEventListener('load', onFrameLoad, true);
     inputDocuments.delete(old);
   }
   for (const item of documents) {
     if (inputDocuments.has(item)) continue;
     for (const event of INPUT_EVENTS) item.addEventListener(event, onInput, { capture: true, passive: true });
+    // Listen in every document: an inner frame's load does not propagate to
+    // the app window. The interval remains a fallback for DOM-only changes.
+    item.addEventListener('load', onFrameLoad, true);
     inputDocuments.add(item);
   }
 }
@@ -324,18 +355,19 @@ function ensureRunning(): void {
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('pagehide', onPageHide);
   window.addEventListener('pageshow', onPageShow);
-  window.addEventListener('load', attachInputs, true);
 }
 
 function stop(): void {
   if (timer != null) clearInterval(timer);
   timer = null;
-  for (const item of inputDocuments) for (const event of INPUT_EVENTS) item.removeEventListener(event, onInput, true);
+  for (const item of inputDocuments) {
+    for (const event of INPUT_EVENTS) item.removeEventListener(event, onInput, true);
+    item.removeEventListener('load', onFrameLoad, true);
+  }
   inputDocuments.clear();
   document.removeEventListener('visibilitychange', onVisibility);
   window.removeEventListener('pagehide', onPageHide);
   window.removeEventListener('pageshow', onPageShow);
-  window.removeEventListener('load', attachInputs, true);
 }
 
 function maybeStop(): void {
