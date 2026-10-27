@@ -1,7 +1,7 @@
 import { POST } from '@/app/api/practice/match/route';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
 
 jest.mock('@/lib/auth', () => ({ verifyToken: jest.fn() }));
 jest.mock('@/lib/classroom', () => ({
@@ -21,8 +21,8 @@ jest.mock('@/lib/prisma', () => ({
 
 const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
 
-function solvedPlacements(): Record<string, string> {
-  return Object.fromEntries(INTERRUPT_SOURCE_FLAG_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+function solvedPlacements(board = INTERRUPT_SOURCE_FLAG_BOARD): Record<string, string> {
+  return Object.fromEntries(board.pairs.map((pair) => [pair.id, pair.id]));
 }
 
 function post(body: unknown, authorization = 'Bearer token'): Promise<Response> {
@@ -145,5 +145,74 @@ describe('POST /api/practice/match', () => {
   it('returns 404 for an unknown board', async () => {
     const response = await post({ boardId: 'not-a-board', placements: {} });
     expect(response.status).toBe(404);
+  });
+
+  it('awards first-clear points and the addressing medal without touching the interrupt medal', async () => {
+    (prisma.userAchievement.createManyAndReturn as jest.Mock).mockResolvedValue([
+      { achievementId: 'addressing_modes' },
+    ]);
+    const response = await post({
+      boardId: ADDRESSING_MODE_BOARD.id,
+      placements: solvedPlacements(ADDRESSING_MODE_BOARD),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      correct: true,
+      reason: 'first_clear',
+      pointsAwarded: 25,
+      medal: { id: 'addressing_modes', title: '寻址方式对上了', points: 10 },
+    });
+    expect(body.message).toBe('首次对上：+15 积分，解锁勋章「寻址方式对上了」+10。');
+    expect(prisma.learningEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        eventType: 'PRACTICE_CLEAR',
+        targetId: 'u3-addressing-modes',
+        chapterId: '3',
+        moduleId: 'u3-overview',
+      }),
+    }));
+    expect(prisma.userPointsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        type: 'PRACTICE_CLEAR',
+        points: 15,
+        description: '第3章练一练首次对上：指令 ↔ 寻址方式',
+      }),
+    }));
+    expect(prisma.userAchievement.createManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ achievementId: 'addressing_modes' })],
+    }));
+  });
+
+  it('does not write points when two addressing modes are swapped', async () => {
+    const response = await post({
+      boardId: ADDRESSING_MODE_BOARD.id,
+      placements: { ...solvedPlacements(ADDRESSING_MODE_BOARD), imm: 'dir', dir: 'imm' },
+    });
+    const body = await response.json();
+    expect(body.correct).toBe(false);
+    expect(body.pointsAwarded).toBe(0);
+    expect(body.medal).toBeNull();
+    expect(body.message).toContain('@Ri');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('cools down a second addressing clear and treats a duplicate first write as already recorded', async () => {
+    (prisma.learningEvent.count as jest.Mock).mockResolvedValue(1);
+    (prisma.learningEvent.findFirst as jest.Mock).mockResolvedValue({ createdAt: new Date() });
+    const cooled = await post({
+      boardId: ADDRESSING_MODE_BOARD.id,
+      placements: solvedPlacements(ADDRESSING_MODE_BOARD),
+    });
+    expect(await cooled.json()).toMatchObject({ reason: 'cooldown', pointsAwarded: 0, medal: null });
+    expect(prisma.learningEvent.create).not.toHaveBeenCalled();
+
+    (prisma.$transaction as jest.Mock).mockRejectedValue({ code: 'P2002' });
+    const duplicate = await post({
+      boardId: ADDRESSING_MODE_BOARD.id,
+      placements: solvedPlacements(ADDRESSING_MODE_BOARD),
+    });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toMatchObject({ reason: 'cooldown', pointsAwarded: 0 });
   });
 });

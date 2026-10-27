@@ -39,7 +39,7 @@ import {
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -192,6 +192,7 @@ export default function LessonNotesPage(): React.JSX.Element {
     if (!hit) return;
     const sectionFromHash = hash.startsWith('#') ? hash.slice(1) : '';
     if (/^[\w=%.~-]{1,64}$/.test(sectionFromHash)) setSectionId(sectionFromHash);
+    if (file !== activeFileRef.current) setPracticeOpen(null);
     setActiveFile(file);
     setLastInUnit((prev) => (prev[hit.unit.id] === file ? prev : { ...prev, [hit.unit.id]: file }));
     if (mounted.includes(file)) {
@@ -267,6 +268,11 @@ export default function LessonNotesPage(): React.JSX.Element {
   }, [openNote]);
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
+  const practiceBoard: MatchBoard | null = active.file === 'u5-overview'
+    ? INTERRUPT_SOURCE_FLAG_BOARD
+    : active.file === 'u3-overview'
+      ? ADDRESSING_MODE_BOARD
+      : null;
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
     noteFile: active.file,
@@ -418,14 +424,15 @@ export default function LessonNotesPage(): React.JSX.Element {
             </div>
           </div>
 
-          {active.file === 'u5-overview' && (
+          {practiceBoard && (
             <DragMatchPractice
-              board={INTERRUPT_SOURCE_FLAG_BOARD}
-              expanded={practiceOpen ?? sectionId === INTERRUPT_SOURCE_FLAG_BOARD.sectionId}
+              key={practiceBoard.id}
+              board={practiceBoard}
+              expanded={practiceOpen ?? sectionId === practiceBoard.sectionId}
               onExpandedChange={setPracticeOpen}
               onOpenSection={() => {
                 setPracticeOpen(true);
-                openNote('u5-overview', '#int-3');
+                openNote(practiceBoard.moduleId, `#${practiceBoard.sectionId}`);
               }}
             />
           )}

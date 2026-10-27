@@ -305,6 +305,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     rarity: 'common',
     tier: 'bronze',
   },
+  {
+    id: 'addressing_modes',
+    title: '寻址方式对上了',
+    description: '在第 3 章练一练里，把 80C51 的 7 条代表指令对上七种寻址方式',
+    icon: '📍',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u3-addressing-modes', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
 
   // === 隐藏成就 ===
   {

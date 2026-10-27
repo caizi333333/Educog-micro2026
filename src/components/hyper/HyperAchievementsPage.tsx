@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAchievements } from '@/hooks/useAchievements';
 import { ACHIEVEMENTS_V2, type Achievement, type AchievementProgress } from '@/lib/achievements-v2';
+import { findMatchBoard } from '@/lib/practice-match';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CAMPUS_TIME_LABEL, formatCampusDateTime } from '@/lib/campus-time';
@@ -55,12 +56,16 @@ function progressFor(progress: AchievementProgress[], id: string) {
 }
 
 function nextActionFor(achievement: Achievement): { href: string; label: string; note: string } {
-  if (achievement.id === 'interrupt_source_flags') {
-    return {
-      href: '/lesson-notes?unit=5#int-3',
-      label: '去第 5 章练一练',
-      note: '把 80C51 的 5 个中断源对上请求标志。首次对上记积分，并解锁这枚勋章。',
-    };
+  const criteriaType = achievement.criteria?.type;
+  if (typeof criteriaType === 'string' && criteriaType.startsWith('practice_clears:')) {
+    const board = findMatchBoard(criteriaType.slice('practice_clears:'.length));
+    if (board) {
+      return {
+        href: `/lesson-notes?unit=${board.chapterId}#${board.sectionId}`,
+        label: `去第 ${board.chapterId} 章练一练`,
+        note: `${board.prompt}首次对上记积分，并解锁这枚勋章。`,
+      };
+    }
   }
   if (achievement.criteria?.type === 'valid_feedbacks') {
     return {
