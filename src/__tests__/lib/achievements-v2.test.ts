@@ -17,10 +17,11 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 55 rules, with 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(55);
+    it('keeps the student wall on 58 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(58);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(55);
+      expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(58);
     });
 
     it('每个成就应该有必需的属性', () => {

@@ -47,6 +47,7 @@ model User {
   simulationSessions SimulationSession[]
   learningEvents     LearningEvent[]
   pointsTransactions UserPointsTransaction[]
+  siteFeedback       SiteFeedback[]
   teachingClasses    ClassGroup[]            @relation("ClassTeacher")
   userProgress       UserProgress?
 
@@ -337,6 +338,25 @@ model KnowledgeNode {
   @@index([level])
   @@index([parentId])
   @@index([graphNodeId])
+}
+
+// Student site feedback. userId stays required so medals and rate limits
+// can be enforced; anonymous only changes what teachers are allowed to see.
+model SiteFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  anonymous Boolean  @default(false)
+  category  String
+  body      String
+  pagePath  String?
+  userAgent String?
+  classId   String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([classId])
 }
 
 model AchievementAuditLog {

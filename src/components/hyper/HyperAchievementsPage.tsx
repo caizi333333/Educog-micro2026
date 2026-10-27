@@ -55,6 +55,13 @@ function progressFor(progress: AchievementProgress[], id: string) {
 }
 
 function nextActionFor(achievement: Achievement): { href: string; label: string; note: string } {
+  if (achievement.criteria?.type === 'valid_feedbacks') {
+    return {
+      href: '/feedback',
+      label: '去提交反馈',
+      note: '提交一条有效反馈后，服务端会按累计条数核对反馈勋章。',
+    };
+  }
   if (achievement.category === 'quiz') {
     return {
       href: '/quiz',
@@ -91,6 +98,7 @@ function formatAchievementTarget(achievement: Achievement): string {
   if (criteriaType === 'learning_streak' || criteriaType === 'daily_streak') return `${target}天`;
   if (criteriaType === 'code_history_viewed') return `${target}行`;
   if (criteriaType === 'achievements_unlocked') return `${target}枚`;
+  if (criteriaType === 'valid_feedbacks') return `${target}条`;
   return `${target}次`;
 }
 

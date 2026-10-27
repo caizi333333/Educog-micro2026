@@ -5,6 +5,8 @@ import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BellOff, Database, KeyRound, Palette, ShieldCheck } from 'lucide-react';
+import { SiteVersionTrigger } from '@/components/site/site-chrome';
+import { SITE_VERSION } from '@/lib/site-version';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -247,6 +249,18 @@ export default function SettingsPage() {
         <h1 className="mt-2 text-2xl font-semibold">账户与平台设置</h1>
         <p className="mt-1 text-sm text-muted-foreground">仅展示当前真实生效的配置和可验证操作。</p>
       </div>
+
+      <Card>
+        <CardHeader className="p-5 sm:p-6">
+          <CardTitle>平台版本</CardTitle>
+          <CardDescription>当前站点版本 v{SITE_VERSION}。近期更新只展示面向同学的要点。</CardDescription>
+        </CardHeader>
+        <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
+          <SiteVersionTrigger className="inline-flex min-h-11 items-center rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 text-sm text-cyan-50">
+            查看近期更新
+          </SiteVersionTrigger>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

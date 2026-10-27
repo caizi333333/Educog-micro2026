@@ -99,6 +99,7 @@ jest.mock('lucide-react', () => {
     EyeOff: Icon,
     FileDown: Icon,
     FileText: Icon,
+    FileUp: Icon,
     GitBranch: Icon,
     GraduationCap: Icon,
     Hash: Icon,

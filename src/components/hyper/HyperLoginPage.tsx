@@ -220,7 +220,7 @@ export function HyperLoginPage() {
   const submitLabel = role === 'student' ? '进入学习空间' : role === 'teacher' ? '进入教师工作台' : '进入管理后台';
 
   return (
-    <div className="relative grid min-h-[100dvh] overflow-x-hidden bg-[#070a0d] pt-[69px] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="relative grid min-h-[100dvh] overflow-x-hidden bg-[#070a0d] pb-16 pt-[69px] text-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
       <PublicSiteHeader active="login" floating />
       <LabScene />
       <main className="relative flex items-center justify-center px-4 py-8 sm:px-6 sm:py-10">

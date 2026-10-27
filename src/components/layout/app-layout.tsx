@@ -44,6 +44,7 @@ import {
   ListChecks,
   NotebookPen,
   Activity,
+  MessageSquare,
   X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,6 +66,7 @@ import { useAchievementNotifications } from '@/hooks/use-achievement-notificatio
 import { useAchievementCheck } from '@/hooks/use-achievement-check';
 import { getMostSpecificRouteMatch } from '@/lib/role-access';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
+import { AppSiteVersionFooter, SiteVersionFooter, StudentFeedbackLauncher } from '@/components/site/site-chrome';
 
 // Navigation groups. Personal learning records are student-only; teachers get
 // task review at the same visual position so the next action matches the role.
@@ -90,12 +92,14 @@ const sharedAnalysisItems = [
 
 const studentPersonalAnalysisItems = [
   { href: '/achievements', label: '成就徽章', icon: Trophy },
+  { href: '/feedback', label: '意见反馈', icon: MessageSquare },
   { href: '/obe', label: '毕业要求达成', icon: GraduationCap },
 ];
 
 const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
   { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
+  { href: '/teacher/feedback', label: '学生反馈', icon: MessageSquare },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
   { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },
   { href: '/obe/teacher/cqi', label: '持续改进', icon: FileText },
@@ -508,7 +512,12 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
   }, [pathname]);
 
   if (renderPublicShell) {
-    return <>{children}</>;
+    return (
+      <div className="flex min-h-svh flex-col">
+        <div className="min-w-0 flex-1 pb-16">{children}</div>
+        <SiteVersionFooter />
+      </div>
+    );
   }
 
   if (loading) {
@@ -645,8 +654,10 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
       </Sidebar>
       <SidebarInset className="edu-shell">
         <Header navigationTriggerRef={navigationTriggerRef} />
-        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6">{children}</main>
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 pb-16 outline-none sm:p-6 sm:pb-16">{children}</main>
+        <AppSiteVersionFooter />
       </SidebarInset>
+      {user?.role === 'STUDENT' ? <StudentFeedbackLauncher /> : null}
 
       {/* Achievement Notifications */}
       <AchievementNotification
