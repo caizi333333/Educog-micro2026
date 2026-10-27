@@ -4,10 +4,12 @@ import { ACHIEVEMENTS_V2 } from '@/lib/achievements-v2';
 import { practiceClearStat, practiceMedalIdsForCount } from '@/lib/practice-medals';
 import {
   ADDRESSING_MODE_BOARD,
+  CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   decideMatchReward,
   gradeMatch,
   matchClearMessage,
+  matchMissMessage,
   stableShuffle,
 } from '@/lib/practice-match';
 
@@ -266,5 +268,86 @@ describe('addressing mode match board', () => {
       firstClearPoints: 15,
       awardToStudent: true,
     })).toMatchObject({ reason: 'repeat', practicePoints: 0, recordEvent: true, grantMedals: true });
+  });
+});
+
+describe('CPU structure puzzle board', () => {
+  const courseware = readFileSync(
+    join(__dirname, '../../../public/resources/course/courseware/u2/u2-cpu-structure.html'),
+    'utf8',
+  );
+
+  it('places the six figure 2-3 blocks into the three CPU groups', () => {
+    expect(CPU_STRUCTURE_BOARD.chapterId).toBe('2');
+    expect(CPU_STRUCTURE_BOARD.knowledgePointId).toBe('2.1');
+    expect(CPU_STRUCTURE_BOARD.sectionId).toBe('cpu');
+    expect(CPU_STRUCTURE_BOARD.medalId).toBe('cpu_structure_home');
+    expect(CPU_STRUCTURE_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(CPU_STRUCTURE_BOARD.pairs.map((pair) => pair.prompt)).toEqual(['ALU', 'ACC', 'IR', 'ID', 'PC', 'DPTR']);
+    expect(CPU_STRUCTURE_BOARD.zones?.map((zone) => [zone.title, ...zone.slotIds])).toEqual([
+      ['运算器', 'alu', 'acc'],
+      ['控制器', 'ir', 'id'],
+      ['其他寄存器', 'pc', 'dptr'],
+    ]);
+    const slotIds = CPU_STRUCTURE_BOARD.zones?.flatMap((zone) => zone.slotIds) ?? [];
+    expect(slotIds).toEqual(CPU_STRUCTURE_BOARD.pairs.map((pair) => pair.id));
+    expect(new Set(slotIds).size).toBe(slotIds.length);
+    for (const name of ['ALU', 'ACC', 'IR', 'ID', 'PC', 'DPTR']) {
+      expect(courseware).toContain(`'${name}'`);
+    }
+    expect(courseware).toContain("host.id='cpu'");
+    expect(CPU_STRUCTURE_BOARD.hint).not.toContain('ALU');
+    expect(CPU_STRUCTURE_BOARD.hint).toContain('0000H');
+  });
+
+  it('grades a finished puzzle and keeps a swapped block inside one group wrong', () => {
+    const solved = Object.fromEntries(CPU_STRUCTURE_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(CPU_STRUCTURE_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, alu: 'acc', acc: 'alu' };
+    const grade = gradeMatch(CPU_STRUCTURE_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['alu', 'acc']);
+    expect(matchMissMessage(grade, CPU_STRUCTURE_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, CPU_STRUCTURE_BOARD)).toContain('0000H');
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(CPU_STRUCTURE_BOARD.id)).toBe('practice_clears:u2-cpu-structure');
+    expect(practiceMedalIdsForCount(CPU_STRUCTURE_BOARD.id, 1)).toEqual(['cpu_structure_home']);
+    expect(practiceMedalIdsForCount(CPU_STRUCTURE_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'cpu_structure_home',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'cpu_structure_home');
+    expect(medal?.title).toBe('CPU 结构归位');
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: CPU_STRUCTURE_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「CPU 结构归位」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: CPU_STRUCTURE_BOARD.cooldownMs,
+      firstClearPoints: CPU_STRUCTURE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: CPU_STRUCTURE_BOARD.cooldownMs,
+      firstClearPoints: CPU_STRUCTURE_BOARD.firstClearPoints,
+      awardToStudent: true,
+    }).reason).toBe('cooldown');
   });
 });

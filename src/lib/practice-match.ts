@@ -2,7 +2,10 @@
  * Reusable drag-or-tap match boards for courseware practice.
  *
  * The shell is the same for every chapter: chips on one side, fixed slots
- * on the other, graded by pair id. Boards shipped so far:
+ * on the other, graded by pair id. A board with `zones` draws those slots
+ * as a structure puzzle; grading, cooldown, and medals stay on this path.
+ * Boards shipped so far:
+ * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and a catalog row whose
@@ -22,9 +25,16 @@ export interface MatchPair {
   /** Student-facing chip, for example 外部中断 0. */
   prompt: string;
   promptHint: string;
-  /** Slot label, the request flag. */
+  /** Slot label, the request flag or the empty place on a diagram. */
   target: string;
   targetDetail: string;
+}
+
+/** One region of a structure puzzle. Slot ids are pair ids. */
+export interface PuzzleZone {
+  id: string;
+  title: string;
+  slotIds: readonly string[];
 }
 
 /** Student-facing words for the shared cell. Each board fills these in. */
@@ -39,6 +49,8 @@ export interface MatchBoardShell {
   emptyTray: string;
   /** Slot button name: `${slotName} ${target}，${detail}，空位`. */
   slotName: string;
+  /** Caption on a structure puzzle. Column boards leave this unset. */
+  diagramTitle?: string;
 }
 
 export interface MatchBoard {
@@ -56,6 +68,8 @@ export interface MatchBoard {
   cooldownMs: number;
   shell: MatchBoardShell;
   pairs: readonly MatchPair[];
+  /** When set, the cell draws a diagram instead of two columns. */
+  zones?: readonly PuzzleZone[];
 }
 
 /**
@@ -134,7 +148,56 @@ export const ADDRESSING_MODE_BOARD: MatchBoard = {
   ],
 };
 
-const MATCH_BOARDS: readonly MatchBoard[] = [INTERRUPT_SOURCE_FLAG_BOARD, ADDRESSING_MODE_BOARD];
+/**
+ * 80C51 CPU, textbook figure 2-3 on the unit 2 CPU note.
+ * Three groups: 运算器 (ALU, ACC), 控制器 (IR, ID), 其他寄存器 (PC, DPTR).
+ * Slot text is the job of that block. The chip is its name.
+ * B, PSW, SP and the ports stay on the figure; this puzzle is the six
+ * blocks a first pass has to place.
+ */
+export const CPU_STRUCTURE_BOARD: MatchBoard = {
+  id: 'u2-cpu-structure',
+  title: 'CPU 结构拼图',
+  prompt: '把 80C51 CPU 的 6 块碎片放回教材图 2-3 的位置。',
+  hint: '运算器负责算，控制器负责取指令和译码。PC 记下一条指令地址，复位时装入 0000H；DPTR 才用来访问片外空间。',
+  chapterId: '2',
+  knowledgePointId: '2.1',
+  sectionId: 'cpu',
+  moduleId: 'u2-cpu-structure',
+  medalId: 'cpu_structure_home',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：CPU 结构拼图',
+    sectionLink: '对照图 2-3',
+    expandClosed: '展开练一练：CPU 结构拼图',
+    promptSide: '碎片',
+    targetSide: '结构位置',
+    actionHint: '先点一块碎片，再点框图里的空位。鼠标也可以直接拖进去。',
+    emptyTray: '6 块都放进去了。',
+    slotName: '结构位置',
+    diagramTitle: '80C51 CPU · 图 2-3',
+  },
+  zones: [
+    { id: 'alu-group', title: '运算器', slotIds: ['alu', 'acc'] },
+    { id: 'ctl-group', title: '控制器', slotIds: ['ir', 'id'] },
+    { id: 'reg-group', title: '其他寄存器', slotIds: ['pc', 'dptr'] },
+  ],
+  pairs: [
+    { id: 'alu', prompt: 'ALU', promptHint: '算术逻辑部件', target: '做算术与逻辑', targetDetail: '运算器 · 8 位，还带位处理' },
+    { id: 'acc', prompt: 'ACC', promptHint: '累加器，助记符 A', target: '暂存操作数和结果', targetDetail: '运算器 · 8 位，字节地址 E0H' },
+    { id: 'ir', prompt: 'IR', promptHint: '指令寄存器', target: '先收下当前指令', targetDetail: '控制器 · 操作码再送去译码' },
+    { id: 'id', prompt: 'ID', promptHint: '指令译码器', target: '把操作码译成信号', targetDetail: '控制器 · 再驱动控制逻辑' },
+    { id: 'pc', prompt: 'PC', promptHint: '程序计数器', target: '记下一条指令地址', targetDetail: '其他寄存器 · 16 位，复位 0000H' },
+    { id: 'dptr', prompt: 'DPTR', promptHint: '数据指针，DPH 加 DPL', target: '指向片外 64 KB', targetDetail: '其他寄存器 · 供 MOVX、MOVC 使用' },
+  ],
+};
+
+const MATCH_BOARDS: readonly MatchBoard[] = [
+  CPU_STRUCTURE_BOARD,
+  INTERRUPT_SOURCE_FLAG_BOARD,
+  ADDRESSING_MODE_BOARD,
+];
 
 export function findMatchBoard(boardId: string): MatchBoard | null {
   return MATCH_BOARDS.find((board) => board.id === boardId) ?? null;

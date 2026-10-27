@@ -2,7 +2,7 @@ import { POST } from '@/app/api/practice/match/route';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
-import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD } from '@/lib/practice-match';
 import { PRACTICE_DAILY_MEDAL_ID, PRACTICE_STREAK_MEDAL_ID } from '@/lib/practice-medals';
 
 jest.mock('@/lib/auth', () => ({ verifyToken: jest.fn() }));
@@ -309,6 +309,49 @@ describe('POST /api/practice/match', () => {
     expect(body.message).toBe('首次对上：+15 积分，解锁勋章「寻址方式对上了」+10。');
     expect(requestedMedalIds()).toEqual(['addressing_modes']);
     expect(requestedMedalIds()).not.toContain(PRACTICE_DAILY_MEDAL_ID);
+  });
+
+  it('scores the CPU puzzle through the same match route, including a miss with no points', async () => {
+    const missed = await post({
+      boardId: CPU_STRUCTURE_BOARD.id,
+      placements: { ...solvedPlacements(CPU_STRUCTURE_BOARD), pc: 'dptr', dptr: 'pc' },
+    });
+    const missedBody = await missed.json();
+    expect(missedBody.correct).toBe(false);
+    expect(missedBody.pointsAwarded).toBe(0);
+    expect(missedBody.medal).toBeNull();
+    expect(missedBody.message).toContain('0000H');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    const cleared = await post({
+      boardId: CPU_STRUCTURE_BOARD.id,
+      placements: solvedPlacements(CPU_STRUCTURE_BOARD),
+    });
+    const body = await cleared.json();
+    expect(body).toMatchObject({
+      correct: true,
+      reason: 'first_clear',
+      pointsAwarded: 30,
+      medal: { id: 'cpu_structure_home', title: 'CPU 结构归位', points: 10 },
+    });
+    expect(body.message).toBe('首次对上：+15 积分，解锁勋章「CPU 结构归位」+10、「今天练过了」+5。');
+    expect(prisma.learningEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        eventType: 'PRACTICE_CLEAR',
+        targetId: 'u2-cpu-structure',
+        targetType: 'PRACTICE',
+        chapterId: '2',
+        moduleId: 'u2-cpu-structure',
+      }),
+    }));
+    expect(prisma.userPointsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        type: 'PRACTICE_CLEAR',
+        points: 15,
+        description: '第2章练一练首次对上：CPU 结构拼图',
+      }),
+    }));
+    expect(requestedMedalIds()).toEqual(['cpu_structure_home', 'practice_daily']);
   });
 
   it('does not pay 今天练过了 twice when a later campus day asks again', async () => {
