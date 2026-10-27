@@ -186,7 +186,7 @@ function addressingReveals(html: string): { key: string; instruction: string; an
 }
 
 function revealedCode(answer: string): string {
-  const coded = answer.match(/=\s*([^，。]+)/);
+  const coded = answer.match(/<\/span>\s*=\s*([^，。]+)/);
   if (coded?.[1]) return coded[1].trim();
   const opcode = answer.match(/E8–EF/);
   if (opcode?.[0]) return opcode[0];
