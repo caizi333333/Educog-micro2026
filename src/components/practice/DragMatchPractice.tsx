@@ -44,6 +44,7 @@ function useFinePointer(): boolean {
 /**
  * One match cell: tap a chip, then tap its slot. A fine pointer can also drag.
  * Labels come from the board, so the same cell serves every chapter.
+ * A board with zones draws those slots as a structure puzzle.
  * The cell stays a strip until it is opened, so the courseware iframe remains the page.
  */
 export function DragMatchPractice({
@@ -186,6 +187,111 @@ export function DragMatchPractice({
           <p className="text-xs leading-5 text-slate-300">
             {board.prompt}{board.shell.actionHint}首次全部对上 +{board.firstClearPoints} 积分。同一题连对 3 次解锁「连对三次」；北京时间当天第一次对上解锁「今天练过了」。
           </p>
+          {board.zones ? (
+            <div data-layout="puzzle" className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-slate-400">{board.shell.promptSide}</p>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {tray.map((pairId) => {
+                  const pair = board.pairs.find((item) => item.id === pairId);
+                  if (!pair) return null;
+                  const selected = selectedId === pair.id;
+                  return (
+                    <li key={pair.id}>
+                      <button
+                        type="button"
+                        draggable={finePointer && !solved}
+                        aria-pressed={selected}
+                        onClick={() => setSelectedId(selected ? null : pair.id)}
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('text/plain', pair.id);
+                          event.dataTransfer.effectAllowed = 'move';
+                          setSelectedId(pair.id);
+                        }}
+                        className={cn(
+                          'flex min-h-11 w-full flex-col items-start justify-center rounded-md border px-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                          selected
+                            ? 'border-cyan-300/50 bg-cyan-300/[0.14] text-cyan-50'
+                            : 'border-white/[0.1] bg-white/[0.04] text-slate-100',
+                        )}
+                      >
+                        <span className="text-sm font-semibold">{pair.prompt}</span>
+                        <span className="text-[11px] text-slate-400">{pair.promptHint}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+                {tray.length === 0 && (
+                  <li className="col-span-2 text-xs text-slate-500 sm:col-span-3">{board.shell.emptyTray}</li>
+                )}
+              </ul>
+              <div className="mt-3 rounded-md border border-dashed border-cyan-300/25 bg-black/25 p-2">
+                <p className="mb-2 text-center text-xs font-semibold tracking-wide text-cyan-100/90">
+                  {board.shell.diagramTitle ?? board.title}
+                </p>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {board.zones.map((zone) => (
+                    <section
+                      key={zone.id}
+                      aria-label={zone.title}
+                      className="rounded-md border border-white/[0.08] bg-white/[0.03] p-2"
+                    >
+                      <h3 className="mb-1.5 text-xs font-semibold text-amber-100">{zone.title}</h3>
+                      <ul className="grid grid-cols-1 gap-2">
+                        {zone.slotIds.map((slotId) => {
+                          const pair = board.pairs.find((item) => item.id === slotId);
+                          if (!pair) return null;
+                          const occupying = placements[pair.id];
+                          const occupyingPair = board.pairs.find((item) => item.id === occupying);
+                          const missed = grade != null && (grade.wrongSlotIds.includes(pair.id) || grade.missingSlotIds.includes(pair.id));
+                          const held = dragOverSlotId === pair.id;
+                          return (
+                            <li key={pair.id}>
+                              <button
+                                type="button"
+                                aria-label={occupyingPair
+                                  ? `${board.shell.slotName} ${pair.target}，${pair.targetDetail}，已放入 ${occupyingPair.prompt}`
+                                  : `${board.shell.slotName} ${pair.target}，${pair.targetDetail}，空位`}
+                                onClick={() => {
+                                  if (selectedId) place(pair.id, selectedId);
+                                  else if (occupying) unplace(occupying);
+                                }}
+                                onDragOver={(event) => {
+                                  event.preventDefault();
+                                  setDragOverSlotId(pair.id);
+                                }}
+                                onDragLeave={() => setDragOverSlotId((current) => (current === pair.id ? null : current))}
+                                onDrop={(event) => {
+                                  event.preventDefault();
+                                  setDragOverSlotId(null);
+                                  const chipId = event.dataTransfer.getData('text/plain') || selectedId;
+                                  if (chipId) place(pair.id, chipId);
+                                }}
+                                className={cn(
+                                  'flex min-h-11 w-full flex-col items-start justify-center rounded-md border px-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                                  missed && 'border-rose-300/60 bg-rose-300/[0.08]',
+                                  !missed && solved && 'border-emerald-300/40 bg-emerald-300/[0.08]',
+                                  !missed && !solved && held && 'border-cyan-300/50 bg-cyan-300/[0.1]',
+                                  !missed && !solved && !held && 'border-white/[0.1] bg-black/20',
+                                )}
+                              >
+                                <span className="text-sm font-semibold text-slate-100">
+                                  {occupyingPair ? occupyingPair.prompt : '空位'}
+                                </span>
+                                <span className="text-[11px] text-slate-400">
+                                  {pair.target}
+                                  <span className="text-slate-500"> · {pair.targetDetail}</span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <p className="mb-1.5 text-xs font-semibold text-slate-400">{board.shell.promptSide}</p>
@@ -272,6 +378,7 @@ export function DragMatchPractice({
               </ul>
             </div>
           </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"

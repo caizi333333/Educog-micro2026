@@ -52,6 +52,20 @@ describe('LessonNotesPage deep link', () => {
     expect(seam).toContainElement(frame);
   });
 
+  it('opens the CPU structure puzzle on the unit 2 CPU note', async () => {
+    const frame = await openAt('/lesson-notes?unit=2#cpu', 'CPU 结构 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', expect.stringContaining('/resources/course/courseware/u2/u2-cpu-structure.html'));
+    expect(frame.contentWindow?.location.hash).toBe('#cpu');
+    expect(frame.contentWindow?.location.pathname).toBe('/resources/course/courseware/u2/u2-cpu-structure.html');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'CPU 结构拼图' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '运算器' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '控制器' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '其他寄存器' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '指令 ↔ 寻址方式' })).not.toBeInTheDocument();
+  });
+
   it('opens the addressing match on unit 3 section 寻址方式', async () => {
     const frame = await openAt('/lesson-notes?unit=3#addressing', '第 3 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u3/u3-overview.html#addressing');

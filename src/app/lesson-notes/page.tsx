@@ -40,7 +40,7 @@ import { scrollLeftForChip } from '@/lib/reveal-horizontal-chip';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -103,7 +103,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         按平台知识点导航逐条展开，每篇含<b className="font-semibold text-amber-100">讲解 / 疑点 / 自测</b>三栏
       </>
     ),
-    intro: '平台的学习闭环里已经有测评和仿真，这一批补的是中间那一环：把教材第 2 章讲不透的地方逐条拆开。',
+    intro: '平台的学习闭环里已经有测评和仿真，这一批补的是中间那一环：把教材第 2 章讲不透的地方逐条拆开。CPU 结构这一篇可以练一练：把 6 块碎片放回运算器、控制器和其他寄存器。',
     figures: '图 2-1 / 2-3 / 2-5~2-10，表 2-2 / 2-3 / 2-7',
   },
   {
@@ -199,8 +199,17 @@ export default function LessonNotesPage(): React.JSX.Element {
     setActiveFile(file);
     setLastInUnit((prev) => (prev[hit.unit.id] === file ? prev : { ...prev, [hit.unit.id]: file }));
     if (mounted.includes(file)) {
-      const win = hash ? frames.current.get(file)?.contentWindow : null;
+      const frame = frames.current.get(file);
+      const win = hash ? frame?.contentWindow : null;
+      let loadedHere = false;
       if (win) {
+        try {
+          loadedHere = win.location.pathname.endsWith(`/${file}.html`);
+        } catch {
+          loadedHere = false;
+        }
+      }
+      if (win && loadedHere) {
         try {
           // 用 replace 改 hash：不在浏览器历史里留一串页内跳转，"后退"仍是离开本页。
           // 相对地址会按外壳页解析（会把外壳整页套进框里），所以拼成讲解页自己的路径。
@@ -211,7 +220,11 @@ export default function LessonNotesPage(): React.JSX.Element {
         } catch {
           // 同源页面不会走到这里；万一跨源就放弃定位，只切页签
         }
+        return;
       }
+      // 默认篇在首屏就已经挂上，这时框里还是空白页。把 hash 写进 src，
+      // 避免对空白页 replace，也让 #cpu 这类入口能滚到图 2-3。
+      if (hash) setInitialHash((prev) => (prev[file] === hash ? prev : { ...prev, [file]: hash }));
       return;
     }
     if (hash) setInitialHash((prev) => ({ ...prev, [file]: hash }));
@@ -296,7 +309,9 @@ export default function LessonNotesPage(): React.JSX.Element {
     ? INTERRUPT_SOURCE_FLAG_BOARD
     : active.file === 'u3-overview'
       ? ADDRESSING_MODE_BOARD
-      : null;
+      : active.file === 'u2-cpu-structure'
+        ? CPU_STRUCTURE_BOARD
+        : null;
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
     noteFile: active.file,

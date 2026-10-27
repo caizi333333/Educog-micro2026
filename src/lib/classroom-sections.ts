@@ -56,8 +56,13 @@ const U4_PANE_POINTS: Readonly<Record<string, string>> = {
   'p-quiz': '3.5',
 };
 
+const U2_NOTE_SECTIONS: Readonly<Record<string, string>> = {
+  cpu: 'u2-cpu-structure',
+};
+
 const SECTION_LABELS: Readonly<Record<string, string>> = {
   home: '本章主线',
+  cpu: 'CPU 结构图',
   'isa-map': '指令全景',
   addressing: '寻址方式与机器周期',
   transfer: '数据传送',
@@ -168,6 +173,7 @@ const LESSON_SECTION_ID = /^[\w=%.~-]{1,64}$/;
 export function lessonFileForSection(sectionId: string): string | null {
   const id = sectionId.replace(/^#/, '').trim();
   if (!id || id === 'home') return null;
+  if (Object.prototype.hasOwnProperty.call(U2_NOTE_SECTIONS, id)) return U2_NOTE_SECTIONS[id] ?? null;
   if (Object.prototype.hasOwnProperty.call(U5_SECTION_POINTS, id)) return 'u5-overview';
   if (Object.prototype.hasOwnProperty.call(U3_SECTION_POINTS, id)) return 'u3-overview';
   if (Object.prototype.hasOwnProperty.call(U4_PANE_POINTS, id)) return 'u4-classroom';

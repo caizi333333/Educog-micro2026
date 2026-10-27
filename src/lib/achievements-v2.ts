@@ -318,6 +318,17 @@ const ACHIEVEMENTS_V2_ORIGINAL: Achievement[] = [
     tier: 'bronze',
   },
   {
+    id: 'cpu_structure_home',
+    title: 'CPU 结构归位',
+    description: '在第 2 章练一练里，把 80C51 CPU 的 6 块结构碎片放回运算器、控制器和其他寄存器',
+    icon: '🧩',
+    category: 'practice',
+    criteria: { type: 'practice_clears:u2-cpu-structure', target: 1 },
+    points: 10,
+    rarity: 'common',
+    tier: 'bronze',
+  },
+  {
     id: 'practice_streak_3',
     title: '连对三次',
     description: '同一道 80C51 练一练记下 3 次正确通关。两次至少隔 10 分钟，答错不计',

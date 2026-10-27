@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 const mockFetch = global.fetch as jest.Mock;
 
@@ -111,6 +111,77 @@ describe('DragMatchPractice', () => {
     expect(body.boardId).toBe('u3-addressing-modes');
     expect(body.placements.imm).toBe('imm');
     expect(body.placements.idx).toBe('idx');
+  });
+
+  it('drops one CPU fragment, then places the rest by tap and posts that board', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        correct: true,
+        message: '首次对上：+15 积分，解锁勋章「CPU 结构归位」+10。',
+      }),
+    });
+    render(
+      <DragMatchPractice
+        board={CPU_STRUCTURE_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+
+    const alu = screen.getByRole('button', { name: /^ALU/ });
+    const aluSlot = screen.getByRole('button', { name: '结构位置 做算术与逻辑，运算器 · 8 位，还带位处理，空位' });
+    expect(alu).toHaveClass('min-h-11');
+    expect(aluSlot).toHaveClass('min-h-11');
+    expect(screen.getByRole('region', { name: '运算器' })).toBeInTheDocument();
+    expect(document.querySelector('[data-layout="puzzle"] .grid')).toHaveClass('grid-cols-2');
+    fireEvent.dragStart(alu, { dataTransfer: { setData: jest.fn(), effectAllowed: 'move' } });
+    fireEvent.drop(aluSlot, { dataTransfer: { getData: () => 'alu' } });
+    expect(screen.getByRole('button', { name: '结构位置 做算术与逻辑，运算器 · 8 位，还带位处理，已放入 ALU' })).toBeInTheDocument();
+
+    for (const pair of CPU_STRUCTURE_BOARD.pairs) {
+      if (pair.id === 'alu') continue;
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${escapeRegExp(pair.prompt)}`) }));
+      fireEvent.click(screen.getByRole('button', {
+        name: `${CPU_STRUCTURE_BOARD.shell.slotName} ${pair.target}，${pair.targetDetail}，空位`,
+      }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('解锁勋章「CPU 结构归位」');
+    });
+    expect(screen.getByText('ALU → 做算术与逻辑（运算器 · 8 位，还带位处理）')).toBeInTheDocument();
+    expect(screen.getByText('PC → 记下一条指令地址（其他寄存器 · 16 位，复位 0000H）')).toBeInTheDocument();
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.boardId).toBe('u2-cpu-structure');
+    expect(body.placements).toEqual({
+      alu: 'alu',
+      acc: 'acc',
+      ir: 'ir',
+      id: 'id',
+      pc: 'pc',
+      dptr: 'dptr',
+    });
+  });
+
+  it('does not score a CPU block left in the wrong group', async () => {
+    render(
+      <DragMatchPractice
+        board={CPU_STRUCTURE_BOARD}
+        expanded
+        onExpandedChange={jest.fn()}
+        onOpenSection={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /ALU/ }));
+    fireEvent.click(screen.getByRole('button', { name: '结构位置 先收下当前指令，控制器 · 操作码再送去译码，空位' }));
+    fireEvent.click(screen.getByRole('button', { name: '核对' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('还有 6 处没对上');
+    expect(screen.getByRole('status')).toHaveTextContent('0000H');
+    await waitFor(() => expect(mockFetch).not.toHaveBeenCalled());
   });
 });
 

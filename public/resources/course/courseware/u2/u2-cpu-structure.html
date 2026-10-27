@@ -969,7 +969,7 @@ KP({
   note: 'PSW 的 AC 位：教材表 2-3 写作"自动进位标志"，正文与通用术语均为"辅助进位标志"（Auxiliary Carry），本页采用后者。'
 });
 (function(){
-  var host=document.createElement('div'); KP.stage.appendChild(host);
+  var host=document.createElement('div'); host.id='cpu'; KP.stage.appendChild(host);
   var cpu=new CpuFig(host);
   var HINT='**点图上的部件**看它的作用：ALU、ACC、B、PSW、IR、ID、控制逻辑电路、PC、SP、DPTR、SBUF、端口寄存器、工作寄存器组。';
   KP.say(HINT);

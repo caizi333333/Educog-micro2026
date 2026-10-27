@@ -63,6 +63,9 @@ describe('lesson note deep links', () => {
     expect(resolve('u5-knowledge', null, '#int-2')).toEqual({ file: 'u5-knowledge', hash: '' });
     expect(resolve(null, 3, '#int-2')).toEqual({ file: 'u3-video', hash: '' });
     expect(resolve('u3-jump', null, '#int-2')).toEqual({ file: 'u3-jump', hash: '' });
+    expect(lessonFileForSection('cpu')).toBe('u2-cpu-structure');
+    expect(resolve(null, 2, '#cpu')).toEqual({ file: 'u2-cpu-structure', hash: '#cpu' });
+    expect(resolve('u2-cpu-structure', null, '#cpu')).toEqual({ file: 'u2-cpu-structure', hash: '#cpu' });
     expect(lessonFileForSection('home')).toBeNull();
     expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-overview', '')).toBe(
       '/resources/course/courseware/u5/u5-overview.html',

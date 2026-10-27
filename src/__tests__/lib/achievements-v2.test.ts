@@ -17,11 +17,11 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 62 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(62);
+    it('keeps the student wall on 63 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(63);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(62);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(63);
     });
 
     it('unlocks the interrupt-flag medal from that board’s clear count', () => {
@@ -68,6 +68,21 @@ describe('成就系统 V2', () => {
       expect(medal?.description).toContain('北京时间');
       expect(checkAchievementUnlock(medal!, {}).unlocked).toBe(false);
       expect(checkAchievementUnlock(medal!, { practice_daily_participation: 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
+    });
+
+    it('unlocks CPU 结构归位 only from the structure puzzle clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'cpu_structure_home');
+      expect(medal).toMatchObject({
+        title: 'CPU 结构归位',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u2-cpu-structure', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u3-addressing-modes': 1 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u2-cpu-structure': 1 })).toMatchObject({
         unlocked: true,
         progress: 100,
       });
