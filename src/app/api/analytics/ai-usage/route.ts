@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { getAccessibleClassIds } from '@/lib/classroom';
 import { getDataProvenance } from '@/lib/env';
+import { filterTeachingRoster, shouldCapSmokeTests } from '@/lib/current-term';
+import { resolveTeachingScope } from '@/lib/teaching-scope';
 
 const DEMO_ACCOUNT_PREFIX = 'demo_';
 const DEMO_ACCOUNT_EXCLUSION = '账号名以 demo_ 开头的专用演示学生不纳入教学分析';
@@ -25,22 +26,35 @@ export async function GET(request: NextRequest) {
     if (Number.isNaN(asOf.getTime())) {
       return NextResponse.json({ error: '数据截止时间格式无效' }, { status: 400 });
     }
-    const accessibleClassIds = await getAccessibleClassIds(payload);
-    const studentEnrollments = accessibleClassIds.length === 0
+    const resolvedScope = await resolveTeachingScope(payload, new URL(request.url).searchParams);
+    if (!resolvedScope.ok) {
+      return NextResponse.json({ error: resolvedScope.error }, { status: resolvedScope.status });
+    }
+    const { classIds, classes } = resolvedScope.value;
+    const studentEnrollments = classIds.length === 0
       ? []
       : await prisma.classEnrollment.findMany({
         where: {
-          classId: { in: accessibleClassIds },
+          classId: { in: classIds },
           role: 'STUDENT',
           status: 'ACTIVE',
           joinedAt: { lte: asOf },
           user: { role: 'STUDENT', status: 'ACTIVE' },
         },
-        select: { userId: true, user: { select: { username: true } } },
+        select: { userId: true, classId: true, user: { select: { username: true } } },
       });
+    const roster = filterTeachingRoster(
+      studentEnrollments,
+      (enrollment) => ({
+        userId: enrollment.userId,
+        classId: enrollment.classId,
+        username: enrollment.user.username,
+      }),
+      shouldCapSmokeTests(classes),
+    );
 
     const enrollmentByStudent = new Map(
-      studentEnrollments.map((enrollment) => [enrollment.userId, enrollment.user.username]),
+      roster.rows.map((enrollment) => [enrollment.userId, enrollment.user.username]),
     );
     const enrolledStudentCount = enrollmentByStudent.size;
     const studentIds = [...enrollmentByStudent.entries()]
@@ -50,7 +64,7 @@ export async function GET(request: NextRequest) {
     const scopeBase = {
       asOf: asOf.toISOString(),
       basis: 'ACTIVE_CLASS_ENROLLMENT',
-      accessibleClassCount: accessibleClassIds.length,
+      accessibleClassCount: classIds.length,
       enrolledStudentCount,
       includedStudentCount: studentIds.length,
       excludedStudentCount: excludedDemoCount,

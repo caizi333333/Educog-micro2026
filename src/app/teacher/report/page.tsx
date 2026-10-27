@@ -284,7 +284,12 @@ export default function TeacherReportPage(): JSX.Element {
         const headers = { Authorization: `Bearer ${token}` };
         // 两个来源使用同一截止时刻，避免报告在并行读取期间出现样本漂移。
         const asOf = new Date().toISOString();
-        const scopeQuery = `?asOf=${encodeURIComponent(asOf)}`;
+        const reportParams = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+        const scopeQueryParams = new URLSearchParams({ asOf });
+        if (reportParams.get('scope') === 'history') scopeQueryParams.set('scope', 'history');
+        const reportClassId = reportParams.get('classId')?.trim();
+        if (reportClassId) scopeQueryParams.set('classId', reportClassId);
+        const scopeQuery = `?${scopeQueryParams.toString()}`;
         const [dashRes, gainsRes] = await Promise.all([
           fetchClientRequest(`/api/teacher/dashboard${scopeQuery}`, { headers, signal: controller.signal }),
           fetchClientRequest(`/api/analytics/learning-gains${scopeQuery}`, { headers, signal: controller.signal }),
