@@ -9,6 +9,7 @@
  * - unit 2 CPU structure puzzle (note `u2-cpu-structure`, anchor `#cpu`)
  * - unit 5 `SRC` table (overview pane ③ and the classroom page)
  * - unit 5 interrupt vectors (overview `#int-2`; addresses from the 入口地址 line)
+ * - unit 5 IE source enables (overview `#int-5`; EX0/ET0/EX1/ET1/ES, not EA)
  * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * A later chapter adds another `MatchBoard` and a catalog row whose
@@ -147,6 +148,46 @@ export const INTERRUPT_VECTOR_BOARD: MatchBoard = {
     { id: 'int1', prompt: '外部中断 1', promptHint: 'INT1 · P3.3 引脚', target: '0013H', targetDetail: '入口地址' },
     { id: 't1', prompt: '定时器 T1', promptHint: 'T1 溢出', target: '001BH', targetDetail: '入口地址' },
     { id: 'uart', prompt: '串行口', promptHint: '串口 · 收完或发完一帧', target: '0023H', targetDetail: '入口地址' },
+  ],
+};
+
+/**
+ * 80C51 IE bits that open one source, mounted on overview `#int-5`.
+ * Pane ⑤ says EA is the master switch and the other five bits are the
+ * per-source switches. Those five are the pairs, low bit first, in the
+ * same order as `SRC`: D0 EX0, D1 ET0, D2 EX1, D3 ET1, D4 ES.
+ * `IE.n` is the lesson-2 term table. EA is not a source, so it stays in
+ * the hint. D6 and D5 are undefined on 80C51 and are not pairs.
+ * No baud-rate or chip-variant facts.
+ */
+export const INTERRUPT_IE_ENABLE_BOARD: MatchBoard = {
+  id: 'u5-interrupt-ie-enables',
+  title: 'IE 允许位 ↔ 中断源',
+  prompt: '把 80C51 的 IE 里 5 个分开关对上各自的中断源。',
+  hint: 'IE 里 EA 是总开关，另外 5 位是分开关，两个都打开 CPU 才理。',
+  chapterId: '5',
+  knowledgePointId: '5.2',
+  sectionId: 'int-5',
+  moduleId: 'u5-overview',
+  medalId: 'interrupt_ie_enables',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：IE 允许位对中断源',
+    sectionLink: '对照课件⑤',
+    expandClosed: '展开练一练：IE 允许位对中断源',
+    promptSide: '允许位',
+    targetSide: '中断源',
+    actionHint: '先点允许位，再点中断源。鼠标也可以直接拖过去。',
+    emptyTray: '5 个分开关都放好了。',
+    slotName: '中断源',
+  },
+  pairs: [
+    { id: 'ex0', prompt: 'EX0', promptHint: 'D0 · IE.0', target: '外部中断 0', targetDetail: 'INT0 · P3.2 引脚' },
+    { id: 'et0', prompt: 'ET0', promptHint: 'D1 · IE.1', target: '定时器 T0', targetDetail: 'T0 溢出' },
+    { id: 'ex1', prompt: 'EX1', promptHint: 'D2 · IE.2', target: '外部中断 1', targetDetail: 'INT1 · P3.3 引脚' },
+    { id: 'et1', prompt: 'ET1', promptHint: 'D3 · IE.3', target: '定时器 T1', targetDetail: 'T1 溢出' },
+    { id: 'es', prompt: 'ES', promptHint: 'D4 · IE.4', target: '串行口', targetDetail: '串口 · 收完或发完一帧' },
   ],
 };
 
@@ -318,6 +359,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   CPU_STRUCTURE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
+  INTERRUPT_IE_ENABLE_BOARD,
   TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
 ];

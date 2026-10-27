@@ -17,11 +17,11 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 66 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(66);
+    it('keeps the student wall on 67 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(67);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(66);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(67);
     });
 
     it('unlocks the interrupt-flag medal from that board’s clear count', () => {
@@ -113,6 +113,21 @@ describe('成就系统 V2', () => {
       });
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-source-flags': 1 }).unlocked).toBe(false);
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-vectors': 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
+    });
+
+    it('unlocks 允许位对上了 only from the IE enable clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'interrupt_ie_enables');
+      expect(medal).toMatchObject({
+        title: '允许位对上了',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u5-interrupt-ie-enables', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-vectors': 1 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-ie-enables': 1 })).toMatchObject({
         unlocked: true,
         progress: 100,
       });
