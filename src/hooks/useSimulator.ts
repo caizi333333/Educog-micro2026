@@ -208,7 +208,9 @@ const projectChecklistSaveResponseSchema = z.object({
     status: z.string(),
     updatedAt: z.string().datetime({ offset: true }),
   }),
-  projectCompletion: z.unknown(),
+  // Preserve the legacy optional receipt field; milestone confirmation is
+  // still checked against the parsed evidence before accepting a save.
+  projectCompletion: z.unknown().optional(),
 });
 
 const EXPERIMENT_SAVE_TIMEOUT_MS = 20_000;

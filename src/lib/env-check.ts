@@ -52,7 +52,7 @@ export function validateEnv(): Env {
     return cachedEnv;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors
+      const missingVars = error.issues
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('\n');
       
@@ -61,7 +61,7 @@ export function validateEnv(): Env {
 ${missingVars}
 
 请检查以下环境变量的配置：
-${error.errors.map(e => `- ${e.path.join('.')}`).join('\n')}
+${error.issues.map(e => `- ${e.path.join('.')}`).join('\n')}
 
 运行以下命令生成安全密钥：
 node -e "console.log('JWT_SECRET:', require('crypto').randomBytes(32).toString('hex'))"

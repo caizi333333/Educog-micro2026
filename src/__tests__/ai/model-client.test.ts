@@ -110,6 +110,14 @@ describe('ZhipuClient', () => {
     await expect(client.chat(messages)).rejects.toThrow('Zhipu API returned an invalid response');
   });
 
+  it.each([undefined, null, {}])('preserves defaults for a sparse provider message: %j', async (message) => {
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({
+      ...response,
+      choices: [{ index: 0, message, finish_reason: 'stop' }],
+    }) });
+    expect((await client.chat(messages)).choices[0].message).toEqual({ role: 'assistant', content: '' });
+  });
+
   it('generates text with optional system context', async () => {
     (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => response });
     await expect(client.generateText('Hello', 'System')).resolves.toBe('Hello!');
