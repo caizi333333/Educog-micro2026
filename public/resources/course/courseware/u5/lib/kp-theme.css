@@ -325,3 +325,12 @@ html[data-theme="light"] .kp-theme-toggle{
 @media print{
   .kp-theme-toggle{display:none!important}
 }
+
+/* 手机阅读：10–11px 的眉题、读数和疑点标签在窄屏放大。桌面仍用上面的密排字号。 */
+@media (max-width:760px){
+  .kp-eyebrow,.kp-chip,.kp-q .qn,.tab small,.mode .mb,.exb .kd{font-size:14px;letter-spacing:.04em}
+  .kp-tab .n,.kp-card h3,.kp-stagecap,.kp-read .k,.kp-pit .no,.kp-pit dt,.kp-nav-i .s{font-size:13px;letter-spacing:.04em}
+  .kp-lead,.kp-pit .q{font-size:17px}
+  .kp-card p,.kp-pit dd,.kp-opt{font-size:16px}
+  .kp-note,.kp-exp,.kp-foot{font-size:15px}
+}

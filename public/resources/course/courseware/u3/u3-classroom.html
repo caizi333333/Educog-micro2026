@@ -325,10 +325,11 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .mf-leg text{font-size:11px;fill:var(--muted-fg)}
 .mf-leg line{stroke-width:2.4}
 
-/* 窄屏：取数现场保持可读的最小宽度，横向滑动看全 */
+/* 窄屏：图跟屏宽走，溢出留在图框里，整页不再横滑。桌面不进这条。 */
 @media (max-width:760px){
-  .kp-stage{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .kp-stage .mf{min-width:720px}
+  .kp-stage,.rt3-host,.tg-host,.rg-host,.bm-host,.ch-host{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;min-width:0}
+  .kp-stage .mf,.kp-stage .alu,.kp-stage .mk,.kp-stage .tg,.rt3-host .rt3,.tg-host .tg,.rg-host .rg,.bm-host .bm,.ch-host .ch{min-width:0;width:100%;max-width:100%;height:auto}
+  .kp-stage img,.kp-card img{max-width:100%;height:auto}
 }
 
 /* ============================================================
@@ -428,7 +429,6 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .wh-fv{font-family:var(--fm);font-size:22px;font-weight:700;fill:var(--slate300)}
 .wh-f.up .wh-fv{fill:var(--amber200)}
 .wh-fs{font-size:11.5px;fill:var(--muted-fg)}
-@media (max-width:760px){.kp-stage .alu{min-width:720px}}
 
 /* ============================================================
    掩码工作台（u3-mask.js）· 3.4 逻辑运算
@@ -512,7 +512,6 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .rt3-c.wrap rect{stroke:#fff;stroke-width:2}
 .rt3-read{font-family:var(--fm);font-size:13px;fill:var(--slate300)}
 .rt3-read.m{fill:var(--emerald200)}
-@media (max-width:760px){.kp-stage .mk,.rt3-host .rt3{min-width:720px}}
 
 /* ============================================================
    程序走位（u3-flow.js）· 3.5 控制转移
@@ -587,7 +586,6 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .tg-b.new.on rect{fill:rgba(16,185,129,.2);stroke:rgba(110,231,183,.55)}
 .tg-b.new.on text{fill:var(--emerald200)}
 .tg-b.keep.on{}
-@media (max-width:760px){.kp-stage .tg,.tg-host .tg{min-width:720px}}
 
 /* ============================================================
    能跳多远（u3-range.js）· 3.5 控制转移
@@ -610,7 +608,6 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .rg-cn{stroke:rgba(255,255,255,.18);stroke-dasharray:2 4;fill:none}
 .rg-bd{stroke:rgba(244,63,94,.7);stroke-width:2;stroke-dasharray:4 3}
 .rg-bl{font-family:var(--fm);font-size:10.5px;fill:var(--rose300)}
-@media (max-width:760px){.rg-host .rg{min-width:720px}}
 .sk-reg.pc rect{stroke:rgba(103,232,249,.45)}
 
 /* ============================================================
@@ -637,7 +634,6 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
 .bm-c.sel rect{fill:rgba(246,187,49,.3);stroke:var(--addr);stroke-width:2}
 .bm-c.sel text{fill:#fff}
 .bm-info{font-family:var(--fm);font-size:13px;fill:var(--cyan100)}
-@media (max-width:760px){.bm-host .bm,.ch-host .ch{min-width:720px}}
 
 /* ============================================================
    位累加器流水线（u3-chain.js）· 3.6 位操作
@@ -1010,6 +1006,15 @@ table.cmp tr.wait td{color:var(--muted-fg)}
 .btn.sw.on i{background:hsl(42 92% 58% / .85)}.btn.sw.on i::after{left:16px;background:#141006}
 .foot{margin-top:28px;font-size:14px;color:var(--muted-fg);text-align:center}
 @media(max-width:1100px){.grid2,.grid2.bit,.grid2.even,.stage,.rd,.pits2{grid-template-columns:1fr}.motto{grid-template-columns:repeat(2,1fr)}.ov{grid-template-columns:repeat(4,1fr)}.mrow{grid-template-columns:repeat(4,1fr)}}
+</style>
+<style id="phone-type">
+@media (max-width:760px){
+  .kp-eyebrow,.kp-chip,.kp-q .qn,.tab small,.mode .mb,.exb .kd{font-size:14px;letter-spacing:.04em}
+  .kp-tab .n,.kp-card h3,.kp-stagecap,.kp-read .k,.kp-pit .no,.kp-pit dt,.kp-nav-i .s{font-size:13px;letter-spacing:.04em}
+  .kp-lead,.kp-pit .q{font-size:17px}
+  .kp-card p,.kp-pit dd,.kp-opt{font-size:16px}
+  .kp-note,.kp-exp,.kp-foot{font-size:15px}
+}
 </style>
 </head>
 <body>
