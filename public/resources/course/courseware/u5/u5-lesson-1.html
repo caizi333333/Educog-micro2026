@@ -1,13 +1,704 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-u5-lesson="a">
 <head>
+<script>(function(){try{var t=localStorage.getItem("mcu-ui-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>第 5 章 · 第 1 次课 · 中断入门</title>
-<meta http-equiv="refresh" content="0;url=u5-interrupt-classroom.html#lesson-a">
-<script>location.replace('u5-interrupt-classroom.html#lesson-a');</script>
+<link rel="stylesheet" href="lib/u5-interrupt-classroom.css">
+<style id="phone-read">
+/* 手机阅读：页签在条内横滑，不把整页撑宽；粘性层只留这一行导航。 */
+@media (max-width:900px){
+  .zoom{flex-wrap:wrap;min-width:0;max-width:100%}
+  .zoom .btn{min-height:44px}
+  .top .grow{min-width:0;flex-basis:auto}
+  html,body{max-width:100%}
+  .wrap{overflow-x:clip;max-width:100%}
+  .navstack{
+    display:flex;
+    flex-direction:column;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    gap:6px;
+    overflow-x:hidden;
+    max-width:100%;
+    min-width:0;
+    padding-right:6px;
+  }
+  .navstack .lessons,
+  .navstack .tabs{
+    flex:1 1 auto;
+    width:auto;
+    max-width:100%;
+    overflow-x:auto;
+    position:static;
+    margin:0;
+    padding:0;
+    background:transparent;
+  }
+  .lessons,.tabs{
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+    flex-wrap:wrap;
+    scrollbar-width:thin;
+  }
+  .tabs{
+    position:sticky;
+    top:0;
+    z-index:20;
+    padding-right:0;
+    max-width:100%;
+  }
+  .navstack .tabs{padding-right:0;z-index:auto}
+  .lesson,.tab{
+    flex:0 0 auto;
+    min-width:max-content;
+    white-space:nowrap;
+    min-height:44px;
+  }
+  .tab{padding:6px 12px}
+  .tab small,.lesson small{white-space:nowrap}
+  .drill-strip,.qz-calc{position:static;top:auto}
+  .wrap [id]{scroll-margin-top:84px}
+  .grid2>*,.grid3>*,.toc>*,.dual>*,.lh-stage>*,.le-grid>*,.mech-grid>*,.case-split>*,.nz-grid>*{min-width:0;max-width:100%}
+  .reg,.code,.s6-chain,.gloss-wrap,.mem-chain,.case-split,.nz-grid,.src-row{max-width:100%}
+  .reg{overflow-x:auto}
+  #srcs,.src-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #srcs>*,.src-row>*{min-width:0}
+  .case-split,.nz-grid,
+  .pane>[style*="grid-template-columns:330px"],
+  [style*="grid-template-columns:1.15fr"]{grid-template-columns:minmax(0,1fr)!important}
+  .pane>[style*="grid-template-columns:330px"]>*,
+  [style*="grid-template-columns:1.15fr"]>*{min-width:0;max-width:100%}
+  .ie-board .bits{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .ie-board .sw{min-width:0}
+  .row>.btn{white-space:normal;text-align:center}
+}
+@media (max-width:760px){
+  .wrap{padding:12px 12px 40px}
+  .grid2,.grid3,.toc,.lh-stage,.le-grid,.mech-grid,.sel4,.dual,.compare-mini,.media-grid,.analogy-grid,.analogy .pair,.tload-wrap,.rv-grid,.rv-cmp,.ex53f-wall,.gw-vs,.ex53-wrap,.ex51-wrap,.qz-wrap,.gw-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .case-split,.nz-grid,.src-row{grid-template-columns:minmax(0,1fr)!important}
+  .nzLane{flex-wrap:wrap}
+  .nzLane .nm{width:auto;flex:1 1 100%;text-align:left}
+  .nzTrack{flex:1 1 100%;min-width:0}
+  .ie-board .bits{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+</style>
 </head>
 <body>
-<p>正在打开第 1 次课（中断入门，小节 ①–⑧）。<a href="u5-interrupt-classroom.html#lesson-a">点这里继续</a></p>
+<div class="wrap">
+<div class="top">
+  <div class="grow">
+    <div class="eyebrow">微控制器原理及应用技术 · <b id="lesson-kicker">第 1 次课 · 中断入门</b> · 80C51</div>
+    <h1>第 1 次课：一个按键怎么让 CPU 停下来</h1>
+  </div>
+  <div class="zoom">字号 <button class="btn sm" data-z="0" aria-pressed="true">标准</button><button class="btn sm" data-z="1">大</button><button class="btn sm" data-z="2">特大</button>
+    <a class="btn sm amb" href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">开场硬测</a>
+    <a class="btn sm amb" href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">÷256 拆字节</a>
+    <a class="btn sm amb" href="u5-hex-split.html" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">投影单文件</a>
+    <a class="btn sm amb" href="#p17" style="text-decoration:none;border-bottom:none;display:inline-flex;align-items:center">课堂出题台 →</a>
+  </div>
+</div>
+
+<div class="navstack">
+<nav class="lessons" id="lessons" aria-label="第几次课">
+  <a class="lesson on" href="u5-lesson-1.html" data-lesson="a" aria-pressed="true">第 1 次课<small>中断入门 · ①–⑧</small></a>
+  <a class="lesson" href="u5-lesson-2.html" data-lesson="b" aria-pressed="false">第 2 次课<small>案例与练习 · ⑨–⑬</small></a>
+  <a class="lesson" href="u5-lesson-3.html" data-lesson="c" aria-pressed="false">第 3 次课<small>定时与收口 · ⑭起</small></a>
+</nav>
+<div class="tabs" role="tablist" id="tabs" aria-label="本次课小节">
+  <button class="tab" aria-selected="true" role="tab" data-p="1">① 目录<small>LCALL 与中断</small></button>
+  <button class="tab" role="tab" data-p="2">② 查询与中断<small>谁去问</small></button>
+  <button class="tab" role="tab" data-p="3">③ 5 个中断源<small>请求标志</small></button>
+  <button class="tab" role="tab" data-p="4">④ TCON<small>触发与清零</small></button>
+  <button class="tab" role="tab" data-p="5">⑤ IE<small>允许</small></button>
+  <button class="tab" role="tab" data-p="6">⑥ IP<small>优先级与嵌套时间线</small></button>
+  <button class="tab" role="tab" data-p="7">⑦ 响应条件<small>何时响应</small></button>
+  <button class="tab" role="tab" data-p="8">⑧ 响应过程<small>单步</small></button>
+</div>
+</div>
+<p class="note">这一页只有第 1 次课（①–⑧）。案例和收口在另外两次课。 <a href="u5-interrupt-classroom.html">回三次课目录</a> · 口径 80C51。</p>
+<section class="pane on" id="p1">
+  <div class="card">
+    <div class="h2">今天要回答的题</div>
+    <div class="note">实验箱上一个数码管显示 0，按键接在 <b>P3.2（INT0）</b>。每按一次，数显加 1，到 9 以后回到 0。CPU 平时还要做别的事。<b>CPU 怎么知道“键被按了”？</b></div>
+  </div>
+  <div class="toc" id="toc"></div>
+  <div class="card" style="margin-top:10px">
+    <div class="h2">参考 · 例题 / 速记 / 课末测 / 全复习</div>
+    <div class="note"><a href="#p15" onclick="show(15);return false">⑮ 例题全览</a> ·
+    <a href="#p16" onclick="show(16);return false">⑯ 快速记忆</a> ·
+    <a href="#p17" onclick="show(17);return false">⑰ 课末测试</a> ·
+    <a href="#p18" onclick="show(18);return false">⑱ 全复习</a> ·
+    <a href="#hex-split" onclick="show(14);setTimeout(function(){var e=document.getElementById('hex-split');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false" style="color:#fbbf24;font-weight:700">⑭ ÷256 拆字节</a> ·
+    <a href="#gate-win" onclick="show(19);return false">⑲ GATE 计时窗口</a> ·
+    <a href="#ex53-full" onclick="show(20);return false" style="color:#fbbf24">⑳ 例5-3整页源码</a> ·
+    <a href="#rev-warm" onclick="show(18);setTimeout(function(){var e=document.getElementById('rev-warm');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);return false">开场硬测</a> ·
+    <a href="#p17">课堂出题台 →</a>
+    <span style="margin-left:8px;color:var(--amber300,#fbbf24)">· 下午收尾：⑮→例5-4起</span></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="h2">LCALL 与中断响应：同一套动作，谁来叫不一样</div>
+    <div class="row"><button class="btn pri" id="lcGo">▶ 子程序调用（LCALL）</button><button class="btn amb" id="irGo">▶ 中断响应（按键）</button></div>
+    <div class="grid2">
+      <div><div class="lbl">子程序调用</div><div class="flow" id="lcFlow"></div></div>
+      <div><div class="lbl">中断响应</div><div class="flow" id="irFlow"></div></div>
+    </div>
+    <div class="note" style="margin-top:10px">两边都是“断点压栈 → 转去执行 → 弹回断点”。中断响应时，LCALL 由硬件执行，返回用 <b>RETI</b>。</div>
+  </div>
+
+  <div class="card" style="margin-top:12px" id="struct6">
+    <div class="h2">80C51 中断系统的结构 · 六步走</div>
+    <div class="note">对照课件第 8 页。主线：<b>请求从哪来 → 到哪去 → 谁裁决</b>。口诀：源喊 → 标志亮 → IE 放行 → IP 排队 → 硬件查 → 进入口。</div>
+    <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px;align-items:center">
+      <button class="btn pri" id="s6Next" type="button">下一步</button>
+      <button class="btn amb" id="s6Auto" type="button">▶ 自动播放</button>
+      <button class="btn" id="s6Pause" type="button" disabled>⏸ 暂停</button>
+      <button class="btn" id="s6Reset" type="button">⟲ 重来</button>
+      <span class="s6-stepdot" id="s6Dots" aria-hidden="true"></span>
+      <span class="sub" id="s6Cap">点「下一步」，看请求怎么从源走到入口。</span>
+    </div>
+    <div class="s6-chain" id="s6Chain" role="img" aria-label="80C51中断系统结构六步动画">
+      <div class="s6-stage" data-s="1">
+        <div class="s6-t">① 中断源</div>
+        <div class="s6-chips">
+          <span class="s6-chip">INT0</span><span class="s6-chip">INT1</span>
+          <span class="s6-chip">T0</span><span class="s6-chip">T1</span>
+          <span class="s6-chip">串口</span>
+        </div>
+      </div>
+      <div class="s6-wire" data-w="1" aria-hidden="true"><svg viewBox="0 0 28 18"><path class="shaft" d="M2 9 H22"/><path class="flow" d="M2 9 H22"/><polygon class="head" points="22,4 28,9 22,14"/></svg></div>
+      <div class="s6-stage" data-s="2">
+        <div class="s6-t">② 请求标志</div>
+        <div class="s6-chips">
+          <span class="s6-chip">IE0</span><span class="s6-chip">IE1</span>
+          <span class="s6-chip">TF0</span><span class="s6-chip">TF1</span>
+          <span class="s6-chip">RI</span><span class="s6-chip">TI</span>
+        </div>
+      </div>
+      <div class="s6-wire" data-w="2" aria-hidden="true"><svg viewBox="0 0 28 18"><path class="shaft" d="M2 9 H22"/><path class="flow" d="M2 9 H22"/><polygon class="head" points="22,4 28,9 22,14"/></svg></div>
+      <div class="s6-stage" data-s="3">
+        <div class="s6-t">③ IE 允许闸</div>
+        <div class="s6-chips">
+          <span class="s6-chip">EA 总闸</span>
+          <span class="s6-chip">EX0</span><span class="s6-chip">ET0</span>
+          <span class="s6-chip">EX1</span><span class="s6-chip">ET1</span>
+          <span class="s6-chip">ES</span>
+        </div>
+      </div>
+      <div class="s6-wire" data-w="3" aria-hidden="true"><svg viewBox="0 0 28 18"><path class="shaft" d="M2 9 H22"/><path class="flow" d="M2 9 H22"/><polygon class="head" points="22,4 28,9 22,14"/></svg></div>
+      <div class="s6-stage" data-s="4">
+        <div class="s6-t">④ IP 优先级</div>
+        <div class="s6-chips">
+          <span class="s6-chip">PX0</span><span class="s6-chip">PT0</span>
+          <span class="s6-chip">PX1</span><span class="s6-chip">PT1</span>
+          <span class="s6-chip">PS</span>
+        </div>
+      </div>
+      <div class="s6-wire" data-w="4" aria-hidden="true"><svg viewBox="0 0 28 18"><path class="shaft" d="M2 9 H22"/><path class="flow" d="M2 9 H22"/><polygon class="head" points="22,4 28,9 22,14"/></svg></div>
+      <div class="s6-stage" data-s="5">
+        <div class="s6-t">⑤ 硬件查询</div>
+        <div class="s6-chips"><span class="s6-chip">裁决谁先</span></div>
+      </div>
+      <div class="s6-wire" data-w="5" aria-hidden="true"><svg viewBox="0 0 28 18"><path class="shaft" d="M2 9 H22"/><path class="flow" d="M2 9 H22"/><polygon class="head" points="22,4 28,9 22,14"/></svg></div>
+      <div class="s6-stage" data-s="6">
+        <div class="s6-t">⑥ 中断入口</div>
+        <div class="s6-chips"><span class="s6-chip">硬件 LCALL</span><span class="s6-chip">向量表</span></div>
+      </div>
+    </div>
+    <div class="s6-hint" id="s6Hint">还没开始。五路源安静，标志灯灭，闸门关着。</div>
+    <div class="lh-linkbar"><a href="#lcall-hw">↓ 硬件 LCALL 拆解</a> · 第⑥步「中断入口」里那条写死在硅片上的长调用</div>
+  </div>
+
+  <div class="card" style="margin-top:12px" id="lcall-hw">
+    <div class="h2">硬件 LCALL 拆解 · 一条指令里的三步</div>
+    <div class="note">中断入口那一步里的「硬件 LCALL」是写死在硅片里的一条长调用；表面上是一条指令，内部仍完成<strong>压断点 + 改 PC</strong>。软件写的 <span class="mono gold">LCALL addr</span> 与硬件向量调用，<b>堆栈动作同一套</b>（80C51：堆栈向上长，先 SP+1 再写入；先压低字节、再压高字节）。</div>
+    <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px;align-items:center">
+      <span class="lh-mode" role="group" aria-label="动画模式">
+        <button class="btn amb on" id="lhModeLcall" type="button" aria-pressed="true">LCALL 压栈</button>
+        <button class="btn" id="lhModeReti" type="button" aria-pressed="false">RETI 弹栈</button>
+      </span>
+      <button class="btn pri" id="lhNext" type="button">下一步</button>
+      <button class="btn amb" id="lhAuto" type="button">▶ 自动</button>
+      <button class="btn" id="lhReset" type="button">⟲ 重来</button>
+      <span class="s6-stepdot" id="lhDots" aria-hidden="true"></span>
+      <span class="sub" id="lhCap">点「下一步」，看 LCALL 内部怎么压断点、改 PC。</span>
+    </div>
+    <div class="lh-stage" id="lhStage" role="img" aria-label="80C51 硬件 LCALL / RETI 堆栈拆解">
+      <div class="lh-panel">
+        <h3>寄存器 · 指令</h3>
+        <div class="lh-insn" id="lhInsn">示意：PC=<b>1000H</b> 处有一条 3 字节 <b>LCALL 0003H</b>；返回地址＝PC+3＝<b>1003H</b></div>
+        <div class="lh-regs">
+          <div class="lh-reg" id="lhPc"><div class="k">PC</div><div class="v" id="lhPcV">1000H</div></div>
+          <div class="lh-reg" id="lhSp"><div class="k">SP</div><div class="v" id="lhSpV">07H</div></div>
+        </div>
+        <div class="lh-flow" id="lhFlow" aria-hidden="true"></div>
+      </div>
+      <div class="lh-panel">
+        <h3>堆栈（向上长 · 先 SP+1 再写）</h3>
+        <div class="lh-stack" id="lhStack">
+          <div class="lh-slot" data-a="07"><span class="addr">@07H</span><span class="byte" id="lhB07">—</span><span class="tag">空</span></div>
+          <div class="lh-slot" data-a="08"><span class="addr">@08H</span><span class="byte" id="lhB08">—</span><span class="tag">低字节位</span></div>
+          <div class="lh-slot" data-a="09"><span class="addr">@09H</span><span class="byte" id="lhB09">—</span><span class="tag">高字节位</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="lh-hint" id="lhHint">步 0 · 初始态：PC 停在 LCALL，堆栈空槽，SP＝07H。</div>
+    <div class="lh-aside" id="lhAside">教学口径：80C51；LCALL 先压 <b>PCL</b>（低）再压 <b>PCH</b>（高）；弹出相反。RETI 还要清内部优先级状态触发器（与普通 RET 的差别），本动画只拆堆栈恢复 PC 这一段。</div>
+  </div>
+
+  <div class="card" style="margin-top:12px" id="level-edge">
+    <div class="h2">电平触发 vs 边沿触发（IT0／IT1）</div>
+    <div class="note">外中断怎么「认一次请求」：低电平一直按着算，还是只认 1→0 那一下。对照课件第 10–12 页；位号按 80C51：<b>IT0＝TCON.0</b>，<b>IT1＝TCON.2</b>（复位后 TCON＝00H，默认电平）。</div>
+    <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+      <button class="btn amb" type="button" id="leDemoLevel">演示 · 电平（开关）</button>
+      <button class="btn pri" type="button" id="leDemoEdge">演示 · 边沿（按钮）</button>
+      <button class="btn" type="button" id="leDemoReset">⟲ 复位示意</button>
+      <span class="sub" id="leCap">点按钮看波形与 IE0 怎么变。</span>
+    </div>
+    <div class="le-grid">
+      <div class="le-panel" id="leLevel">
+        <h3>低电平触发 · IT0＝0（开关）</h3>
+        <div class="le-viz" aria-hidden="true">
+          <div class="device"><div class="le-switch"><div class="knob"></div></div>保持闭合</div>
+          <div class="le-wave">
+            <svg viewBox="0 0 160 48"><path class="trace" d="M4 12 H40 V36 H156"/></svg>
+          </div>
+          <div class="le-flag">IE0<b id="leIeLevel">0</b>跟随引脚</div>
+        </div>
+        <div class="le-bits">
+          开关一直打到低＝请求一直在。CPU 响应后，若外部仍为低，硬件还会把请求维持／再次置上，<b>服务结束还可能再进</b>——必须先撤掉低电平再 RETI。<br>
+          清零：电平方式下 <code>IE0／IE1</code> <b>不由</b>响应自动清掉，跟引脚走。
+        </div>
+      </div>
+      <div class="le-panel" id="leEdge">
+        <h3>下降沿触发 · IT0＝1（按钮）</h3>
+        <div class="le-viz" aria-hidden="true">
+          <div class="device"><div class="le-btn" id="leBtnViz"></div>点一下</div>
+          <div class="le-wave">
+            <svg viewBox="0 0 160 48">
+              <path class="trace" d="M4 12 H50 V36 H70 V12 H156"/>
+              <path class="pulse" stroke-dasharray="80" d="M50 12 V36 H70 V12"/>
+            </svg>
+          </div>
+          <div class="le-flag">IE0<b id="leIeEdge">0</b>锁存沿</div>
+        </div>
+        <div class="le-bits">
+          只认高→低那一下，像门铃「叮」一声。<code>IE0／IE1</code> 在采到下降沿时<strong>置 1 锁存</strong>；CPU 响应、进入服务时由<strong>硬件自动清 0</strong>。按住不放也不会因为「一直低」而反复进（本次边沿已清）。
+        </div>
+      </div>
+    </div>
+    <div class="le-bits" style="margin-top:12px">
+      <b style="color:var(--amber200)">IT 位怎么写</b>：<code>IT0</code>（TCON.0）、<code>IT1</code>（TCON.2）——写 <code>0</code>＝低电平触发，写 <code>1</code>＝下降沿触发。上电／复位默认 <code>0</code>（电平）。<br>
+      <b style="color:var(--amber200)">会不会丢请求</b>：边沿方式下，只要下降沿已被采样并锁进 <code>IEx</code>，即使当时 CPU 正在打更高优先级，一般也会等 RETI 后再来——<b>已锁存的沿不白丢</b>。真正容易丢的是<strong>脉宽太窄</strong>（短于约 1 个机器周期），两次采样都没看见 1→0。<br>
+      电平方式则相反：低必须保持到被响应；若高级占着时你把低撤了，这次请求就没了。
+    </div>
+    <div class="le-kou">口诀：电平像开关——按住才算、松了就没、松晚了会再进；边沿像按钮——叮一声锁进 IE0，响应硬件清，窄脉冲才易漏。</div>
+  </div>
+
+</section>
+
+<!-- ② -->
+
+<section class="pane" id="p2">
+  <div class="key">查询是 CPU 一遍遍去看，中断是外设有事来叫 CPU。</div>
+  <div class="row"><button class="btn pri" id="tlStart">▶ 开始</button><button class="btn amb" id="tlKey">按键！</button><button class="btn" id="tlReset">⟲ 重来</button>
+    <span class="sub">随时点“按键”，看两种方式各自什么时候发现</span></div>
+  <div class="lbl">查询方式：主程序反复读 P3.2，“到了吗？”</div>
+  <div class="lane" id="laneQ"></div>
+  <div class="lbl">中断方式：主程序干自己的事，按键来了硬件转去服务程序</div>
+  <div class="lane" id="laneI"></div>
+  <div class="row" style="margin-top:10px">
+    <span class="card" style="margin:0">查询方式 主程序干活：<b class="gold mono" id="wq">0</b> 格 · 发现延迟：<b class="mono" id="dq">—</b></span>
+    <span class="card" style="margin:0">中断方式 主程序干活：<b class="gold mono" id="wi">0</b> 格 · 发现延迟：<b class="mono" id="di">—</b></span>
+  </div>
+  <div class="note">图例：<span class="gold">黄</span> = 去问一次；<span class="ok">绿</span> = 主程序干活；<span class="bad">红</span> = 处理按键；蓝竖线 = 按键时刻。查询方式里“问”的间隔是示意，实际 80C51 在每个机器周期由硬件采样中断标志（教材 P97），主程序不用自己写查询。</div>
+
+
+  <div class="card analogy-pack" id="analogy2">
+    <div class="h2">多组形象对比（同一句话：你去问世界 / 世界来喊你）</div>
+    <p class="lead">时间轴上面那一套偏“机器感”。下面几组用生活场面对照——每组左边都是<strong>查询</strong>，右边都是<strong>中断</strong>。课上挑 2～3 组讲透即可，不必全念。</p>
+    <div class="analogy-grid">
+
+      <div class="analogy">
+        <div class="who">接实验一 · Delay</div>
+        <div class="title">写作业时等水开</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>写两行就跑去厨房看水壶——作业断、水也未必刚好开。</div>
+          <div class="side i"><b>中断</b>专心写；水壶哨响了再去关火，回来接着写下一行。</div>
+        </div>
+        <div class="chip-map">映射：作业＝主程序；看水壶＝<em>JNB / 空转 Delay</em>；哨声＝中断请求。</div>
+      </div>
+
+      <div class="analogy">
+        <div class="who">接第3章 · LCALL</div>
+        <div class="title">老师批卷 vs 教室门铃</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>批两道题就扭头看门一次——批得慢，还可能漏人。</div>
+          <div class="side i"><b>中断</b>埋头批；有人进门喊一声「到」，停笔处理完用书签回到刚才那题。</div>
+        </div>
+        <div class="chip-map">映射：书签＝断点 PC；喊一声＝硬件替你做了一次 <em>LCALL</em>；回来要用 <em>RETI</em>。</div>
+      </div>
+
+      <div class="analogy">
+        <div class="who">生活 · 手机</div>
+        <div class="title">刷聊天列表 vs 来电震动</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>每隔几秒拉开微信看有没有新消息——刷屏费电，急讯还可能晚半拍。</div>
+          <div class="side i"><b>中断</b>手机揣兜里干活；来电震动再掏出来，讲完挂掉继续干。</div>
+        </div>
+        <div class="chip-map">映射：刷列表＝轮询；震动＝外设来叫；挂电话＝服务程序结束。</div>
+      </div>
+
+      <div class="analogy">
+        <div class="who">工程 · 急停</div>
+        <div class="title">流水线旁的急停键</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>主循环每 100 ms 读一次急停——最坏晚 100 ms；扫太勤又干不了别的。</div>
+          <div class="side i"><b>中断</b>急停脚一拉低立刻进 ISR 停机；平时主程序专心转灯、算数。</div>
+        </div>
+        <div class="chip-map">映射：这就是「要反应快，又要主程序还能干活」——两边都要 → 才上中断。</div>
+      </div>
+
+      <div class="analogy">
+        <div class="who">对照 · 漏事件</div>
+        <div class="title">保安巡楼 vs 烟感报警</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>保安按路线巡——两次巡视之间着火，可能发现已晚（短事件会漏）。</div>
+          <div class="side i"><b>中断</b>烟感一响对讲机就叫；保安在别的楼层也能立刻改去火点。</div>
+        </div>
+        <div class="chip-map">映射：短按键／窄脉冲夹在两次查询中间＝<em>MISSED</em>；边沿中断仍能抓住。</div>
+      </div>
+
+      <div class="analogy">
+        <div class="who">一句话</div>
+        <div class="title">谁主动？</div>
+        <div class="pair">
+          <div class="side q"><b>查询</b>CPU 是提问的人：「好了吗？好了吗？」</div>
+          <div class="side i"><b>中断</b>外设是喊话的人：「好了！过来！」</div>
+        </div>
+        <div class="chip-map">记住：中断不是「更快的循环」，是把<strong>等待</strong>从主程序里抠掉。</div>
+      </div>
+
+    </div>
+    <div class="analogy-one">课上硬指标：点 2～3 人复述——「实验一里 <strong>LCALL Delay</strong> 时 CPU 在干什么？」答「空转／什么正经事都没干」才过。然后再问：「中断来了像什么？」期望听到「有人喊一声／硬件帮你 LCALL」。</div>
+  </div>
+
+  <div class="media-ref" id="media2">
+    <div class="h2">参考动画 / 视频</div>
+    <p class="teach">老师用：先播/点<strong>对比短片</strong>，再进本页时间轴演示；外链模拟器作加深，DMA 标「今晚不讲」。</p>
+    <div class="media-local">
+      <div class="lbl" style="margin-top:0">短片 · 查询对比与响应过程（约 3:51）</div>
+      <video controls preload="metadata" src="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">
+        浏览器不支持 video：请用下方链接打开。
+      </video>
+      <div class="links">
+        <a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4">打开对比短片</a>
+        <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a>
+      </div>
+    </div>
+    <div class="media-grid">
+      <div class="media-card">
+        <div class="t">CodeBrick · 查询 / 中断 / DMA 并排</div>
+        <div class="u">红=忙等，绿=有效计算，橙=中断服务。课堂直观第一优先；DMA 列今晚不讲。</div>
+        <a href="https://www.codebrick.tech/co-blog/posts/io/io-methods-compare-simulator.html" target="_blank" rel="noopener">新窗口打开模拟器</a>
+      </div>
+      <div class="media-card">
+        <div class="t">短按会漏 · Polling vs Interrupt</div>
+        <div class="u">两条时间轴同一时钟：查询间隔里的短按会 MISSED，中断仍 CAUGHT。</div>
+        <a href="https://dmccreary.github.io/robot-faces/sims/polling-vs-interrupt-response-simulator/" target="_blank" rel="noopener">新窗口打开模拟器</a>
+      </div>
+      <div class="media-card">
+        <div class="t">Galles · Interrupt I/O 可视化</div>
+        <div class="u">CPU 时间轴上对比 polling / interrupt / DMA 七步循环（辅，口径偏操作系统 I/O）。</div>
+        <a href="https://cuuduongthancong.com/~galles/visualization/InterruptIO.html" target="_blank" rel="noopener">新窗口打开动画</a>
+      </div>
+      <div class="media-card">
+        <div class="t">B站 · 51 中断系统工作原理</div>
+        <div class="u">中文入门：中断源→允许→响应→保护断点→RETI，约 14:33（BV1Hd4y1t7ub）。</div>
+        <a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">打开 B 站视频页</a>
+      </div>
+    </div>
+    <div class="lbl">预览 · CodeBrick 并排模拟（若空白则用上方链接）</div>
+    <iframe class="media-iframe" title="CodeBrick I/O methods compare" loading="lazy"
+      src="https://www.codebrick.tech/co-blog/posts/io/io-methods-compare-simulator.html"
+      referrerpolicy="no-referrer-when-downgrade"
+      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    <div class="lbl">中断系统正片 · 不内嵌播放器</div>
+    <p class="media-note">B站播放器内嵌经常返回 412，或被跨域策略挡住。本页不再嵌入 <code>player.bilibili.com</code>。需要正片时用上方「打开 B 站视频页」（BV1Hd4y1t7ub）。对比短片、实验四 0872、实验四 3084 仍用 <code>videos.sunyancai.top/u5/</code> 的页内视频，地址不变。</p>
+  </div>
+
+</section>
+
+<!-- ③ -->
+
+<section class="pane" id="p3">
+  <div class="key">5 个源：外0、定0、外1、定1、串口；各有一个请求标志。</div>
+  <div class="row"><span class="sub">点一个“分机”，它的请求标志置 1</span><button class="btn" id="srcClr">全部清零</button></div>
+  <div class="src-row" id="srcs"></div>
+  <div class="card" style="margin-top:12px">
+    <div class="reg" id="s3tcon"></div>
+    <div class="note">串口的标志 <b>TI、RI</b> 在 <b>SCON（98H）</b>里，其余 4 个在 TCON 里。注意：IE0 是标志位，IE 是寄存器名。</div>
+  </div>
+</section>
+
+<!-- ④ -->
+
+<section class="pane" id="p4">
+  <div class="key">IT0=0 低电平触发，IT0=1 下降沿触发；TF 和边沿方式的 IE 会自动清，TI、RI 要自己清。</div>
+  <div class="row" style="margin:0 0 8px"><button class="btn sm" type="button" id="backA">← 练 · 互动 A 门铃对决</button><span class="sub">先猜再回这里点按/按住</span></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="h2">外部中断 0</div>
+      <div class="row">触发方式：<button class="btn" id="it0b">IT0 = 1（下降沿）</button></div>
+      <div class="row"><button class="keybtn" id="k4">按住 / 点按<br>P3.2</button>
+        <div><div class="note">P3.2 引脚：<b class="mono" id="pin4">1（高）</b></div><div class="note">中断服务次数：<span class="big" id="cnt4">0</span></div></div></div>
+      <div class="reg" id="s4tcon"></div>
+      <div class="note" id="msg4">点按一下试试，再按住不放试试。</div>
+    </div>
+    <div class="card">
+      <div class="h2">串行口</div>
+      <div class="row"><button class="btn pri" id="rxb">串口收到一个字节</button><button class="btn amb" id="clrRI">软件清零：CLR RI</button></div>
+      <div class="note">RI：<span class="big" id="ri4">0</span> &nbsp; 进入服务程序次数：<span class="big" id="cntRI">0</span></div>
+      <div class="note" id="msgRI">响应后 RI 不会自动清零。服务程序里不清，返回后又会进来。</div>
+    </div>
+  </div>
+  <div class="cap4" id="cap4">点按 vs 按住（当前为下降沿）：点按一次 → 服务 1 次；按住不放 → 仍只服务 1 次（IE0 已硬件清零，本次按住不再锁存新边沿）。</div>
+
+  <div class="card mech4" id="mech4">
+    <div class="h2">机理：采样 · 锁存 · 清零时间线 <span class="tag">主讲 · 门铃类比为辅</span></div>
+    <div class="note" style="margin-bottom:6px">两种方式都看 <b>INT0/INT1 引脚</b>（INT0 = P3.2）。差别不在“谁来叫”，而在 <b>怎么认请求、IE0 谁清、RETI 后会不会再进</b>。依据：课件第 10–12 页；教材约 P94–95 表 5-1。</div>
+    <div class="mech-grid">
+      <div class="mech-col">
+        <h3><span class="it">IT=1</span> 下降沿（下沿）触发</h3>
+        <svg class="tl-svg" viewBox="0 0 420 168" role="img" aria-label="下降沿触发时间线">
+          <text class="lane-lab" x="4" y="22">P3.2</text>
+          <path class="wave pin" d="M40 28 H90 V12 H160 V28 H400"/>
+          <text class="tick" x="88" y="44">1→0</text>
+          <text class="lane-lab" x="4" y="68">采样</text>
+          <line class="samp" x1="90" y1="52" x2="90" y2="78"/>
+          <line class="samp" x1="120" y1="52" x2="120" y2="78"/>
+          <line class="samp" x1="150" y1="52" x2="150" y2="78"/>
+          <text class="ann" x="95" y="90">约每机器周期采样；须先高后低跨越周期（脉宽 ≳1 机器周期）</text>
+          <text class="lane-lab" x="4" y="112">IE0</text>
+          <path class="wave ie" d="M40 118 H90 V102 H200 V118 H400"/>
+          <rect class="ack" x="200" y="96" width="36" height="28" rx="3"/>
+          <text class="ann-gold" x="205" y="114">应答</text>
+          <text class="ann-ok" x="242" y="114">硬件清 IE0=0</text>
+          <text class="lane-lab" x="4" y="148">RETI</text>
+          <text class="ann" x="40" y="158">按住不放也不再进：边沿已锁存过一次，IEx 被硬件清掉</text>
+        </svg>
+        <ul class="mech-pts">
+          <li>检测 <b>1→0</b>；检测到后把请求 <b>锁存进 IE0</b>。</li>
+          <li>CPU 应答时 <b>硬件清 IE0</b>；本次按住只算一次。</li>
+          <li>要再进中断，须引脚回到高，再来一次下降沿。</li>
+        </ul>
+      </div>
+      <div class="mech-col">
+        <h3><span class="it">IT=0</span> 低电平触发</h3>
+        <svg class="tl-svg" viewBox="0 0 420 168" role="img" aria-label="低电平触发时间线">
+          <text class="lane-lab" x="4" y="22">P3.2</text>
+          <path class="wave pin" d="M40 12 H80 V28 H300 V12 H400"/>
+          <text class="tick" x="170" y="44">低电平持续</text>
+          <text class="lane-lab" x="4" y="68">请求</text>
+          <text class="ann" x="40" y="78">请求跟着引脚走：低 → 有请求；高 → 无请求</text>
+          <text class="lane-lab" x="4" y="102">IE0</text>
+          <path class="wave ie" d="M40 118 H80 V102 H300 V118 H400"/>
+          <rect class="ack" x="140" y="96" width="36" height="28" rx="3"/>
+          <text class="ann-gold" x="145" y="114">应答</text>
+          <text class="ann-bad" x="182" y="114">不自动清</text>
+          <rect class="reent" x="300" y="130" width="70" height="22" rx="3"/>
+          <text class="ann-bad" x="308" y="145">RETI 再进？</text>
+          <text class="lane-lab" x="4" y="148">RETI</text>
+          <text class="ann" x="40" y="158">若返回时仍为低 → 再进 ISR；须在服务结束前撤掉低电平</text>
+        </svg>
+        <ul class="mech-pts">
+          <li>请求 <b>跟随引脚低电平</b>；低要保持到被应答。</li>
+          <li><b>IE0 不由硬件自动清</b>；电平撤掉后请求才消失。</li>
+          <li>若 RETI 时仍为低 → <b>立即再进入</b>（课件第 11 页）。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sel4">
+      <div class="box"><strong>选型：按键点一下只加 1</strong>选下降沿 → <span class="mono">SETB IT0</span>。按住也不重复计数。</div>
+      <div class="box"><strong>选型：持续故障要一直伺候</strong>选低电平；ISR 里必须先消除故障条件（或屏蔽），再 RETI，否则会连进。</div>
+    </div>
+    <div class="note" style="margin-top:10px">门铃类比可作辅记：边沿≈按一下门铃记下“有人来过”；电平≈按住不松门铃一直响。主线仍用上图：采样 / 锁存 / 清零 / RETI 再进风险。</div>
+  </div>
+
+  <div class="note">依据：课件第 10–12 页；教材表 5-1（P94）。电平方式下，低电平要保持到被响应，并在服务结束前撤掉，否则返回后再次进入中断（课件第 11 页）。</div>
+</section>
+
+<!-- ⑤ -->
+
+<section class="pane" id="p5">
+  <div class="key">IE 里 EA 是总开关，另外 5 位是分开关，两个都打开 CPU 才理。</div>
+  <div class="row" style="margin:0 0 8px"><button class="btn sm" type="button" id="backC">← 练 · 互动 C 开关拼字节</button><span class="sub">83H / 8AH</span></div>
+  <div class="card">
+    <div class="reg" id="ieReg"></div>
+    <div class="row">IE = <span class="big" id="ieHex">00H</span><span class="mono sub" id="ieBin">0000 0000B</span>
+      <span style="flex:1"></span>
+      <button class="btn amb" data-ie="138">例5-1：只允许 T0、T1（8AH）</button>
+      <button class="btn amb" data-ie="151">教材习题2：允许 INT0、INT1、T0、串口（97H）</button>
+      <button class="btn" data-ie="0">清零</button></div>
+  </div>
+  <div class="card"><div class="h2">哪些中断能被响应</div><div id="ieList"></div></div>
+  <div class="note">IE（A8H）：D7 EA，D6、D5 在 80C51 中未定义（写“—”，按 0 算），D4 ES，D3 ET1，D2 EX1，D1 ET0，D0 EX0。置 1 允许。依据：课件第 14 页，教材表 5-3（P95）。</div>
+</section>
+
+<!-- ⑥ -->
+
+<section class="pane" id="p6">
+  <div class="key">先看 IP 分高低两级，同级再按“外0、定0、外1、定1、串”排；高级能打断低级，同级不能打断同级。</div>
+  <div class="card">
+    <div class="reg" id="ipReg"></div>
+    <div class="row">IP = <span class="big" id="ipHex">00H</span>
+      <span style="flex:1"></span><button class="btn amb" id="ip05">例5-2：片外中断高优先级（05H）</button><button class="btn" id="ip00">清零</button></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="h2">两个请求同时到达</div>
+      <div class="row">A <select id="ipA"></select> B <select id="ipB"></select><button class="btn pri" id="ipSim">看谁先</button></div>
+      <div class="flow" id="ipOut1"></div>
+      <div class="note" id="ipWhy1"></div>
+    </div>
+    <div class="card">
+      <div class="h2">A 正在服务时 B 来了</div>
+      <div class="row"><button class="btn pri" id="ipNest">能不能打断</button></div>
+      <div class="flow" id="ipOut2"></div>
+      <div class="note" id="ipWhy2"></div>
+    </div>
+  </div>
+  <div class="card" id="nzCard">
+    <div class="h2">两级嵌套：让时间线走一遍</div>
+    <div class="row">
+      <button class="btn pri" id="nzStep">单步 ▸</button><button class="btn" id="nzBack">◂ 上一步</button><button class="btn amb" id="nzAuto">▶ 自动</button><button class="btn" id="nzReset">⟲ 复位</button>
+      <span class="sub">本页签里空格键也是单步</span>
+      <span style="flex:1"></span>
+      SP 初值 <button class="btn sm" id="nzSp60" aria-pressed="true">60H</button><button class="btn sm" id="nzSp07" aria-pressed="false">07H（复位值）</button>
+    </div>
+    <div class="row">
+      <label class="sw"><input type="checkbox" id="nzSame"> 对照一：T0、INT1 设成同级（IP = 00H）</label>
+      <label class="sw"><input type="checkbox" id="nzRet"> 对照二：T0 服务程序最后一条错写成 RET</label>
+    </div>
+    <div id="nzTL"></div>
+    <div class="note nzLegend"><span style="background:#6ee7b7"></span>主程序<span style="background:#fda4af"></span>T0 服务<span style="background:#c4b5fd"></span>INT1 服务<span style="background:#67e8f9"></span>硬件响应（LCALL）<span style="background:#fcd34d"></span>RETI<span style="background:#f43f5e"></span>RET<span style="background:repeating-linear-gradient(45deg,rgba(252,211,77,.6) 0 4px,transparent 4px 8px)"></span>请求挂着在等</div>
+    <div class="note" id="nzMsg" style="font-size:18px;min-height:56px;margin:6px 0"></div>
+    <div class="nz-grid">
+      <div class="card" style="margin:0"><div class="h2">程序</div><div class="code" id="nzCode" style="max-height:470px"></div></div>
+      <div class="card" style="margin:0"><div class="h2">CPU 和中断系统</div>
+        <div class="note">PC = <span class="big" id="nzPC"></span></div>
+        <div class="note">SP = <span class="big" id="nzSP"></span></div>
+        <div class="note">A = <b class="mono gold" id="nzA"></b> · PSW = <b class="mono gold" id="nzPSW"></b></div>
+        <div class="note" style="margin-top:8px">IP = <b class="mono" id="nzIP"></b></div>
+        <div><span class="lamp2" id="nzTF0"><i></i>TF0（T0 请求）</span><span class="lamp2" id="nzIE1"><i></i>IE1（INT1 请求）</span></div>
+        <div class="lbl" style="margin-top:6px">优先级状态触发器（程序读不到）</div>
+        <div><span class="lamp2 ff" id="nzFFH"><i></i>高级</span><span class="lamp2 ff" id="nzFFL"><i></i>低级</span></div>
+        <div class="note" id="nzFFn"></div>
+      </div>
+      <div class="card" style="margin:0"><div class="h2">堆栈（片内 RAM）</div><div class="stack" id="nzStack"></div><div class="note" id="nzStN"></div></div>
+    </div>
+    <div class="note" style="margin-top:8px">规则依据：教材 P96–99（两级优先级三条原则、两个优先级状态触发器；响应时把触发器置 1、硬件 LCALL 压断点；正在执行 RETI 时，执行完还要再执行一条指令才能响应新请求；RETI 清触发器，不能用 RET 代替）；课件第 18–19、21、23–24 页。按指令一条一条示意，没有画机器周期；主程序、服务程序的地址和 A、PSW 的数值是示意值。INT1 设为下降沿触发（SETB IT1），响应后 IE1 由硬件清零。</div>
+  </div>
+  <div class="note">IP（B8H）：D7–D5 未定义，D4 PS，D3 PT1，D2 PX1，D1 PT0，D0 PX0，置 1 为高优先级。自然顺序：INT0 &gt; T0 &gt; INT1 &gt; T1 &gt; 串口。依据：课件第 16–20 页，教材表 5-4、5-5（P96）。</div>
+</section>
+
+<!-- ⑦ -->
+
+<section class="pane" id="p7">
+  <div class="key">三个条件同时满足才响应；遇上 3 种情况要等；单一中断 3～8 个机器周期。</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="h2">三个条件（以 INT0 为例）</div>
+      <label class="sw"><input type="checkbox" id="c1" checked> 有中断请求（IE0 = 1）</label><br>
+      <label class="sw"><input type="checkbox" id="c2" checked> 该源允许位 EX0 = 1</label><br>
+      <label class="sw"><input type="checkbox" id="c3" checked> CPU 开中断 EA = 1</label>
+      <div class="h2" style="margin-top:12px">三种封锁情况</div>
+      <label class="sw"><input type="checkbox" id="b1"> CPU 正在处理同级或更高优先级的中断</label><br>
+      <label class="sw"><input type="checkbox" id="b2"> 当前机器周期不是正在执行指令的最后一个机器周期</label><br>
+      <label class="sw"><input type="checkbox" id="b3"> 正在执行 RETI 或访问 IE、IP 的指令</label>
+    </div>
+    <div class="card">
+      <div class="h2">结果</div>
+      <div id="r7" style="font-size:26px;font-weight:700;margin:10px 0"></div>
+      <div class="note" id="w7"></div>
+      <div class="note" style="margin-top:14px">响应时间：最少 3 个机器周期（1 个查询标志 + 2 个执行硬件 LCALL）；单一中断最多 8 个（RETI 或访问 IE、IP 的指令最多 2 个 + 接着那条若是乘除指令 4 个 + LCALL 2 个）。若正在处理同级或更高级中断，响应时间无法计算。依据：课件第 21–22 页，教材 P97–98。<a href="#lcall-hw">看 LCALL 内部三步</a></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="h2">响应时间：一格一个机器周期</div>
+    <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-t7="0" aria-pressed="true">最短 3 个</button><button class="btn sm" data-t7="1" aria-pressed="false">碰上 RETI，后面接 1 条单周期指令</button><button class="btn sm" data-t7="2" aria-pressed="false">最长 8 个</button><button class="btn pri" id="t7Play">▶ 播放</button></div>
+    <div id="t7Bar" style="display:flex;gap:4px;margin:12px 0 6px;flex-wrap:wrap"></div>
+    <div style="font-size:20px">共 <b class="mono gold" id="t7N">0</b> 个机器周期 <span class="sub" id="t7F"></span></div>
+    <div class="note" id="t7W"></div>
+  </div>
+</section>
+
+<!-- ⑧ -->
+
+<section class="pane" id="p8">
+  <div class="key">硬件把断点压栈、跳到固定入口；入口只有 8 个字节，放一条 LJMP 跳走；自己保护 A、PSW；最后用 RETI 返回。</div>
+  <div class="row" style="margin:0 0 8px"><button class="btn sm" type="button" id="backB">← 练 · 互动 B 谁替你 LCALL</button><span class="sub">SP=07H 压断点</span></div>
+  <div class="row" style="flex-wrap:wrap;gap:6px">
+    <span class="sub">看法</span><button class="btn sm" id="stM0" aria-pressed="true">原 13 步</button><button class="btn sm" id="stM1" aria-pressed="false">带数值：主程序在做加法</button>
+    <span class="sub" style="margin-left:10px">SP 初值</span><button class="btn sm" id="stS07" aria-pressed="true">07H（复位值）</button><button class="btn sm" id="stS60" aria-pressed="false">60H</button>
+    <label class="sw" id="stPswW" style="margin-left:10px;display:none"><input type="checkbox" id="stNoPsw"> 忘了保护 PSW</label>
+  </div>
+  <div class="row"><button class="btn pri" id="stNext">下一步 ▸</button><button class="btn" id="stPrev">◂ 上一步</button><button class="btn" id="stAuto">▶ 自动连播</button><button class="btn" id="stReset">⟲ 复位</button><span class="sub">空格键也可下一步</span></div>
+  <div class="grid3">
+    <div class="card"><div class="h2" id="stListH">步骤</div><ol class="steps" id="stList"></ol></div>
+    <div class="card"><div class="h2">CPU</div>
+      <div class="note">PC = <span class="big" id="stPC"></span></div>
+      <div class="note">SP = <span class="big" id="stSP"></span></div>
+      <div class="note" id="stRegs"></div>
+      <div class="note" id="stMsg" style="margin-top:8px"></div></div>
+    <div class="card"><div class="h2">堆栈（片内 RAM）</div><div class="stack" id="stStack"></div>
+      <div class="note" id="stSpNote"></div>
+      <div class="note">80C51 的堆栈向上长：先 SP+1，再存入。LCALL 先压 PC 低 8 位，再压高 8 位。</div></div>
+  </div>
+  <div class="note" id="stRes" style="font-size:18px"></div>
+  <div class="note">入口地址：INT0 0003H · T0 000BH · INT1 0013H · T1 001BH · 串口 0023H，相隔 8 字节（课件第 23 页，教材表 5-6，P99）。本页主程序和服务程序的地址是示意值，A、PSW、30H 的数值也是示意。</div>
+</section>
+
+<!-- ⑨ -->
+<div class="foot">先点页顶「第几次课」，← → 只在本次课的小节之间切换 · 依据：课件《80C51的中断系统及定时计数器》第 1–24 页，韩兴国《微控制器原理及应用技术》第 5 章 P92–99<br>
+配套短片：<a href="https://videos.sunyancai.top/u5/u5-why-interrupt.mp4" target="_blank" rel="noopener">查询对比与响应过程</a> ·
+<a href="https://www.bilibili.com/video/BV1Hd4y1t7ub/" target="_blank" rel="noopener">B站 · 51 中断系统（BV1Hd4y1t7ub）</a> ·
+<a href="u5-lesson-1.html#media2">课堂②参考动画</a> ·
+<a href="u5-lesson-2.html#lab4clips">实验四 0872 / 3084（页内播放）</a> ·
+<a href="u5-interrupt-classroom.html">三次课目录</a></div>
+
+</div>
+<script src="lib/u5-interrupt-classroom.js"></script>
+<script id="phone-read-tabs">
+(function(){
+  var tabs=document.querySelector('#tabs.tabs, .tabs[role="tablist"]');
+  if(!tabs || typeof MutationObserver!=='function') return;
+  function scrollerOf(el){
+    var node=el.parentElement;
+    while(node && node!==document.documentElement){
+      var overflow=window.getComputedStyle(node).overflowX;
+      if((overflow==='auto'||overflow==='scroll'||overflow==='overlay') && node.scrollWidth>node.clientWidth+2) return node;
+      node=node.parentElement;
+    }
+    return tabs;
+  }
+  function reveal(){
+    var tab=tabs.querySelector('.tab[aria-selected="true"]');
+    if(!tab) return;
+    var scroller=scrollerOf(tab);
+    if(!scroller || scroller.scrollWidth<=scroller.clientWidth+2) return;
+    var tabBox=tab.getBoundingClientRect();
+    var box=scroller.getBoundingClientRect();
+    scroller.scrollLeft+= (tabBox.left+tabBox.width/2)-(box.left+box.width/2);
+  }
+  new MutationObserver(reveal).observe(tabs,{subtree:true,attributes:true,attributeFilter:['aria-selected']});
+  reveal();
+})();
+</script>
 </body>
 </html>

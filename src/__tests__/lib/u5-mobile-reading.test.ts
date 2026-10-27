@@ -6,7 +6,7 @@ import { join } from 'node:path';
  * lesson notes actually embed. Deep-link handlers stay in place.
  */
 const REPO_ROOT = join(__dirname, '../../..');
-const CLASSROOM = join(REPO_ROOT, 'public/resources/course/courseware/u5/u5-interrupt-classroom.html');
+const U5 = join(REPO_ROOT, 'public/resources/course/courseware/u5');
 const OVERVIEW = join(REPO_ROOT, 'public/resources/course/courseware/u5/u5-overview.html');
 const REPORT = join(REPO_ROOT, 'src/app/teacher/report/page.tsx');
 
@@ -60,14 +60,16 @@ function expectPhoneReading(html: string, label: string): void {
 }
 
 describe('mobile reading containment', () => {
-  const classroomHtml = readFileSync(CLASSROOM, 'utf8');
   const overviewHtml = readFileSync(OVERVIEW, 'utf8');
   const reportSource = readFileSync(REPORT, 'utf8');
 
-  it('keeps the classroom tab strip inside the page and preserves #hex-split', () => {
-    expectPhoneReading(classroomHtml, 'classroom');
-    expect(classroomHtml).toContain("if(h==='#hex-split' || h==='#rev-hex'){show(14);");
-    expect(classroomHtml).toContain('id="hex-split"');
+  it('keeps each lesson tab strip inside the page and preserves #hex-split', () => {
+    for (const name of ['u5-interrupt-classroom.html', 'u5-lesson-1.html', 'u5-lesson-2.html', 'u5-lesson-3.html']) {
+      expectPhoneReading(readFileSync(join(U5, name), 'utf8'), name);
+    }
+    const runtime = readFileSync(join(U5, 'lib/u5-interrupt-classroom.js'), 'utf8');
+    expect(runtime).toContain("if(h==='#hex-split' || h==='#rev-hex'){show(14);");
+    expect(readFileSync(join(U5, 'u5-lesson-3.html'), 'utf8')).toContain('id="hex-split"');
   });
 
   it('applies the same narrow-screen rules to the overview interrupt pane', () => {
