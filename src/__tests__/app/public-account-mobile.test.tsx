@@ -72,6 +72,10 @@ describe('public and account pages mobile contracts', () => {
     ]) {
       expect(link).toHaveClass('min-h-11', 'focus-visible:ring-2');
     }
+    const headerStudentLogin = within(navigation).getByRole('link', { name: '学生登录' });
+    expect(headerStudentLogin).toHaveAttribute('href', '/login');
+    expect(headerStudentLogin).toHaveClass('inline-flex');
+    expect(headerStudentLogin).not.toHaveClass('hidden');
     expect(screen.getAllByRole('link', { name: /教师端登录|教师与管理员登录|学生登录/ }).length).toBeGreaterThan(2);
     expect(screen.getByRole('heading', { name: /3.1 寻址方式.*教学闭环样板/ })).toBeInTheDocument();
     expect(screen.getByText('待采集')).toBeInTheDocument();
