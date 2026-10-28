@@ -161,9 +161,14 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   'int-6': '优先级',
   'int-7': '响应条件',
   'int-8': '响应过程',
+  'int-9': '按键计数',
+  'int-10': '学生互动',
+  'int-11': '术语',
   'int-12': '外部中断例题',
   'int-13': '单外中断采数',
   'int-14': '定时器装值',
+  'int-15': '例题全览',
+  'int-16': '快速记忆',
   'hex-split': '÷256 拆字节',
   'rev-hex': '÷256 拆字节',
   'int-17': '课末测试',
@@ -175,6 +180,23 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   'u2-lesson-b': '第 2 次课 · 口和总线',
   'u2-lesson-c': '第 3 次课 · 节拍和开机',
 };
+
+/**
+ * Student-facing name of an in-page anchor.
+ * Unknown ids return an empty string so the shell can fall back to the page title.
+ *
+ * @param sectionId - anchor id, with or without a leading `#`
+ * @returns label such as `查询与中断`, or `''` when this anchor has no name
+ *
+ * @example
+ * lessonSectionLabel('int-2') // '查询与中断'
+ * lessonSectionLabel('#hex-split') // '÷256 拆字节'
+ */
+export function lessonSectionLabel(sectionId: string): string {
+  const id = sectionId.replace(/^#/, '').trim();
+  if (!id) return '';
+  return SECTION_LABELS[id] ?? '';
+}
 
 export type LessonVisit = {
   targetId: string;

@@ -521,6 +521,91 @@
     padding: var(--space-4) var(--space-3);
   }
 
+  /*
+    Location bar (#70). Stays on screen after a deep link scrolls the
+    courseware up, so 章 › 课次 › 小节 and 「回课次」 remain readable.
+  */
+  .lesson-shell__location {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-inline: calc(var(--space-3) * -1);
+    padding: var(--space-2) var(--space-3);
+    background: #070a0df2;
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  }
+
+  .lesson-shell__location.is-public {
+    top: 4.5rem;
+  }
+
+  .lesson-shell__crumb {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+
+  .lesson-shell__crumb ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lesson-shell__crumb-item {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .lesson-shell__crumb-sep {
+    color: rgb(148 163 184);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .lesson-shell__crumb-link,
+  .lesson-shell__crumb-here {
+    display: inline-flex;
+    min-height: 2.75rem;
+    min-width: 0;
+    align-items: center;
+    border-radius: 0.375rem;
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    text-align: left;
+  }
+
+  .lesson-shell__crumb-link {
+    color: rgb(203 213 225);
+    font-weight: 500;
+  }
+
+  .lesson-shell__crumb-link:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: rgb(255 251 235);
+  }
+
+  .lesson-shell__crumb-link:focus-visible {
+    outline: 2px solid rgb(253 230 138 / 0.7);
+    outline-offset: 2px;
+  }
+
+  .lesson-shell__crumb-here {
+    background: rgb(252 211 77 / 0.15);
+    color: rgb(255 251 235);
+    font-weight: 600;
+  }
+
   .lesson-shell__title-row {
     display: flex;
     flex-direction: column;
@@ -561,7 +646,7 @@
 
   .lesson-shell__courseware {
     min-width: 0;
-    scroll-margin-top: calc(3.5rem + var(--space-3));
+    scroll-margin-top: calc(3.5rem + 4.5rem + var(--space-3));
   }
 
   .lesson-shell__meta {
@@ -581,6 +666,11 @@
       flex-direction: row;
       align-items: flex-end;
       justify-content: space-between;
+    }
+
+    .lesson-shell__location {
+      margin-inline: calc(var(--space-4) * -1);
+      padding-inline: var(--space-4);
     }
   }
 

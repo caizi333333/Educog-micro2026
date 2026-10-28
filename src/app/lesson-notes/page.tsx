@@ -27,6 +27,8 @@
 // ?unit=4#s-map 打开课堂互动台的 111 条全景。练一练默认折叠。
 // 深链 hash 写进 iframe；外壳没有同名锚点，进页后把课件区滚进视口。
 // 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
+// 外壳面包屑始终写出「章 › 课次 › 小节」。章、课次可点，回到章总览或这一课的入口。
+// 第 3–5 章的课次条和第 2 章一样整屏换课，不靠浏览器后退。
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,7 +43,14 @@ import {
   resolveLessonVisit,
   standaloneCoursewareHref,
 } from '@/lib/classroom-sections';
-import { lessonEntryHref, lessonEntryTarget, scrollLessonCoursewareIntoView } from '@/lib/lesson-shell';
+import { lessonEntryTarget, scrollLessonCoursewareIntoView } from '@/lib/lesson-shell';
+import {
+  lessonLocationTrail,
+  lessonShellHref,
+  lessonSwitchChoices,
+  resolveLessonLocation,
+  type LessonPlace,
+} from '@/lib/lesson-location';
 import { scrollLeftForChip } from '@/lib/reveal-horizontal-chip';
 import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
@@ -241,6 +250,121 @@ function Unit2ChapterNav({
   );
 }
 
+/**
+ * 「章 › 课次 › 小节」 plus 「回课次」.
+ * Chapter and lesson crumbs open that place. The section crumb is the current page.
+ *
+ * @param props.trail - full location sentence, also the nav's accessible name
+ * @param props.chapter - chapter crumb
+ * @param props.lesson - lesson crumb
+ * @param props.section - current section; not a control
+ * @param props.publicShell - offset the bar below the public site header
+ * @param props.onOpen - opens a crumb the same way a lesson switch does
+ * @param props.onReturn - explicit 「回课次」
+ */
+function LessonLocationBar({
+  trail,
+  chapter,
+  lesson,
+  section,
+  publicShell,
+  onOpen,
+  onReturn,
+}: {
+  trail: string;
+  chapter: LessonPlace;
+  lesson: LessonPlace;
+  section: LessonPlace;
+  publicShell: boolean;
+  onOpen: (place: LessonPlace) => void;
+  onReturn: () => void;
+}): React.JSX.Element {
+  const crumbs = [chapter, lesson, section];
+  return (
+    <div className={cn('lesson-shell__location', publicShell && 'is-public')}>
+      <nav aria-label={`当前位置：${trail}`} className="lesson-shell__crumb">
+        <ol>
+          {crumbs.map((crumb, index) => {
+            const here = index === crumbs.length - 1;
+            return (
+              <li key={`${crumb.id}-${index}`} className="lesson-shell__crumb-item">
+                {index > 0 && <span className="lesson-shell__crumb-sep" aria-hidden="true">›</span>}
+                {here ? (
+                  <span aria-current="page" className="lesson-shell__crumb-here">{crumb.label}</span>
+                ) : (
+                  <button type="button" className="lesson-shell__crumb-link" onClick={() => onOpen(crumb)}>
+                    {crumb.label}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <button
+        type="button"
+        onClick={onReturn}
+        className="lesson-shell__return inline-flex min-h-11 shrink-0 items-center rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-sm font-semibold text-slate-100 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08] hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
+      >
+        回课次
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Same-chapter lesson switch for units 3–5.
+ * Unit 2 keeps `Unit2ChapterNav`. Choosing a lesson opens its entry and stays in the current reading layer.
+ *
+ * @param props.unitId - textbook chapter
+ * @param props.activeLessonId - lesson the breadcrumb currently names
+ * @param props.onOpen - opens that lesson's entry file and hash
+ */
+function ChapterLessonSwitch({
+  unitId,
+  activeLessonId,
+  onOpen,
+}: {
+  unitId: number;
+  activeLessonId: string;
+  onOpen: (place: LessonPlace) => void;
+}): React.JSX.Element | null {
+  const lessons = lessonSwitchChoices(unitId);
+  if (lessons.length === 0) return null;
+  return (
+    <div className="flex max-w-full min-w-0 flex-col gap-[var(--space-2)]" data-lesson-switch={unitId}>
+      <p className="text-xs leading-5 text-slate-500">同章换课次。点一次进入这一课的入口。</p>
+      <div role="group" aria-label={`第 ${unitId} 章课次`} className="grid grid-cols-2 gap-[var(--space-2)] min-[760px]:grid-cols-3">
+        {lessons.map((item) => {
+          const selected = item.id === activeLessonId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onOpen({ id: item.id, label: item.title, file: item.file, hash: item.hash })}
+              data-tone={selected ? 'notes' : 'shell'}
+              data-state={selected ? 'active' : 'idle'}
+              className={cellSurfaceClass({
+                compact: true,
+                active: selected,
+                interactive: true,
+                className: cn(
+                  'flex min-h-11 min-w-0 flex-col items-start justify-center gap-[var(--space-1)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                  selected ? 'text-amber-50' : 'text-slate-300 hover:text-amber-100',
+                ),
+              })}
+            >
+              <span className="text-sm font-semibold leading-5">{item.title}</span>
+              <span className="text-xs leading-4 opacity-70">{item.topics}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function findNote(file: string): { unit: LessonUnit; note: LessonNote } | undefined {
   for (const unit of LESSON_UNITS) {
     const note = unit.notes.find((item) => item.file === file);
@@ -316,6 +440,9 @@ export default function LessonNotesPage(): React.JSX.Element {
     const hash = aliasHash ?? rawHash;
     const hit = findNote(file);
     if (!hit) return;
+    const nextHref = lessonShellHref(hit.unit.id, file, hash, hit.unit.notes[0]?.file ?? file);
+    const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (currentHref !== nextHref) window.history.replaceState({}, '', nextHref);
     const sectionFromHash = hash.startsWith('#') ? hash.slice(1) : '';
     if (/^[\w=%.~-]{1,64}$/.test(sectionFromHash)) setSectionId(sectionFromHash);
     else if (mode === 'entry') setSectionId('');
@@ -389,7 +516,12 @@ export default function LessonNotesPage(): React.JSX.Element {
     setPracticeOpen(false);
     if (entry.hash) openNote(entry.file, entry.hash);
     else openNote(entry.file, '', 'entry');
-    window.history.replaceState({}, '', lessonEntryHref(hit.unit.id, entry.hash));
+    setCoursewareScroll((generation) => generation + 1);
+  }, [openNote]);
+
+  const openPlace = useCallback((place: LessonPlace): void => {
+    if (place.hash) openNote(place.file, place.hash);
+    else openNote(place.file, '', 'entry');
     setCoursewareScroll((generation) => generation + 1);
   }, [openNote]);
 
@@ -482,6 +614,14 @@ export default function LessonNotesPage(): React.JSX.Element {
   }, [activeFile]);
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
+  const location = resolveLessonLocation({
+    unitId: activeUnit.id,
+    unitName: activeUnit.name,
+    noteFile: active.file,
+    noteTitle: active.title,
+    sectionId,
+  });
+  const locationTrail = lessonLocationTrail(location);
   const practiceBoard = practiceBoardForNote(active.file, sectionId);
   const practiceExpanded = Boolean(practiceBoard) && practiceOpen;
   const lessonVisit = resolveLessonVisit({
@@ -559,6 +699,15 @@ export default function LessonNotesPage(): React.JSX.Element {
         </div>
 
         <div className="lesson-shell__column">
+          <LessonLocationBar
+            trail={locationTrail}
+            chapter={location.chapter}
+            lesson={location.lesson}
+            section={location.section}
+            publicShell={isPublicShell}
+            onOpen={openPlace}
+            onReturn={returnToLesson}
+          />
           <div className="lesson-shell__title-row">
             <div className="lesson-shell__title">
               <SurfaceKicker tone="notes">
@@ -572,13 +721,6 @@ export default function LessonNotesPage(): React.JSX.Element {
               </p>
             </div>
             <div className="lesson-shell__actions">
-              <button
-                type="button"
-                onClick={returnToLesson}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-sm font-semibold text-slate-100 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08] hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
-              >
-                回课次
-              </button>
               <Link
                 href={graphLinkHref}
                 className="hidden min-h-11 shrink-0 items-center gap-[var(--space-2)] self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:inline-flex"
@@ -616,38 +758,41 @@ export default function LessonNotesPage(): React.JSX.Element {
             {activeUnit.id === 2 ? (
               <Unit2ChapterNav activeFile={activeFile} onOpen={openNote} />
             ) : (
-              <div className="overflow-x-auto pb-[var(--space-1)]">
-                <div role="tablist" aria-label={`单元 ${activeUnit.id} 讲解笔记`} className="flex w-max gap-[var(--space-2)]">
-                  {activeUnit.notes.map((note) => {
-                    const selected = note.file === activeFile;
-                    return (
-                      <button
-                        key={note.file}
-                        type="button"
-                        role="tab"
-                        id={`note-tab-${note.file}`}
-                        aria-selected={selected}
-                        aria-controls={`note-panel-${note.file}`}
-                        onClick={() => openNote(note.file)}
-                        data-tone={selected ? 'course' : 'shell'}
-                        data-state={selected ? 'active' : 'idle'}
-                        className={cellSurfaceClass({
-                          compact: true,
-                          active: selected,
-                          interactive: true,
-                          className: cn(
-                            'flex min-h-11 shrink-0 flex-col justify-center gap-[var(--space-1)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
-                            selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
-                          ),
-                        })}
-                      >
-                        <span className="whitespace-nowrap text-sm font-semibold leading-5">{note.title}</span>
-                        <span className="hidden whitespace-nowrap text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
-                      </button>
-                    );
-                  })}
+              <>
+                <ChapterLessonSwitch unitId={activeUnit.id} activeLessonId={location.lesson.id} onOpen={openPlace} />
+                <div className="overflow-x-auto pb-[var(--space-1)]">
+                  <div role="tablist" aria-label={`单元 ${activeUnit.id} 讲解笔记`} className="flex w-max gap-[var(--space-2)]">
+                    {activeUnit.notes.map((note) => {
+                      const selected = note.file === activeFile;
+                      return (
+                        <button
+                          key={note.file}
+                          type="button"
+                          role="tab"
+                          id={`note-tab-${note.file}`}
+                          aria-selected={selected}
+                          aria-controls={`note-panel-${note.file}`}
+                          onClick={() => openNote(note.file)}
+                          data-tone={selected ? 'course' : 'shell'}
+                          data-state={selected ? 'active' : 'idle'}
+                          className={cellSurfaceClass({
+                            compact: true,
+                            active: selected,
+                            interactive: true,
+                            className: cn(
+                              'flex min-h-11 shrink-0 flex-col justify-center gap-[var(--space-1)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60',
+                              selected ? 'text-cyan-50' : 'text-slate-300 hover:text-cyan-100',
+                            ),
+                          })}
+                        >
+                          <span className="whitespace-nowrap text-sm font-semibold leading-5">{note.title}</span>
+                          <span className="hidden whitespace-nowrap text-xs leading-4 opacity-70 sm:block">{note.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 

@@ -40,6 +40,8 @@ describe('lesson shell entry', () => {
     const practice = readFileSync(join(ROOT, 'src/components/practice/DragMatchPractice.tsx'), 'utf8');
     expect(page).not.toContain('max-w-7xl');
     expect(page).toContain('lesson-shell__column');
+    expect(page).toContain('lesson-shell__location');
+    expect(page).toContain('当前位置');
     expect(page).toContain('回课次');
     expect(css).toContain('width: min(100%, var(--content-max-width))');
     expect(css).toContain('gap: var(--space-4)');
