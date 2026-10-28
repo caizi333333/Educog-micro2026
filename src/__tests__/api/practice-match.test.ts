@@ -1,4 +1,4 @@
-import { POST, resetPracticeMatchRateLimit } from '@/app/api/practice/match/route';
+import { POST } from '@/app/api/practice/match/route';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { POINTS_CONFIG } from '@/lib/points-system';
@@ -40,7 +40,6 @@ function post(body: unknown, authorization = 'Bearer token'): Promise<Response> 
 
 describe('POST /api/practice/match', () => {
   beforeEach(() => {
-    resetPracticeMatchRateLimit();
     jest.clearAllMocks();
     mockVerifyToken.mockResolvedValue({ userId: 'student-1', email: 's@example.com', role: 'STUDENT' });
     (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => callback(prisma));
@@ -519,6 +518,9 @@ describe('POST /api/practice/match', () => {
   });
 
   it('scores the IP priority match: a miss pays 0, the first clear pays, a cooldown pays 0', async () => {
+    // This file shares one in-memory 30/min window. A second user keeps these
+    // three posts off the bucket the last case still needs.
+    mockVerifyToken.mockResolvedValue({ userId: 'student-ip', email: 's@example.com', role: 'STUDENT' });
     const missed = await post({
       boardId: INTERRUPT_PRIORITY_BOARD.id,
       placements: { ...solvedPlacements(INTERRUPT_PRIORITY_BOARD), px0: 'pt0', pt0: 'px0' },
