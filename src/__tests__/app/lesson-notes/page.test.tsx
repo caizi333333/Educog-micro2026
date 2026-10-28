@@ -1,7 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import LessonNotesPage from '@/app/lesson-notes/page';
 import { useAuth } from '@/contexts/AuthContext';
+
+const LESSON3_RUNTIME = readFileSync(
+  join(process.cwd(), 'public/resources/course/courseware/u5/lib/u5-interrupt-classroom.js'),
+  'utf8',
+);
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/hooks/useLearningPresence', () => ({ useLearningPresence: jest.fn() }));
@@ -568,6 +575,60 @@ describe('LessonNotesPage deep link', () => {
     expect(overview).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
     expect(screen.getByRole('tab', { name: /第 5 章交互总览/ })).toHaveAttribute('aria-selected', 'true');
     expect(window.location.hash).toBe('');
+  });
+
+  it('follows a same-file hash change between #hex-split and #gate', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#hex-split', '第 3 次课 · 定时与收口 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
+
+    const ensureRuntime = (): void => {
+      const doc = frame.contentDocument;
+      const win = frame.contentWindow;
+      if (!doc || !win) throw new Error('lesson frame missing');
+      if (doc.getElementById('p14') && doc.getElementById('p19')) return;
+      const hash = win.location.hash;
+      doc.open();
+      doc.write([
+        '<!DOCTYPE html><html data-u5-lesson="c"><body>',
+        '<section class="pane" id="p14"><div id="hex-split">÷256</div><div id="rev-hex"></div></section>',
+        '<section class="pane" id="p19"><div id="gate"></div><h2 id="gate-win">GATE：计时窗口</h2><span id="p-gate"></span></section>',
+        '</body></html>',
+      ].join(''));
+      doc.close();
+      win.HTMLElement.prototype.scrollIntoView = () => undefined;
+      if (hash && win.location.hash !== hash) win.location.hash = hash;
+      win.eval(LESSON3_RUNTIME);
+    };
+
+    const showHash = (hash: string): string => {
+      ensureRuntime();
+      let paneId = '';
+      frame.contentWindow?.addEventListener('hashchange', () => {
+        paneId = frame.contentDocument?.querySelector('section.pane.on')?.id ?? '';
+      });
+      window.history.replaceState({}, '', `/lesson-notes?unit=5${hash}`);
+      fireEvent(window, new HashChangeEvent('hashchange'));
+      return paneId;
+    };
+
+    expect(showHash('#gate')).toBe('p19');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#gate');
+    expect(frame.contentWindow?.location.hash).toBe('#gate');
+    expect(placeNav()).toHaveTextContent('GATE：计时窗口');
+    expect(placeNav()).not.toHaveTextContent('÷256 拆字节');
+
+    for (const hash of ['#p-gate', '#gate-win']) {
+      expect(showHash(hash)).toBe('p19');
+      expect(frame).toHaveAttribute('src', `/resources/course/courseware/u5/u5-lesson-3.html${hash}`);
+      expect(frame.contentWindow?.location.hash).toBe(hash);
+      expect(placeNav()).toHaveTextContent('GATE：计时窗口');
+    }
+
+    expect(showHash('#hex-split')).toBe('p14');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
+    expect(frame.contentWindow?.location.hash).toBe('#hex-split');
+    expect(placeNav()).toHaveTextContent('÷256 拆字节');
+    expect(placeNav()).not.toHaveTextContent('GATE：计时窗口');
   });
 
   it('opens unit 5 #hex-split on the lesson 3 page and keeps the hash', async () => {
