@@ -524,12 +524,27 @@ export default function LessonNotesPage(): React.JSX.Element {
           // 用 replace 改 hash：不在浏览器历史里留一串页内跳转，"后退"仍是离开本页。
           // 相对地址会按外壳页解析（会把外壳整页套进框里），所以拼成讲解页自己的路径。
           // 同一个 hash 再点一次不会触发 hashchange，先清一下再设。
+          // 同一篇换节靠课件自己的 hashchange 切页签。有的环境 replace 只改
+          // location、不派发事件，#hex-split → #gate 就会只换面包屑。
           const here = `${win.location.pathname}${win.location.search}`;
           if (win.location.hash === hash) win.location.replace(`${here}#`);
-          win.location.replace(`${here}${hash}`);
+          const oldURL = win.location.href;
+          let hashNotified = false;
+          const markHashNotified = (): void => { hashNotified = true; };
+          win.addEventListener('hashchange', markHashNotified);
+          try {
+            win.location.replace(`${here}${hash}`);
+            if (!hashNotified) {
+              win.dispatchEvent(new HashChangeEvent('hashchange', { oldURL, newURL: win.location.href }));
+            }
+          } finally {
+            win.removeEventListener('hashchange', markHashNotified);
+          }
         } catch {
           // 同源页面不会走到这里；万一跨源就放弃定位，只切页签
         }
+        // src 跟着当前 hash，避免属性停在第一次挂上的锚点。
+        if (hash) setInitialHash((prev) => (prev[file] === hash ? prev : { ...prev, [file]: hash }));
         return;
       }
       // 默认篇在首屏就已经挂上，这时框里还是空白页。把 hash 写进 src，

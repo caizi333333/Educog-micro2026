@@ -81,8 +81,8 @@ try{$('.lesson').forEach(function(button){
     return false;
   };
 });}catch(e){}
-try{(function(){
-  var h=location.hash||'';
+function routeHash(h){
+  h=String(h||'');
   var picked=lessonFromToken(h);
   if(!picked && !h){
     try{picked=lessonFromToken(new URLSearchParams(location.search).get('lesson'));}catch(e){}
@@ -119,7 +119,11 @@ try{(function(){
     }
     return;
   }
-})();}catch(e){}
+}
+/* 同一篇只换 hash（例如 #hex-split ↔ #gate）必须走这里。
+   监听不能放到后面的互动块里：第 1、3 次课没有那块 DOM，块会中途抛错，监听就永远挂不上。 */
+try{routeHash(location.hash||'');}catch(e){}
+try{addEventListener('hashchange',function(){routeHash(location.hash||'');});}catch(e){}
 try{document.addEventListener('keydown',function(e){
   var tg=e.target;if(tg.tagName==='SELECT'||tg.tagName==='TEXTAREA'||(tg.tagName==='INPUT'&&tg.type!=='checkbox'))return;
   var order=LESSONS[lesson]||LESSONS.a;
@@ -897,6 +901,13 @@ try{(function(){
   }
   updateHud();
 
+  function syncDrillNav(){
+    var h=location.hash||'';
+    qsa('#drillNav a').forEach(function(a){a.classList.toggle('on', a.getAttribute('href')===h)});
+  }
+  addEventListener('hashchange', function(){ syncDrillNav(); });
+  syncDrillNav();
+
   /* ===== A duel ===== */
   var aEdge={cnt:0, held:false, fired:false}, aLvl={cnt:0, held:false, timer:null};
   var aTried={edge:false, lvl:false};
@@ -1189,55 +1200,8 @@ try{(function(){
   var bA=$('backA'); if(bA) bA.onclick=function(){jumpDrill('actA')};
   var bB=$('backB'); if(bB) bB.onclick=function(){jumpDrill('actB')};
   var bC=$('backC'); if(bC) bC.onclick=function(){jumpDrill('actC')};
-  function syncDrillNav(){
-    var h=location.hash||'';
-    qsa('#drillNav a').forEach(function(a){a.classList.toggle('on', a.getAttribute('href')===h)});
-  }
   qsa('#drillNav a').forEach(function(a){ a.addEventListener('click', function(){ show(10); setTimeout(syncDrillNav,0) }) });
   qsa('#drillHud .slot-h').forEach(function(s){ s.style.cursor='pointer'; s.onclick=function(){ jumpDrill('act'+s.dataset.act) } });
-  addEventListener('hashchange', function(){
-    var h=location.hash||'';
-    if(h==='#drill'||h==='#p10'||/^#act[A-D]$/.test(h)){
-      show(10);
-      if(/^#act[A-D]$/.test(h)) setTimeout(function(){ var el=document.querySelector(h); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}) },40);
-    }else if(h==='#ex53'||h==='#例5-3'||h==='#p12'){
-      show(12);
-    }else if(h==='#ex51'||h==='#例5-1'||h==='#p13'){
-      show(13);
-    }else if(h==='#hex-split'||h==='#rev-hex'){
-      show(14); setTimeout(function(){ var e=document.getElementById(h==='#rev-hex'?'rev-hex':'hex-split'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
-    }else if(h==='#media2'){
-      show(2); setTimeout(function(){ var e=document.getElementById('media2'); if(e) e.scrollIntoView({block:'start'}); },60);
-    }else if(h==='#lab4clips'){
-      show(9); setTimeout(function(){ var e=document.getElementById('lab4clips'); if(e) e.scrollIntoView({block:'start'}); },60);
-    }else if(h==='#tload'||h==='#装值'||h==='#p14'){
-      show(14);
-    }else if(h==='#gate-win'||h==='#p-gate'||h==='#gate'||h==='#p19'){
-      show(19);
-    }else if(h==='#ex53-full'||h==='#p-524'||h==='#p20'){
-      show(20);
-    }else if(h==='#ex-58'){
-      show(15); setTimeout(function(){ var e=document.getElementById('ex-58'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
-    }else if(h==='#exg'||h==='#例题'||h==='#p15'){
-      show(15);
-    }else if(h==='#mem'||h==='#速记'||h==='#快速记忆'||h==='#p16'){
-      show(16);
-    }else if(h==='#quiz'||h==='#测试'||h==='#p17'){
-      show(17);
-    }else if(h==='#review'||h==='#全复习'||h==='#p18'||h==='#rev-sym'||h==='#rev-why'||h==='#rev-sz'||h==='#rev-kd'||h==='#rev-warm'){
-      show(18);
-      if(h==='#rev-sym'||h==='#rev-why'||h==='#rev-sz'||h==='#rev-kd'||h==='#rev-warm') setTimeout(function(){ var e=document.getElementById(h.slice(1)); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },60);
-    }else if(/^#p(20|1[0-9]|[1-9])$/.test(h)){
-      show(+h.slice(2));
-    }else if(h==='#lcall-hw'||h==='#lcall'){
-      show(1); setTimeout(function(){ var e=document.getElementById('lcall-hw'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-    }else if(h==='#struct6'||h==='#struct'){
-      show(1); setTimeout(function(){ var e=document.getElementById('struct6'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-    }else if(h==='#level-edge'||h==='#it-mode'){
-      show(1); setTimeout(function(){ var e=document.getElementById('level-edge'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-    }
-    syncDrillNav();
-  });
   syncDrillNav();
 })();}catch(e){}
 
