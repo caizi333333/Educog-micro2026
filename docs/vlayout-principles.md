@@ -68,7 +68,7 @@
 | #67 练一练 | `src/components/practice/DragMatchPractice.tsx`（`data-practice`） | 窄屏展开压上；宽屏练习 ≤ 40% |
 | #70 导航 | 同一 lesson-notes 壳 | 显式「回课次」；深链落点与面包屑 |
 | #68 课件 HTML | 先抽测 u4 / u5。现宽：`u4/u4-classroom.html` 的 `.kp-wrap`（1120px，后段 1360px）、`u5/lib/kp-theme.css` 的 `.kp-wrap`（1120px）、`u5/lib/u5-interrupt-classroom.css` 的 `.wrap`（`min(1360px, 100%)`） | 正文栏对齐 800px；页内密度走间距阶梯 |
-| #69 仿真 | `src/app/simulation/page.tsx` | 图面 `min(100%, 960px)` 居中；留白用 `--space-3` / `--space-4` |
+| #69 仿真 | `src/app/simulation/page.tsx`、`HyperExperimentCanvas` | `--simulation-canvas-max-width`（960px）；图面 `min(100%, var(--simulation-canvas-max-width))` 居中；留白用 `--space-3` / `--space-4`；画布控件条不浮压接线区 |
 | #71 模式 | 壳层阅读 / 练习专注层 | 仅当 #67 的展开压上不够时再做独立模式 |
 
 从 #67 起，每个改布局的 PR 附 390 与 1280 对照，并冒烟至少一块练一练和一条深链。本单无视觉差异，不附截图。

@@ -401,7 +401,7 @@ export default function SimulationPage(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <section aria-labelledby="simulation-page-title" className="circuit-grid animate-fade-in -m-4 relative flex h-[calc(100dvh-3.5rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
+      <section aria-labelledby="simulation-page-title" data-vlayout="simulation" className="circuit-grid animate-fade-in relative -m-4 flex h-[calc(100dvh-3.5rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
         <h1 id="simulation-page-title" className="sr-only">实验仿真工作台</h1>
         {admission.status === 'queued' && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#080a0d]/95 px-6 text-center" role="alert" aria-live="assertive">
@@ -421,9 +421,9 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
         )}
         {/* ── Top Toolbar ── */}
-        <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-1 overflow-hidden border-b border-white/[0.08] bg-[#0e1317]/95 px-2 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-nowrap sm:overflow-x-auto">
+        <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-[var(--space-2)] overflow-hidden border-b border-white/[0.08] bg-[#0e1317]/95 px-[var(--space-3)] py-[var(--space-2)] shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-nowrap sm:overflow-x-auto">
           {/* Left section */}
-          <div className="flex w-full flex-none flex-wrap items-center gap-1 overflow-visible sm:w-auto sm:flex-nowrap">
+          <div className="flex w-full flex-none flex-wrap items-center gap-[var(--space-2)] overflow-visible sm:w-auto sm:flex-nowrap">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -449,7 +449,7 @@ export default function SimulationPage(): React.JSX.Element {
               查看动态画布
             </a>
 
-            <div className="mx-1 h-5 w-px bg-white/[0.09]" />
+            <div className="mx-[var(--space-2)] h-5 w-px bg-white/[0.09]" />
 
             {/* Run controls */}
             <Tooltip>
@@ -502,7 +502,7 @@ export default function SimulationPage(): React.JSX.Element {
               <TooltipContent side="bottom" className="text-xs">重置模拟器</TooltipContent>
             </Tooltip>
 
-            <div className="mx-1 h-5 w-px bg-white/[0.09]" />
+            <div className="mx-[var(--space-2)] h-5 w-px bg-white/[0.09]" />
 
             {/* Speed control */}
             <div className="ml-auto flex basis-full items-center justify-end gap-1 pt-1 sm:ml-0 sm:basis-auto sm:justify-start sm:pt-0">
@@ -530,7 +530,7 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
 
           {/* Center: Status + experiment */}
-          <div className="flex w-full min-w-0 flex-none items-center justify-start gap-3 border-t border-white/[0.06] px-1 pt-1 sm:w-auto sm:min-w-max sm:justify-center sm:border-0 sm:p-0">
+          <div className="flex w-full min-w-0 flex-none items-center justify-start gap-[var(--space-3)] border-t border-white/[0.06] px-[var(--space-2)] pt-[var(--space-2)] sm:w-auto sm:min-w-max sm:justify-center sm:border-0 sm:p-0">
             <div className="flex items-center gap-1.5">
               <div className={cn(
                 "w-2 h-2 rounded-full transition-all",

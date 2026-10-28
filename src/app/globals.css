@@ -69,6 +69,8 @@
     --space-3: 16px;
     --space-4: 24px;
     --content-max-width: 800px;
+    /* Simulation diagram column (#69): wider than courseware body, still capped on large screens. */
+    --simulation-canvas-max-width: 960px;
 
     --sidebar-background: 220 20% 6%;
     --sidebar-foreground: 190 32% 94%;

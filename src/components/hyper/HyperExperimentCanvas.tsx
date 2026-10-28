@@ -1150,12 +1150,15 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
     ? <KeyStrip keys={peripheralCfg.keys} state={simulatorState} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />
     : null;
 
+  const diagramMaxWidth = 'min(100%, var(--simulation-canvas-max-width))';
+
   return (
     <section
       id="experiment-live-canvas"
+      data-vlayout="simulation-canvas"
       aria-labelledby="experiment-live-canvas-title"
       className={cn(
-        'order-first flex w-full min-w-0 flex-shrink-0 scroll-mt-3 flex-col overflow-hidden border-b border-white/[0.08] bg-[#0b1014] lg:order-none lg:h-auto lg:min-h-[420px] lg:w-[360px] lg:min-w-[360px] lg:border-b-0 lg:border-l xl:flex-[1.05]',
+        'order-first flex w-full min-w-0 flex-shrink-0 scroll-mt-[var(--space-3)] flex-col overflow-hidden border-b border-white/[0.08] bg-[#0b1014] lg:order-none lg:h-auto lg:min-h-[420px] lg:w-[360px] lg:min-w-[360px] lg:border-b-0 lg:border-l xl:min-w-[380px] xl:flex-[1.05]',
         experimentId === 'proj03'
           ? 'h-[680px] min-h-[680px]'
           : experimentId === 'exp09'
@@ -1167,7 +1170,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
                 : 'h-[360px] min-h-[360px]',
       )}
     >
-      <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0e1317] px-3 py-1.5">
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-[var(--space-2)] border-b border-white/[0.08] bg-[#0e1317] px-[var(--space-3)] py-[var(--space-2)]">
         <div className="flex items-center gap-2">
           <Waypoints className="h-4 w-4 text-cyan-200" />
           <div>
@@ -1206,26 +1209,40 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="absolute inset-0 overflow-auto overscroll-contain">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-[var(--space-3)] py-[var(--space-3)]">
         {isLed ? (
-          <div className="flex min-h-full min-w-full justify-center px-2 pb-16 pt-3">
+          <div
+            className="mx-auto flex min-h-full w-full flex-col items-center gap-[var(--space-4)]"
+            style={{ maxWidth: diagramMaxWidth }}
+          >
+            {experimentId === 'proj01' && (
+              <div className="w-full max-w-sm rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-[var(--space-3)] text-center">
+                <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
+                <output aria-label="项目一数码管显示" className="block font-mono text-3xl text-cyan-200">{simulatorState ? SEGMENT_MAP[p0] ?? '—' : '—'}</output>
+                <div className="font-mono text-[10px] text-slate-400">P0 = 0x{p0.toString(16).toUpperCase().padStart(2, '0')}</div>
+                <p className="mt-[var(--space-2)] text-[10px] leading-4 text-slate-500">8灯循环后显示0–9；可提高运行速度。</p>
+              </div>
+            )}
             <LedHardwareDiagram
               bits={bits}
               portName={ledPort}
               variant={mode === 'real' ? 'board' : 'schematic'}
-              width={Math.round(320 * zoom)}
+              width={Math.min(Math.round(320 * zoom), 960)}
             />
           </div>
         ) : (
           <div
             className={cn(
-              'flex min-h-full flex-col items-center gap-4 p-4 pb-16',
+              'mx-auto flex min-h-full w-full flex-col items-center gap-[var(--space-4)]',
               ['proj02', 'proj03', 'exp09'].includes(experimentId ?? '') ? 'justify-start' : 'justify-center',
             )}
-            style={zoom === 1 ? undefined : ({ zoom } as CSSProperties)}
+            style={{
+              maxWidth: diagramMaxWidth,
+              ...(zoom === 1 ? {} : { zoom } as CSSProperties),
+            }}
           >
-            {!inputEnabled && <p className="text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
+            {!inputEnabled && <p className="w-full text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
             {experimentId === 'proj03' && <CarInputs key={experimentId} state={simulatorState}
               onReceiveUartByte={onReceiveUartByte} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />}
             {renderPeripheral()}
@@ -1244,48 +1261,42 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
         )}
         </div>
 
-        {experimentId === 'proj01' && (
-          <div className="absolute right-3 top-3 max-w-[145px] rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-2 text-center">
-            <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
-            <output aria-label="项目一数码管显示" className="block font-mono text-3xl text-cyan-200">{simulatorState ? SEGMENT_MAP[p0] ?? '—' : '—'}</output>
-            <div className="font-mono text-[10px] text-slate-400">P0 = 0x{p0.toString(16).toUpperCase().padStart(2, '0')}</div>
-            <p className="mt-1 text-[10px] leading-4 text-slate-500">8灯循环后显示0–9；可提高运行速度。</p>
-          </div>
-        )}
-
-        <div className="absolute bottom-3 left-3 flex gap-2">
-          <span className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[11px] text-cyan-100">
-            <Cpu className="mr-1 inline h-3 w-3" />
-            {bottomLabel}
+        <div
+          className="flex shrink-0 flex-wrap items-center justify-between gap-[var(--space-2)] border-t border-white/[0.08] bg-[#0e1317]/98 px-[var(--space-3)] py-[var(--space-2)]"
+          data-vlayout="simulation-canvas-controls"
+        >
+          <span className="inline-flex min-h-11 max-w-full items-center rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-[var(--space-2)] text-[11px] text-cyan-100">
+            <Cpu className="mr-1 inline h-3 w-3 shrink-0" />
+            <span className="truncate">{bottomLabel}</span>
           </span>
-        </div>
-        <div className="absolute bottom-3 right-3 flex gap-1">
-          <button
-            onClick={() => setZoom(z => Math.min(2, +(z + 0.2).toFixed(2)))}
-            title="放大"
-            aria-label="放大接线画布"
-            disabled={zoom >= 2}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setZoom(z => Math.max(1, +(z - 0.2).toFixed(2)))}
-            title="缩小"
-            aria-label="缩小接线画布"
-            disabled={zoom <= 1}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
-          >
-            <ZoomOut className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setZoom(1)}
-            title="重置视图"
-            aria-label="重置接线画布视图"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-black/45 p-2 text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex gap-[var(--space-2)]">
+            <button
+              onClick={() => setZoom(z => Math.min(2, +(z + 0.2).toFixed(2)))}
+              title="放大"
+              aria-label="放大接线画布"
+              disabled={zoom >= 2}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] p-2 text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setZoom(z => Math.max(1, +(z - 0.2).toFixed(2)))}
+              title="缩小"
+              aria-label="缩小接线画布"
+              disabled={zoom <= 1}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] p-2 text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-40"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setZoom(1)}
+              title="重置视图"
+              aria-label="重置接线画布视图"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] p-2 text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
