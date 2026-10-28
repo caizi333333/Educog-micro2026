@@ -1,0 +1,415 @@
+/* ============================================================
+   vLayout 课件密度（#68）
+   ------------------------------------------------------------
+   课件在 iframe 里，读不到 src/app/globals.css 的 :root。
+   这里重复 #66 已拍板的同一组数值：
+     --space-1 4px   芯片内缝
+     --space-2 8px   控件组内
+     --space-3 16px  卡片内边距、栏间距
+     --space-4 24px  区块之间、主栏与边
+     --content-max-width 800px
+   字号只走五档。页签触控高度 44px。
+   窄屏页签换行；超过 6 个时由 vlayout-tabs.js 把多余的收进「更多」。
+   图、寄存器、代码在自己的框里横滑，不把整页撑出横向滚动条。
+   ============================================================ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --content-max-width: 800px;
+  --type-meta: 12px;
+  --type-ui: 14px;
+  --type-body: 16px;
+  --type-title: 20px;
+  --type-display: 24px;
+  --tap-min: 44px;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+.kp-wrap,
+.wrap {
+  width: min(100%, var(--content-max-width));
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-3) calc(var(--space-4) * 2);
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.doors {
+  width: min(100%, var(--content-max-width));
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+  gap: var(--space-3);
+}
+
+.panel {
+  padding: var(--space-4) var(--space-3);
+}
+
+body.kp-embed .kp-wrap {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+
+.kp-card,
+.wrap .card,
+.kp-wrap .card {
+  padding: var(--space-3);
+}
+
+.kp-card + .kp-card,
+.kp-pit + .kp-pit,
+.kp-q + .kp-q {
+  margin-top: var(--space-3);
+}
+
+.wrap .card,
+.kp-wrap .card {
+  margin-bottom: var(--space-3);
+}
+
+.kp-meta,
+.kp-ctl,
+.kp-rel,
+.lessons,
+.sessions,
+.tabs,
+.kp-tabs {
+  gap: var(--space-2);
+}
+
+.kp-eyebrow,
+.eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.kp-lead {
+  margin-top: var(--space-3);
+}
+
+.kp-tabs,
+.navstack,
+.u2-doors {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.kp-tabs {
+  padding: var(--space-1);
+}
+
+.navstack,
+.u2-doors {
+  padding: var(--space-2);
+}
+
+.kp-foot {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+
+.kp-h1,
+.wrap h1 {
+  font-size: var(--type-display);
+  line-height: 1.25;
+}
+
+.h2,
+.kp-card h2,
+.wrap .h2 {
+  font-size: var(--type-title);
+  line-height: 1.35;
+}
+
+.kp-card p,
+.kp-lead,
+.note,
+.kp-pit dd,
+.kp-opt,
+.kp-exp,
+.kp-note,
+.blurb,
+.law {
+  font-size: var(--type-body);
+  line-height: 1.7;
+}
+
+.kp-eyebrow,
+.eyebrow,
+.kp-chip,
+.kp-tab .n,
+.kp-card h3,
+.kp-stagecap,
+.kp-read .k,
+.kp-pit .no,
+.kp-pit dt,
+.kp-q .qn,
+.kp-nav-i .s,
+.kp-foot {
+  font-size: var(--type-meta);
+  letter-spacing: 0.04em;
+}
+
+.kp-tab,
+.tab,
+.lesson,
+.kp-btn,
+.btn,
+.b,
+.sub,
+.kp-nav-i .t,
+.u2-lesson,
+.u2-page {
+  font-size: var(--type-ui);
+}
+
+.kp-tab,
+.tab,
+.lesson,
+.kp-nav-i,
+.u2-lesson,
+.u2-page,
+.kp-btn,
+.kp-opt,
+.b,
+.door-card button,
+.door-card a.door-link {
+  min-height: var(--tap-min);
+}
+
+.navstack,
+.u2-doors {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.kp-embed .kp-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  max-width: 100%;
+}
+
+.kp-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  margin: 0 0 var(--space-3);
+}
+
+.kp-nav-i {
+  flex: 1 1 9rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.kp-nav-i .t,
+.kp-nav-i .s,
+.tab small,
+.lesson small {
+  white-space: normal;
+}
+
+.kp-wrap [id],
+.wrap [id] {
+  scroll-margin-top: 7.5rem;
+}
+
+.reg,
+.code,
+.gloss-wrap,
+.kp-scroll,
+.s6-chain,
+table.ins {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.vlayout-more {
+  flex: 1 1 calc(50% - var(--space-2));
+  min-width: 0;
+  min-height: var(--tap-min);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--slate100, #f1f5f9);
+  font: 600 var(--type-ui) / 1.2 inherit;
+  cursor: pointer;
+}
+
+.vlayout-more[hidden],
+.vlayout-overflow {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .navstack .lesson,
+  .navstack .tab,
+  .sessions .lesson,
+  .lessons .lesson {
+    flex: 0 1 11rem;
+    max-width: 16rem;
+  }
+
+  .kp-wrap,
+  .wrap {
+    padding-inline: var(--space-4);
+  }
+
+  .kp-h1,
+  .wrap h1 {
+    font-size: 30px;
+  }
+}
+
+@media (max-width: 760px) {
+  .panel,
+  .kp-wrap,
+  .wrap {
+    padding: var(--space-3);
+  }
+
+  .kp-eyebrow,
+  .eyebrow,
+  .kp-chip,
+  .kp-tab .n,
+  .kp-card h3,
+  .kp-stagecap,
+  .kp-read .k,
+  .kp-pit .no,
+  .kp-pit dt,
+  .kp-q .qn,
+  .kp-nav-i .s,
+  .tab small,
+  .lesson small {
+    font-size: var(--type-ui);
+    letter-spacing: 0.04em;
+  }
+
+  .btn,
+  .btn.sm,
+  .kp-theme-toggle {
+    min-height: var(--tap-min);
+  }
+
+  aside a,
+  aside details.sess summary {
+    min-height: var(--tap-min);
+    box-sizing: border-box;
+  }
+
+  aside a {
+    display: flex;
+    align-items: center;
+  }
+
+  .navstack,
+  .u2-doors,
+  .kp-tabs,
+  .lessons,
+  .sessions,
+  .tabs,
+  .kp-nav {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .lessons,
+  .sessions,
+  .tabs,
+  .kp-tabs,
+  .kp-nav {
+    display: flex;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+
+  .tab,
+  .lesson,
+  .kp-tab,
+  .kp-nav-i,
+  .u2-lesson,
+  .u2-page {
+    flex: 0 1 calc(50% - var(--space-2)) !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    min-height: var(--tap-min) !important;
+  }
+
+  .kp-wrap [id],
+  .wrap [id] {
+    scroll-margin-top: 10.5rem;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .lesson small,
+  .tab small,
+  .kp-nav-i .s,
+  .u2-lesson small {
+    display: none;
+  }
+
+  header > div {
+    flex: 1 1 100% !important;
+    min-width: 0;
+  }
+}
+
+@container (max-width: 840px) {
+  .modes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .teams {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 520px) {
+  .modes,
+  .teams,
+  .structs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid2,
+  .grid3,
+  .mapgrid,
+  .modebox,
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

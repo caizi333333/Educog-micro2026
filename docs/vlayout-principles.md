@@ -82,6 +82,10 @@
 5. **#69** `/simulation` 图面比例
 6. **#71** 阅读 / 练习模式（若 #67 之后仍需要）
 
+## #68 怎么把 token 带进课件
+
+课件在 iframe 里，读不到 `src/app/globals.css` 的 `:root`。同一组数值写在 `public/resources/course/courseware/lib/vlayout-density.css`（`--space-1`…`--space-4`、`--content-max-width: 800px`）。u2–u5 的 HTML 在 `</head>` 前链入这份样式和 `vlayout-tabs.js`。第 5 章总览的 srcdoc 由 `containFrame` 再注入。窄屏（≤760px）页签超过 6 个时，前 5 个留在条上，其余进「更多」；当前选中的页签即使靠后也保持可见。课次行不折叠。页签触控高度 44px。图和寄存器表在框内横滑，不把整页撑出横向滚动条。
+
 ## 明确不做
 
 - **#33** 课件/练习游戏互动新板、**#56** 反馈按钮全站覆盖、**#57** 勋章配色：视觉大改推迟，方案未定前不并行。

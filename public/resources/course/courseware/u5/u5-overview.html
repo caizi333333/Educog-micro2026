@@ -11,7 +11,7 @@ aside a{display:block;padding:.45em .7em .45em 1.1em;margin:1px 0;border-radius:
 aside a:hover{background:hsl(210 14% 16%)}aside a.on{background:hsl(184 60% 20%/.5);border-left-color:var(--primary);color:#fff}aside a.home{font-weight:700;color:var(--accent)}
 header{grid-column:2;grid-row:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);background:rgba(7,10,13,.9);font-size:calc(15px*var(--z))}
 header .crumb{color:var(--muted);font-size:.9em}header .ttl{font-size:1.35em;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.b{cursor:pointer;min-height:32px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#e2e8f0;font:500 .9em inherit;font-family:inherit}
+.b{cursor:pointer;min-height:44px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#e2e8f0;font:500 .9em inherit;font-family:inherit}
 .b:hover{background:rgba(255,255,255,.1)}.b.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
 .keys{font-size:.8em;color:var(--muted)}
 main{grid-column:2;grid-row:4;position:relative;overflow:hidden;min-width:0;min-height:0}
@@ -35,7 +35,7 @@ html[data-theme="light"] .grp i{color:#64748b;border-color:#cbd5e1}
 .kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.18)}
 html[data-theme="light"] .kp-theme-toggle{border-color:rgba(15,23,42,.12);background:#fff;color:var(--fg);box-shadow:0 2px 10px rgba(15,23,42,.12)}
 
-.doors{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:980px;margin:20px auto;text-align:left}
+.doors{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:800px;margin:20px auto;text-align:left}
 @media(max-width:760px){html,body,.app{overflow-x:hidden;max-width:100%}.doors{grid-template-columns:minmax(0,1fr)}.panel{padding:16px 12px}header .ttl{white-space:normal}.lesson,.door-card,.door-card button,.door-card a.door-link{min-width:0;max-width:100%}}
 .door-card{border:1px solid var(--border);border-radius:14px;background:var(--card);padding:16px 16px 12px}
 .door-card h2{margin:0 0 4px;font-size:1.45em;color:#fff}
@@ -60,7 +60,9 @@ aside details.sess a.ext{font-size:.86em;color:var(--muted)}
 .lesson:focus-visible,.door-card button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 html[data-theme="light"] .lessons,html[data-theme="light"] .sessions{background:rgba(238,242,246,.94)}
 html[data-theme="light"] .lesson.on{color:var(--fg)}
-</style></head><body><div class="app" id="app"><aside id="nav"><h1>第 5 章 中断与定时/计数器</h1><a href="#home" data-a="home" class="home">本章主线</a>
+</style><link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<script src="../lib/vlayout-tabs.js" defer></script>
+</head><body><div class="app" id="app"><aside id="nav"><h1>第 5 章 中断与定时/计数器</h1><a href="#home" data-a="home" class="home">本章主线</a>
 <details class="sess" id="sess-a" data-lesson="int" data-session="a"><summary>第 1 次课 · 中断入门</summary>
 <a href="#int-1" data-a="int-1" data-lesson="a">① 接上第 4 章：LCALL</a><a href="#int-2" data-a="int-2" data-lesson="a">② 查询与中断</a><a href="#int-3" data-a="int-3" data-lesson="a">③ 5 个中断源和标志</a><a href="#int-4" data-a="int-4" data-lesson="a">④ TCON：触发与清零</a><a href="#int-5" data-a="int-5" data-lesson="a">⑤ IE：总开关和分开关</a><a href="#int-6" data-a="int-6" data-lesson="a">⑥ IP：优先级与嵌套</a><a href="#int-7" data-a="int-7" data-lesson="a">⑦ 响应条件与封锁</a><a href="#int-8" data-a="int-8" data-lesson="a">⑧ 响应过程单步</a>
 <a class="ext" href="u5-interrupt-classroom.html#lesson-a">单独打开这一次课</a>
@@ -159,7 +161,7 @@ function applyZ(fr){try{fr.contentDocument.documentElement.style.setProperty('--
 function mark(a){cur=a;var it=ITEMS[a];document.querySelectorAll('#nav a').forEach(function(x){x.classList.toggle('on',x.dataset.a===a);});
  document.getElementById('crumb').textContent=it.g;document.getElementById('ttl').textContent=it.t;document.title='第 5 章｜'+it.t;}
 function tab(fr,p){try{fr.contentWindow.postMessage({type:'hub:tab',p:p},'*');}catch(x){}}
-function containFrame(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||!doc.head||doc.getElementById('hub-contain'))return;var style=doc.createElement('style');style.id='hub-contain';style.textContent='html,body{overflow-x:hidden!important;max-width:100%}.wrap,.kp-wrap{max-width:100%;min-width:0;overflow-x:clip}.tabs{display:flex;flex-wrap:wrap!important;min-width:0;max-width:100%;overflow-x:hidden!important}.tab{flex:1 1 128px!important;min-width:0!important;max-width:100%!important;white-space:normal!important}.tab small{white-space:normal!important}.tab.is-off{display:none!important}';doc.head.appendChild(style);}
+function containFrame(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||!doc.head||doc.getElementById('hub-contain'))return;var style=doc.createElement('style');style.id='hub-contain';style.textContent='html,body{overflow-x:hidden!important;max-width:100%}.wrap,.kp-wrap{max-width:min(100%,800px);margin-inline:auto;min-width:0;overflow-x:clip}.tabs{display:flex;flex-wrap:wrap!important;min-width:0;max-width:100%;overflow-x:hidden!important}.tab{flex:1 1 128px!important;min-width:0!important;max-width:100%!important;white-space:normal!important;min-height:44px}.tab small{white-space:normal!important}.tab.is-off{display:none!important}';doc.head.appendChild(style);if(!doc.getElementById('vlayout-density')){var link=doc.createElement('link');link.id='vlayout-density';link.rel='stylesheet';link.href='../lib/vlayout-density.css';doc.head.appendChild(link);var script=doc.createElement('script');script.src='../lib/vlayout-tabs.js';script.defer=true;doc.head.appendChild(script);}}
 function mountInterruptLessons(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||doc.getElementById('hub-lesson-style'))return;var style=doc.createElement('style');style.id='hub-lesson-style';style.textContent='.tab.is-off{display:none!important}';doc.head.appendChild(style);var groups={a:[1,2,3,4,5,6,7,8],b:[9,10,11,12,13],c:[14,15,16,17]};function of(n){n=+n;if(groups.b.indexOf(n)>=0)return 'b';if(groups.c.indexOf(n)>=0)return 'c';return 'a';}function paint(id){doc.querySelectorAll('.tab[data-p]').forEach(function(t){t.classList.toggle('is-off',of(+t.dataset.p)!==id);});}doc.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tab[data-p]');if(t)paint(of(t.dataset.p));},true);doc.addEventListener('keydown',function(){setTimeout(function(){var t=doc.querySelector('.tab[aria-selected="true"]');if(t)paint(of(t.dataset.p));},0);},true);var current=ITEMS[cur];paint(current&&current.pg==='int'?of(current.p):'a');}
 function show(a){
  var aliased=aliasTarget(a);

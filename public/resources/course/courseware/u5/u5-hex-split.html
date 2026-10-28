@@ -28,7 +28,7 @@ html{scroll-behavior:smooth}
 body{background:var(--bg-deep);background-image:radial-gradient(circle at 14% 10%,rgba(22,209,223,.10),transparent 28rem),radial-gradient(circle at 88% 18%,rgba(246,187,49,.08),transparent 26rem);background-attachment:fixed;color:var(--slate100);font-family:var(--fs);font-size:20px;line-height:1.55;-webkit-font-smoothing:antialiased}
 html[data-theme="light"] body{background-image:radial-gradient(circle at 14% 10%,rgba(8,145,178,.08),transparent 28rem),radial-gradient(circle at 88% 18%,rgba(217,119,6,.07),transparent 26rem)}
 body.z1{zoom:1.12}body.z2{zoom:1.28}
-.wrap{max-width:1180px;margin:0 auto;padding:16px 18px 40px}
+.wrap{max-width:800px;margin:0 auto;padding:16px 18px 40px}
 .eyebrow{font-family:var(--fm);font-size:13px;letter-spacing:.14em;color:var(--muted-fg);margin-bottom:6px}
 .eyebrow b{color:var(--cyan300)}
 h1{font-size:28px;font-weight:600;background-image:linear-gradient(135deg,#4fe3ee,#51d69d 48%,#f8c859);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:4px}
@@ -99,6 +99,8 @@ html[data-theme="light"] .hs-demo input{background:rgba(15,23,42,.04);border-col
 .hs-out .combo{display:inline-block;margin-top:4px;padding:4px 10px;border-radius:6px;background:hsl(42 92% 58% / .16);border:1px solid hsl(42 92% 58% / .45);color:var(--amber200)}
 .foot{margin-top:14px;font-size:14px;color:var(--muted-fg)}
 </style>
+<link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<script src="../lib/vlayout-tabs.js" defer></script>
 </head>
 <body>
 <button type="button" class="btn sm kp-theme-toggle" id="themeBtn" aria-label="切换浅/深色">浅色</button>
