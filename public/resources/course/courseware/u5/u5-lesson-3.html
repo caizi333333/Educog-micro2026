@@ -62,6 +62,9 @@
   .tab small,.lesson small{white-space:nowrap}
   .drill-strip,.qz-calc{position:static;top:auto}
   .wrap [id]{scroll-margin-top:84px}
+  .wrap #gate-win,.wrap #gate,.wrap #p19{scroll-margin-top:300px}
+  .wrap #hex-split,.wrap #rev-hex{scroll-margin-top:300px}
+  .wrap #p-gate{scroll-margin-top:350px}
   .grid2>*,.grid3>*,.toc>*,.dual>*,.lh-stage>*,.le-grid>*,.mech-grid>*,.case-split>*,.nz-grid>*{min-width:0;max-width:100%}
   .reg,.code,.s6-chain,.gloss-wrap,.mem-chain,.case-split,.nz-grid,.src-row{max-width:100%}
   .reg{overflow-x:auto}
@@ -90,11 +93,11 @@
 </style>
 <link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
 <script src="../lib/vlayout-tabs.js" defer></script>
-</head>
+<style>.course-return{display:inline-flex;min-height:44px;align-items:center;padding:0 6px;color:#a5f3fc;text-decoration:underline;text-underline-offset:3px;font-size:13px}.course-return:focus-visible{outline:2px solid #a5f3fc;outline-offset:2px}html[data-theme="light"] .course-return{color:#075b65}html[data-theme="light"] .course-return:focus-visible{outline-color:#075b65}.is-embedded .course-return{display:none}</style><script>try{if(window.self!==window.top)document.documentElement.classList.add("is-embedded")}catch(e){document.documentElement.classList.add("is-embedded")}</script></head>
 <body>
 <div class="wrap">
 <div class="top">
-  <div class="grow">
+  <div class="grow"><a class="course-return" href="/lesson-notes?unit=5&amp;note=u5-lesson-3" onclick="this.hash=location.hash">← 返回讲解笔记</a>
     <div class="eyebrow">微控制器原理及应用技术 · <b id="lesson-kicker">第 3 次课 · 定时与收口</b> · 80C51</div>
     <h1>第 3 次课：装值、GATE、例题和课末测</h1>
   </div>
@@ -263,7 +266,7 @@
 <!-- ⑲ GATE 计时窗口 -->
 
 <section class="pane" id="p19">
-  <div class="gw-hero">
+  <div class="gw-hero" id="gate">
     <div class="key" id="gate-win">⑲ GATE：计时窗口</div>
     <span class="sub" id="p-gate">不是外部计数器，而是电平门控「许不许加」· 80C51</span>
   </div>

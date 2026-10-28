@@ -392,7 +392,7 @@ body.kp-embed .u2-doors{display:none}
 }
 </style>
 <script src="../lib/vlayout-tabs.js" defer></script>
-</head>
+<style>.course-return{display:inline-flex;min-height:44px;align-items:center;padding:0 6px;color:#a5f3fc;text-decoration:underline;text-underline-offset:3px;font-size:13px}.course-return:focus-visible{outline:2px solid #a5f3fc;outline-offset:2px}.is-embedded .course-return{display:none}</style><script>try{if(window.self!==window.top)document.documentElement.classList.add("is-embedded")}catch(e){document.documentElement.classList.add("is-embedded")}</script></head>
 <body>
 <!-- 内联自 lib/kp-shell.js -->
 <script>
@@ -450,6 +450,9 @@ body.kp-embed .u2-doors{display:none}
 
     var wrap = h('div', { class: 'kp-wrap kp-fade' });
     document.body.appendChild(wrap);
+    var back = h('a', { class: 'course-return', href: '/lesson-notes?unit=2&note=u2-memory' }, '← 返回讲解笔记');
+    back.addEventListener('click', function () { back.hash = global.location.hash; });
+    wrap.appendChild(back);
 
     /* ---- 头部 ---- */
     wrap.appendChild(h('div', { class: 'kp-eyebrow' },

@@ -439,6 +439,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
   .kp-wrap{overflow-x:hidden;max-width:100%}
   .top .grow{flex-basis:100%}
   .lesson,.tab{flex:1 1 calc(50% - 6px);max-width:100%}
+  #s-map{scroll-margin-top:160px}
   .teams,.modes,.groups{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stage,.mapgrid,.modebox,.quiz,.structs{grid-template-columns:minmax(0,1fr)}
   .ctl{flex-wrap:wrap}
@@ -632,11 +633,11 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 }
 </style>
 <script src="../lib/vlayout-tabs.js" defer></script>
-</head>
+<style>.course-return{display:inline-flex;min-height:44px;align-items:center;padding:0 6px;color:#a5f3fc;text-decoration:underline;text-underline-offset:3px;font-size:13px}.course-return:focus-visible{outline:2px solid #a5f3fc;outline-offset:2px}.is-embedded .course-return{display:none}</style><script>try{if(window.self!==window.top)document.documentElement.classList.add("is-embedded")}catch(e){document.documentElement.classList.add("is-embedded")}</script></head>
 <body>
 <div class="kp-wrap">
   <div class="top">
-    <div class="grow">
+    <div class="grow"><a class="course-return" href="/lesson-notes?unit=4&amp;note=u4-classroom" onclick="this.hash=location.hash">← 返回讲解笔记</a>
       <div class="kp-eyebrow">微控制器原理及应用技术 · <b>第 4 章 汇编语言程序设计</b> · 80C51 · <b id="lesson-kicker">回炉复习</b></div>
       <h1 class="kp-h1">课堂互动台：分支 · 循环 · 子程序</h1>
     </div>

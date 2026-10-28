@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import LessonNotesPage from '@/app/lesson-notes/page';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,6 +45,217 @@ describe('LessonNotesPage deep link', () => {
   function placeNav(): HTMLElement {
     return screen.getByRole('navigation', { name: '当前位置' });
   }
+
+  it('follows same-page hash changes and browser history without expanding practice', async () => {
+    await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
+    window.history.replaceState({}, '', '/lesson-notes?unit=5#hex-split');
+    fireEvent(window, new PopStateEvent('popstate'));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    const frame = await screen.findByTitle('第 3 次课 · 定时与收口 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
+    expect(screen.queryByRole('button', { name: '收起练一练' })).not.toBeInTheDocument();
+    window.history.replaceState({}, '', '/lesson-notes?unit=5#int-2');
+    fireEvent(window, new PopStateEvent('popstate'));
+    expect(await screen.findByTitle('第 5 章交互总览 · 讲解笔记')).toBeVisible();
+  });
+
+  it('does not reopen a stale explicit note for a shell landmark', async () => {
+    await openAt('/lesson-notes?note=u5-overview#int-2', '第 5 章交互总览 · 讲解笔记');
+    fireEvent.click(screen.getByRole('button', { name: /单元 4/ }));
+    window.history.replaceState({}, '', '/lesson-notes?note=u5-overview#main-content');
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    expect(screen.getByRole('button', { name: /单元 4/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('aligns a loaded deep link but does not interrupt a reader who starts scrolling', async () => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      scroll.mockClear();
+      fireEvent.load(frame);
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(scroll).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+
+      cleanup();
+      const nextFrame = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.load(nextFrame);
+      scroll.mockClear();
+      fireEvent.wheel(window);
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it.each(['wheel', 'touchstart', 'pointerdown', 'keydown'])('cancels pending alignment on iframe %s', async (type) => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.load(frame);
+      scroll.mockClear();
+      frame.contentWindow?.dispatchEvent(new Event(type));
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it('stops observing the previous iframe after switching courseware', async () => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      const previous = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.load(previous);
+      window.history.replaceState({}, '', '/lesson-notes?unit=4#s-map');
+      fireEvent(window, new HashChangeEvent('hashchange'));
+      const current = await screen.findByTitle('课堂互动台 · 讲解笔记');
+      fireEvent.load(current);
+      scroll.mockClear();
+      previous.contentWindow?.dispatchEvent(new Event('wheel'));
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(scroll).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it('cleans up pending frame listeners after a history change without user input', async () => {
+    jest.useFakeTimers();
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.load(frame);
+      const remove = jest.spyOn(frame.contentWindow!, 'removeEventListener');
+      window.history.replaceState({}, '', '/lesson-notes?unit=5#main-content');
+      fireEvent(window, new HashChangeEvent('hashchange'));
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(remove).toHaveBeenCalledWith('wheel', expect.any(Function), true);
+      expect(remove).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+      remove.mockRestore();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not let an old alignment timer clear a newer request', async () => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      const previous = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.load(previous);
+      act(() => { jest.advanceTimersByTime(100); });
+      window.history.replaceState({}, '', '/lesson-notes?unit=4#s-map');
+      fireEvent(window, new HashChangeEvent('hashchange'));
+      const current = await screen.findByTitle<HTMLIFrameElement>('课堂互动台 · 讲解笔记');
+      fireEvent.load(current);
+      const remove = jest.spyOn(current.contentWindow!, 'removeEventListener');
+      scroll.mockClear();
+      act(() => { jest.advanceTimersByTime(100); });
+      expect(remove).not.toHaveBeenCalled();
+      expect(scroll).not.toHaveBeenCalled();
+      act(() => { jest.advanceTimersByTime(100); });
+      expect(scroll).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+      expect(remove).toHaveBeenCalledWith('wheel', expect.any(Function), true);
+      remove.mockRestore();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it('cleans up the pending request when its iframe never loads', async () => {
+    jest.useFakeTimers();
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      const remove = jest.spyOn(frame.contentWindow!, 'removeEventListener');
+      act(() => { jest.advanceTimersByTime(10_000); });
+      expect(remove).toHaveBeenCalledWith('wheel', expect.any(Function), true);
+      remove.mockRestore();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not let an old load timeout cancel a newer alignment request', async () => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      await openAt('/lesson-notes?unit=5#gate-win', '第 3 次课 · 定时与收口 · 讲解笔记');
+      act(() => { jest.advanceTimersByTime(9_900); });
+      window.history.replaceState({}, '', '/lesson-notes?unit=4#s-map');
+      fireEvent(window, new HashChangeEvent('hashchange'));
+      const current = await screen.findByTitle<HTMLIFrameElement>('课堂互动台 · 讲解笔记');
+      fireEvent.load(current);
+      const remove = jest.spyOn(current.contentWindow!, 'removeEventListener');
+      scroll.mockClear();
+      act(() => { jest.advanceTimersByTime(100); });
+      expect(remove).not.toHaveBeenCalled();
+      expect(scroll).not.toHaveBeenCalled();
+      act(() => { jest.advanceTimersByTime(100); });
+      expect(scroll).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+      expect(remove).toHaveBeenCalledWith('wheel', expect.any(Function), true);
+      remove.mockRestore();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it('cancels pending alignment on input inside a dynamically added srcdoc frame', async () => {
+    jest.useFakeTimers();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const scroll = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
+      frame.contentDocument!.open();
+      frame.contentDocument!.write('<!doctype html><html><body></body></html>');
+      frame.contentDocument!.close();
+      fireEvent.load(frame);
+      const nested = frame.contentDocument!.createElement('iframe');
+      nested.srcdoc = '<button>课件练习</button>';
+      frame.contentDocument!.body.appendChild(nested);
+      await act(async () => { await Promise.resolve(); });
+      scroll.mockClear();
+      nested.contentWindow!.dispatchEvent(new Event('wheel'));
+      act(() => { jest.advanceTimersByTime(250); });
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: original });
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps an explicit note when a foreign courseware hash is supplied', async () => {
+    const frame = await openAt('/lesson-notes?note=u5-overview#hex-split', '第 5 章交互总览 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
+  });
+
+  it('handles history back to a deep link after the breadcrumb updates the URL', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
+    fireEvent.click(within(placeNav()).getByRole('button', { name: /第 5 章 · 中断系统与定时器/ }));
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?unit=5');
+    window.history.replaceState({}, '', '/lesson-notes?unit=5#int-2');
+    fireEvent(window, new PopStateEvent('popstate'));
+    await waitFor(() => expect(frame.contentWindow?.location.hash).toBe('#int-2'));
+    expect(placeNav()).toHaveTextContent('查询与中断');
+  });
 
   it('puts #int-2 on the unit 5 overview iframe lesson notes actually show', async () => {
     const frame = await openAt(
@@ -334,10 +545,12 @@ describe('LessonNotesPage deep link', () => {
     const back = jest.spyOn(window.history, 'back').mockImplementation(() => undefined);
     try {
       const frame = await openAt('/lesson-notes?unit=5#int-6', '第 5 章交互总览 · 讲解笔记');
+      const contentWindow = frame.contentWindow;
       fireEvent.click(screen.getByRole('button', { name: '回课次' }));
       await waitFor(() => {
-        expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
+        expect(frame.contentWindow?.location.hash).toBe('');
       });
+      expect(frame.contentWindow).toBe(contentWindow);
       expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?unit=5');
       expect(back).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /展开练一练/ })).toHaveAttribute('aria-expanded', 'false');
@@ -428,7 +641,7 @@ describe('LessonNotesPage deep link', () => {
       const frame = await openAt('/lesson-notes?unit=5#hex-split', '第 3 次课 · 定时与收口 · 讲解笔记');
       fireEvent.click(within(placeNav()).getByRole('button', { name: /第 3 次课 · 定时与收口/ }));
       await waitFor(() => {
-        expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html');
+        expect(frame.contentWindow?.location.hash).toBe('');
       });
       expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?note=u5-lesson-3');
       expect(placeNav()).not.toHaveTextContent('÷256 拆字节');
