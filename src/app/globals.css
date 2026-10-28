@@ -58,6 +58,18 @@
     --junction-notes: 42 92% 58%;
     --junction-shell: 205 16% 62%;
 
+    /*
+      vLayout spacing ladder and courseware width (#66).
+      Empty shell: no page reads these yet. Do not alias --cell-* onto them here.
+      Courseware HTML lives in an iframe and will not inherit :root.
+      See docs/vlayout-principles.md.
+    */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --content-max-width: 800px;
+
     --sidebar-background: 220 20% 6%;
     --sidebar-foreground: 190 32% 94%;
     --sidebar-primary: 184 82% 48%;
