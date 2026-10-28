@@ -868,6 +868,13 @@ export default function LessonNotesPage(): React.JSX.Element {
                 board={practiceBoard}
                 expanded={practiceOpen}
                 onExpandedChange={setPracticeOpen}
+                onReturnToReading={() => {
+                  window.requestAnimationFrame(() => {
+                    const frame = frames.current.get(active.file);
+                    frame?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    frame?.focus({ preventScroll: true });
+                  });
+                }}
                 onOpenSection={() => {
                   setPracticeOpen(true);
                   openNote(practiceBoard.moduleId, `#${practiceBoard.sectionId}`);

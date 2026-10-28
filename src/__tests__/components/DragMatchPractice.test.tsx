@@ -83,6 +83,22 @@ describe('DragMatchPractice', () => {
     expect(screen.getByRole('button', { name: '展开练一练：中断源对请求标志' })).toHaveClass('min-h-11');
   });
 
+  it('returns to reading and preserves the placement when reopened', () => {
+    const onExpandedChange = jest.fn();
+    const onReturnToReading = jest.fn();
+    const props = { board: INTERRUPT_SOURCE_FLAG_BOARD, onExpandedChange, onReturnToReading, onOpenSection: jest.fn() };
+    const { rerender } = render(<DragMatchPractice {...props} expanded />);
+    fireEvent.click(screen.getByRole('button', { name: /外部中断 0/ }));
+    fireEvent.click(screen.getByRole('button', { name: '请求标志 IE0，TCON.1，空位' }));
+    fireEvent.click(screen.getByRole('button', { name: '收起并返回课件' }));
+    expect(onExpandedChange).toHaveBeenCalledWith(false);
+    expect(onReturnToReading).toHaveBeenCalledTimes(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+    rerender(<DragMatchPractice {...props} expanded={false} />);
+    rerender(<DragMatchPractice {...props} expanded />);
+    expect(screen.getByRole('button', { name: /已放入 外部中断 0/ })).toBeInTheDocument();
+  });
+
   it('places every IE enable bit and posts that board', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

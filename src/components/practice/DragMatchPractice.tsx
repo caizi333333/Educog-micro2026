@@ -52,11 +52,13 @@ export function DragMatchPractice({
   expanded,
   onExpandedChange,
   onOpenSection,
+  onReturnToReading,
 }: {
   board: MatchBoard;
   expanded: boolean;
   onExpandedChange: (open: boolean) => void;
   onOpenSection: () => void;
+  onReturnToReading?: () => void;
 }): React.JSX.Element {
   const { user } = useAuth();
   const finePointer = useFinePointer();
@@ -396,6 +398,16 @@ export function DragMatchPractice({
               className="inline-flex min-h-11 items-center rounded-md border border-white/[0.1] px-3 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
             >
               {solved ? '再练一次' : '清空'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onExpandedChange(false);
+                onReturnToReading?.();
+              }}
+              className="inline-flex min-h-11 items-center rounded-md border border-cyan-300/30 px-3 text-xs text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+            >
+              收起并返回课件
             </button>
           </div>
           <p role="status" className="mt-2 min-h-5 text-xs leading-5 text-amber-100">{message}</p>
