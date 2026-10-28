@@ -21,6 +21,11 @@ function checkRateLimit(userId: string): boolean {
   return true;
 }
 
+/** The window lives for the process. Tests clear it so one file can post more than the cap. */
+export function resetPracticeMatchRateLimit(): void {
+  rateLimiter.clear();
+}
+
 function readPlacements(value: unknown): Record<string, string> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const entries = Object.entries(value);

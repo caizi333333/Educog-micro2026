@@ -12,6 +12,7 @@
  * - unit 5 interrupt vectors (overview `#int-2`; addresses from the 入口地址 line)
  * - unit 5 IE source enables (overview `#int-5`; EX0/ET0/EX1/ET1/ES, not EA)
  * - unit 5 TCON run, overflow, and trigger bits (overview `#int-4`; not IE0/IE1)
+ * - unit 5 IP priority bits (overview `#int-6`; PX0/PT0/PX1/PT1/PS, not D7–D5)
  * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
  * - unit 4 instruction teams (note `u4-classroom`, anchor `#s-map`)
@@ -232,6 +233,47 @@ export const TCON_CONTROL_BITS_BOARD: MatchBoard = {
     { id: 'tf1', prompt: 'TF1', promptHint: 'TCON.7', target: 'T1 溢出标志', targetDetail: 'Timer Flag 1' },
     { id: 'it0', prompt: 'IT0', promptHint: 'TCON.0 · 0电平 / 1下降沿', target: 'INT0 触发方式', targetDetail: 'Interrupt Type 0' },
     { id: 'it1', prompt: 'IT1', promptHint: 'TCON.2', target: 'INT1 触发方式', targetDetail: 'Interrupt Type 1' },
+  ],
+};
+
+/**
+ * 80C51 IP priority bits, mounted on overview `#int-6`.
+ * Pane ⑥ names the five defined bits, low bit last in the note:
+ * D4 PS, D3 PT1, D2 PX1, D1 PT0, D0 PX0. Setting a bit to 1 is high
+ * priority. The same note's natural order is INT0, T0, INT1, T1, 串口,
+ * and the pane script lines those sources up with PX0 PT0 PX1 PT1 PS.
+ * D7–D5 are undefined on 80C51 and are not pairs. The hint is the pane's
+ * key sentence, so a miss does not list the mapping. No baud-rate or
+ * chip-variant facts.
+ */
+export const INTERRUPT_PRIORITY_BOARD: MatchBoard = {
+  id: 'u5-interrupt-priority',
+  title: 'IP 优先级位 ↔ 中断源',
+  prompt: '把 80C51 的 IP 里 5 个优先级位对上各自的中断源。',
+  hint: '先看 IP 分高低两级，同级再按“外0、定0、外1、定1、串”排；高级能打断低级，同级不能打断同级。',
+  chapterId: '5',
+  knowledgePointId: '5.2',
+  sectionId: 'int-6',
+  moduleId: 'u5-overview',
+  medalId: 'interrupt_priority',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：IP 优先级位对中断源',
+    sectionLink: '对照课件⑥',
+    expandClosed: '展开练一练：IP 优先级位对中断源',
+    promptSide: '优先级位',
+    targetSide: '中断源',
+    actionHint: '先点优先级位，再点中断源。鼠标也可以直接拖过去。',
+    emptyTray: '5 个优先级位都放好了。',
+    slotName: '中断源',
+  },
+  pairs: [
+    { id: 'px0', prompt: 'PX0', promptHint: 'D0', target: 'INT0', targetDetail: '置 1 为高优先级' },
+    { id: 'pt0', prompt: 'PT0', promptHint: 'D1', target: 'T0', targetDetail: '置 1 为高优先级' },
+    { id: 'px1', prompt: 'PX1', promptHint: 'D2', target: 'INT1', targetDetail: '置 1 为高优先级' },
+    { id: 'pt1', prompt: 'PT1', promptHint: 'D3', target: 'T1', targetDetail: '置 1 为高优先级' },
+    { id: 'ps', prompt: 'PS', promptHint: 'D4', target: '串口', targetDetail: '置 1 为高优先级' },
   ],
 };
 
@@ -489,6 +531,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   INTERRUPT_VECTOR_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
   TCON_CONTROL_BITS_BOARD,
+  INTERRUPT_PRIORITY_BOARD,
   TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
   INSTRUCTION_TEAMS_BOARD,

@@ -8,6 +8,7 @@ import {
   EXTERNAL_BUS_BOARD,
   INSTRUCTION_TEAMS_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
+  INTERRUPT_PRIORITY_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
   MEMORY_REGION_BOARD,
@@ -732,6 +733,144 @@ describe('TCON control-bit match board', () => {
       nowMs: now,
       cooldownMs: TCON_CONTROL_BITS_BOARD.cooldownMs,
       firstClearPoints: TCON_CONTROL_BITS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+});
+
+/** Pane ⑥ bit order, high bit first: D4 PS … D0 PX0. */
+const IP_PRIORITY_BITS = /D4 (PS)，D3 (PT1)，D2 (PX1)，D1 (PT0)，D0 (PX0)/;
+const IP_PRIORITY_KEY = '先看 IP 分高低两级，同级再按“外0、定0、外1、定1、串”排；高级能打断低级，同级不能打断同级。';
+const IP_HIGH_PRIORITY = '置 1 为高优先级';
+const IP_NATURAL_SOURCES = ['INT0', 'T0', 'INT1', 'T1', '串口'] as const;
+
+function priorityPane(html: string): string {
+  const text = html.includes('var DATA=') ? decodeOverview(html) : html;
+  const start = text.indexOf('id="p6"');
+  const end = text.indexOf('id="p7"', start);
+  if (start < 0 || end < 0) throw new Error('courseware is missing pane ⑥');
+  return text.slice(start, end);
+}
+
+describe('IP priority match board', () => {
+  const overviewHtml = readFileSync(join(COURSEWARE, 'u5-overview.html'), 'utf8');
+  const lesson1 = readFileSync(join(COURSEWARE, 'u5-lesson-1.html'), 'utf8');
+  const lesson2 = readFileSync(join(COURSEWARE, 'u5-lesson-2.html'), 'utf8');
+  const classroomJs = readFileSync(join(COURSEWARE, 'lib/u5-interrupt-classroom.js'), 'utf8');
+
+  it('copies PX0, PT0, PX1, PT1, and PS from pane ⑥ and leaves undefined bits off the board', () => {
+    const pane = priorityPane(overviewHtml);
+    const lessonPane = priorityPane(lesson1);
+    const highToLow = pane.match(IP_PRIORITY_BITS);
+    expect(highToLow?.slice(1)).toEqual(['PS', 'PT1', 'PX1', 'PT0', 'PX0']);
+    expect(lessonPane.match(IP_PRIORITY_BITS)?.slice(1)).toEqual(highToLow?.slice(1));
+    expect(pane).toContain(IP_PRIORITY_KEY);
+    expect(lessonPane).toContain(IP_PRIORITY_KEY);
+    expect(pane).toContain('D7–D5 未定义');
+    expect(pane).toContain(IP_HIGH_PRIORITY);
+    expect(pane).toContain('自然顺序：INT0 &gt; T0 &gt; INT1 &gt; T1 &gt; 串口');
+    expect(decodeOverview(overviewHtml)).toContain(
+      "var NM=['INT0','T0','INT1','T1','串口'];var IPbit=[0,1,2,3,4]; // PX0 PT0 PX1 PT1 PS",
+    );
+    expect(classroomJs).toContain("var NM=['INT0','T0','INT1','T1','串口'];");
+    expect(classroomJs).toContain('var IPbit=[0,1,2,3,4];');
+    expect(classroomJs).toContain('// PX0 PT0 PX1 PT1 PS');
+    expect(overviewHtml).toContain('href="#int-6"');
+
+    const lowToHigh = ['PX0', 'PT0', 'PX1', 'PT1', 'PS'];
+    expect(INTERRUPT_PRIORITY_BOARD.chapterId).toBe('5');
+    expect(INTERRUPT_PRIORITY_BOARD.knowledgePointId).toBe('5.2');
+    expect(INTERRUPT_PRIORITY_BOARD.sectionId).toBe('int-6');
+    expect(INTERRUPT_PRIORITY_BOARD.moduleId).toBe('u5-overview');
+    expect(INTERRUPT_PRIORITY_BOARD.medalId).toBe('interrupt_priority');
+    expect(INTERRUPT_PRIORITY_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(INTERRUPT_PRIORITY_BOARD.zones).toBeUndefined();
+    expect(INTERRUPT_PRIORITY_BOARD.pairs).toHaveLength(5);
+    expect(INTERRUPT_PRIORITY_BOARD.pairs.map((pair) => pair.prompt)).toEqual(lowToHigh);
+    expect(INTERRUPT_PRIORITY_BOARD.pairs.map((pair) => pair.promptHint)).toEqual(['D0', 'D1', 'D2', 'D3', 'D4']);
+    expect(INTERRUPT_PRIORITY_BOARD.pairs.map((pair) => pair.target)).toEqual([...IP_NATURAL_SOURCES]);
+    expect(INTERRUPT_PRIORITY_BOARD.pairs.every((pair) => pair.targetDetail === IP_HIGH_PRIORITY)).toBe(true);
+    expect(INTERRUPT_PRIORITY_BOARD.hint).toBe(IP_PRIORITY_KEY);
+    expect(INTERRUPT_PRIORITY_BOARD.hint).not.toContain('PX0');
+    expect(INTERRUPT_PRIORITY_BOARD.hint).not.toContain('INT0');
+    expect(JSON.stringify(INTERRUPT_PRIORITY_BOARD)).not.toContain('8052');
+    expect(JSON.stringify(INTERRUPT_PRIORITY_BOARD)).not.toContain('波特');
+    expect(JSON.stringify(INTERRUPT_PRIORITY_BOARD)).not.toContain('PT2');
+    expect(findMatchBoard(INTERRUPT_PRIORITY_BOARD.id)).toBe(INTERRUPT_PRIORITY_BOARD);
+
+    const glossaryStart = lesson2.indexOf('三、IP');
+    const glossaryEnd = lesson2.indexOf('四、TCON', glossaryStart);
+    const glossary = lesson2.slice(glossaryStart, glossaryEnd);
+    IP_NATURAL_SOURCES.forEach((source, index) => {
+      const pair = INTERRUPT_PRIORITY_BOARD.pairs[index];
+      expect(pair?.target).toBe(source);
+      expect(glossary).toContain(`<td class="abbr">${pair?.prompt}</td>`);
+      expect(glossary).toContain(source === '串口' ? '串口优先级' : `${source} 优先级`);
+    });
+  });
+
+  it('grades a finished priority map and keeps a swapped bit wrong with 0 points', () => {
+    const solved = Object.fromEntries(INTERRUPT_PRIORITY_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(INTERRUPT_PRIORITY_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, px0: 'pt0', pt0: 'px0' };
+    const grade = gradeMatch(INTERRUPT_PRIORITY_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['px0', 'pt0']);
+    expect(matchMissMessage(grade, INTERRUPT_PRIORITY_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, INTERRUPT_PRIORITY_BOARD)).toContain('高低两级');
+    expect(matchMissMessage(grade, INTERRUPT_PRIORITY_BOARD)).not.toContain('PX0');
+    expect(matchMissMessage(grade, INTERRUPT_PRIORITY_BOARD)).not.toContain('INT0');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_PRIORITY_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_PRIORITY_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(INTERRUPT_PRIORITY_BOARD.id)).toBe('practice_clears:u5-interrupt-priority');
+    expect(practiceMedalIdsForCount(INTERRUPT_PRIORITY_BOARD.id, 1)).toEqual(['interrupt_priority']);
+    expect(practiceMedalIdsForCount(INTERRUPT_PRIORITY_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'interrupt_priority',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    expect(practiceMedalIdsForCount(INTERRUPT_SOURCE_FLAG_BOARD.id, 1)).toEqual(['interrupt_source_flags']);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'interrupt_priority');
+    expect(medal?.title).toBe('优先级对上了');
+    expect(medal?.points).toBe(10);
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: INTERRUPT_PRIORITY_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「优先级对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INTERRUPT_PRIORITY_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_PRIORITY_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: INTERRUPT_PRIORITY_BOARD.cooldownMs,
+      firstClearPoints: INTERRUPT_PRIORITY_BOARD.firstClearPoints,
       awardToStudent: true,
     })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
   });
