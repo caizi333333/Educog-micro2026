@@ -12,8 +12,7 @@ describe('simulation vLayout (#69)', () => {
   const page = read(join(ROOT, 'src/app/simulation/page.tsx'));
   const canvas = read(join(ROOT, 'src/components/hyper/HyperExperimentCanvas.tsx'));
 
-  it('defines a 960px simulation canvas cap separate from the 800px courseware column', () => {
-    expect(globals).toContain('--simulation-canvas-max-width: 960px');
+  it('retains the separate courseware prose width', () => {
     expect(globals).toContain('--content-max-width: 800px');
   });
 
@@ -23,9 +22,8 @@ describe('simulation vLayout (#69)', () => {
     expect(page).toContain('px-[var(--space-3)]');
   });
 
-  it('centers the diagram within min(100%, 960px) and keeps controls in a footer bar', () => {
+  it('keeps controls in a footer bar', () => {
     expect(canvas).toContain('data-vlayout="simulation-canvas"');
-    expect(canvas).toContain('var(--simulation-canvas-max-width)');
     expect(canvas).toContain('data-vlayout="simulation-canvas-controls"');
     expect(canvas).toContain('px-[var(--space-3)]');
     expect(canvas).toContain('gap-[var(--space-4)]');

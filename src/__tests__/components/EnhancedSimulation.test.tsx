@@ -409,8 +409,13 @@ describe('HyperExperimentCanvas serial and car controls', () => {
     const state = new Simulator().getState();
     state.portValues.P0 = 0x5b;
     render(<HyperExperimentCanvas experimentId="proj01" simulatorState={state} />);
-    expect(screen.getByLabelText('项目一数码管显示')).toHaveTextContent('2');
+    const display = screen.getByLabelText('项目一数码管显示');
+    expect(display).toHaveTextContent('2');
     expect(screen.getByText('P0 = 0x5B')).toBeInTheDocument();
+    expect(screen.getByTestId('led-hardware-diagram').parentElement).toContainElement(display);
+    const controls = screen.getByRole('button', { name: '放大接线画布' }).closest('[data-vlayout="simulation-canvas-controls"]');
+    expect(controls).not.toBeNull();
+    expect(controls).not.toContainElement(display);
   });
 });
 
