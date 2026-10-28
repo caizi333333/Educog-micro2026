@@ -44,7 +44,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INSTRUCTION_TEAMS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INSTRUCTION_TEAMS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_PRIORITY_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -262,11 +262,12 @@ const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
  * `u2-cpu-structure`, the memory map on `u2-memory`, and the external-bus
  * roles on `u2-bus` (expanded when the hash is `#bus`). Unit 4 mounts the
  * instruction-team board on `u4-classroom`, expanded when the hash is
- * `#s-map`. Unit 5 hosts five boards on the same note:
+ * `#s-map`. Unit 5 hosts six boards on the same note:
  * `#int-2` expands the vector board; `#int-4` expands the TCON bit board;
- * `#int-5` expands the IE enable board; other interrupt sections keep the
- * source/flag board, expanded on ③ (`#int-3`); the timer door (`tmr-*`)
- * swaps in the TMOD board, expanded on 动手练③ (`#tmr-hand`).
+ * `#int-5` expands the IE enable board; `#int-6` expands the IP priority
+ * board; other interrupt sections keep the source/flag board, expanded on
+ * ③ (`#int-3`); the timer door (`tmr-*`) swaps in the TMOD board, expanded
+ * on 动手练③ (`#tmr-hand`).
  */
 function practiceBoardForNote(file: string, sectionId: string): MatchBoard | null {
   if (file === 'u5-overview') {
@@ -274,6 +275,7 @@ function practiceBoardForNote(file: string, sectionId: string): MatchBoard | nul
     if (sectionId === INTERRUPT_VECTOR_BOARD.sectionId) return INTERRUPT_VECTOR_BOARD;
     if (sectionId === TCON_CONTROL_BITS_BOARD.sectionId) return TCON_CONTROL_BITS_BOARD;
     if (sectionId === INTERRUPT_IE_ENABLE_BOARD.sectionId) return INTERRUPT_IE_ENABLE_BOARD;
+    if (sectionId === INTERRUPT_PRIORITY_BOARD.sectionId) return INTERRUPT_PRIORITY_BOARD;
     return INTERRUPT_SOURCE_FLAG_BOARD;
   }
   if (file === 'u4-classroom') return INSTRUCTION_TEAMS_BOARD;

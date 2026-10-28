@@ -17,11 +17,11 @@ describe('成就系统 V2', () => {
       expect(ACHIEVEMENTS_V2.length).toBeGreaterThan(0);
     });
 
-    it('keeps the student wall on 70 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
-      expect(ACHIEVEMENTS_V2).toHaveLength(70);
+    it('keeps the student wall on 71 rules, with 3 feedback medals and 5 hidden until their display rule', () => {
+      expect(ACHIEVEMENTS_V2).toHaveLength(71);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.hidden)).toHaveLength(5);
       expect(ACHIEVEMENTS_V2.filter((achievement) => achievement.criteria.type === 'valid_feedbacks')).toHaveLength(3);
-      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(70);
+      expect(new Set(ACHIEVEMENTS_V2.map((achievement) => achievement.id)).size).toBe(71);
     });
 
     it('unlocks the interrupt-flag medal from that board’s clear count', () => {
@@ -158,6 +158,21 @@ describe('成就系统 V2', () => {
       });
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-ie-enables': 1 }).unlocked).toBe(false);
       expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-tcon-control-bits': 1 })).toMatchObject({
+        unlocked: true,
+        progress: 100,
+      });
+    });
+
+    it('unlocks 优先级对上了 only from the IP priority clear count', () => {
+      const medal = ACHIEVEMENTS_V2.find((achievement) => achievement.id === 'interrupt_priority');
+      expect(medal).toMatchObject({
+        title: '优先级对上了',
+        category: 'practice',
+        points: 10,
+        criteria: { type: 'practice_clears:u5-interrupt-priority', target: 1 },
+      });
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-tcon-control-bits': 1 }).unlocked).toBe(false);
+      expect(checkAchievementUnlock(medal!, { 'practice_clears:u5-interrupt-priority': 1 })).toMatchObject({
         unlocked: true,
         progress: 100,
       });
