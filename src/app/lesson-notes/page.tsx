@@ -23,6 +23,7 @@
 // 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=5#int-2 打开第 5 章总览的那一节。
 // 第 2 章 ?unit=2#u2-lesson-b 打开第 2 次课的第一篇，?note=u2-memory 仍打开存储器。
 // ?unit=2#bus 与 ?note=u2-bus#bus 打开总线结构，并展开这一篇的练一练。
+// ?unit=4#s-map 打开课堂互动台的 111 条全景，并展开指令大类练一练。
 // 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
 // ---------------------------------------------------------------------------
 
@@ -43,7 +44,7 @@ import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
 import { cn } from '@/lib/utils';
 import { DragMatchPractice } from '@/components/practice/DragMatchPractice';
-import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
+import { ADDRESSING_MODE_BOARD, CPU_STRUCTURE_BOARD, EXTERNAL_BUS_BOARD, INSTRUCTION_TEAMS_BOARD, INTERRUPT_IE_ENABLE_BOARD, INTERRUPT_SOURCE_FLAG_BOARD, INTERRUPT_VECTOR_BOARD, MEMORY_REGION_BOARD, TCON_CONTROL_BITS_BOARD, TIMER_TMOD_BOARD, type MatchBoard } from '@/lib/practice-match';
 
 type LessonNote = {
   /** 静态文件名（不含扩展名），同时用作 tab key */
@@ -132,7 +133,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选互动再进小节：<b className="font-semibold text-amber-100">回炉 · 顺序查表 · 分支散转 · 循环子程序 · 自测</b>
       </>
     ),
-    intro: '第 4 章配套讲解视频与课堂互动台。互动台先选一种练法：回炉（判对错、七种寻址、111 条）、第 1 次课（顺序与查表）、第 2 次课的分支散转、第 2 次课的循环与子程序、当堂自测。每次只打开这一屏。旧链接 #p-rev、#p-run、#p-quiz 仍分别落到判对错、例 4-7、自测。',
+    intro: '第 4 章配套讲解视频与课堂互动台。互动台先选一种练法：回炉（判对错、七种寻址、111 条）、第 1 次课（顺序与查表）、第 2 次课的分支散转、第 2 次课的循环与子程序、当堂自测。每次只打开这一屏。旧链接 #p-rev、#p-run、#p-quiz 仍分别落到判对错、例 4-7、自测。回炉的 111 条全景（#s-map）上方可以练一练：把指令五大类对上代表助记符和功能。',
     figures: '例 4-1~4-16，伪指令 ORG / DB / DW / EQU / DATA / BIT',
   },
   {
@@ -259,8 +260,9 @@ const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
 /**
  * One match cell above the iframe. Unit 2 mounts the CPU puzzle on
  * `u2-cpu-structure`, the memory map on `u2-memory`, and the external-bus
- * roles on `u2-bus` (expanded when the hash is `#bus`). Unit 5 hosts five
- * boards on the same note:
+ * roles on `u2-bus` (expanded when the hash is `#bus`). Unit 4 mounts the
+ * instruction-team board on `u4-classroom`, expanded when the hash is
+ * `#s-map`. Unit 5 hosts five boards on the same note:
  * `#int-2` expands the vector board; `#int-4` expands the TCON bit board;
  * `#int-5` expands the IE enable board; other interrupt sections keep the
  * source/flag board, expanded on ③ (`#int-3`); the timer door (`tmr-*`)
@@ -274,6 +276,7 @@ function practiceBoardForNote(file: string, sectionId: string): MatchBoard | nul
     if (sectionId === INTERRUPT_IE_ENABLE_BOARD.sectionId) return INTERRUPT_IE_ENABLE_BOARD;
     return INTERRUPT_SOURCE_FLAG_BOARD;
   }
+  if (file === 'u4-classroom') return INSTRUCTION_TEAMS_BOARD;
   if (file === 'u3-overview') return ADDRESSING_MODE_BOARD;
   if (file === 'u2-cpu-structure') return CPU_STRUCTURE_BOARD;
   if (file === 'u2-memory') return MEMORY_REGION_BOARD;
