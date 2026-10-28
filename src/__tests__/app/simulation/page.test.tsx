@@ -10,6 +10,12 @@ const mockLoadExperimentStatus = jest.fn(async () => undefined);
 const mockSaveExperimentDraft = jest.fn(async () => undefined);
 
 let mockHookState: Record<string, unknown>;
+let mockRole = 'STUDENT';
+
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { role: mockRole } }) }));
+jest.mock('@/components/site/site-chrome', () => ({
+  StudentFeedbackLauncher: ({ variant }: { variant: string }) => <a href="/feedback?from=%2Fsimulation" data-variant={variant}>提交反馈</a>,
+}));
 
 jest.mock('@/hooks/useSimulator', () => ({
   useSimulator: () => mockHookState,
@@ -23,7 +29,7 @@ jest.mock('@/components/ui/tooltip', () => ({
 }));
 
 jest.mock('@/components/ui/badge', () => ({
-  Badge: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Badge: ({ children, variant: _variant, ...props }: React.HTMLAttributes<HTMLSpanElement> & { variant?: string }) => <span {...props}>{children}</span>,
 }));
 
 jest.mock('@/components/simulation/ExperimentSelector', () => {
@@ -61,7 +67,7 @@ jest.mock('next/link', () => {
 jest.mock('lucide-react', () => {
   const Icon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} />;
   return {
-    PanelLeftClose: Icon, PanelLeftOpen: Icon, Play: Icon, Square: Icon,
+    PanelLeftClose: Icon, PanelLeftOpen: Icon, PanelRightClose: Icon, PanelRightOpen: Icon, Play: Icon, Square: Icon,
     SkipForward: Icon, RotateCcw: Icon, CheckCircle2: Icon, Cpu: Icon,
     Activity: Icon, Terminal: Icon, MemoryStick: Icon, ScrollText: Icon,
     Sparkles: Icon, X: Icon, Lightbulb: Icon, Waypoints: Icon, Timer: Icon,
@@ -188,6 +194,7 @@ function createHookState(overrides: Record<string, unknown> = {}): Record<string
 describe('SimulationPage experiment loading context', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRole = 'STUDENT';
     mockHookState = createHookState();
     window.history.replaceState({}, '', '/simulation');
     global.fetch = jest.fn().mockResolvedValue({ ok: false, json: async () => ({}) }) as typeof fetch;
@@ -200,6 +207,20 @@ describe('SimulationPage experiment loading context', () => {
     expect(screen.getByRole('region', { name: '实验仿真工作台' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '查看动态画布' })).toHaveAttribute('href', '#experiment-live-canvas');
     expect(screen.queryByRole('main')).not.toBeInTheDocument();
+  });
+
+  it('offers in-flow feedback only to students and lets the status panel reopen', () => {
+    const { rerender } = render(<SimulationPage />);
+    expect(screen.getByRole('link', { name: '提交反馈' })).toHaveAttribute('data-variant', 'inline');
+    const open = screen.getByRole('button', { name: '展开状态面板' });
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(open);
+    expect(screen.getByRole('button', { name: '收起状态面板' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '收起状态面板' }));
+    expect(screen.getByRole('button', { name: '展开状态面板' })).toHaveAttribute('aria-expanded', 'false');
+    mockRole = 'TEACHER';
+    rerender(<SimulationPage />);
+    expect(screen.queryByRole('link', { name: '提交反馈' })).not.toBeInTheDocument();
   });
 
   it('writes a loaded experiment into the URL and restores it after remount', async () => {
@@ -352,8 +373,10 @@ describe('SimulationPage experiment loading context', () => {
     render(<SimulationPage />);
 
     expect(screen.getByText('先成功运行，并累计执行至少 20 条指令')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: /已加载：/ })).toHaveTextContent('已加载：');
     expect(screen.getByRole('button', { name: '保存运行记录' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '保存运行记录' })).toHaveAttribute('aria-describedby', 'experiment-completion-guidance');
+    expect(screen.getByRole('link', { name: '提交反馈' })).toHaveAttribute('href', '/feedback?from=%2Fsimulation');
   });
 
   it('allows a stopped LED loop with the required output observations to save a run record', () => {

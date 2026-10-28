@@ -220,6 +220,12 @@ describe('AppLayout mobile navigation', () => {
     expect(screen.getByRole('link', { name: '提交反馈' })).toHaveAttribute('href', '/feedback?from=%2Fknowledge-graph');
   });
 
+  it('does not float feedback over the simulation canvas', () => {
+    mockPathname = '/simulation';
+    render(<AppLayout><div>实验页面</div></AppLayout>);
+    expect(screen.queryByRole('link', { name: '提交反馈' })).not.toBeInTheDocument();
+  });
+
   it('uses the same account actions in the header and mobile sidebar menus', async () => {
     const user = userEvent.setup();
     render(<AppLayout><div>页面内容</div></AppLayout>);

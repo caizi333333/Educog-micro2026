@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import {
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
   Square,
   SkipForward,
@@ -57,6 +59,8 @@ import ExperimentGuide from '@/components/simulation/ExperimentGuide';
 import AiDiagnostics from '@/components/simulation/AiDiagnostics';
 import { HyperExperimentCanvas } from '@/components/hyper/HyperExperimentCanvas';
 import { useSimulationAdmission } from '@/hooks/useSimulationAdmission';
+import { useAuth } from '@/contexts/AuthContext';
+import { StudentFeedbackLauncher } from '@/components/site/site-chrome';
 
 // 实验分类 → 顶栏徽章小图标（与实验配置的 category 一一对应）
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -107,6 +111,7 @@ function isExperimentsResponse(value: unknown): value is { success: true; data: 
 }
 
 export default function SimulationPage(): React.JSX.Element {
+  const { user } = useAuth();
   const {
     code, setCode, simulatorState, previousState, traceLog, executionCount, observation, executedCode, ownerId, identityBlocked, isRunning, isCompletingExperiment, fault, result,
     selectedExperiment, experimentStatus, isLoadingStatus, experimentStatusError,
@@ -129,6 +134,7 @@ export default function SimulationPage(): React.JSX.Element {
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [localSelectedExperiment, setLocalSelectedExperiment] = useState<string | null>(selectedExperiment ?? null);
   const [activeRightTab, setActiveRightTab] = useState<'registers' | 'memory' | 'console' | 'trace' | 'guide' | 'ai'>('registers');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [experiments, setExperiments] = useState<ExperimentConfig[]>(staticExperiments);
   const [guideDismissed, setGuideDismissed] = useState<boolean>(
     () => typeof window !== 'undefined' && localStorage.getItem('sim_guide_dismissed') === '1',
@@ -254,6 +260,7 @@ export default function SimulationPage(): React.JSX.Element {
       loadExperiment(expId);
       // 默认切到教学指南，让用户先看到课前测试
       setActiveRightTab('guide');
+      setInspectorOpen(true);
       if (params.get('from') === 'ilab') emitIlabStep('intro');
       if (params.get('from') === 'preclass') {
         setPreclassExperimentId(expId);
@@ -401,7 +408,8 @@ export default function SimulationPage(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <section aria-labelledby="simulation-page-title" data-vlayout="simulation" className="circuit-grid animate-fade-in relative -m-4 flex h-[calc(100dvh-3.5rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
+      {/* The fixed shell header and version footer each need reserved viewport space. */}
+      <section aria-labelledby="simulation-page-title" data-vlayout="simulation" className="circuit-grid animate-fade-in -m-4 relative flex h-[calc(100dvh-3.5rem-3.375rem)] min-w-0 flex-col overflow-x-hidden bg-[#080a0d] text-[#d8f3f2] sm:-m-6 sm:-mt-4">
         <h1 id="simulation-page-title" className="sr-only">实验仿真工作台</h1>
         {admission.status === 'queued' && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#080a0d]/95 px-6 text-center" role="alert" aria-live="assertive">
@@ -421,9 +429,9 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
         )}
         {/* ── Top Toolbar ── */}
-        <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-[var(--space-2)] overflow-hidden border-b border-white/[0.08] bg-[#0e1317]/95 px-[var(--space-3)] py-[var(--space-2)] shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-nowrap sm:overflow-x-auto">
+        <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-[var(--space-2)] border-b border-white/[0.08] bg-[#0e1317]/95 px-[var(--space-3)] py-[var(--space-2)] shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
           {/* Left section */}
-          <div className="flex w-full flex-none flex-wrap items-center gap-[var(--space-2)] overflow-visible sm:w-auto sm:flex-nowrap">
+          <div className="flex w-full max-w-full flex-none flex-wrap items-center gap-[var(--space-2)] sm:w-auto">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -443,10 +451,11 @@ export default function SimulationPage(): React.JSX.Element {
 
             <a
               href="#experiment-live-canvas"
+              aria-label="查看动态画布"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 lg:hidden"
             >
               <Waypoints className="h-3.5 w-3.5" aria-hidden="true" />
-              查看动态画布
+              <span className="sm:hidden">画布</span><span className="hidden sm:inline">查看动态画布</span>
             </a>
 
             <div className="mx-[var(--space-2)] h-5 w-px bg-white/[0.09]" />
@@ -530,8 +539,8 @@ export default function SimulationPage(): React.JSX.Element {
           </div>
 
           {/* Center: Status + experiment */}
-          <div className="flex w-full min-w-0 flex-none items-center justify-start gap-[var(--space-3)] border-t border-white/[0.06] px-[var(--space-2)] pt-[var(--space-2)] sm:w-auto sm:min-w-max sm:justify-center sm:border-0 sm:p-0">
-            <div className="flex items-center gap-1.5">
+          <div className="flex w-full min-w-0 max-w-full flex-none items-center justify-start gap-[var(--space-3)] border-t border-white/[0.06] px-[var(--space-2)] pt-[var(--space-2)] sm:w-auto sm:min-w-[17rem] sm:flex-1 sm:border-0 sm:p-0">
+            <div className="flex shrink-0 items-center gap-1.5">
               <div className={cn(
                 "w-2 h-2 rounded-full transition-all",
                 isRunning || isCompletingExperiment
@@ -555,13 +564,16 @@ export default function SimulationPage(): React.JSX.Element {
               </span>
             </div>
 
+            <span className="sr-only" role="status" aria-live="polite" aria-label={currentExp ? `已加载：${currentExp.title}` : undefined}>
+              {currentExp ? `已加载：${currentExp.title}` : ''}
+            </span>
             {currentExp && ((): React.JSX.Element => {
               // 按实验分类显示对应小图标，找不到分类时回落 Cpu
               const CategoryIcon = CATEGORY_ICONS[currentExp.category] ?? Cpu;
               return (
-                <Badge variant="outline" className="max-w-[15rem] truncate border-white/[0.10] bg-white/[0.04] text-[10px] font-medium text-[#9db3b5]">
-                  <CategoryIcon className="mr-1 h-3 w-3 text-cyan-300" />
-                  {currentExp.title}
+                <Badge variant="outline" title={`已加载：${currentExp.title}`} className="min-w-0 max-w-[15rem] border-white/[0.10] bg-white/[0.04] text-[10px] font-medium text-[#9db3b5]">
+                  <CategoryIcon className="mr-1 h-3 w-3 shrink-0 text-cyan-300" />
+                  <span className="truncate">已加载：{currentExp.title}</span>
                 </Badge>
               );
             })()}
@@ -571,15 +583,16 @@ export default function SimulationPage(): React.JSX.Element {
                 PC: 0x{stepCount.toString(16).toUpperCase().padStart(4, '0')}
               </span>
             )}
+            {user?.role === 'STUDENT' && <div className="ml-auto shrink-0"><StudentFeedbackLauncher variant="inline" /></div>}
           </div>
 
           {/* Right: Complete button */}
           {showCompleteExperiment && (
-            <div className="flex w-full flex-none flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+            <div className="flex w-full max-w-full flex-none flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto">
               {selectedExperiment === 'proj04' && (
                 <button
                   type="button"
-                  onClick={() => setActiveRightTab('guide')}
+                  onClick={() => { setActiveRightTab('guide'); setInspectorOpen(true); }}
                   className="min-h-11 rounded-md px-2 py-1 text-left text-[10px] leading-4 text-[#9db3b5] transition-colors hover:bg-white/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                   aria-label="打开教程核对项目完成条件"
                 >
@@ -863,75 +876,88 @@ export default function SimulationPage(): React.JSX.Element {
           />
 
           {/* Right: Status panel */}
-          <div className="flex min-h-[420px] w-full min-w-0 max-w-full flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)] lg:w-[260px] xl:w-[300px]">
-            {/* Tab bar */}
-            <div className="flex flex-shrink-0 flex-wrap border-b border-white/[0.08] bg-[#0e1317]">
-              {([
-                { key: 'registers' as const, label: '寄存器', icon: Activity },
-                { key: 'memory' as const, label: '内存', icon: MemoryStick },
-                { key: 'trace' as const, label: '追踪', icon: ScrollText },
-                { key: 'guide' as const, label: '教程', icon: Cpu },
-                { key: 'ai' as const, label: 'AI助教', icon: Sparkles },
-                { key: 'console' as const, label: '控制台', icon: Terminal },
-              ]).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setActiveRightTab(tab.key); if (tab.key === 'ai' && !aiTabBeaconSentRef.current) { aiTabBeaconSentRef.current = true; emitIlabStep('ai_fix'); } }}
-                  aria-label={`切换到${tab.label}面板`}
-                  aria-pressed={activeRightTab === tab.key}
-                  className={cn(
-                    "flex min-h-11 basis-1/3 items-center justify-center gap-1 border-b-2 px-1 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200 2xl:basis-1/6",
-                    activeRightTab === tab.key
-                      ? "border-cyan-300 bg-cyan-300/[0.07] text-cyan-200"
-                      : "border-transparent text-[#7f9698] hover:bg-white/[0.05] hover:text-[#c0dcde]"
-                  )}
-                >
-                  <tab.icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          <div className={cn('flex min-h-[420px] w-full min-w-0 max-w-full flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#0c1014]/96 shadow-[inset_1px_0_0_rgba(255,255,255,0.025)]', inspectorOpen ? 'lg:w-[240px] 2xl:w-[300px]' : 'lg:w-12')}>
+            <button
+              type="button"
+              onClick={() => setInspectorOpen(open => !open)}
+              aria-label={inspectorOpen ? '收起状态面板' : '展开状态面板'}
+              aria-expanded={inspectorOpen}
+              aria-controls="simulation-status-panel"
+              className={cn('hidden min-h-11 w-full shrink-0 items-center justify-center gap-1 border-b border-white/[0.08] text-xs text-[#9db3b5] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200 lg:flex', !inspectorOpen && 'flex-col py-2')}
+            >
+              {inspectorOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+              <span>{inspectorOpen ? '收起状态' : '状态'}</span>
+            </button>
+            <div id="simulation-status-panel" className={cn('flex min-h-0 flex-1 flex-col', !inspectorOpen && 'lg:hidden')}>
+              {/* Tab bar */}
+              <div className="flex flex-shrink-0 flex-wrap border-b border-white/[0.08] bg-[#0e1317]">
+                {([
+                  { key: 'registers' as const, label: '寄存器', icon: Activity },
+                  { key: 'memory' as const, label: '内存', icon: MemoryStick },
+                  { key: 'trace' as const, label: '追踪', icon: ScrollText },
+                  { key: 'guide' as const, label: '教程', icon: Cpu },
+                  { key: 'ai' as const, label: 'AI助教', icon: Sparkles },
+                  { key: 'console' as const, label: '控制台', icon: Terminal },
+                ]).map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setActiveRightTab(tab.key); if (tab.key === 'ai' && !aiTabBeaconSentRef.current) { aiTabBeaconSentRef.current = true; emitIlabStep('ai_fix'); } }}
+                    aria-label={`切换到${tab.label}面板`}
+                    aria-pressed={activeRightTab === tab.key}
+                    className={cn(
+                      "flex min-h-11 basis-1/3 items-center justify-center gap-1 border-b-2 px-1 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-200 2xl:basis-1/6",
+                      activeRightTab === tab.key
+                        ? "border-cyan-300 bg-cyan-300/[0.07] text-cyan-200"
+                        : "border-transparent text-[#7f9698] hover:bg-white/[0.05] hover:text-[#c0dcde]"
+                    )}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex-1 min-h-0 overflow-auto transition-all duration-200">
-              {activeRightTab === 'registers' ? (
-                <StatusMonitor
-                  simulatorState={simulatorState}
-                  previousState={previousState}
-                  result={result}
-                  currentLine={currentLine}
-                  isRunning={isRunning}
-                />
-              ) : activeRightTab === 'memory' ? (
-                <MemoryViewer simulatorState={simulatorState} changedAddresses={changedMemoryAddresses} />
-              ) : activeRightTab === 'trace' ? (
-                <ExecutionTrace traceLog={traceLog} totalExecuted={executionCount} />
-              ) : activeRightTab === 'guide' ? (
-                <ExperimentGuide
-                  experiment={currentExp ?? null}
-                  projectCompletion={projectCompletion}
-                  isLoadingProjectCompletion={isLoadingProjectCompletion}
-                  isSavingProjectCompletion={isSavingProjectCompletion}
-                  projectCompletionError={projectCompletionError}
-                  projectCompletionBlockedReason={projectCompletionBlockedReason}
-                  onProjectMilestoneChange={saveProj04Milestone}
-                />
-              ) : activeRightTab === 'ai' ? (
-                <AiDiagnostics code={code} fault={fault} experimentTitle={currentExp?.title} experimentId={currentExp?.id ?? null} simulatorState={simulatorState} />
-              ) : (
-                <ControlPanel
-                  error={error}
-                  result={result}
-                  simulatorState={simulatorState}
-                  isRunning={isRunning}
-                  progress={simulatorState ? (Math.max(0, simulatorState.currentLine) / Math.max(code.split('\n').length, 1)) * 100 : 0}
-                  currentInstruction={
-                    simulatorState && simulatorState.currentLine >= 0
-                      ? code.split('\n')[simulatorState.currentLine]?.trim() || ''
-                      : ''
-                  }
-                  lastTrace={lastTrace}
-                />
-              )}
+              <div className="flex-1 min-h-0 overflow-auto transition-all duration-200">
+                {activeRightTab === 'registers' ? (
+                  <StatusMonitor
+                    simulatorState={simulatorState}
+                    previousState={previousState}
+                    result={result}
+                    currentLine={currentLine}
+                    isRunning={isRunning}
+                  />
+                ) : activeRightTab === 'memory' ? (
+                  <MemoryViewer simulatorState={simulatorState} changedAddresses={changedMemoryAddresses} />
+                ) : activeRightTab === 'trace' ? (
+                  <ExecutionTrace traceLog={traceLog} totalExecuted={executionCount} />
+                ) : activeRightTab === 'guide' ? (
+                  <ExperimentGuide
+                    experiment={currentExp ?? null}
+                    projectCompletion={projectCompletion}
+                    isLoadingProjectCompletion={isLoadingProjectCompletion}
+                    isSavingProjectCompletion={isSavingProjectCompletion}
+                    projectCompletionError={projectCompletionError}
+                    projectCompletionBlockedReason={projectCompletionBlockedReason}
+                    onProjectMilestoneChange={saveProj04Milestone}
+                  />
+                ) : activeRightTab === 'ai' ? (
+                  <AiDiagnostics code={code} fault={fault} experimentTitle={currentExp?.title} experimentId={currentExp?.id ?? null} simulatorState={simulatorState} />
+                ) : (
+                  <ControlPanel
+                    error={error}
+                    result={result}
+                    simulatorState={simulatorState}
+                    isRunning={isRunning}
+                    progress={simulatorState ? (Math.max(0, simulatorState.currentLine) / Math.max(code.split('\n').length, 1)) * 100 : 0}
+                    currentInstruction={
+                      simulatorState && simulatorState.currentLine >= 0
+                        ? code.split('\n')[simulatorState.currentLine]?.trim() || ''
+                        : ''
+                    }
+                    lastTrace={lastTrace}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

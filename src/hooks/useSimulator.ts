@@ -1074,15 +1074,9 @@ D2: DJNZ R6, D2
       }
       resetSimulation();
 
-      toast({
-        title: '实验加载成功',
-        description: `已加载实验: ${experiment.title}`,
-        // 1280×720 分辨率下 /simulation 页面右侧紧贴"课前预习检测"面板，
-        // 默认 toast 时长会遮挡选项内容较久，此处缩短停留时间以减少遮挡窗口
-        duration: 1500,
-      });
+      // The workspace announces loading in its in-flow status bar.
     }
-  }, [applyProjectCompletion, resetSimulation, toast]);
+  }, [applyProjectCompletion, resetSimulation]);
 
   // 输入只属于当前可继续执行的轮次；停止后需重新运行，避免输入被初始化清空。
   const acceptsInput = useCallback((): boolean => {
