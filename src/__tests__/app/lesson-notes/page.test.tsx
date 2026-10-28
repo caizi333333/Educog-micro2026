@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import LessonNotesPage from '@/app/lesson-notes/page';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -38,6 +38,14 @@ describe('LessonNotesPage deep link', () => {
     if (opener) fireEvent.click(opener);
   }
 
+  function chapter2Lesson(name: RegExp): HTMLElement {
+    return within(screen.getByRole('group', { name: '第 2 章课次' })).getByRole('button', { name });
+  }
+
+  function placeNav(): HTMLElement {
+    return screen.getByRole('navigation', { name: '当前位置' });
+  }
+
   it('puts #int-2 on the unit 5 overview iframe lesson notes actually show', async () => {
     const frame = await openAt(
       '/lesson-notes?note=u5-overview#int-2',
@@ -52,6 +60,11 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('data-tone', 'notes');
     expect(screen.getByRole('tab', { name: /第 5 章交互总览/ })).toHaveAttribute('data-tone', 'course');
+    const where = placeNav();
+    expect(where).toHaveTextContent('第 5 章 · 中断系统与定时器');
+    expect(where).toHaveTextContent('第 1 次课 · 中断入门');
+    expect(where).toHaveTextContent('查询与中断');
+    expect(within(where).getByText('查询与中断')).toHaveAttribute('aria-current', 'page');
     const seam = screen.getByRole('region', { name: '讲解课件' });
     expect(seam).toHaveAttribute('data-tone', 'notes');
     expect(seam).toContainElement(frame);
@@ -93,7 +106,7 @@ describe('LessonNotesPage deep link', () => {
       'href',
       '/resources/course/courseware/u2/u2-bus.html#bus',
     );
-    expect(screen.getByRole('button', { name: /第 2 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(chapter2Lesson(/第 2 次课/)).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /总线结构/ })).toHaveAttribute('aria-selected', 'true');
     revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
@@ -124,6 +137,11 @@ describe('LessonNotesPage deep link', () => {
     expect(frame.contentWindow?.location.hash).toBe('#s-map');
     expect(screen.getByRole('button', { name: /单元 4/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /课堂互动台/ })).toHaveAttribute('aria-selected', 'true');
+    const where = placeNav();
+    expect(where).toHaveTextContent('第 4 章 · 汇编语言程序设计');
+    expect(where).toHaveTextContent('回炉复习');
+    expect(where).toHaveTextContent('111 条全景');
+    expect(within(where).getByText('111 条全景')).toHaveAttribute('aria-current', 'page');
     revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '指令大类 ↔ 代表指令' })).toBeInTheDocument();
@@ -295,6 +313,8 @@ describe('LessonNotesPage deep link', () => {
       expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-6');
       expect(screen.getByRole('button', { name: '回课次' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: '回课次' })).toHaveClass('min-h-11');
+      expect(placeNav()).toHaveTextContent('优先级');
+      expect(document.querySelector('.lesson-shell__where')).toContainElement(screen.getByRole('button', { name: '回课次' }));
       expect(screen.getByRole('heading', { name: 'IP 优先级位 ↔ 中断源' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /展开练一练/ })).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
@@ -321,6 +341,8 @@ describe('LessonNotesPage deep link', () => {
       expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?unit=5');
       expect(back).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /展开练一练/ })).toHaveAttribute('aria-expanded', 'false');
+      expect(placeNav()).toHaveTextContent('第 5 章 · 中断系统与定时器');
+      expect(placeNav()).not.toHaveTextContent('优先级');
     } finally {
       back.mockRestore();
     }
@@ -340,6 +362,10 @@ describe('LessonNotesPage deep link', () => {
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
     expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /第 3 次课/ })).toHaveAttribute('aria-selected', 'true');
+    const where = placeNav();
+    expect(where).toHaveTextContent('第 3 次课 · 定时与收口');
+    expect(where).toHaveTextContent('÷256 拆字节');
+    expect(within(where).getByText('÷256 拆字节')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /在新标签单独打开本篇/ })).toHaveAttribute(
       'href',
       '/resources/course/courseware/u5/u5-lesson-3.html#hex-split',
@@ -367,17 +393,17 @@ describe('LessonNotesPage deep link', () => {
   it('shows chapter 2 as three lessons and only that lesson’s two pages', async () => {
     window.history.replaceState({}, '', '/lesson-notes?unit=2');
     render(<LessonNotesPage />);
-    expect(await screen.findByRole('button', { name: /第 1 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(chapter2Lesson(/第 1 次课/)).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /CPU 结构/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: /存储器组织/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /I\/O 接口/ })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: '第 2 章课次' })).not.toHaveClass('overflow-x-auto');
     expect(screen.queryByRole('tablist', { name: '单元 2 讲解笔记' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /第 2 次课/ }));
+    fireEvent.click(chapter2Lesson(/第 2 次课/));
     const frame = await screen.findByTitle('I/O 接口 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u2/u2-io-port.html');
-    expect(screen.getByRole('button', { name: /第 2 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(chapter2Lesson(/第 2 次课/)).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /总线结构/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /CPU 结构/ })).not.toBeInTheDocument();
   });
@@ -385,7 +411,7 @@ describe('LessonNotesPage deep link', () => {
   it('keeps ?note= and lesson hashes on the original chapter 2 page', async () => {
     const memory = await openAt('/lesson-notes?note=u2-memory#pit', '存储器组织 · 讲解笔记');
     expect(memory).toHaveAttribute('src', '/resources/course/courseware/u2/u2-memory.html#pit');
-    expect(screen.getByRole('button', { name: /第 1 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(chapter2Lesson(/第 1 次课/)).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /存储器组织/ })).toHaveAttribute('aria-selected', 'true');
 
     cleanup();
@@ -393,7 +419,59 @@ describe('LessonNotesPage deep link', () => {
     render(<LessonNotesPage />);
     const clock = await screen.findByTitle('时钟与时序 · 讲解笔记');
     expect(clock).toHaveAttribute('src', '/resources/course/courseware/u2/u2-clock-timing.html#u2-lesson-c');
-    expect(screen.getByRole('button', { name: /第 3 次课/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(chapter2Lesson(/第 3 次课/)).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('returns from #hex-split to that lesson, then from the chapter crumb to the door', async () => {
+    const back = jest.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#hex-split', '第 3 次课 · 定时与收口 · 讲解笔记');
+      fireEvent.click(within(placeNav()).getByRole('button', { name: /第 3 次课 · 定时与收口/ }));
+      await waitFor(() => {
+        expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html');
+      });
+      expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?note=u5-lesson-3');
+      expect(placeNav()).not.toHaveTextContent('÷256 拆字节');
+      expect(within(placeNav()).getByText('第 3 次课 · 定时与收口')).toHaveAttribute('aria-current', 'page');
+
+      fireEvent.click(within(placeNav()).getByRole('button', { name: /第 5 章 · 中断系统与定时器/ }));
+      const overview = await screen.findByTitle('第 5 章交互总览 · 讲解笔记');
+      expect(overview).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
+      expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?unit=5');
+      expect(placeNav()).not.toHaveTextContent('第 3 次课');
+      expect(screen.getByRole('button', { name: '回课次' })).toBeInTheDocument();
+      expect(back).not.toHaveBeenCalled();
+    } finally {
+      back.mockRestore();
+    }
+  });
+
+  it('follows a cross-chapter open onto the new chapter, lesson, and section', async () => {
+    await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: window.location.origin,
+      data: { type: 'lesson-note:open', file: 'u4-classroom', hash: '#s-map' },
+    }));
+    const frame = await screen.findByTitle('课堂互动台 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u4/u4-classroom.html#s-map');
+    const where = placeNav();
+    expect(where).toHaveTextContent('第 4 章 · 汇编语言程序设计');
+    expect(where).toHaveTextContent('回炉复习');
+    expect(where).toHaveTextContent('111 条全景');
+    expect(where).not.toHaveTextContent('查询与中断');
+  });
+
+  it('keeps the unit 2 place readable from the chapter down to the page', async () => {
+    await openAt('/lesson-notes?unit=2#bus', '总线结构 · 讲解笔记');
+    const where = placeNav();
+    expect(where).toHaveTextContent('第 2 章 · 硬件结构');
+    expect(where).toHaveTextContent('第 2 次课 · 口和总线');
+    expect(within(where).getByText('总线结构')).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(within(where).getByRole('button', { name: /第 2 次课 · 口和总线/ }));
+    const page = await screen.findByTitle('I/O 接口 · 讲解笔记');
+    expect(page).toHaveAttribute('src', expect.stringContaining('/u2/u2-io-port.html'));
+    expect(window.location.hash).toBe('#u2-lesson-b');
+    expect(chapter2Lesson(/第 2 次课/)).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('scrolls the pressed unit chip into the strip when a narrow deep link opens unit 5', async () => {

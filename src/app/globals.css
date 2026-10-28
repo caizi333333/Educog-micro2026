@@ -561,7 +561,45 @@
 
   .lesson-shell__courseware {
     min-width: 0;
-    scroll-margin-top: calc(3.5rem + var(--space-3));
+    scroll-margin-top: calc(3.5rem + 12rem);
+  }
+
+  /*
+    Where-am-I bar (#70). The app header is sticky at 3.5rem, so this bar
+    sticks just under it after a deep link scrolls the courseware up.
+    It wraps instead of growing a horizontal page scroll.
+  */
+  .lesson-shell__where {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-2);
+    border: 1px solid hsl(var(--junction-notes) / 0.28);
+    border-radius: var(--cell-radius);
+    background: #10140e;
+  }
+
+  .lesson-shell__crumbs {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .lesson-shell__crumb {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    align-items: center;
   }
 
   .lesson-shell__meta {
