@@ -625,6 +625,12 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
 }
 </style>
 <link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<style>
+@media(max-width:760px){
+  .navstack .lessons{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .navstack .lesson{flex:0 0 148px!important}
+}
+</style>
 <script src="../lib/vlayout-tabs.js" defer></script>
 </head>
 <body>
@@ -3876,12 +3882,19 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
     if (token.indexOf('ex-') === 0) token = token.slice(3);
     return lessonOf(token) ? token : '';
   }
+  function revealStripSelection(strip, button) {
+    if (!strip || !button || !window.matchMedia('(max-width:760px)').matches) return;
+    var rail = strip.getBoundingClientRect(), item = button.getBoundingClientRect();
+    if (item.left < rail.left) strip.scrollLeft += item.left - rail.left;
+    else if (item.right > rail.right) strip.scrollLeft += item.right - rail.right;
+  }
   function applyLesson(id) {
     $$('#lessons .lesson').forEach(function (button) {
       var on = button.dataset.lesson === id;
       button.classList.toggle('on', on);
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    revealStripSelection($('#lessons'), $('#lessons .lesson[aria-pressed="true"]'));
     var kicker = $('#lesson-kicker');
     if (kicker) kicker.textContent = LESSON_LABEL[id];
   }
@@ -3894,6 +3907,7 @@ textarea.ed{width:100%;min-height:420px;border-radius:10px;background:#0a0f16;bo
     $$('#subtabs .tab').forEach(function (button) {
       button.onclick = function () { showSub(button.dataset.sub, false); };
     });
+    revealStripSelection(host, host.querySelector('.tab[aria-selected="true"]'));
   }
   function paintQuiz() {
     var mode = curSub === 'hw' ? 'hw' : (curSub === 'quiz-all' ? 'all' : 'one');

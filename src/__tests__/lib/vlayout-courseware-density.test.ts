@@ -41,12 +41,13 @@ describe('courseware density tokens', () => {
   const theme = read(join(COURSEWARE, 'u5/lib/kp-theme.css'));
   const interrupt = read(join(COURSEWARE, 'u5/lib/u5-interrupt-classroom.css'));
 
-  it('repeats the spacing ladder and an 800px column inside the iframe stylesheet', () => {
+  it('uses an 800px prose width without limiting interactive containers to 800px', () => {
     expect(density).toContain('--space-1: 4px');
     expect(density).toContain('--space-2: 8px');
     expect(density).toContain('--space-3: 16px');
     expect(density).toContain('--space-4: 24px');
     expect(density).toContain('--content-max-width: 800px');
+    expect(density).toContain('--interactive-max-width: 1360px');
     expect(density).toContain('--type-meta: 12px');
     expect(density).toContain('--type-ui: 14px');
     expect(density).toContain('--type-body: 16px');
@@ -58,10 +59,9 @@ describe('courseware density tokens', () => {
     expect(density).toContain('overflow-x: clip');
     expect(density).toContain('.vlayout-more');
     expect(theme).toContain('--content-max-width: 800px');
-    expect(theme).toContain('max-width:var(--content-max-width)');
+    expect(theme).toContain('max-width:1360px');
     expect(theme).not.toContain('max-width:1120px');
-    expect(interrupt).toContain('max-width:min(800px,100%)');
-    expect(interrupt).not.toContain('1360px');
+    expect(interrupt).toContain('max-width:min(1360px,100%)');
     expect(interrupt).toContain('min-height:44px');
   });
 
@@ -86,7 +86,7 @@ describe('courseware density tokens', () => {
     expect(shell).toContain('href="#int-6"');
     expect(shell).toContain('max-width:800px');
     expect(shell).toContain('.b{min-height:44px;padding:6px 12px}');
-    expect(overview).toContain("max-width:min(100%,800px)");
+    expect(overview).toContain("max-width:min(100%,1360px)");
     expect(overview).toContain('u5-interrupt-classroom.html#hex-split');
     expect(read(join(COURSEWARE, 'u5/u5-lesson-3.html'))).toContain('id="hex-split"');
     expect(tabs).toContain('更多');

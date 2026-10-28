@@ -11,6 +11,7 @@ aside a{display:block;padding:.45em .7em .45em 1.1em;margin:1px 0;border-radius:
 aside a:hover{background:hsl(210 14% 16%)}aside a.on{background:hsl(184 60% 20%/.5);border-left-color:var(--primary);color:#fff}aside a.home{font-weight:700;color:var(--accent)}
 header{grid-column:2;grid-row:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);background:rgba(7,10,13,.9);font-size:calc(15px*var(--z))}
 header .crumb{color:var(--muted);font-size:.9em}header .ttl{font-size:1.35em;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .head-title{flex:1;min-width:0}
 .b{cursor:pointer;min-height:44px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#e2e8f0;font:500 .9em inherit;font-family:inherit}
 .b:hover{background:rgba(255,255,255,.1)}.b.on{background:hsl(42 92% 58% / .9);color:#141006;border-color:transparent}
 .keys{font-size:.8em;color:var(--muted)}
@@ -32,11 +33,18 @@ html[data-theme="light"] .b.on{background:hsl(42 92% 58% / .9);color:#141006;bor
 html[data-theme="light"] .nd{background:var(--card)}
 html[data-theme="light"] .nd b{color:var(--fg)}
 html[data-theme="light"] .grp i{color:#64748b;border-color:#cbd5e1}
-.kp-theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;min-height:36px;padding:6px 12px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.kp-theme-toggle{position:static;min-height:44px;padding:6px 12px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.18)}
 html[data-theme="light"] .kp-theme-toggle{border-color:rgba(15,23,42,.12);background:#fff;color:var(--fg);box-shadow:0 2px 10px rgba(15,23,42,.12)}
 
 .doors{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:800px;margin:20px auto;text-align:left}
 @media(max-width:760px){html,body,.app{overflow-x:hidden;max-width:100%}.doors{grid-template-columns:minmax(0,1fr)}.panel{padding:16px 12px}header .ttl{white-space:normal}.lesson,.door-card,.door-card button,.door-card a.door-link{min-width:0;max-width:100%}}
+@media(max-width:640px){
+  header .head-title{flex:1 1 calc(100% - 120px);min-width:0}
+  header .ttl{overflow:visible;line-height:1.3}
+  .app .lessons,.app .sessions{flex-wrap:nowrap!important;gap:6px}
+  .app .lessons .lesson,.app .sessions .lesson,.app .lessons .lesson.ghost{flex:1 1 0!important;padding:6px;font-size:13px}
+  .lessons .lesson small,.sessions .lesson small{font-size:12px}
+}
 .door-card{border:1px solid var(--border);border-radius:14px;background:var(--card);padding:16px 16px 12px}
 .door-card h2{margin:0 0 4px;font-size:1.45em;color:#fff}
 html[data-theme="light"] .door-card h2{color:var(--fg)}
@@ -78,7 +86,7 @@ html[data-theme="light"] .lesson.on{color:var(--fg)}
 <details class="sess" id="sess-tmr" data-lesson="tmr" data-session="tmr"><summary>定时/计数器</summary>
 <a href="#tmr-dz" data-a="tmr-dz" data-lesson="tmr">① 难题与对比</a><a href="#tmr-show" data-a="tmr-show" data-lesson="tmr">② 揭晓与原理</a><a href="#tmr-hand" data-a="tmr-hand" data-lesson="tmr">③ 动手练：初值、TMOD</a><a href="#tmr-qz" data-a="tmr-qz" data-lesson="tmr">④ 小测</a>
 </details></aside>
-<header><button class="b" id="fold" title="收起/展开目录（M）">☰</button><div style="flex:1;min-width:0"><div class="crumb" id="crumb"></div><div class="ttl" id="ttl"></div></div>
+<header><button class="b" id="fold" title="收起/展开目录（M）">☰</button><div class="head-title"><div class="crumb" id="crumb"></div><div class="ttl" id="ttl"></div></div>
 <span class="keys">空格 下一步 · ← → 换页签 · PgUp/PgDn 换课次</span>
 <button class="b" id="prev" title="上一项">◀</button><button class="b" id="next" title="下一项">▶</button>
 <span class="keys">字号</span><button class="b on" data-z="1">标准</button><button class="b" data-z="1.2">大</button><button class="b" data-z="1.45">投影</button>
@@ -161,7 +169,7 @@ function applyZ(fr){try{fr.contentDocument.documentElement.style.setProperty('--
 function mark(a){cur=a;var it=ITEMS[a];document.querySelectorAll('#nav a').forEach(function(x){x.classList.toggle('on',x.dataset.a===a);});
  document.getElementById('crumb').textContent=it.g;document.getElementById('ttl').textContent=it.t;document.title='第 5 章｜'+it.t;}
 function tab(fr,p){try{fr.contentWindow.postMessage({type:'hub:tab',p:p},'*');}catch(x){}}
-function containFrame(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||!doc.head||doc.getElementById('hub-contain'))return;var style=doc.createElement('style');style.id='hub-contain';style.textContent='html,body{overflow-x:hidden!important;max-width:100%}.wrap,.kp-wrap{max-width:min(100%,800px);margin-inline:auto;min-width:0;overflow-x:clip}.tabs{display:flex;flex-wrap:wrap!important;min-width:0;max-width:100%;overflow-x:hidden!important}.tab{flex:1 1 128px!important;min-width:0!important;max-width:100%!important;white-space:normal!important;min-height:44px}.tab small{white-space:normal!important}.tab.is-off{display:none!important}';doc.head.appendChild(style);if(!doc.getElementById('vlayout-density')){var link=doc.createElement('link');link.id='vlayout-density';link.rel='stylesheet';link.href='../lib/vlayout-density.css';doc.head.appendChild(link);var script=doc.createElement('script');script.src='../lib/vlayout-tabs.js';script.defer=true;doc.head.appendChild(script);}}
+function containFrame(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||!doc.head||doc.getElementById('hub-contain'))return;var style=doc.createElement('style');style.id='hub-contain';style.textContent='html,body{overflow-x:hidden!important;max-width:100%}.wrap,.kp-wrap{max-width:min(100%,1360px);margin-inline:auto;min-width:0;overflow-x:clip}.tabs{display:flex;flex-wrap:wrap!important;min-width:0;max-width:100%;overflow-x:hidden!important}.tab{flex:1 1 128px!important;min-width:0!important;max-width:100%!important;white-space:normal!important;min-height:44px}.tab small{white-space:normal!important}.tab.is-off{display:none!important}';doc.head.appendChild(style);if(!doc.getElementById('vlayout-density')){var link=doc.createElement('link');link.id='vlayout-density';link.rel='stylesheet';link.href='../lib/vlayout-density.css';doc.head.appendChild(link);var script=doc.createElement('script');script.src='../lib/vlayout-tabs.js';script.defer=true;doc.head.appendChild(script);}}
 function mountInterruptLessons(fr){var doc;try{doc=fr.contentDocument;}catch(x){return;}if(!doc||doc.getElementById('hub-lesson-style'))return;var style=doc.createElement('style');style.id='hub-lesson-style';style.textContent='.tab.is-off{display:none!important}';doc.head.appendChild(style);var groups={a:[1,2,3,4,5,6,7,8],b:[9,10,11,12,13],c:[14,15,16,17]};function of(n){n=+n;if(groups.b.indexOf(n)>=0)return 'b';if(groups.c.indexOf(n)>=0)return 'c';return 'a';}function paint(id){doc.querySelectorAll('.tab[data-p]').forEach(function(t){t.classList.toggle('is-off',of(+t.dataset.p)!==id);});}doc.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tab[data-p]');if(t)paint(of(t.dataset.p));},true);doc.addEventListener('keydown',function(){setTimeout(function(){var t=doc.querySelector('.tab[aria-selected="true"]');if(t)paint(of(t.dataset.p));},0);},true);var current=ITEMS[cur];paint(current&&current.pg==='int'?of(current.p):'a');}
 function show(a){
  var aliased=aliasTarget(a);
@@ -216,7 +224,7 @@ show(location.hash.slice(1)||'home');
   function get(){try{return norm(localStorage.getItem(KEY));}catch(e){return 'dark';}}
   function apply(t,persist){t=norm(t);document.documentElement.setAttribute('data-theme',t);if(persist!==false){try{localStorage.setItem(KEY,t);}catch(e){}}sync();return t;}
   function sync(){var b=document.getElementById('kp-theme-toggle');if(!b)return;var L=get()==='light';b.textContent=L?'浅色':'深色';b.setAttribute('aria-pressed',L?'true':'false');b.title=L?'切换为深色':'切换为浅色';}
-  function inject(){if(document.getElementById('kp-theme-toggle')){sync();return;}var b=document.createElement('button');b.type='button';b.id='kp-theme-toggle';b.className='kp-theme-toggle b';b.style.position='fixed';b.onclick=function(){apply(get()==='light'?'dark':'light',true);};document.body.appendChild(b);sync();}
+  function inject(){if(document.getElementById('kp-theme-toggle')){sync();return;}var b=document.createElement('button');b.type='button';b.id='kp-theme-toggle';b.className='kp-theme-toggle b';b.onclick=function(){apply(get()==='light'?'dark':'light',true);};var title=document.querySelector('header .head-title');if(title)title.insertAdjacentElement('afterend',b);else document.body.appendChild(b);sync();}
   apply(get(),false);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',inject);else inject();
   addEventListener('storage',function(e){if(e.key===KEY&&e.newValue)apply(e.newValue,false);});
   window.MCUTheme={get:get,set:function(t){return apply(t,true);},toggle:function(){return apply(get()==='light'?'dark':'light',true);}};
