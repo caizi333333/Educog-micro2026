@@ -37,7 +37,7 @@ export function PublicSiteHeader({ active, floating = false }: { active: PublicP
           <Link href="/welcome" className={cn(navItem('welcome'), 'hidden sm:inline-flex')}>平台介绍</Link>
           <Link href="/" className={navItem('course')}>公开课程</Link>
           <Link
-            href="/login?role=teacher&from=%2Fteacher"
+            href={active === 'course' ? '/login?role=teacher&from=%2Fteacher' : '/login'}
             className={cn(navItem('login'), 'border border-cyan-300/25 bg-cyan-300/[0.08] px-3 font-medium text-cyan-100')}
           >
             {active === 'course' ? '教师登录' : '登录'}
