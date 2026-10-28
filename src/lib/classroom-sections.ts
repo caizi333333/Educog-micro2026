@@ -49,6 +49,18 @@ const U5_SECTION_POINTS: Readonly<Record<string, string>> = {
   'tmr-show': '6.1',
   'tmr-hand': '6.2',
   'tmr-qz': '6.3',
+  // Same point as ⑭. The file owner is u5-lesson-3, not the overview hub.
+  'hex-split': '6.3',
+  'rev-hex': '6.3',
+};
+
+/**
+ * Anchors that live on a unit-5 courseware file other than the overview hub.
+ * The hub aliases `#hex-split` to `#int-14` and does not render the diagram.
+ */
+const U5_LESSON_FILES: Readonly<Record<string, string>> = {
+  'hex-split': 'u5-lesson-3',
+  'rev-hex': 'u5-lesson-3',
 };
 
 const U4_PANE_POINTS: Readonly<Record<string, string>> = {
@@ -152,6 +164,8 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   'int-12': '外部中断例题',
   'int-13': '单外中断采数',
   'int-14': '定时器装值',
+  'hex-split': '÷256 拆字节',
+  'rev-hex': '÷256 拆字节',
   'int-17': '课末测试',
   'tmr-dz': '定时器难题',
   'tmr-show': '定时器原理',
@@ -229,11 +243,13 @@ const LESSON_SECTION_ID = /^[\w=%.~-]{1,64}$/;
 /**
  * Courseware file that owns an in-page anchor.
  * `home` is shared by more than one unit, so it does not pick a file.
+ * `#hex-split` is the ÷256 block on 第 3 次课, so it does not pick the overview.
  */
 export function lessonFileForSection(sectionId: string): string | null {
   const id = sectionId.replace(/^#/, '').trim();
   if (!id || id === 'home') return null;
   if (Object.prototype.hasOwnProperty.call(U2_NOTE_SECTIONS, id)) return U2_NOTE_SECTIONS[id] ?? null;
+  if (Object.prototype.hasOwnProperty.call(U5_LESSON_FILES, id)) return U5_LESSON_FILES[id] ?? null;
   if (Object.prototype.hasOwnProperty.call(U5_SECTION_POINTS, id)) return 'u5-overview';
   if (Object.prototype.hasOwnProperty.call(U3_SECTION_POINTS, id)) return 'u3-overview';
   if (Object.prototype.hasOwnProperty.call(U4_PANE_POINTS, id)) return 'u4-classroom';
@@ -248,7 +264,8 @@ export interface LessonDeepLink {
 /**
  * Where /lesson-notes should open.
  * A unit-5 anchor such as `#int-2` opens the overview pane students actually
- * watch. An alias note (for example `u3-jump`) keeps its own hash.
+ * watch. `#hex-split` opens 第 3 次课 and keeps that hash.
+ * An alias note (for example `u3-jump`) keeps its own hash.
  * A hash that belongs to a different note is not attached to the wrong file.
  */
 export function resolveLessonDeepLink(input: {

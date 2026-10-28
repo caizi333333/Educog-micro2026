@@ -21,6 +21,7 @@
 // 由讲解页 postMessage {type:'lesson-note:open', file, hash} 交给外壳切单元、切页签，
 // 不在 iframe 里再套一层讲解页。只收同源消息，只认下面登记过的篇目。
 // 深链：/lesson-notes?note=u3-jump 直接打开某一篇，?unit=5#int-2 打开第 5 章总览的那一节。
+// ?unit=5#hex-split 与 ?note=u5-lesson-3#hex-split 打开第 3 次课，iframe 保留 #hex-split。
 // 第 2 章 ?unit=2#u2-lesson-b 打开第 2 次课的第一篇，?note=u2-memory 仍打开存储器。
 // ?unit=2#bus 与 ?note=u2-bus#bus 打开总线结构，并展开这一篇的练一练。
 // ?unit=4#s-map 打开课堂互动台的 111 条全景，并展开指令大类练一练。
@@ -94,6 +95,7 @@ const U4_NOTES: readonly LessonNote[] = [
 const U5_NOTES: readonly LessonNote[] = [
   { file: 'u5-overview', title: '第 5 章交互总览', sub: '先选中断或定时，再进第 1–3 次课；⑭装值见课堂页 #hex-split', pointId: '5', pointName: '中断系统' },
   { file: 'u5-knowledge', title: '知识导览', sub: '三次课入口与媒资；#int-2 等深链仍回总览', pointId: '5', pointName: '中断系统' },
+  { file: 'u5-lesson-3', title: '第 3 次课 · 定时与收口', sub: '⑭装值起；÷256 拆字节在 #hex-split', pointId: '6.3', pointName: '定时器应用' },
 ] as const;
 
 const LESSON_UNITS: readonly LessonUnit[] = [
@@ -146,7 +148,7 @@ const LESSON_UNITS: readonly LessonUnit[] = [
         先选课次再进小节：<b className="font-semibold text-amber-100">第 1 次课入门 · 第 2 次课案例 · 第 3 次课收口</b>
       </>
     ),
-    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。课堂互动台再分成三页，每页小节不超过八个。旧链接 #int-2 仍打开总览里的那一节；÷256 拆字节仍是课堂页 #hex-split，#p2 仍打开查询与中断。第 1 次课②上方可以练一练：把 5 个中断源对上入口地址。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。第 1 次课⑤上方可以练一练：把 IE 的 5 个分开关对上中断源。定时器动手练③也可以练一练：把 TMOD 的方式和 GATE、C/T 对上。',
+    intro: '第 5 章先选门：中断或定时。中断按三次课打开——第 1 次课入门（①–⑧）、第 2 次课案例（⑨–⑬）、第 3 次课装值与收口（⑭起）。课堂互动台再分成三页，每页小节不超过八个。旧链接 #int-2 仍打开总览里的那一节；?unit=5#hex-split 打开第 3 次课里的 ÷256 拆字节，#p2 仍打开查询与中断。第 1 次课②上方可以练一练：把 5 个中断源对上入口地址。第 1 次课③上方可以练一练：把 5 个中断源对上请求标志。第 1 次课⑤上方可以练一练：把 IE 的 5 个分开关对上中断源。定时器动手练③也可以练一练：把 TMOD 的方式和 GATE、C/T 对上。',
     figures: '课件第5章例5-1~5-9（无5-7）；向量 0003H/000BH/0013H/001BH/0023H',
   },
 ] as const;
