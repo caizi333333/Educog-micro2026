@@ -74,6 +74,7 @@ describe('public and account pages mobile contracts', () => {
     }
     const headerStudentLogin = within(navigation).getByRole('link', { name: '学生登录' });
     expect(headerStudentLogin).toHaveAttribute('href', '/login');
+    expect(within(navigation).getByRole('link', { name: '登录' })).toHaveAttribute('href', '/login');
     expect(headerStudentLogin).toHaveClass('inline-flex');
     expect(headerStudentLogin).not.toHaveClass('hidden');
     expect(screen.getAllByRole('link', { name: /教师端登录|教师与管理员登录|学生登录/ }).length).toBeGreaterThan(2);
