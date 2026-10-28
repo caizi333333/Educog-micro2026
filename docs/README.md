@@ -48,6 +48,7 @@
 
 ### 界面优化
 - [layout-improvements.md](./layout-improvements.md) - 布局改进
+- [vlayout-principles.md](./vlayout-principles.md) - vLayout 设计原则与间距 token（#66）
 - [progress-tracking-improvements.md](./progress-tracking-improvements.md) - 进度跟踪改进
 
 ### 性能优化
