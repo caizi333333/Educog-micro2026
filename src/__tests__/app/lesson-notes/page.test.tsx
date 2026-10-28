@@ -595,9 +595,10 @@ describe('LessonNotesPage deep link', () => {
         '</body></html>',
       ].join(''));
       doc.close();
-      win.HTMLElement.prototype.scrollIntoView = () => undefined;
+      const frameWindow = win as Window & { HTMLElement: typeof HTMLElement; eval(code: string): unknown };
+      frameWindow.HTMLElement.prototype.scrollIntoView = () => undefined;
       if (hash && win.location.hash !== hash) win.location.hash = hash;
-      win.eval(LESSON3_RUNTIME);
+      frameWindow.eval(LESSON3_RUNTIME);
     };
 
     const showHash = (hash: string): string => {

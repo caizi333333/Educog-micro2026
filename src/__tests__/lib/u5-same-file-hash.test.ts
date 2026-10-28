@@ -29,9 +29,10 @@ function openLesson(hash: string): HTMLIFrameElement {
   doc.open();
   doc.write(lessonHtml);
   doc.close();
-  win.HTMLElement.prototype.scrollIntoView = () => undefined;
+  const frameWindow = win as Window & { HTMLElement: typeof HTMLElement; eval(code: string): unknown };
+  frameWindow.HTMLElement.prototype.scrollIntoView = () => undefined;
   if (win.location.hash !== hash) win.location.hash = hash;
-  win.eval(runtime);
+  frameWindow.eval(runtime);
   return frame;
 }
 
@@ -86,7 +87,7 @@ describe('unit 5 lesson 3 same-file hash', () => {
     const oldURL = win.location.href;
     win.history.replaceState(null, '', `${here}#hex-split`);
     expect(visiblePane(frame)).toBe('p19');
-    win.dispatchEvent(new win.HashChangeEvent('hashchange', { oldURL, newURL: win.location.href }));
+    win.dispatchEvent(new HashChangeEvent('hashchange', { oldURL, newURL: win.location.href }));
     expect(win.location.hash).toBe('#hex-split');
     expect(visiblePane(frame)).toBe('p14');
   });
