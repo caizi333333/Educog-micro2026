@@ -326,6 +326,7 @@ describe('HomePage', () => {
 
     for (const control of [
       screen.getByRole('link', { name: /芯智育才/ }),
+      within(screen.getByRole('navigation', { name: '平台主导航' })).getByRole('link', { name: '学生登录' }),
       screen.getByRole('link', { name: '教师登录' }),
       screen.getByRole('button', { name: /单元内容/ }),
       screen.getByRole('button', { name: /实验内容/ }),
@@ -375,6 +376,10 @@ describe('HomePage', () => {
       'href',
       '/login?role=teacher&from=%2Fteacher',
     );
+    const studentLogin = within(screen.getByRole('navigation', { name: '平台主导航' })).getByRole('link', { name: '学生登录' });
+    expect(studentLogin).toHaveAttribute('href', '/login');
+    expect(studentLogin).toHaveClass('inline-flex');
+    expect(studentLogin).not.toHaveClass('hidden');
     expect(screen.getByRole('navigation', { name: '平台主导航' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: '课程内容' }));
     expect(screen.getByText('演示样板')).toBeInTheDocument();
