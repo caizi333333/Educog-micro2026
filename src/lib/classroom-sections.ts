@@ -310,6 +310,22 @@ export function standaloneCoursewareHref(base: string, file: string, sectionId: 
   return `${path}#${id}`;
 }
 
+/**
+ * Short name for a courseware anchor, for example `int-2` → `查询与中断`.
+ * Unknown anchors return an empty string so a breadcrumb does not show a raw id.
+ *
+ * @param sectionId - in-page id, with or without a leading `#`
+ * @returns student-facing label, or `''` when this shell has no name for it
+ *
+ * @example
+ * lessonSectionLabel('hex-split') // '÷256 拆字节'
+ */
+export function lessonSectionLabel(sectionId: string): string {
+  const id = sectionId.replace(/^#/, '').trim();
+  if (!id || !Object.prototype.hasOwnProperty.call(SECTION_LABELS, id)) return '';
+  return SECTION_LABELS[id] ?? '';
+}
+
 export function describeLearningTarget(targetId: string): string {
   if (targetId === 'session') return '在线心跳';
   if (targetId.startsWith('/')) return `页面 ${targetId}`;

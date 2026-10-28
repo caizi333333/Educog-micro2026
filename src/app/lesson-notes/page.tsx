@@ -27,6 +27,7 @@
 // ?unit=4#s-map 打开课堂互动台的 111 条全景。练一练默认折叠。
 // 深链 hash 写进 iframe；外壳没有同名锚点，进页后把课件区滚进视口。
 // 页内 hash 要写进 iframe 的地址；外壳自己吃掉 hash 时，#int-2 会停在本章主线，对比短片不出现。
+// 当前位置写成「章 › 课次 › 小节」。点上一层回到那一层；「回课次」仍回课次入口，不靠浏览器后退。
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,7 +42,14 @@ import {
   resolveLessonVisit,
   standaloneCoursewareHref,
 } from '@/lib/classroom-sections';
-import { lessonEntryHref, lessonEntryTarget, scrollLessonCoursewareIntoView } from '@/lib/lesson-shell';
+import {
+  lessonEntryHref,
+  lessonEntryTarget,
+  lessonPlace,
+  lessonPlaceHref,
+  scrollLessonCoursewareIntoView,
+  type LessonPlaceCrumb,
+} from '@/lib/lesson-shell';
 import { scrollLeftForChip } from '@/lib/reveal-horizontal-chip';
 import { U2_LESSONS, u2LessonForFile } from '@/lib/u2-lessons';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
@@ -241,6 +249,67 @@ function Unit2ChapterNav({
   );
 }
 
+/**
+ * 「章 › 课次 › 小节」 plus the explicit return to the lesson entry.
+ * Ancestors are buttons. The last crumb is the screen the student is on.
+ *
+ * @param props.crumbs - trail from `lessonPlace`
+ * @param props.onOpen - opens an ancestor in the shell
+ * @param props.onReturn - 「回课次」, same destination as before this trail existed
+ */
+function LessonPlaceBar({
+  crumbs,
+  onOpen,
+  onReturn,
+}: {
+  crumbs: readonly LessonPlaceCrumb[];
+  onOpen: (crumb: LessonPlaceCrumb) => void;
+  onReturn: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="lesson-shell__where">
+      <nav aria-label="当前位置" className="lesson-shell__crumbs">
+        {crumbs.map((crumb, index) => {
+          const here = index === crumbs.length - 1;
+          const canOpen = !here && Boolean(crumb.file);
+          return (
+            <span key={crumb.id} className="lesson-shell__crumb">
+              {index > 0 ? (
+                <span aria-hidden="true" className="px-[var(--space-1)] text-sm text-slate-500">›</span>
+              ) : null}
+              {canOpen ? (
+                <button
+                  type="button"
+                  onClick={() => onOpen(crumb)}
+                  className="inline-flex min-h-11 max-w-full items-center rounded-md px-[var(--space-2)] text-left text-sm leading-5 text-slate-300 transition hover:bg-white/[0.05] hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
+                >
+                  <span className="sr-only">返回</span>
+                  {crumb.label}
+                </button>
+              ) : (
+                <span
+                  aria-current={here ? 'page' : undefined}
+                  className="inline-flex min-h-11 max-w-full items-center px-[var(--space-2)] text-left text-sm font-semibold leading-5 text-amber-50"
+                >
+                  {crumb.label}
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </nav>
+      <button
+        type="button"
+        onClick={onReturn}
+        title="回到本章课次入口，不使用浏览器后退"
+        className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-sm font-semibold text-slate-100 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08] hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
+      >
+        回课次
+      </button>
+    </div>
+  );
+}
+
 function findNote(file: string): { unit: LessonUnit; note: LessonNote } | undefined {
   for (const unit of LESSON_UNITS) {
     const note = unit.notes.find((item) => item.file === file);
@@ -393,6 +462,18 @@ export default function LessonNotesPage(): React.JSX.Element {
     setCoursewareScroll((generation) => generation + 1);
   }, [openNote]);
 
+  const openPlace = useCallback((crumb: LessonPlaceCrumb): void => {
+    if (!crumb.file) return;
+    const hit = findNote(crumb.file);
+    if (!hit) return;
+    const hash = crumb.hash ?? '';
+    setPracticeOpen(false);
+    if (hash) openNote(crumb.file, hash);
+    else openNote(crumb.file, '', 'entry');
+    window.history.replaceState({}, '', lessonPlaceHref(hit.unit.id, crumb.file, hash));
+    setCoursewareScroll((generation) => generation + 1);
+  }, [openNote]);
+
   // 讲解页里点了别篇的链接
   useEffect(() => {
     const onMessage = (event: MessageEvent): void => {
@@ -483,6 +564,13 @@ export default function LessonNotesPage(): React.JSX.Element {
 
   const { unit: activeUnit, note: active } = findNote(activeFile) ?? { unit: DEFAULT_UNIT, note: DEFAULT_UNIT.notes[0]! };
   const practiceBoard = practiceBoardForNote(active.file, sectionId);
+  const place = lessonPlace({
+    unitId: activeUnit.id,
+    unitName: activeUnit.name,
+    noteFile: active.file,
+    noteTitle: active.title,
+    sectionId,
+  });
   const practiceExpanded = Boolean(practiceBoard) && practiceOpen;
   const lessonVisit = resolveLessonVisit({
     unitId: activeUnit.id,
@@ -521,7 +609,7 @@ export default function LessonNotesPage(): React.JSX.Element {
     <div
       className={cn(
         'animate-fade-in bg-[#070a0d] text-slate-100',
-        isPublicShell ? 'min-h-screen' : '-m-4 min-h-[calc(100vh-3.5rem)] overflow-auto sm:-m-6',
+        isPublicShell ? 'min-h-screen' : '-m-4 min-h-[calc(100vh-3.5rem)] sm:-m-6',
       )}
     >
       {isPublicShell && (
@@ -571,14 +659,7 @@ export default function LessonNotesPage(): React.JSX.Element {
                 每篇都能单独读完，也能从知识图谱里的对应节点直接进来。
               </p>
             </div>
-            <div className="lesson-shell__actions">
-              <button
-                type="button"
-                onClick={returnToLesson}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-sm font-semibold text-slate-100 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08] hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
-              >
-                回课次
-              </button>
+            <div className="lesson-shell__actions hidden sm:flex">
               <Link
                 href={graphLinkHref}
                 className="hidden min-h-11 shrink-0 items-center gap-[var(--space-2)] self-start rounded-md border border-white/[0.1] bg-white/[0.04] px-[var(--space-3)] text-xs text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:inline-flex"
@@ -589,6 +670,8 @@ export default function LessonNotesPage(): React.JSX.Element {
               </Link>
             </div>
           </div>
+
+          <LessonPlaceBar crumbs={place} onOpen={openPlace} onReturn={returnToLesson} />
 
           <div className="lesson-shell__nav">
             {/* 单元切换：笔记色。窄屏横滑，避免再占一行高度。 */}
