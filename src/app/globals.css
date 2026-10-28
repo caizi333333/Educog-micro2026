@@ -60,8 +60,8 @@
 
     /*
       vLayout spacing ladder and courseware width (#66).
-      Empty shell: no page reads these yet. Do not alias --cell-* onto them here.
-      Courseware HTML lives in an iframe and will not inherit :root.
+      The lesson-notes shell reads these (#67). Do not alias --cell-* onto them here.
+      Courseware HTML lives in an iframe and does not inherit :root (#68).
       See docs/vlayout-principles.md.
     */
     --space-1: 4px;
@@ -467,8 +467,8 @@
     z-index: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1rem;
+    gap: var(--space-3);
+    padding: var(--space-3);
     background: hsl(var(--background) / 0.94);
   }
 
@@ -492,6 +492,117 @@
     .edu-cell-seam,
     .edu-cell-seam__frame {
       min-height: calc(100dvh - 14rem);
+    }
+  }
+
+  /*
+    Lesson-notes shell (#67). Block gaps are --space-3 / --space-4.
+    The reading column is --content-max-width. At 1280 and wider, an open
+    practice strip sits beside the courseware and stays at most 40% wide.
+    Narrower viewports keep practice above the courseware (expand-on-top).
+  */
+  .lesson-shell__banner-inner {
+    width: min(100%, var(--content-max-width));
+    margin-inline: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .lesson-shell__column {
+    width: min(100%, var(--content-max-width));
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .lesson-shell__title-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .lesson-shell__title {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .lesson-shell__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .lesson-shell__nav,
+  .lesson-shell__unit,
+  .lesson-shell__stage {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .lesson-shell__nav,
+  .lesson-shell__stage {
+    gap: var(--space-3);
+  }
+
+  .lesson-shell__unit {
+    gap: var(--space-2);
+  }
+
+  .lesson-shell__courseware {
+    min-width: 0;
+    scroll-margin-top: calc(3.5rem + var(--space-3));
+  }
+
+  .lesson-shell__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
+  }
+
+  @media (min-width: 640px) {
+    .lesson-shell__column {
+      padding-inline: var(--space-4);
+    }
+
+    .lesson-shell__title-row {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .lesson-shell__column:has(.lesson-shell__stage.is-practice) {
+      width: min(100%, calc(var(--content-max-width) / 0.6));
+    }
+
+    .lesson-shell__stage.is-practice {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: var(--space-4);
+    }
+
+    .lesson-shell__stage.is-practice > [data-practice] {
+      flex: 0 1 40%;
+      max-width: 40%;
+    }
+
+    .lesson-shell__stage.is-practice > .lesson-shell__courseware {
+      flex: 1 1 auto;
+      max-width: var(--content-max-width);
     }
   }
 }
