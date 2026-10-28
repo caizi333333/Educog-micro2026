@@ -264,6 +264,25 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
   });
 
+  it('opens unit 5 #hex-split on the lesson 3 page and keeps the hash', async () => {
+    const frame = await openAt('/lesson-notes?unit=5#hex-split', '第 3 次课 · 定时与收口 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
+    expect(screen.getByRole('button', { name: /单元 5/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /第 3 次课/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('link', { name: /在新标签单独打开本篇/ })).toHaveAttribute(
+      'href',
+      '/resources/course/courseware/u5/u5-lesson-3.html#hex-split',
+    );
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'IP 优先级位 ↔ 中断源' })).not.toBeInTheDocument();
+  });
+
+  it('keeps #rev-hex on the same lesson 3 note', async () => {
+    const frame = await openAt('/lesson-notes?note=u5-lesson-3#rev-hex', '第 3 次课 · 定时与收口 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-lesson-3.html#rev-hex');
+    expect(screen.getByRole('tab', { name: /第 3 次课/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('opens the same pane from a unit link that only carries the hash', async () => {
     const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-2');

@@ -1,6 +1,8 @@
 import {
+  describeLearningTarget,
   lessonFileForSection,
   resolveLessonDeepLink,
+  resolveLessonVisit,
   standaloneCoursewareHref,
 } from '@/lib/classroom-sections';
 
@@ -17,13 +19,14 @@ const KNOWN = new Set([
   'u4-classroom',
   'u5-overview',
   'u5-knowledge',
+  'u5-lesson-3',
 ]);
 
 function notesInUnit(unitId: number): readonly string[] {
   if (unitId === 2) return ['u2-cpu-structure', 'u2-memory', 'u2-bus'];
   if (unitId === 3) return ['u3-video', 'u3-overview'];
   if (unitId === 4) return ['u4-classroom'];
-  if (unitId === 5) return ['u5-overview', 'u5-knowledge'];
+  if (unitId === 5) return ['u5-overview', 'u5-knowledge', 'u5-lesson-3'];
   return [];
 }
 
@@ -85,5 +88,38 @@ describe('lesson note deep links', () => {
     expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-knowledge', 'int-2')).toBe(
       '/resources/course/courseware/u5/u5-knowledge.html',
     );
+  });
+
+  it('opens #hex-split on lesson 3 and leaves neighboring deep links on their own files', () => {
+    expect(lessonFileForSection('hex-split')).toBe('u5-lesson-3');
+    expect(lessonFileForSection('#hex-split')).toBe('u5-lesson-3');
+    expect(lessonFileForSection('rev-hex')).toBe('u5-lesson-3');
+    expect(resolve(null, 5, '#hex-split')).toEqual({ file: 'u5-lesson-3', hash: '#hex-split' });
+    expect(resolve('u5-lesson-3', null, '#hex-split')).toEqual({ file: 'u5-lesson-3', hash: '#hex-split' });
+    expect(resolve('u5-lesson-3', 5, '#rev-hex')).toEqual({ file: 'u5-lesson-3', hash: '#rev-hex' });
+    expect(resolve(null, null, '#hex-split')).toEqual({ file: 'u5-lesson-3', hash: '#hex-split' });
+    expect(resolve('u5-overview', null, '#hex-split')).toEqual({ file: 'u5-overview', hash: '' });
+    expect(resolve('u5-knowledge', null, '#hex-split')).toEqual({ file: 'u5-knowledge', hash: '' });
+    expect(resolve(null, 3, '#hex-split')).toEqual({ file: 'u3-video', hash: '' });
+    expect(lessonFileForSection('int-2')).toBe('u5-overview');
+    expect(lessonFileForSection('int-5')).toBe('u5-overview');
+    expect(lessonFileForSection('int-6')).toBe('u5-overview');
+    expect(resolve(null, 5, '#int-5')).toEqual({ file: 'u5-overview', hash: '#int-5' });
+    expect(resolve('u5-overview', null, '#int-6')).toEqual({ file: 'u5-overview', hash: '#int-6' });
+    expect(lessonFileForSection('s-map')).toBe('u4-classroom');
+    expect(resolve(null, 4, '#s-map')).toEqual({ file: 'u4-classroom', hash: '#s-map' });
+    expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-lesson-3', 'hex-split'))
+      .toBe('/resources/course/courseware/u5/u5-lesson-3.html#hex-split');
+    expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-lesson-3', 'rev-hex'))
+      .toBe('/resources/course/courseware/u5/u5-lesson-3.html#rev-hex');
+    expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-overview', 'hex-split'))
+      .toBe('/resources/course/courseware/u5/u5-overview.html');
+    expect(resolveLessonVisit({
+      unitId: 5,
+      noteFile: 'u5-lesson-3',
+      pointId: '6.3',
+      sectionId: 'hex-split',
+    }).targetId).toBe('6.3#hex-split');
+    expect(describeLearningTarget('6.3#hex-split')).toContain('÷256 拆字节');
   });
 });
