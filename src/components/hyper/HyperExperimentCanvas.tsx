@@ -789,13 +789,12 @@ function WaveStrip({ history }: { history: number[][] }) {
   const W = 300, laneH = 26, pad = 4;
   return (
     <div className="border-t border-white/[0.08] bg-[#0a0f12] px-3 py-2">
-      <div className="mb-1 flex items-center gap-1.5">
+      <div className={cn('flex items-center gap-1.5', lanes.length > 0 && 'mb-1')}>
         <Activity className="h-3 w-3 text-cyan-300" />
         <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">逻辑分析仪 · 端口时序</span>
+        {lanes.length === 0 && <span className="text-[10px] text-slate-500">运行后显示波形</span>}
       </div>
-      {lanes.length === 0 ? (
-        <div className="py-3 text-center text-[11px] text-slate-600">运行程序后显示引脚电平波形</div>
-      ) : (
+      {lanes.length > 0 && (
         <div className="flex min-w-0 items-stretch gap-2">
           <div className="w-[4.75rem] shrink-0">
             {lanes.map((lane) => (
@@ -1150,8 +1149,6 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
     ? <KeyStrip keys={peripheralCfg.keys} state={simulatorState} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />
     : null;
 
-  const diagramMaxWidth = 'min(100%, var(--simulation-canvas-max-width))';
-
   return (
     <section
       id="experiment-live-canvas"
@@ -1166,7 +1163,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
             : experimentId === 'proj02'
               ? 'h-[440px] min-h-[440px]'
               : isLed
-                ? 'h-[520px] min-h-[520px]'
+                ? 'h-[580px] min-h-[580px]'
                 : 'h-[360px] min-h-[360px]',
       )}
     >
@@ -1212,10 +1209,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-[var(--space-3)] py-[var(--space-3)]">
         {isLed ? (
-          <div
-            className="mx-auto flex min-h-full w-full flex-col items-center gap-[var(--space-4)]"
-            style={{ maxWidth: diagramMaxWidth }}
-          >
+          <div className="mx-auto flex min-h-full min-w-full w-max flex-col items-center gap-[var(--space-4)]">
             {experimentId === 'proj01' && (
               <div className="w-full max-w-sm rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-[var(--space-3)] text-center">
                 <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
@@ -1228,7 +1222,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
               bits={bits}
               portName={ledPort}
               variant={mode === 'real' ? 'board' : 'schematic'}
-              width={Math.min(Math.round(320 * zoom), 960)}
+              width={Math.round(320 * zoom)}
             />
           </div>
         ) : (
@@ -1237,10 +1231,7 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
               'mx-auto flex min-h-full w-full flex-col items-center gap-[var(--space-4)]',
               ['proj02', 'proj03', 'exp09'].includes(experimentId ?? '') ? 'justify-start' : 'justify-center',
             )}
-            style={{
-              maxWidth: diagramMaxWidth,
-              ...(zoom === 1 ? {} : { zoom } as CSSProperties),
-            }}
+            style={zoom === 1 ? undefined : ({ zoom } as CSSProperties)}
           >
             {!inputEnabled && <p className="w-full text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
             {experimentId === 'proj03' && <CarInputs key={experimentId} state={simulatorState}
