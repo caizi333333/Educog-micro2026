@@ -54,6 +54,69 @@ export function scrollLessonCoursewareIntoView(node: HTMLElement | null): void {
   node.scrollIntoView({ block: 'start', behavior: 'auto' });
 }
 
+/** Observe input in accessible courseware frames until the returned cleanup runs. */
+export function observeCoursewareInput(frame: HTMLIFrameElement | null | undefined, onInput: () => void): () => void {
+  const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+  const empty = (): void => {};
+  const visit = (win: Window | null): (() => void) => {
+    if (!win) return empty;
+    let doc: Document;
+    try { doc = win.document; } catch { return empty; }
+    const children = new Map<HTMLIFrameElement, () => void>();
+    const registered: string[] = [];
+    let stopped = false;
+    try {
+      events.forEach((event) => {
+        win.addEventListener(event, onInput, { capture: true, passive: true });
+        registered.push(event);
+      });
+    } catch {
+      registered.forEach((event) => { try { win.removeEventListener(event, onInput, true); } catch { /* inaccessible frame */ } });
+      return empty;
+    }
+
+    const attach = (child: HTMLIFrameElement): void => {
+      if (stopped || children.has(child)) return;
+      let stopChild = empty;
+      const onLoad = (): void => {
+        stopChild();
+        try { stopChild = visit(child.contentWindow); } catch { stopChild = empty; }
+      };
+      child.addEventListener('load', onLoad);
+      children.set(child, () => {
+        try { child.removeEventListener('load', onLoad); } catch { /* frame navigated away */ }
+        stopChild();
+      });
+      onLoad();
+    };
+    const scan = (node: Node): void => {
+      if (node.nodeType !== 1) return;
+      const element = node as Element;
+      if (element.tagName === 'IFRAME') attach(element as HTMLIFrameElement);
+      element.querySelectorAll('iframe').forEach((child) => attach(child));
+    };
+    doc.querySelectorAll('iframe').forEach((child) => attach(child));
+    const observer = new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach(scan));
+      children.forEach((stop, child) => {
+        if (!doc.contains(child)) { stop(); children.delete(child); }
+      });
+    });
+    if (doc.documentElement) observer.observe(doc.documentElement, { childList: true, subtree: true });
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      observer.disconnect();
+      children.forEach((stop) => stop());
+      children.clear();
+      registered.forEach((event) => {
+        try { win.removeEventListener(event, onInput, true); } catch { /* frame may now be cross-origin */ }
+      });
+    };
+  };
+  try { return visit(frame?.contentWindow ?? null); } catch { return empty; }
+}
+
 /**
  * One step in 「章 › 课次 › 小节」.
  * Ancestors carry `file` so the shell can open them. The current step does not.
@@ -185,7 +248,7 @@ const U5_LESSON3_BAND: LessonBand = {
   label: '第 3 次课 · 定时与收口',
   file: 'u5-lesson-3',
   hash: '',
-  sections: ['hex-split', 'rev-hex', 'int-14', 'int-15', 'int-16', 'int-17', 'lesson-c', 'lesson-3', 'lc'],
+  sections: ['hex-split', 'rev-hex', 'gate-win', 'p-gate', 'gate', 'p19', 'int-14', 'int-15', 'int-16', 'int-17', 'lesson-c', 'lesson-3', 'lc'],
 };
 
 /** Hashes that name a lesson landing, not a subsection the student is reading. */

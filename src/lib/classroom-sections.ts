@@ -61,6 +61,10 @@ const U5_SECTION_POINTS: Readonly<Record<string, string>> = {
 const U5_LESSON_FILES: Readonly<Record<string, string>> = {
   'hex-split': 'u5-lesson-3',
   'rev-hex': 'u5-lesson-3',
+  'gate-win': 'u5-lesson-3',
+  'p-gate': 'u5-lesson-3',
+  gate: 'u5-lesson-3',
+  p19: 'u5-lesson-3',
 };
 
 const U4_PANE_POINTS: Readonly<Record<string, string>> = {
@@ -166,6 +170,10 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   'int-14': '定时器装值',
   'hex-split': '÷256 拆字节',
   'rev-hex': '÷256 拆字节',
+  'gate-win': 'GATE：计时窗口',
+  'p-gate': 'GATE：计时窗口',
+  gate: 'GATE：计时窗口',
+  p19: 'GATE：计时窗口',
   'int-17': '课末测试',
   'tmr-dz': '定时器难题',
   'tmr-show': '定时器原理',

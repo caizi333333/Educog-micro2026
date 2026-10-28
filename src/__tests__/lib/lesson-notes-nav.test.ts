@@ -122,4 +122,14 @@ describe('lesson note deep links', () => {
     }).targetId).toBe('6.3#hex-split');
     expect(describeLearningTarget('6.3#hex-split')).toContain('÷256 拆字节');
   });
+
+  it.each(['gate-win', 'p-gate', 'gate', 'p19'])('opens the existing #%s GATE page on lesson 3', (id) => {
+    const hash = `#${id}`;
+    expect(lessonFileForSection(id)).toBe('u5-lesson-3');
+    expect(resolve(null, 5, hash)).toEqual({ file: 'u5-lesson-3', hash });
+    expect(resolve('u5-lesson-3', null, hash)).toEqual({ file: 'u5-lesson-3', hash });
+    expect(standaloneCoursewareHref('/resources/course/courseware/u5', 'u5-lesson-3', id))
+      .toBe(`/resources/course/courseware/u5/u5-lesson-3.html${hash}`);
+    expect(resolve('u5-overview', null, hash)).toEqual({ file: 'u5-overview', hash: '' });
+  });
 });
