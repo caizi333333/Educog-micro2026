@@ -158,32 +158,34 @@ export function DragMatchPractice({
       aria-label={board.shell.ariaLabel}
       data-practice={board.id}
       data-tone="notes"
-      className={cellSurfaceClass({ className: 'edu-cell--flush mt-3' })}
+      className={cellSurfaceClass({ className: 'edu-cell--flush' })}
     >
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      <div className="flex flex-col gap-[var(--space-2)] p-[var(--space-3)] sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <p className="font-mono text-[11px] tracking-[0.14em] text-amber-200/80">练一练 · 80C51</p>
-          <h2 className="text-sm font-semibold text-amber-50">{board.title}</h2>
+          <h2 className="text-sm font-semibold leading-5 text-amber-50">{board.title}</h2>
         </div>
-        <button
-          type="button"
-          onClick={onOpenSection}
-          className="inline-flex min-h-11 items-center rounded-md border border-white/[0.1] px-3 text-xs text-slate-200 hover:border-cyan-300/30 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
-        >
-          {board.shell.sectionLink}
-        </button>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => onExpandedChange(!expanded)}
-          className="inline-flex min-h-11 items-center rounded-md border border-amber-300/30 bg-amber-300/[0.12] px-3 text-xs font-semibold text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
-        >
-          {expanded ? '收起练一练' : board.shell.expandClosed}
-        </button>
+        <div className="flex flex-wrap gap-[var(--space-2)]">
+          <button
+            type="button"
+            onClick={onOpenSection}
+            className="inline-flex min-h-11 items-center rounded-md border border-white/[0.1] px-[var(--space-3)] text-xs text-slate-200 hover:border-cyan-300/30 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+          >
+            {board.shell.sectionLink}
+          </button>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => onExpandedChange(!expanded)}
+            className="inline-flex min-h-11 items-center rounded-md border border-amber-300/30 bg-amber-300/[0.12] px-[var(--space-3)] text-xs font-semibold text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
+          >
+            {expanded ? '收起练一练' : board.shell.expandClosed}
+          </button>
+        </div>
       </div>
 
       {expanded && (
-        <div className="border-t border-white/[0.06] px-3 pb-3 pt-2">
+        <div className="border-t border-white/[0.06] px-[var(--space-3)] pb-[var(--space-3)] pt-[var(--space-2)]">
           <p className="text-xs leading-5 text-slate-300">
             {board.prompt}{board.shell.actionHint}首次全部对上 +{board.firstClearPoints} 积分。同一题连对 3 次解锁「连对三次」；北京时间当天第一次对上解锁「今天练过了」。
           </p>

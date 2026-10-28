@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LessonNotesPage from '@/app/lesson-notes/page';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -33,6 +33,11 @@ describe('LessonNotesPage deep link', () => {
     return await screen.findByTitle(title) as HTMLIFrameElement;
   }
 
+  function revealPractice(): void {
+    const opener = screen.queryByRole('button', { name: /^展开练一练/ });
+    if (opener) fireEvent.click(opener);
+  }
+
   it('puts #int-2 on the unit 5 overview iframe lesson notes actually show', async () => {
     const frame = await openAt(
       '/lesson-notes?note=u5-overview#int-2',
@@ -57,6 +62,7 @@ describe('LessonNotesPage deep link', () => {
     expect(frame).toHaveAttribute('src', expect.stringContaining('/resources/course/courseware/u2/u2-cpu-structure.html'));
     expect(frame.contentWindow?.location.hash).toBe('#cpu');
     expect(frame.contentWindow?.location.pathname).toBe('/resources/course/courseware/u2/u2-cpu-structure.html');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'CPU 结构拼图' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '运算器' })).toBeInTheDocument();
@@ -71,6 +77,7 @@ describe('LessonNotesPage deep link', () => {
     const frame = await openAt('/lesson-notes?unit=2#memory', '存储器组织 · 讲解笔记');
     expect(frame).toHaveAttribute('src', expect.stringContaining('/resources/course/courseware/u2/u2-memory.html'));
     expect(frame.contentWindow?.location.hash).toBe('#memory');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '存储区 ↔ 含义' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照地址图' })).toBeInTheDocument();
@@ -88,6 +95,7 @@ describe('LessonNotesPage deep link', () => {
     );
     expect(screen.getByRole('button', { name: /第 2 次课/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /总线结构/ })).toHaveAttribute('aria-selected', 'true');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '总线角色 ↔ 含义' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照总线结构' })).toBeInTheDocument();
@@ -116,6 +124,7 @@ describe('LessonNotesPage deep link', () => {
     expect(frame.contentWindow?.location.hash).toBe('#s-map');
     expect(screen.getByRole('button', { name: /单元 4/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: /课堂互动台/ })).toHaveAttribute('aria-selected', 'true');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '指令大类 ↔ 代表指令' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照 111 条全景' })).toBeInTheDocument();
@@ -140,6 +149,7 @@ describe('LessonNotesPage deep link', () => {
   it('opens the addressing match on unit 3 section 寻址方式', async () => {
     const frame = await openAt('/lesson-notes?unit=3#addressing', '第 3 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u3/u3-overview.html#addressing');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '指令 ↔ 寻址方式' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
@@ -148,6 +158,7 @@ describe('LessonNotesPage deep link', () => {
   it('opens the interrupt-source match on unit 5 section ③', async () => {
     const frame = await openAt('/lesson-notes?unit=5#int-3', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-3');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '中断源 ↔ 请求标志' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 向量地址' })).not.toBeInTheDocument();
@@ -160,6 +171,7 @@ describe('LessonNotesPage deep link', () => {
   it('opens the IE enable match on unit 5 section ⑤ and keeps the deep link', async () => {
     const frame = await openAt('/lesson-notes?note=u5-overview#int-5', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-5');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照课件⑤' })).toBeInTheDocument();
@@ -182,6 +194,7 @@ describe('LessonNotesPage deep link', () => {
       'href',
       '/resources/course/courseware/u5/u5-overview.html#int-4',
     );
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'TCON 位 ↔ 含义' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照课件④' })).toBeInTheDocument();
@@ -206,6 +219,7 @@ describe('LessonNotesPage deep link', () => {
       'href',
       '/resources/course/courseware/u5/u5-overview.html#int-6',
     );
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'IP 优先级位 ↔ 中断源' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照课件⑥' })).toBeInTheDocument();
@@ -239,6 +253,7 @@ describe('LessonNotesPage deep link', () => {
   it('opens the vector-address match on unit 5 section ② and keeps the deep link', async () => {
     const frame = await openAt('/lesson-notes?unit=5#int-2', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-2');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '中断源 ↔ 向量地址' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照课件②' })).toBeInTheDocument();
@@ -254,6 +269,7 @@ describe('LessonNotesPage deep link', () => {
   it('opens the TMOD match on the unit 5 timer practice section', async () => {
     const frame = await openAt('/lesson-notes?unit=5#tmr-hand', '第 5 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#tmr-hand');
+    revealPractice();
     expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'TMOD 字段 ↔ 含义' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '对照动手练③' })).toBeInTheDocument();
@@ -262,6 +278,61 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'IE 允许位 ↔ 中断源' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'TCON 位 ↔ 含义' })).not.toBeInTheDocument();
+  });
+
+  it('keeps practice collapsed on #int-6 and scrolls the courseware into view', async () => {
+    const seen: HTMLElement[] = [];
+    const original = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value(this: HTMLElement, options?: ScrollIntoViewOptions) {
+        seen.push(this);
+        expect(options).toEqual({ block: 'start', behavior: 'auto' });
+      },
+    });
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#int-6', '第 5 章交互总览 · 讲解笔记');
+      expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html#int-6');
+      expect(screen.getByRole('button', { name: '回课次' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '回课次' })).toHaveClass('min-h-11');
+      expect(screen.getByRole('heading', { name: 'IP 优先级位 ↔ 中断源' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /展开练一练/ })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
+      expect(screen.getByRole('region', { name: '讲解课件' }).closest('.lesson-shell__courseware')).toBeTruthy();
+      expect(seen.some((node) => node.classList.contains('lesson-shell__courseware'))).toBe(true);
+      expect(document.querySelector('.lesson-shell__column')).toBeTruthy();
+      expect(document.querySelector('.lesson-shell__stage.is-practice')).toBeNull();
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: original,
+      });
+    }
+  });
+
+  it('returns from #int-6 to the unit 5 lesson entry without history.back', async () => {
+    const back = jest.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    try {
+      const frame = await openAt('/lesson-notes?unit=5#int-6', '第 5 章交互总览 · 讲解笔记');
+      fireEvent.click(screen.getByRole('button', { name: '回课次' }));
+      await waitFor(() => {
+        expect(frame).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
+      });
+      expect(window.location.pathname + window.location.search + window.location.hash).toBe('/lesson-notes?unit=5');
+      expect(back).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: /展开练一练/ })).toHaveAttribute('aria-expanded', 'false');
+    } finally {
+      back.mockRestore();
+    }
+  });
+
+  it('returns from #hex-split to the chapter lesson chooser', async () => {
+    await openAt('/lesson-notes?unit=5#hex-split', '第 3 次课 · 定时与收口 · 讲解笔记');
+    fireEvent.click(screen.getByRole('button', { name: '回课次' }));
+    const overview = await screen.findByTitle('第 5 章交互总览 · 讲解笔记');
+    expect(overview).toHaveAttribute('src', '/resources/course/courseware/u5/u5-overview.html');
+    expect(screen.getByRole('tab', { name: /第 5 章交互总览/ })).toHaveAttribute('aria-selected', 'true');
+    expect(window.location.hash).toBe('');
   });
 
   it('opens unit 5 #hex-split on the lesson 3 page and keeps the hash', async () => {
