@@ -40,6 +40,11 @@
   /* 正文 Inter 打头，后面接中文字体；平台正文即 Inter */
   --fs:Inter,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",sans-serif;
   --fm:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --content-max-width: 800px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -52,7 +57,7 @@ body{
   color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-wrap{max-width:var(--content-max-width);margin:0 auto;padding:var(--space-4) var(--space-3) calc(var(--space-4) * 2)}
 .kp-fade{animation:kpFade .4s ease-out both}
 @keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 

@@ -9,7 +9,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
 body{min-height:100%}
-.wrap{max-width:1080px;margin:0 auto;padding:22px 16px 48px}
+.wrap{max-width:800px;margin:0 auto;padding:22px 16px 48px}
 .eyebrow{color:var(--muted);font-size:14px;letter-spacing:.04em}
 h1{margin:6px 0 8px;font-size:1.7rem;line-height:1.25}
 .lead{margin:0;color:var(--muted);font-size:15px;line-height:1.6;max-width:68ch}
@@ -87,6 +87,8 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--primary);outline-o
   if(window.addEventListener) window.addEventListener('hashchange', go);
 })();
 </script>
+<link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<script src="../lib/vlayout-tabs.js" defer></script>
 </head>
 <body>
 <div class="wrap">

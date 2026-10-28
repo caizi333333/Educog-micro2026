@@ -62,7 +62,7 @@ body{
   color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-wrap{max-width:800px;margin:0 auto;padding:22px 16px 56px}
 .kp-fade{animation:kpFade .4s ease-out both}
 @keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
@@ -708,7 +708,7 @@ a.mchip:hover{color:var(--cyan100);border-color:rgba(103,232,249,.3);background:
    所有"跑一下"都交给 mcs51.js 引擎真跑；数据全在 lib/u3-classroom-data.js。
    版面规矩：按钮在哪，效果就在哪（同一屏、紧挨着），不自动滚动；投屏字号 ≥ 14px。
    ============================================================ */
-.kp-wrap{max-width:1360px}
+.kp-wrap{max-width:800px}
 .kp-eyebrow{font-size:14px}
 body.z1{zoom:1.15} body.z2{zoom:1.3}
 .top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
@@ -1016,6 +1016,8 @@ table.cmp tr.wait td{color:var(--muted-fg)}
   .kp-note,.kp-exp,.kp-foot{font-size:15px}
 }
 </style>
+<link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<script src="../lib/vlayout-tabs.js" defer></script>
 </head>
 <body>
 <div class="kp-wrap">

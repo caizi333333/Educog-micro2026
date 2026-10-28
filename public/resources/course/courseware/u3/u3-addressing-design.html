@@ -58,7 +58,7 @@ body{
   color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.kp-wrap{max-width:1120px;margin:0 auto;padding:22px 16px 56px}
+.kp-wrap{max-width:800px;margin:0 auto;padding:22px 16px 56px}
 .kp-fade{animation:kpFade .4s ease-out both}
 @keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
@@ -204,7 +204,7 @@ a.kp-nav-i:hover{color:var(--slate100);background:rgba(255,255,255,.06);border-c
    键盘：← → 翻页签；空格 单步（当前页签里的“下一步”）
    口径：80C51，1 机器周期 = 6 状态 S1~S6 = 12 振荡周期；12 MHz 时 1 µs
    ============================================================ */
-.kp-wrap{max-width:1360px}
+.kp-wrap{max-width:800px}
 body{font-size:18px}
 body.z1{zoom:1.15} body.z2{zoom:1.3}
 .kp-eyebrow{font-size:14px}
@@ -456,6 +456,8 @@ table.t tr.cur td{background:hsl(42 92% 58% / .1)}
   .kp-note,.kp-exp,.kp-foot{font-size:15px}
 }
 </style>
+<link rel="stylesheet" href="../lib/vlayout-density.css" data-vlayout="density">
+<script src="../lib/vlayout-tabs.js" defer></script>
 </head>
 <body>
 <div class="kp-wrap">
