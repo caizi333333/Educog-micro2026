@@ -1213,9 +1213,17 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
         <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-[var(--space-3)] py-[var(--space-3)]">
         {isLed ? (
           <div
-            className="mx-auto flex min-h-full w-full justify-center"
+            className="mx-auto flex min-h-full w-full flex-col items-center gap-[var(--space-4)]"
             style={{ maxWidth: diagramMaxWidth }}
           >
+            {experimentId === 'proj01' && (
+              <div className="w-full max-w-sm rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-[var(--space-3)] text-center">
+                <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
+                <output aria-label="项目一数码管显示" className="block font-mono text-3xl text-cyan-200">{simulatorState ? SEGMENT_MAP[p0] ?? '—' : '—'}</output>
+                <div className="font-mono text-[10px] text-slate-400">P0 = 0x{p0.toString(16).toUpperCase().padStart(2, '0')}</div>
+                <p className="mt-[var(--space-2)] text-[10px] leading-4 text-slate-500">8灯循环后显示0–9；可提高运行速度。</p>
+              </div>
+            )}
             <LedHardwareDiagram
               bits={bits}
               portName={ledPort}
@@ -1235,14 +1243,6 @@ export function HyperExperimentCanvas({ simulatorState, isRunning = false, exper
             }}
           >
             {!inputEnabled && <p className="w-full text-[10px] leading-4 text-slate-400">外部输入暂不可用；停止或修改代码后，请重新运行。单步和断点暂停时可输入后继续执行。</p>}
-            {experimentId === 'proj01' && (
-              <div className="w-full max-w-sm rounded-lg border border-cyan-300/25 bg-[#070b0d]/95 p-[var(--space-3)] text-center">
-                <div className="text-[10px] text-slate-400">P0 · 共阴数码管</div>
-                <output aria-label="项目一数码管显示" className="block font-mono text-3xl text-cyan-200">{simulatorState ? SEGMENT_MAP[p0] ?? '—' : '—'}</output>
-                <div className="font-mono text-[10px] text-slate-400">P0 = 0x{p0.toString(16).toUpperCase().padStart(2, '0')}</div>
-                <p className="mt-[var(--space-2)] text-[10px] leading-4 text-slate-500">8灯循环后显示0–9；可提高运行速度。</p>
-              </div>
-            )}
             {experimentId === 'proj03' && <CarInputs key={experimentId} state={simulatorState}
               onReceiveUartByte={onReceiveUartByte} onSetPortBit={onSetPortBit} onPulsePortBit={onPulsePortBit} />}
             {renderPeripheral()}
