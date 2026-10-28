@@ -110,6 +110,33 @@ describe('LessonNotesPage deep link', () => {
     expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
   });
 
+  it('opens the instruction-team match on the unit 4 panorama and keeps the deep link', async () => {
+    const frame = await openAt('/lesson-notes?unit=4#s-map', '课堂互动台 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u4/u4-classroom.html#s-map');
+    expect(frame.contentWindow?.location.hash).toBe('#s-map');
+    expect(screen.getByRole('button', { name: /单元 4/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /课堂互动台/ })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('button', { name: '核对' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '指令大类 ↔ 代表指令' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '对照 111 条全景' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起练一练' })).toBeInTheDocument();
+    expect(screen.getByText('数据传送')).toBeInTheDocument();
+    expect(screen.getByText('MOV A,Rn')).toBeInTheDocument();
+    expect(screen.getByText('MOV C,bit')).toBeInTheDocument();
+    expect(document.querySelector('[data-practice="u4-instruction-teams"] .grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /数据传送/ })).toHaveClass('min-h-11');
+    expect(screen.queryByRole('heading', { name: '指令 ↔ 寻址方式' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '中断源 ↔ 请求标志' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the instruction-team match collapsed on a neighboring unit 4 section', async () => {
+    const frame = await openAt('/lesson-notes?unit=4#p-run', '课堂互动台 · 讲解笔记');
+    expect(frame).toHaveAttribute('src', '/resources/course/courseware/u4/u4-classroom.html#p-run');
+    expect(screen.getByRole('heading', { name: '指令大类 ↔ 代表指令' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '展开练一练：指令大类对代表指令' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '核对' })).not.toBeInTheDocument();
+  });
+
   it('opens the addressing match on unit 3 section 寻址方式', async () => {
     const frame = await openAt('/lesson-notes?unit=3#addressing', '第 3 章交互总览 · 讲解笔记');
     expect(frame).toHaveAttribute('src', '/resources/course/courseware/u3/u3-overview.html#addressing');

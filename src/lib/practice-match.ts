@@ -14,6 +14,7 @@
  * - unit 5 TCON run, overflow, and trigger bits (overview `#int-4`; not IE0/IE1)
  * - unit 5 timer `TMOD` fields (overview `#tmr-hand`, 动手练③)
  * - unit 3 overview `#addressing` tab ①, the seven `var DZ` reveals
+ * - unit 4 instruction teams (note `u4-classroom`, anchor `#s-map`)
  * A later chapter adds another `MatchBoard` and a catalog row whose
  * criteria.type is `practice_clears:<board id>`. 「连对三次」and「今天练过了」
  * already apply to every board; they do not need a new row.
@@ -438,6 +439,48 @@ export const EXTERNAL_BUS_BOARD: MatchBoard = {
   ],
 };
 
+/**
+ * 80C51 instruction teams on the unit 4 classroom panorama
+ * (`u4-classroom`, anchor `#s-map`, the 回炉 111 条全景).
+ * Category name, alias, and section number are the team card on that pane.
+ * The function phrase is that team's `blurb` in `var TEAMS`.
+ * The mnemonic is the first row of the same team in the ISA table on this
+ * page, written the way `label()` shows it (`m` plus `ops`). The arrow
+ * after the phrase is that row's `fn`, the 功能 column.
+ * NOP and SWAP A stay in the team-card footnotes and are not pairs.
+ * No baud-rate or chip-variant facts.
+ */
+export const INSTRUCTION_TEAMS_BOARD: MatchBoard = {
+  id: 'u4-instruction-teams',
+  title: '指令大类 ↔ 代表指令',
+  prompt: '把 80C51 的指令五大类对上各自的代表助记符和功能。',
+  hint: '先看这条是在搬数、做运算、按位处理、跳走，还是只碰一位。',
+  chapterId: '4',
+  knowledgePointId: '3.5',
+  sectionId: 's-map',
+  moduleId: 'u4-classroom',
+  medalId: 'instruction_teams',
+  firstClearPoints: POINTS_CONFIG.PRACTICE_MATCH_CLEAR,
+  cooldownMs: 10 * 60 * 1000,
+  shell: {
+    ariaLabel: '练一练：指令大类对代表指令',
+    sectionLink: '对照 111 条全景',
+    expandClosed: '展开练一练：指令大类对代表指令',
+    promptSide: '指令大类',
+    targetSide: '代表指令',
+    actionHint: '先点指令大类，再点代表指令。鼠标也可以直接拖过去。',
+    emptyTray: '5 个大类都放好了。',
+    slotName: '代表指令',
+  },
+  pairs: [
+    { id: 'mov', prompt: '数据传送', promptHint: '3.3 · 搬运团队', target: 'MOV A,Rn', targetDetail: '只搬不算 · A←(Rn)' },
+    { id: 'alu', prompt: '算术运算', promptHint: '3.4 · 计算团队', target: 'ADD A,Rn', targetDetail: '加减乘除与十进制调整 · A←(A)+(Rn)' },
+    { id: 'logic', prompt: '逻辑运算', promptHint: '3.5 · 逻辑思维团队', target: 'ANL A,Rn', targetDetail: '按位做与、或、异或 · A←(A)∧(Rn)' },
+    { id: 'jump', prompt: '控制转移', promptHint: '3.6 · 引导团队', target: 'LJMP addr16', targetDetail: '改写 PC · PC←addr16' },
+    { id: 'bit', prompt: '位操作', promptHint: '3.7 · 位操作团队', target: 'MOV C,bit', targetDetail: '只跟单个位打交道 · CY←(bit)' },
+  ],
+};
+
 const MATCH_BOARDS: readonly MatchBoard[] = [
   MEMORY_REGION_BOARD,
   CPU_STRUCTURE_BOARD,
@@ -448,6 +491,7 @@ const MATCH_BOARDS: readonly MatchBoard[] = [
   TCON_CONTROL_BITS_BOARD,
   TIMER_TMOD_BOARD,
   ADDRESSING_MODE_BOARD,
+  INSTRUCTION_TEAMS_BOARD,
 ];
 
 export function findMatchBoard(boardId: string): MatchBoard | null {

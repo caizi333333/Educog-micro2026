@@ -6,6 +6,7 @@ import {
   ADDRESSING_MODE_BOARD,
   CPU_STRUCTURE_BOARD,
   EXTERNAL_BUS_BOARD,
+  INSTRUCTION_TEAMS_BOARD,
   INTERRUPT_IE_ENABLE_BOARD,
   INTERRUPT_SOURCE_FLAG_BOARD,
   INTERRUPT_VECTOR_BOARD,
@@ -1076,6 +1077,129 @@ describe('external bus match board', () => {
       nowMs: now,
       cooldownMs: EXTERNAL_BUS_BOARD.cooldownMs,
       firstClearPoints: EXTERNAL_BUS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
+  });
+});
+
+describe('instruction team match board', () => {
+  const courseware = readFileSync(
+    join(__dirname, '../../../public/resources/course/courseware/u4/u4-classroom.html'),
+    'utf8',
+  );
+
+  it('matches the five teams on the unit 4 panorama', () => {
+    expect(findMatchBoard('u4-instruction-teams')).toBe(INSTRUCTION_TEAMS_BOARD);
+    expect(INSTRUCTION_TEAMS_BOARD.chapterId).toBe('4');
+    expect(INSTRUCTION_TEAMS_BOARD.knowledgePointId).toBe('3.5');
+    expect(INSTRUCTION_TEAMS_BOARD.sectionId).toBe('s-map');
+    expect(INSTRUCTION_TEAMS_BOARD.moduleId).toBe('u4-classroom');
+    expect(INSTRUCTION_TEAMS_BOARD.medalId).toBe('instruction_teams');
+    expect(INSTRUCTION_TEAMS_BOARD.zones).toBeUndefined();
+    expect(INSTRUCTION_TEAMS_BOARD.cooldownMs).toBe(10 * 60 * 1000);
+    expect(INSTRUCTION_TEAMS_BOARD.pairs.map((pair) => [pair.id, pair.prompt, pair.target, pair.targetDetail])).toEqual([
+      ['mov', '数据传送', 'MOV A,Rn', '只搬不算 · A←(Rn)'],
+      ['alu', '算术运算', 'ADD A,Rn', '加减乘除与十进制调整 · A←(A)+(Rn)'],
+      ['logic', '逻辑运算', 'ANL A,Rn', '按位做与、或、异或 · A←(A)∧(Rn)'],
+      ['jump', '控制转移', 'LJMP addr16', '改写 PC · PC←addr16'],
+      ['bit', '位操作', 'MOV C,bit', '只跟单个位打交道 · CY←(bit)'],
+    ]);
+    expect(courseware).toContain('id="s-map"');
+    expect(courseware).toContain('var TEAMS = {');
+    expect(courseware).toContain("name:'数据传送', alias:'搬运团队'");
+    expect(courseware).toContain("sec:'3.3'");
+    expect(courseware).toContain('只搬不算');
+    expect(courseware).toContain("{ m:'MOV', ops:'A,Rn'");
+    expect(courseware).toContain("fn:'A←(Rn)'");
+    expect(courseware).toContain("name:'算术运算', alias:'计算团队'");
+    expect(courseware).toContain('加减乘除与十进制调整');
+    expect(courseware).toContain("{ m:'ADD',  ops:'A,Rn'");
+    expect(courseware).toContain("fn:'A←(A)+(Rn)'");
+    expect(courseware).toContain("name:'逻辑运算', alias:'逻辑思维团队'");
+    expect(courseware).toContain('按位做与、或、异或');
+    expect(courseware).toContain("{ m:'ANL', ops:'A,Rn'");
+    expect(courseware).toContain("fn:'A←(A)∧(Rn)'");
+    expect(courseware).toContain("name:'控制转移', alias:'引导团队'");
+    expect(courseware).toContain('改写 PC');
+    expect(courseware).toContain("{ m:'LJMP', ops:'addr16'");
+    expect(courseware).toContain("fn:'PC←addr16'");
+    expect(courseware).toContain("name:'位操作'");
+    expect(courseware).toContain("alias:'位操作团队'");
+    expect(courseware).toContain('只跟单个位打交道');
+    expect(courseware).toContain("{ m:'MOV', ops:'C,bit'");
+    expect(courseware).toContain("fn:'CY←(bit)'");
+    expect(INSTRUCTION_TEAMS_BOARD.pairs.map((pair) => pair.target)).not.toContain('NOP');
+    expect(INSTRUCTION_TEAMS_BOARD.pairs.map((pair) => pair.target)).not.toContain('SWAP A');
+    const spoken = [
+      INSTRUCTION_TEAMS_BOARD.title,
+      INSTRUCTION_TEAMS_BOARD.prompt,
+      INSTRUCTION_TEAMS_BOARD.hint,
+      ...INSTRUCTION_TEAMS_BOARD.pairs.flatMap((pair) => [pair.prompt, pair.promptHint, pair.target, pair.targetDetail]),
+    ].join('\n');
+    expect(spoken).not.toContain('8052');
+    expect(spoken).not.toContain('波特');
+    expect(spoken).toContain('80C51');
+    expect(INSTRUCTION_TEAMS_BOARD.hint).not.toContain('MOV A,Rn');
+    expect(INSTRUCTION_TEAMS_BOARD.hint).not.toContain('只搬不算');
+  });
+
+  it('grades a finished team map and keeps a swapped class wrong', () => {
+    const solved = Object.fromEntries(INSTRUCTION_TEAMS_BOARD.pairs.map((pair) => [pair.id, pair.id]));
+    expect(gradeMatch(INSTRUCTION_TEAMS_BOARD, solved).correct).toBe(true);
+
+    const swapped = { ...solved, mov: 'alu', alu: 'mov' };
+    const grade = gradeMatch(INSTRUCTION_TEAMS_BOARD, swapped);
+    expect(grade.correct).toBe(false);
+    expect(grade.wrongSlotIds).toEqual(['mov', 'alu']);
+    expect(matchMissMessage(grade, INSTRUCTION_TEAMS_BOARD)).toContain('还有 2 处没对上');
+    expect(matchMissMessage(grade, INSTRUCTION_TEAMS_BOARD)).toContain('只碰一位');
+    expect(matchMissMessage(grade, INSTRUCTION_TEAMS_BOARD)).not.toContain('MOV A,Rn');
+  });
+
+  it('uses the same first-clear medal path and the same cooldown as the other boards', () => {
+    expect(practiceClearStat(INSTRUCTION_TEAMS_BOARD.id)).toBe('practice_clears:u4-instruction-teams');
+    expect(practiceMedalIdsForCount(INSTRUCTION_TEAMS_BOARD.id, 1)).toEqual(['instruction_teams']);
+    expect(practiceMedalIdsForCount(INSTRUCTION_TEAMS_BOARD.id, 3, { firstClearOfCampusDay: true })).toEqual([
+      'instruction_teams',
+      'practice_streak_3',
+      'practice_daily',
+    ]);
+    const medal = ACHIEVEMENTS_V2.find((item) => item.id === 'instruction_teams');
+    expect(medal?.title).toBe('指令大类对上了');
+    expect(matchClearMessage({
+      reason: 'first_clear',
+      practicePoints: INSTRUCTION_TEAMS_BOARD.firstClearPoints,
+      medalTitle: medal?.title ?? null,
+      medalPoints: medal?.points ?? 0,
+      cooldownMinutes: 10,
+    })).toBe('首次对上：+15 积分，解锁勋章「指令大类对上了」+10。');
+
+    const now = Date.parse('2026-10-27T12:00:00Z');
+    expect(decideMatchReward({
+      correct: false,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INSTRUCTION_TEAMS_BOARD.cooldownMs,
+      firstClearPoints: INSTRUCTION_TEAMS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'incorrect', practicePoints: 0, recordEvent: false, grantMedals: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 1,
+      lastClearAtMs: now - 60_000,
+      nowMs: now,
+      cooldownMs: INSTRUCTION_TEAMS_BOARD.cooldownMs,
+      firstClearPoints: INSTRUCTION_TEAMS_BOARD.firstClearPoints,
+      awardToStudent: true,
+    })).toMatchObject({ reason: 'cooldown', practicePoints: 0, recordEvent: false, grantMedals: false });
+    expect(decideMatchReward({
+      correct: true,
+      previousClears: 0,
+      lastClearAtMs: null,
+      nowMs: now,
+      cooldownMs: INSTRUCTION_TEAMS_BOARD.cooldownMs,
+      firstClearPoints: INSTRUCTION_TEAMS_BOARD.firstClearPoints,
       awardToStudent: true,
     })).toMatchObject({ reason: 'first_clear', practicePoints: 15, recordEvent: true, grantMedals: true });
   });
