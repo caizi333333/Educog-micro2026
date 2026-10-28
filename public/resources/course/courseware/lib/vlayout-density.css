@@ -7,7 +7,7 @@
      --space-2 8px   控件组内
      --space-3 16px  卡片内边距、栏间距
      --space-4 24px  区块之间、主栏与边
-     --content-max-width 800px
+     --content-max-width 800px（连续正文）
    字号只走五档。页签触控高度 44px。
    窄屏页签换行；超过 6 个时由 vlayout-tabs.js 把多余的收进「更多」。
    图、寄存器、代码在自己的框里横滑，不把整页撑出横向滚动条。
@@ -18,6 +18,7 @@
   --space-3: 16px;
   --space-4: 24px;
   --content-max-width: 800px;
+  --interactive-max-width: 1360px;
   --type-meta: 12px;
   --type-ui: 14px;
   --type-body: 16px;
@@ -41,8 +42,8 @@ body {
 
 .kp-wrap,
 .wrap {
-  width: min(100%, var(--content-max-width));
-  max-width: var(--content-max-width);
+  width: min(100%, var(--interactive-max-width));
+  max-width: var(--interactive-max-width);
   margin-inline: auto;
   padding: var(--space-4) var(--space-3) calc(var(--space-4) * 2);
   min-width: 0;
@@ -50,10 +51,17 @@ body {
 }
 
 .doors {
-  width: min(100%, var(--content-max-width));
-  max-width: var(--content-max-width);
+  width: min(100%, var(--interactive-max-width));
+  max-width: var(--interactive-max-width);
   margin-inline: auto;
   gap: var(--space-3);
+}
+
+.kp-lead,
+.kp-card > p,
+.kp-wrap .card > p,
+.wrap .card > p {
+  max-width: var(--content-max-width);
 }
 
 .panel {
@@ -382,7 +390,7 @@ table.ins {
     display: none;
   }
 
-  header > div {
+  header > div:not(.head-title) {
     flex: 1 1 100% !important;
     min-width: 0;
   }

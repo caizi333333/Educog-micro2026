@@ -79,6 +79,33 @@ describe('mobile reading containment', () => {
     expectPhoneReading(embeddedInterrupt(overviewHtml), 'overview interrupt');
   });
 
+  it('keeps the theme control in the header and toggles the theme', () => {
+    const start = overviewHtml.indexOf('/* theme toggle */');
+    const end = overviewHtml.indexOf('</script>', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    document.body.innerHTML = '<header><div class="head-title">课次</div><button id="fs">全屏</button></header>';
+    const originalStorage = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    const values = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    } });
+    new Function(overviewHtml.slice(start, end))();
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const toggle = document.getElementById('kp-theme-toggle');
+    expect(toggle?.parentElement?.tagName).toBe('HEADER');
+    expect(toggle?.nextElementSibling?.id).toBe('fs');
+    toggle?.click();
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    toggle?.click();
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
+    if (originalStorage) Object.defineProperty(window, 'localStorage', originalStorage);
+    document.body.innerHTML = '';
+    document.documentElement.removeAttribute('data-theme');
+  });
+
   it('drops the report tables’ forced min-width so phone rows can stack', () => {
     expect(reportSource).not.toContain('min-w-[680px]');
     expect(reportSource).not.toContain('min-w-[520px]');

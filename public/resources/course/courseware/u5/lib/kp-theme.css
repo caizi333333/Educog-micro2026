@@ -57,7 +57,7 @@ body{
   color:var(--slate100);font-family:var(--fs);font-size:16px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.kp-wrap{max-width:var(--content-max-width);margin:0 auto;padding:var(--space-4) var(--space-3) calc(var(--space-4) * 2)}
+.kp-wrap{max-width:1360px;margin:0 auto;padding:var(--space-4) var(--space-3) calc(var(--space-4) * 2)}
 .kp-fade{animation:kpFade .4s ease-out both}
 @keyframes kpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
