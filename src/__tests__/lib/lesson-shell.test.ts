@@ -1,8 +1,40 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { lessonEntryHref, lessonEntryTarget, lessonPlace, lessonPlaceHref, scrollLessonCoursewareIntoView } from '@/lib/lesson-shell';
+import { lessonEntryHref, lessonEntryTarget, lessonPlace, lessonPlaceHref, observeCoursewareInput, scrollLessonCoursewareIntoView } from '@/lib/lesson-shell';
 
 const ROOT = join(__dirname, '../../..');
+
+describe('courseware input observation', () => {
+  it('observes a dynamically added nested iframe and stops after cleanup', async () => {
+    const outer = document.createElement('iframe');
+    document.body.appendChild(outer);
+    const input = jest.fn();
+    const stop = observeCoursewareInput(outer, input);
+    const inner = outer.contentDocument!.createElement('iframe');
+    inner.srcdoc = '<button>练习</button>';
+    outer.contentDocument!.body.appendChild(inner);
+    await Promise.resolve(); // deliver the mutation observer
+    inner.contentWindow!.dispatchEvent(new Event('wheel'));
+    expect(input).toHaveBeenCalledTimes(1);
+    stop();
+    inner.contentWindow!.dispatchEvent(new Event('wheel'));
+    expect(input).toHaveBeenCalledTimes(1);
+    outer.remove();
+  });
+
+  it('safely cleans up if a previously accessible frame becomes cross-origin', () => {
+    const inaccessible = new DOMException('Cross-origin frame', 'SecurityError');
+    const fakeWindow = {
+      document: document.implementation.createHTMLDocument(),
+      addEventListener: jest.fn(),
+      get removeEventListener(): never { throw inaccessible; },
+    };
+    const frame = { contentWindow: fakeWindow } as unknown as HTMLIFrameElement;
+    const stop = observeCoursewareInput(frame, jest.fn());
+    expect(fakeWindow.addEventListener).toHaveBeenCalledTimes(4);
+    expect(() => stop()).not.toThrow();
+  });
+});
 
 describe('lesson shell entry', () => {
   it('returns to the chapter chooser or the current lesson, not browser history', () => {
@@ -125,6 +157,20 @@ describe('lesson place trail', () => {
       '第 1 次课 · 数在哪',
       '寻址方式与机器周期',
     ]);
+  });
+
+  it.each(['gate-win', 'p-gate', 'gate', 'p19'])('labels #%s under lesson 3', (sectionId) => {
+    expect(lessonPlace({
+      ...chapter5,
+      noteFile: 'u5-lesson-3',
+      noteTitle: '第 3 次课 · 定时与收口',
+      sectionId,
+    }).map((crumb) => crumb.label)).toEqual([
+      '第 5 章 · 中断系统与定时器',
+      '第 3 次课 · 定时与收口',
+      'GATE：计时窗口',
+    ]);
+    expect(lessonPlaceHref(5, 'u5-lesson-3', `#${sectionId}`)).toBe(`/lesson-notes?unit=5#${sectionId}`);
   });
 
   it('builds a reloadable shell URL and drops a hash that is not an anchor', () => {

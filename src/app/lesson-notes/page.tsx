@@ -47,6 +47,7 @@ import {
   lessonEntryTarget,
   lessonPlace,
   lessonPlaceHref,
+  observeCoursewareInput,
   scrollLessonCoursewareIntoView,
   type LessonPlaceCrumb,
 } from '@/lib/lesson-shell';
@@ -329,6 +330,9 @@ const NOTE_ALIAS: Readonly<Record<string, string>> = {
 
 // 讲解页传来的 hash 只用于页内定位（如 #m=bit、#i=…），格式不对就丢掉
 const HASH_PATTERN = /^#[\w=%.~-]{1,160}$/;
+// 课件在 load 后还会延迟执行锚点滚动；留出时间再调整外壳。
+const ANCHOR_SETTLE_MS = 200;
+const ANCHOR_MAX_WAIT_MS = 10_000;
 
 /**
  * One match cell above the iframe. Unit 2 mounts the CPU puzzle on
@@ -376,8 +380,76 @@ export default function LessonNotesPage(): React.JSX.Element {
   const frames = useRef(new Map<string, HTMLIFrameElement>());
   const unitStripRef = useRef<HTMLDivElement>(null);
   const coursewareRef = useRef<HTMLDivElement>(null);
+  const lastNavigationHref = useRef('');
   const activeFileRef = useRef(activeFile);
+  const pendingAnchorAlignment = useRef<{ file: string; href: string } | null>(null);
+  const frameInputCleanup = useRef<(() => void) | null>(null);
   activeFileRef.current = activeFile;
+
+  const cancelAnchorAlignment = useCallback((): void => {
+    pendingAnchorAlignment.current = null;
+    frameInputCleanup.current?.();
+    frameInputCleanup.current = null;
+  }, []);
+
+  const watchFrameInput = useCallback((frame: HTMLIFrameElement | null): void => {
+    frameInputCleanup.current?.();
+    frameInputCleanup.current = pendingAnchorAlignment.current
+      ? observeCoursewareInput(frame, cancelAnchorAlignment)
+      : null;
+  }, [cancelAnchorAlignment]);
+
+  const alignAfterAnchor = useCallback((file: string): void => {
+    const request = pendingAnchorAlignment.current;
+    if (!request || request.file !== file) return;
+    // Some courseware performs its own anchor scroll after loading, which can
+    // also scroll the outer page beneath the sticky location bar.
+    window.setTimeout(() => {
+      if (pendingAnchorAlignment.current !== request) return;
+      if (activeFileRef.current !== file || window.location.href !== request.href) {
+        cancelAnchorAlignment();
+        return;
+      }
+      scrollLessonCoursewareIntoView(coursewareRef.current);
+      cancelAnchorAlignment();
+    }, ANCHOR_SETTLE_MS);
+  }, [cancelAnchorAlignment]);
+
+  const requestAnchorAlignment = useCallback((file: string): void => {
+    const request = { file, href: window.location.href };
+    pendingAnchorAlignment.current = request;
+    // A frame may never finish loading; do not keep its observers indefinitely.
+    window.setTimeout(() => {
+      if (pendingAnchorAlignment.current === request) cancelAnchorAlignment();
+    }, ANCHOR_MAX_WAIT_MS);
+    watchFrameInput(frames.current.get(file) ?? null);
+    try {
+      if (frames.current.get(file)?.contentWindow?.location.pathname.endsWith(`/${file}.html`)) {
+        alignAfterAnchor(file);
+      }
+    } catch { /* wait for the same-origin frame to load */ }
+  }, [alignAfterAnchor, cancelAnchorAlignment, watchFrameInput]);
+
+  useEffect(() => {
+    window.addEventListener('wheel', cancelAnchorAlignment, { passive: true });
+    window.addEventListener('touchstart', cancelAnchorAlignment, { passive: true });
+    window.addEventListener('pointerdown', cancelAnchorAlignment, { passive: true });
+    window.addEventListener('keydown', cancelAnchorAlignment);
+    return () => {
+      window.removeEventListener('wheel', cancelAnchorAlignment);
+      window.removeEventListener('touchstart', cancelAnchorAlignment);
+      window.removeEventListener('pointerdown', cancelAnchorAlignment);
+      window.removeEventListener('keydown', cancelAnchorAlignment);
+    };
+  }, [cancelAnchorAlignment]);
+
+  useEffect(() => {
+    watchFrameInput(frames.current.get(activeFile) ?? null);
+    return () => {
+      frameInputCleanup.current?.();
+      frameInputCleanup.current = null;
+    };
+  }, [activeFile, mounted, watchFrameInput]);
 
   const openNote = useCallback((rawFile: string, rawHash = '', mode: 'keep' | 'entry' = 'keep'): void => {
     const aliasHash = NOTE_ALIAS[rawFile];
@@ -394,20 +466,36 @@ export default function LessonNotesPage(): React.JSX.Element {
     // 「回课次」drops the section hash. openUnit still passes mode "keep", so
     // switching units does not wipe the section the student was reading.
     if (mode === 'entry' && !hash) {
-      setInitialHash((prev) => {
-        if (!(file in prev)) return prev;
-        const next = { ...prev };
-        delete next[file];
-        return next;
-      });
       const frame = frames.current.get(file);
+      let loadedHere = false;
       try {
         const win = frame?.contentWindow;
-        if (win && win.location.pathname.endsWith(`/${file}.html`) && win.location.hash) {
-          win.location.replace(`${win.location.pathname}${win.location.search}`);
+        loadedHere = Boolean(win && win.location.pathname.endsWith(`/${file}.html`));
+        // A hub may navigate its existing frame to another courseware file.
+        if (win && !loadedHere && win.location.pathname.startsWith('/resources/course/courseware/')) {
+          win.location.replace(`${hit.unit.base}/${file}.html`);
+        }
+        if (loadedHere && win?.location.hash) {
+          const here = `${win.location.pathname}${win.location.search}`;
+          const oldURL = win.location.href;
+          const entryHash = file === 'u4-classroom' ? '#p-rev' : file === 'u5-lesson-3' ? '#p14' : '#home';
+          // Select the entry through the courseware's existing hash handler,
+          // then clear the URL without reloading and losing its answers.
+          win.history.replaceState(win.history.state, '', `${here}${entryHash}`);
+          win.dispatchEvent(new HashChangeEvent('hashchange', { oldURL, newURL: win.location.href }));
+          win.history.replaceState(win.history.state, '', here);
+          win.scrollTo(0, 0);
         }
       } catch {
         // 同源页面不会走到这里；src 去掉 hash 仍会重新打开课次入口。
+      }
+      if (!loadedHere) {
+        setInitialHash((prev) => {
+          if (!(file in prev)) return prev;
+          const next = { ...prev };
+          delete next[file];
+          return next;
+        });
       }
       if (!mounted.includes(file)) {
         setMounted((prev) => (prev.includes(file) ? prev : [...prev, file]));
@@ -421,6 +509,12 @@ export default function LessonNotesPage(): React.JSX.Element {
       if (win) {
         try {
           loadedHere = win.location.pathname.endsWith(`/${file}.html`);
+          // As with an entry without a hash, a hub frame may currently be on
+          // a different courseware document despite retaining its old src.
+          if (!loadedHere && win.location.pathname.startsWith('/resources/course/courseware/')) {
+            win.location.replace(`${hit.unit.base}/${file}.html${hash}`);
+            return;
+          }
         } catch {
           loadedHere = false;
         }
@@ -459,8 +553,10 @@ export default function LessonNotesPage(): React.JSX.Element {
     if (entry.hash) openNote(entry.file, entry.hash);
     else openNote(entry.file, '', 'entry');
     window.history.replaceState({}, '', lessonEntryHref(hit.unit.id, entry.hash));
+    lastNavigationHref.current = window.location.href;
+    if (entry.hash) requestAnchorAlignment(entry.file);
     setCoursewareScroll((generation) => generation + 1);
-  }, [openNote]);
+  }, [openNote, requestAnchorAlignment]);
 
   const openPlace = useCallback((crumb: LessonPlaceCrumb): void => {
     if (!crumb.file) return;
@@ -471,8 +567,10 @@ export default function LessonNotesPage(): React.JSX.Element {
     if (hash) openNote(crumb.file, hash);
     else openNote(crumb.file, '', 'entry');
     window.history.replaceState({}, '', lessonPlaceHref(hit.unit.id, crumb.file, hash));
+    lastNavigationHref.current = window.location.href;
+    if (hash) requestAnchorAlignment(crumb.file);
     setCoursewareScroll((generation) => generation + 1);
-  }, [openNote]);
+  }, [openNote, requestAnchorAlignment]);
 
   // 讲解页里点了别篇的链接
   useEffect(() => {
@@ -495,7 +593,9 @@ export default function LessonNotesPage(): React.JSX.Element {
       const frame = frames.current.get(activeFile);
       let loaded = false;
       try {
-        loaded = Boolean(frame?.contentWindow?.location?.pathname?.endsWith(`/${activeFile}.html`));
+        const path = frame?.contentWindow?.location?.pathname ?? '';
+        loaded = path.endsWith(`/${activeFile}.html`)
+          || (activeFile === 'u3-overview' && path.startsWith('/resources/course/courseware/u3/') && path.endsWith('.html'));
       } catch {
         loaded = false;
       }
@@ -512,27 +612,54 @@ export default function LessonNotesPage(): React.JSX.Element {
     };
   }, [activeFile, mounted]);
 
-  // 深链：?note=、?unit= 和页内 hash（如 #int-2）只在进页时读一次
+  // 首访和浏览器前进、后退或同页 hash 切换都解析课件位置。
   const deepLinkRead = useRef(false);
   useEffect(() => {
-    if (deepLinkRead.current) return;
-    deepLinkRead.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const unitParam = params.get('unit');
-    const unitId = unitParam != null && /^\d+$/.test(unitParam) ? Number(unitParam) : null;
-    const target = resolveLessonDeepLink({
-      note: params.get('note'),
-      unitId,
-      hash: window.location.hash,
-      alias: NOTE_ALIAS,
-      notesInUnit: (id) => LESSON_UNITS.find((item) => item.id === id)?.notes.map((item) => item.file) ?? [],
-      isKnownNote: (file) => Boolean(findNote(file)),
-    });
-    if (target) {
+    const readLocation = (initial = false): void => {
+      const params = new URLSearchParams(window.location.search);
+      const unitParam = params.get('unit');
+      const unitId = unitParam != null && /^\d+$/.test(unitParam) ? Number(unitParam) : null;
+      const hash = window.location.hash;
+      const note = params.get('note');
+      if (!initial && hash) {
+        let shellId = hash.slice(1);
+        try { shellId = decodeURIComponent(shellId); } catch { /* keep raw id */ }
+        if (shellId === 'main-content' || document.getElementById(shellId)) return;
+      }
+      const target = resolveLessonDeepLink({
+        note,
+        unitId,
+        hash,
+        alias: NOTE_ALIAS,
+        notesInUnit: (id) => LESSON_UNITS.find((item) => item.id === id)?.notes.map((item) => item.file) ?? [],
+        isKnownNote: (file) => Boolean(findNote(file)),
+      });
+      const explicitNote = Boolean(note && (findNote(note) || Object.prototype.hasOwnProperty.call(NOTE_ALIAS, note)));
+      if (!target || (!initial && hash && !target.hash && !explicitNote)) return;
       openNote(target.file, target.hash);
-      if (target.hash) setCoursewareScroll((generation) => generation + 1);
+      if (target.hash) {
+        requestAnchorAlignment(target.file);
+        setCoursewareScroll((generation) => generation + 1);
+      }
+    };
+    const onNavigation = (): void => {
+      // A single history traversal can emit both events for the same URL.
+      if (lastNavigationHref.current === window.location.href) return;
+      lastNavigationHref.current = window.location.href;
+      readLocation();
+    };
+    if (!deepLinkRead.current) {
+      deepLinkRead.current = true;
+      lastNavigationHref.current = window.location.href;
+      readLocation(true);
     }
-  }, [openNote]);
+    window.addEventListener('hashchange', onNavigation);
+    window.addEventListener('popstate', onNavigation);
+    return () => {
+      window.removeEventListener('hashchange', onNavigation);
+      window.removeEventListener('popstate', onNavigation);
+    };
+  }, [openNote, requestAnchorAlignment]);
 
   // The shell URL keeps the courseware hash. Nothing on this page has that id,
   // so the window stays at scrollY 0 until we move the frame into view.
@@ -771,6 +898,8 @@ export default function LessonNotesPage(): React.JSX.Element {
                       onLoad={() => {
                         setFrameReady((previous) => (previous[note.file] ? previous : { ...previous, [note.file]: true }));
                         if (activeFileRef.current !== note.file) return;
+                        watchFrameInput(frames.current.get(note.file) ?? null);
+                        alignAfterAnchor(note.file);
                         const next = readEmbeddedSection(frames.current.get(note.file));
                         setSectionId((previous) => (previous === next ? previous : next));
                       }}
