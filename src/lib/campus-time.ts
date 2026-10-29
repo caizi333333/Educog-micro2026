@@ -71,6 +71,25 @@ export function campusDateKey(value: Date): string {
   }).format(value);
 }
 
+/**
+ * Inclusive start and exclusive end of the Asia/Shanghai calendar day that
+ * contains `asOf`. Shanghai is UTC+8 and does not observe daylight saving,
+ * so midnight is always 16:00 of the previous UTC day.
+ */
+export function campusDayBounds(asOf: Date): { dateKey: string; start: Date; end: Date } {
+  const dateKey = campusDateKey(asOf);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) {
+    return { dateKey, start: asOf, end: asOf };
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const start = new Date(Date.UTC(year, month - 1, day, -8, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month - 1, day + 1, -8, 0, 0, 0));
+  return { dateKey, start, end };
+}
+
 /** Shift a `YYYY-MM-DD` campus day key by a whole number of calendar days. */
 export function shiftCampusDateKey(dateKey: string, dayOffset: number): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);

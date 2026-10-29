@@ -143,7 +143,10 @@ export default function TeacherClassActivityPage(): React.JSX.Element {
           </Link>
           <h1 className="mt-1 text-2xl font-semibold text-slate-50">班级学情</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
-            近 {summary?.windowDays ?? 7} 日谁打开过知识点或交过测评。默认只列本学期四个班；往期班仍可查看。停留按 15 分钟合并写入，避免整班心跳打满免费额度。
+            近 {summary?.windowDays ?? 7} 日谁打开过知识点或交过测评。默认只列本学期四个班；往期班仍可查看。四个班今天的登录和学习在
+            {' '}
+            <Link href="/teacher/daily" className="text-cyan-100 underline-offset-2 hover:underline">今日动态</Link>
+            。停留按 15 分钟合并写入，避免整班心跳打满免费额度。
           </p>
           <div role="group" aria-label="学情范围" className="mt-3 inline-flex rounded-md border border-white/10 p-0.5">
             <button

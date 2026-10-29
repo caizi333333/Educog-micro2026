@@ -1,4 +1,4 @@
-import { CAMPUS_TIME_ZONE, campusDateKey, formatCampusDate, formatCampusDateTime, shiftCampusDateKey } from '@/lib/campus-time';
+import { CAMPUS_TIME_ZONE, campusDateKey, campusDayBounds, formatCampusDate, formatCampusDateTime, shiftCampusDateKey } from '@/lib/campus-time';
 
 describe('campus time', () => {
   // 2026-10-26 17:02:53Z is 2026-10-27 01:02:53 in Asia/Shanghai
@@ -14,6 +14,22 @@ describe('campus time', () => {
   it('keys campus days in Asia/Shanghai', () => {
     expect(campusDateKey(new Date(pacificInstant))).toBe('2026-10-27');
     expect(shiftCampusDateKey('2026-10-27', -1)).toBe('2026-10-26');
+  });
+
+  it('bounds a campus day at Shanghai midnight, including the UTC evening before', () => {
+    const justBefore = campusDayBounds(new Date('2026-10-28T15:59:59.999Z'));
+    const atMidnight = campusDayBounds(new Date('2026-10-28T16:00:00.000Z'));
+
+    expect(justBefore).toEqual({
+      dateKey: '2026-10-28',
+      start: new Date('2026-10-27T16:00:00.000Z'),
+      end: new Date('2026-10-28T16:00:00.000Z'),
+    });
+    expect(atMidnight).toEqual({
+      dateKey: '2026-10-29',
+      start: new Date('2026-10-28T16:00:00.000Z'),
+      end: new Date('2026-10-29T16:00:00.000Z'),
+    });
   });
 
   it('does not invent a clock for a missing or invalid value', () => {

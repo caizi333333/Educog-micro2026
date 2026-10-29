@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { z } from 'zod';
 import { getStoredAccessToken } from '@/lib/auth-storage';
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
   Award,
@@ -2024,6 +2025,10 @@ export function HyperTeacherPage(): JSX.Element {
               <Award className="h-4 w-4" />
               课堂表彰
             </a>
+            <Link href="/teacher/daily" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]">
+              <Activity className="h-4 w-4" />
+              今日动态
+            </Link>
             <Link href="/teacher/classes" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-slate-200 hover:bg-white/[0.08]">
               <Users className="h-4 w-4" />
               班级管理

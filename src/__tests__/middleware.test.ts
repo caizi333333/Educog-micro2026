@@ -319,6 +319,23 @@ describe('middleware', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('X-RSC-Request')).toBe('true');
     });
+
+    it('sends a student away from the daily pulse and lets teachers and admins open it', async () => {
+      const student = await middleware(createRequest('/teacher/daily', {
+        headers: { authorization: `Bearer ${makeJwt('STUDENT')}` },
+      }));
+      const teacher = await middleware(createRequest('/teacher/daily', {
+        headers: { authorization: `Bearer ${makeJwt('TEACHER')}` },
+      }));
+      const admin = await middleware(createRequest('/teacher/daily', {
+        headers: { authorization: `Bearer ${makeJwt('ADMIN')}` },
+      }));
+
+      expect(student.status).toBe(307);
+      expect(student.headers.get('location')).toBe('http://localhost:3000/login?from=%2Fteacher%2Fdaily&reason=teacher-role');
+      expect(teacher.status).toBe(200);
+      expect(admin.status).toBe(200);
+    });
   });
 
   describe('student paths', () => {
