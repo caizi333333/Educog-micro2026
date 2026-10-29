@@ -88,19 +88,25 @@ export function AppSiteVersionFooter(): JSX.Element {
 
 export function StudentFeedbackLauncher({ variant = 'floating' }: { variant?: 'floating' | 'inline' }): JSX.Element | null {
   const pathname = usePathname();
+  const { isMobile, state } = useSidebar();
   if (pathname === '/feedback') return null;
-  // Simulation has its own in-flow entry so the launcher cannot cover the canvas.
-  if (pathname === '/simulation' && variant === 'floating') return null;
   const fromQuery = pathname ? `?from=${encodeURIComponent(pathname)}` : '';
+  // Canvas zoom sits at the workspace's bottom-right (the status rail defaults
+  // to collapsed). Keep the toolbar inline entry, and park this floating pill
+  // on the content column's bottom-left so it does not cover those controls.
+  const anchorClearOfCanvas = pathname === '/simulation' && variant === 'floating';
+  const reserveSidebar = anchorClearOfCanvas && !isMobile && state === 'expanded';
   return (
     <Link
       href={`/feedback${fromQuery}`}
       className={cn(
         variant === 'floating'
-          ? 'fixed bottom-20 right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-300/30 bg-[#07141a]/95 px-4 text-sm font-medium text-cyan-50 shadow-lg'
+          ? 'fixed bottom-20 z-40 inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-300/30 bg-[#07141a]/95 px-4 text-sm font-medium text-cyan-50 shadow-lg'
           : 'inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-cyan-100',
+        variant === 'floating' && (anchorClearOfCanvas ? 'left-4' : 'right-4'),
         'hover:border-cyan-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200',
       )}
+      style={reserveSidebar ? { left: 'calc(var(--sidebar-width) + 1rem)' } : undefined}
     >
       <MessageSquare className="h-4 w-4" aria-hidden="true" />
       提交反馈

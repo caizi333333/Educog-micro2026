@@ -217,12 +217,56 @@ describe('AppLayout mobile navigation', () => {
     render(<AppLayout><div>页面内容</div></AppLayout>);
 
     expect(screen.getByRole('button', { name: 'v1.0.0' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '提交反馈' })).toHaveAttribute('href', '/feedback?from=%2Fknowledge-graph');
+    const launcher = screen.getByRole('link', { name: '提交反馈' });
+    expect(launcher).toHaveAttribute('href', '/feedback?from=%2Fknowledge-graph');
+    expect(launcher).toHaveClass('fixed', 'bottom-20', 'right-4');
   });
 
-  it('does not float feedback over the simulation canvas', () => {
+  it('floats student feedback on simulation without covering the canvas corner', () => {
     mockPathname = '/simulation';
     render(<AppLayout><div>实验页面</div></AppLayout>);
+    const launcher = screen.getByRole('link', { name: '提交反馈' });
+    expect(launcher).toHaveAttribute('href', '/feedback?from=%2Fsimulation');
+    expect(launcher).toHaveClass('fixed', 'bottom-20', 'left-4');
+    expect(launcher).not.toHaveClass('right-4');
+  });
+
+  it('offsets the simulation floating launcher past the expanded desktop sidebar', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn(() => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+    mockPathname = '/simulation';
+    render(<AppLayout><div>实验页面</div></AppLayout>);
+    const launcher = screen.getByRole('link', { name: '提交反馈' });
+    expect(launcher.style.left).toBe('calc(var(--sidebar-width) + 1rem)');
+    expect(launcher).not.toHaveClass('right-4');
+  });
+
+  it.each(['TEACHER', 'ADMIN'] as const)('does not float student feedback for %s', (role) => {
+    setAuthenticatedRole(role);
+    mockPathname = '/simulation';
+    render(<AppLayout><div>实验页面</div></AppLayout>);
+    expect(screen.queryByRole('link', { name: '提交反馈' })).not.toBeInTheDocument();
+  });
+
+  it('does not float student feedback on the public login shell or the feedback form', () => {
+    mockPathname = '/login';
+    const { rerender } = render(<AppLayout><div>登录</div></AppLayout>);
+    expect(screen.queryByRole('link', { name: '提交反馈' })).not.toBeInTheDocument();
+
+    mockPathname = '/feedback';
+    rerender(<AppLayout><div>反馈表单</div></AppLayout>);
     expect(screen.queryByRole('link', { name: '提交反馈' })).not.toBeInTheDocument();
   });
 
