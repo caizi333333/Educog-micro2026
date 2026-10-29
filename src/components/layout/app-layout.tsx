@@ -30,6 +30,7 @@ import {
   LogOut,
   ClipboardCheck,
   ClipboardList,
+  Clock,
   Target,
   Trophy,
   ShieldCheck,
@@ -98,6 +99,7 @@ const studentPersonalAnalysisItems = [
 
 const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
+  { href: '/teacher/daily', label: '今日动态', icon: Clock },
   { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
   { href: '/teacher/feedback', label: '学生反馈', icon: MessageSquare },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
@@ -185,6 +187,7 @@ const staticPageTitles: Record<string, string> = {
   '/profile': '个人资料',
   '/settings': '设置',
   '/privacy': '隐私政策',
+  '/teacher/daily': '今日动态',
   '/teacher/class-activity': '班级学情',
   '/learning-path': '个性化学习',
   '/certificate': '学习证明',

@@ -75,6 +75,7 @@ const reportScope = {
 jest.mock('lucide-react', () => {
   const Icon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} />;
   return {
+    Activity: Icon,
     AlertCircle: Icon,
     AlertTriangle: Icon,
     ArrowLeft: Icon,
