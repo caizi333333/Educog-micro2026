@@ -6,12 +6,22 @@ import {
   COMPREHENSIVE_SAMPLE_SEED,
   classifyObjectiveSource,
   comprehensiveQuestionWeight,
+  comprehensiveStemFamily,
+  isSlideTeachingSource,
   selectComprehensiveQuestions,
   type ComprehensiveSampleQuestion,
 } from '@/lib/comprehensive-sample';
 
-/** 发布种子在当前题库上的卷面。改种子或权重时同步更新，并保持后面的覆盖断言。 */
+/**
+ * 发布种子 comprehensive-objective-v2 在当前题库上的卷面。
+ * 改种子、排除规则或配额时同步更新，并保持后面的覆盖断言。
+ */
 const PUBLISHED_SAMPLE_IDS = [
+  513, 516, 136, 381, 413, 419, 274, 541, 243, 552, 442, 578, 561, 583, 570, 587, 197, 311, 301, 509,
+];
+
+/** v1 只按权重抽，同一换算模板和同一作业数值切片可以重复，也没有定时/地址切片。 */
+const OBJECTIVE_V1_SAMPLE_IDS = [
   510, 517, 525, 526, 154, 500, 544, 546, 549, 559, 444, 455, 581, 584, 171, 474, 188, 310, 217, 297,
 ];
 
@@ -36,6 +46,17 @@ describe('综合测评加权抽样', () => {
     expect(ids).toEqual(selectComprehensiveQuestions(quizQuestions, { seed: COMPREHENSIVE_SAMPLE_SEED }).map((item) => item.id));
     expect(getComprehensiveQuestions().map((item) => item.id)).toEqual(ids);
     expect(ids).not.toEqual(LEGACY_PREFIX_IDS);
+    expect(ids).not.toEqual(OBJECTIVE_V1_SAMPLE_IDS);
+    expect(selected.every((item) => !isSlideTeachingSource(item.source))).toBe(true);
+    expect(new Set(selected.map((item) => comprehensiveStemFamily(item))).size).toBe(20);
+    const numeric = selected.filter((item) => classifyObjectiveSource(item.explanation) === 'numeric-slice');
+    expect(numeric.map((item) => item.chapter).sort((left, right) => left - right)).toEqual([6, 7, 8]);
+    expect(numeric.map((item) => comprehensiveStemFamily(item)).sort()).toEqual([
+      'numeric-slice:作业6',
+      'numeric-slice:作业7',
+      'timer-reload',
+    ]);
+    expect(selected.filter((item) => comprehensiveStemFamily(item) === 'number-base-conversion')).toHaveLength(1);
     expect(new Set(ids).size).toBe(20);
     expect(selected.filter((item) => item.id >= COMPREHENSIVE_NEW_INTAKE_MIN_ID).length).toBeGreaterThanOrEqual(4);
     expect(ids.some((id) => id >= 575)).toBe(true);
@@ -53,9 +74,17 @@ describe('综合测评加权抽样', () => {
   });
 
   it('另一种子得到另一张卷，章与章的抽取互不影响', () => {
-    const alternate = selectComprehensiveQuestions(quizQuestions, { seed: 'comprehensive-objective-v1-alt' });
+    const alternate = selectComprehensiveQuestions(quizQuestions, { seed: 'comprehensive-objective-v2-alt' });
     expect(alternate.map((item) => item.id)).not.toEqual(PUBLISHED_SAMPLE_IDS);
     expect(alternate).toHaveLength(20);
+    expect(alternate.every((item) => !isSlideTeachingSource(item.source))).toBe(true);
+    expect(new Set(alternate.map((item) => comprehensiveStemFamily(item))).size).toBe(20);
+    expect(
+      alternate
+        .filter((item) => classifyObjectiveSource(item.explanation) === 'numeric-slice')
+        .map((item) => item.chapter)
+        .sort((left, right) => left - right),
+    ).toEqual([6, 7, 8]);
 
     const chapterOne = [
       question({ id: 10, chapter: 1, type: 'multiple-choice' }),
@@ -154,5 +183,134 @@ describe('综合测评加权抽样', () => {
       question({ id: 11, chapter: 11, type: 'multiple-choice', explanation: numericExplanation }),
     ], { questionsPerChapter: 1, chapterQuotas: {} });
     expect(extraChapter.map((item) => item.id)).toEqual([1, 11]);
+  });
+
+  it('课件 PDF 出处不进综合卷，网页指导仍可入选', () => {
+    const slide = quizQuestions.find((item) => item.id === 314);
+    expect(slide?.source && isSlideTeachingSource(slide.source)).toBe(true);
+    expect(quizQuestions.filter((item) => isSlideTeachingSource(item.source)).length).toBeGreaterThan(40);
+    expect(getComprehensiveQuestions().some((item) => isSlideTeachingSource(item.source))).toBe(false);
+
+    const slidePractice = question({
+      id: 314,
+      chapter: 7,
+      type: 'multiple-choice',
+      questionText: '课件上的并行与串行例题',
+      explanation: workbookExplanation,
+      source: { url: '/resources/course/course-slides.pdf#page=4' },
+    });
+    const guidePractice = question({
+      id: 444,
+      chapter: 7,
+      type: 'multiple-choice',
+      questionText: '指导里的定时器来源',
+      source: { kind: 'guide', url: '/simulation?experiment=exp03&view=guide' },
+    });
+    const plain = question({ id: 1, chapter: 7, type: 'multiple-choice', questionText: '普通概念题' });
+    expect(selectComprehensiveQuestions(
+      [slidePractice, guidePractice, plain],
+      { chapterQuotas: { 7: 2 }, seed: 'slide-out' },
+    ).map((item) => item.id)).toEqual([1, 444]);
+    expect(selectComprehensiveQuestions(
+      [slidePractice],
+      { chapterQuotas: { 7: 2 } },
+    )).toEqual([]);
+  });
+
+  it('归一化题干把换算模板并成一族，不误伤指令对比和实验补码', () => {
+    const familyOf = (id: number) => {
+      const found = quizQuestions.find((item) => item.id === id);
+      if (!found) throw new Error(`missing ${id}`);
+      return comprehensiveStemFamily(found);
+    };
+    expect(familyOf(510)).toBe('number-base-conversion');
+    expect(familyOf(510)).toBe(familyOf(517));
+    expect(familyOf(510)).toBe(familyOf(544));
+    expect(familyOf(510)).toBe(familyOf(511));
+    expect(familyOf(510)).toBe(familyOf(535));
+    expect(quizQuestions.find((item) => item.id === 510)?.ka).not.toBe(quizQuestions.find((item) => item.id === 533)?.ka);
+    expect(familyOf(510)).toBe(familyOf(533));
+    expect(familyOf(154)).not.toBe(familyOf(510));
+    expect(familyOf(419)).not.toBe(familyOf(510));
+    expect(familyOf(491)).not.toBe(familyOf(510));
+    expect(familyOf(27)).not.toBe(familyOf(47));
+    expect(familyOf(575)).toBe('timer-reload');
+    expect(familyOf(575)).toBe(familyOf(578));
+    expect(familyOf(455)).toBe(familyOf(578));
+    const untaggedReloadIds = quizQuestions
+      .filter((item) => comprehensiveStemFamily(item) === 'timer-reload'
+        && classifyObjectiveSource(item.explanation) !== 'numeric-slice')
+      .map((item) => item.id);
+    expect(untaggedReloadIds).toEqual([17, 51, 78, 448, 450, 452, 455]);
+    expect(familyOf(580)).toBe('numeric-slice:作业6');
+    expect(familyOf(580)).toBe(familyOf(584));
+    expect(familyOf(580)).not.toBe(familyOf(575));
+    expect(familyOf(586)).toBe(familyOf(588));
+  });
+
+  it('同一题干族在一章和全卷里都不重复，凑不满时才放行', () => {
+    const conversion = (id: number, chapter: number) => question({
+      id,
+      chapter,
+      type: 'multiple-choice',
+      questionText: `十进制数${id}的BCD码是？`,
+      explanation: workbookExplanation,
+    });
+    const other = (id: number, chapter: number) => question({
+      id,
+      chapter,
+      type: 'multiple-choice',
+      questionText: `第${chapter}章独立概念${id}`,
+    });
+    const withinChapter = selectComprehensiveQuestions(
+      [conversion(510, 1), conversion(517, 1), other(1, 1)],
+      { chapterQuotas: { 1: 2 }, seed: 'family-chapter' },
+    );
+    expect(withinChapter).toHaveLength(2);
+    expect(withinChapter.filter((item) => comprehensiveStemFamily(item) === 'number-base-conversion')).toHaveLength(1);
+    expect(withinChapter.some((item) => item.id === 1)).toBe(true);
+
+    const acrossChapters = selectComprehensiveQuestions(
+      [conversion(510, 1), conversion(544, 4), other(4, 4)],
+      { chapterQuotas: { 1: 1, 4: 1 }, seed: 'family-paper' },
+    );
+    expect(acrossChapters.map((item) => item.id)).toEqual([510, 4]);
+
+    const onlyTwins = selectComprehensiveQuestions(
+      [conversion(510, 1), conversion(517, 1)],
+      { chapterQuotas: { 1: 2 }, seed: 'family-relax' },
+    );
+    expect(onlyTwins.map((item) => item.id)).toEqual([510, 517]);
+  });
+
+  it('章配额至少为 2 时先留一道数值切片，配额为 1 时仍按权重抽', () => {
+    const timer = (id: number) => question({
+      id,
+      chapter: 6,
+      type: 'multiple-choice',
+      questionText: `定时初值模板${id}`,
+      explanation: numericExplanation,
+    });
+    const concept = (id: number) => question({
+      id,
+      chapter: 6,
+      type: 'multiple-choice',
+      questionText: `定时概念${id}`,
+    });
+    for (let index = 0; index < 20; index += 1) {
+      const selected = selectComprehensiveQuestions(
+        [timer(575), timer(576), concept(1), concept(2)],
+        { seed: `reserve-${index}`, chapterQuotas: { 6: 2 } },
+      );
+      expect(selected).toHaveLength(2);
+      expect(selected.filter((item) => classifyObjectiveSource(item.explanation) === 'numeric-slice')).toHaveLength(1);
+      expect(new Set(selected.map((item) => comprehensiveStemFamily(item))).size).toBe(2);
+    }
+
+    const singleSlot = selectComprehensiveQuestions(
+      [timer(575), concept(1)],
+      { seed: 'quota-one', chapterQuotas: { 6: 1 } },
+    );
+    expect(singleSlot.map((item) => item.id)).toEqual([575]);
   });
 });
