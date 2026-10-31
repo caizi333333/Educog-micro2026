@@ -17,6 +17,7 @@
  */
 
 import { formatCampusDateTime, CAMPUS_TIME_ZONE } from '@/lib/campus-time';
+import { FINAL_OBJECTIVE_QUIZ_ID } from '@/lib/final-objective-sample';
 
 export const COMPREHENSIVE_QUIZ_ID = 'comprehensive-assessment';
 
@@ -151,6 +152,7 @@ export function listDiagnosticOptions(attempts: readonly DiagnosticAttemptCandid
 
 export function quizDisplayName(quizId: string): string {
   if (quizId === COMPREHENSIVE_QUIZ_ID) return '综合测评';
+  if (quizId === FINAL_OBJECTIVE_QUIZ_ID) return '期末客观模拟';
   if (quizId === 'quiz-ch3-addressing') return '3.1 寻址方式专项';
   const chapter = /^quiz-ch(\d+)$/.exec(quizId);
   if (chapter) return `第${chapter[1]}章测验`;

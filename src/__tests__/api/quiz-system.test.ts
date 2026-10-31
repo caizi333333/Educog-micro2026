@@ -11,7 +11,8 @@ import {
 } from '../utils/test-mocks';
 import { calculateQuizPoints } from '@/lib/points-system';
 import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
-import { getComprehensiveQuestions, quizQuestions } from '@/lib/quiz-data';
+import { getComprehensiveQuestions, getFinalObjectiveQuestions, quizQuestions } from '@/lib/quiz-data';
+import { FINAL_OBJECTIVE_SAMPLE_SEED } from '@/lib/final-objective-sample';
 import {
   ADDRESSING_TASK_PRESET,
   AI_LITERACY_QUESTION_IDS,
@@ -143,6 +144,19 @@ describe('Quiz System API Tests', () => {
       expect(data.length).toBeGreaterThan(getComprehensiveQuestions().length);
     });
 
+    it('期末客观模拟返回蓝图卷且不泄露答案', async () => {
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?topic=final-objective'));
+      const body = await response.json();
+      const expected = getFinalObjectiveQuestions();
+      expect(response.status).toBe(200);
+      expect(body.questionSetVersion).toBe(FINAL_OBJECTIVE_SAMPLE_SEED);
+      expect(body.sampleSize).toEqual({ questions: 30 });
+      expect(body.data.map((question: { id: number }) => question.id)).toEqual(expected.map((question) => question.id));
+      expect(body.data).toHaveLength(30);
+      expect(body.data.every((question: Record<string, unknown>) => !('correctAnswer' in question) && !('explanation' in question))).toBe(true);
+      expect(body.data.filter((question: { options?: string[] }) => question.options?.join('|') === '正确|错误')).toHaveLength(15);
+    });
+
     it('AI素养情境测评应只返回五个10.5子节点题且不泄露答案', async () => {
       const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?topic=ai-literacy'));
       const data = (await response.json()).data;
@@ -155,6 +169,8 @@ describe('Quiz System API Tests', () => {
     it.each([
       ['http://localhost/api/quiz/questions?topic=unknown', '测评主题不存在'],
       ['http://localhost/api/quiz/questions?mode=retest', '测评阶段必须与专项主题同时使用'],
+      ['http://localhost/api/quiz/questions?mode=final-objective', '测评阶段无效'],
+      ['http://localhost/api/quiz/questions?topic=final-objective&chapter=2', '专项测评与章节测评不能同时指定'],
       ['http://localhost/api/quiz/questions?chapter=11', '章节编号必须为 1-10'],
       ['http://localhost/api/quiz/questions?topic=addressing-modes&chapter=3', '专项测评与章节测评不能同时指定'],
     ])('无效题卷参数应明确拒绝：%s', async (url, expectedError) => {
@@ -336,6 +352,48 @@ describe('Quiz System API Tests', () => {
 
       expect(mockCalculateQuizPoints).toHaveBeenCalledWith(baseScore);
       expect(mockCheckAchievementsForQuiz).toHaveBeenCalledWith('test-user-id', baseScore, 'comprehensive-assessment');
+    });
+
+    it('期末客观模拟由服务端按发布卷判分，客户端分数不落盘', async () => {
+      const official = getFinalObjectiveQuestions();
+      const answers = Object.fromEntries(official.map((question) => [String(question.id), question.correctAnswer]));
+      setupPrismaMock(mockPrisma, 'quizAttempt', 'create', { id: 'final-objective-attempt' } as any);
+      setupPrismaMock(mockPrisma, 'userActivity', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'userPointsTransaction', 'create', {} as any);
+      setupPrismaMock(mockPrisma, 'user', 'update', {} as any);
+      setupPrismaMock(mockPrisma, 'learningProgress', 'findUnique', null);
+      const response = await submitQuiz(new NextRequest('http://localhost/api/quiz/submit', {
+        method: 'POST',
+        headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedUserId: 'test-user-id',
+          quizId: 'quiz-final-objective',
+          topicId: 'final-objective',
+          assessmentMode: 'initial',
+          score: 0,
+          questionOrderIds: official.map((question) => question.id),
+          answers,
+        }),
+      }));
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.score).toBe(100);
+      expect(mockPrisma.quizAttempt.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          quizId: 'quiz-final-objective',
+          score: 100,
+          totalQuestions: 30,
+          correctAnswers: 30,
+        }),
+      });
+      const activityDetails = JSON.parse((mockPrisma.userActivity.create as jest.Mock).mock.calls[0][0].data.details);
+      expect(activityDetails).toMatchObject({
+        quizId: 'quiz-final-objective',
+        topicId: 'final-objective',
+        questionSetVersion: FINAL_OBJECTIVE_SAMPLE_SEED,
+        score: 100,
+      });
+      expect(mockPrisma.learningProgress.findUnique).not.toHaveBeenCalled();
     });
 
     it('寻址方式专项测评应由服务端按正式题库重新判分', async () => {

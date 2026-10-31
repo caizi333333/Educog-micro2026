@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getComprehensiveQuestions, quizQuestions, toPublicQuestion } from '@/lib/quiz-data';
+import { getComprehensiveQuestions, getFinalObjectiveQuestions, quizQuestions, toPublicQuestion } from '@/lib/quiz-data';
+import { FINAL_OBJECTIVE_SAMPLE_SEED, FINAL_OBJECTIVE_TOPIC_ID } from '@/lib/final-objective-sample';
 import {
   ADDRESSING_QUESTION_SET_VERSION,
   ADDRESSING_TOPIC_ID,
@@ -20,7 +21,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const chapterRaw = searchParams.get('chapter');
   const chapter = chapterRaw === null ? null : Number(chapterRaw);
 
-  if (topic !== null && topic !== ADDRESSING_TOPIC_ID && topic !== AI_LITERACY_TOPIC_ID) {
+  if (topic !== null && topic !== ADDRESSING_TOPIC_ID && topic !== AI_LITERACY_TOPIC_ID && topic !== FINAL_OBJECTIVE_TOPIC_ID) {
     return NextResponse.json({ error: '测评主题不存在' }, { status: 400 });
   }
   if (mode !== null && mode !== 'initial' && mode !== 'retest') {
@@ -43,6 +44,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   } else if (topic === AI_LITERACY_TOPIC_ID) {
     const allowedIds = new Set(getAiLiteracyQuestionIds());
     selected = quizQuestions.filter((question) => allowedIds.has(question.id));
+  } else if (topic === FINAL_OBJECTIVE_TOPIC_ID) {
+    selected = getFinalObjectiveQuestions();
   } else if (chapter !== null) {
     selected = quizQuestions.filter((question) => question.chapter === chapter);
   }
@@ -53,7 +56,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       dataProvenance: getDataProvenance(),
       asOf: new Date().toISOString(),
       sampleSize: { questions: selected.length },
-      questionSetVersion: topic === ADDRESSING_TOPIC_ID ? ADDRESSING_QUESTION_SET_VERSION : null,
+      questionSetVersion: topic === ADDRESSING_TOPIC_ID
+        ? ADDRESSING_QUESTION_SET_VERSION
+        : topic === FINAL_OBJECTIVE_TOPIC_ID
+          ? FINAL_OBJECTIVE_SAMPLE_SEED
+          : null,
       data: selected.map(toPublicQuestion),
     },
     { headers: { 'Cache-Control': 'private, no-store' } },

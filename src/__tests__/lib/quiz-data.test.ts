@@ -482,11 +482,13 @@ describe('往年作业册与作业5/6/7数值切片', () => {
     expect(additions.map((question) => question.id)).toEqual(
       Array.from({ length: additions.length }, (_, index) => 510 + index),
     );
-    expect(additions.length).toBe(79);
+    expect(additions.length).toBe(95);
   });
 
   it('解析首行标来源，正确答案等于选项原文，作业7注明0872', () => {
-    for (const question of additions) {
+    const workbook = additions.filter((question) => question.id <= 588);
+    expect(workbook).toHaveLength(79);
+    for (const question of workbook) {
       if (question.type !== 'multiple-choice') throw new Error(`question ${question.id} is not multiple-choice`);
       const [sourceLine, ...rest] = (question.explanation ?? '').split('\n');
       expect(sourceLine).toMatch(
