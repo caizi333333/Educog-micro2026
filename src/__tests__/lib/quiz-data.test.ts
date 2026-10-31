@@ -1,4 +1,4 @@
-import { quizQuestions, getComprehensiveQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
+import { quizQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { getTeachingContent } from '@/lib/teaching-content';
 import {
@@ -478,24 +478,11 @@ describe('Quiz Data Tests', () => {
 describe('往年作业册与作业5/6/7数值切片', () => {
   const additions = quizQuestions.filter((question) => question.id >= 510);
 
-  it('从510连续编号，且综合测评仍只抽原题库每章前两题', () => {
+  it('从510连续编号', () => {
     expect(additions.map((question) => question.id)).toEqual(
       Array.from({ length: additions.length }, (_, index) => 510 + index),
     );
     expect(additions.length).toBe(79);
-    const legacy = quizQuestions.filter((question) => question.id <= 509);
-    const selectedByChapter = new Map<number, number[]>();
-    for (const question of legacy) {
-      const selected = selectedByChapter.get(question.chapter) ?? [];
-      if (selected.length >= 2) continue;
-      selected.push(question.id);
-      selectedByChapter.set(question.chapter, selected);
-    }
-    const expectedIds = [...selectedByChapter.entries()]
-      .sort(([chapterA], [chapterB]) => chapterA - chapterB)
-      .flatMap(([, ids]) => ids);
-    expect(getComprehensiveQuestions().map((question) => question.id)).toEqual(expectedIds);
-    expect(getComprehensiveQuestions().some((question) => question.id >= 510)).toBe(false);
   });
 
   it('解析首行标来源，正确答案等于选项原文，作业7注明0872', () => {

@@ -125,9 +125,22 @@ describe('Quiz System API Tests', () => {
     it('综合测评应返回固定章节抽样卷，而不是整套题库', async () => {
       const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions'));
       const data = (await response.json()).data;
-      expect(data).toHaveLength(getComprehensiveQuestions().length);
+      const expected = getComprehensiveQuestions();
+      expect(data.map((question: { id: number }) => question.id)).toEqual(expected.map((question) => question.id));
       expect(data.length).toBeLessThan(quizQuestions.length);
+      expect(data.some((question: { id: number }) => question.id >= 510)).toBe(true);
+      const chapterNumbers: number[] = data.map((question: { chapter: number }) => question.chapter);
+      const coveredChapters = Array.from(new Set(chapterNumbers)).sort((left, right) => left - right);
+      expect(coveredChapters).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
       expect(data.every((question: Record<string, unknown>) => !('correctAnswer' in question))).toBe(true);
+    });
+
+    it('按章练习仍返回该章全部题目，不走综合抽样', async () => {
+      const response = await getQuizQuestions(classroomQuestionRequest('http://localhost/api/quiz/questions?chapter=1'));
+      const data = (await response.json()).data;
+      const expected = quizQuestions.filter((question) => question.chapter === 1);
+      expect(data.map((question: { id: number }) => question.id)).toEqual(expected.map((question) => question.id));
+      expect(data.length).toBeGreaterThan(getComprehensiveQuestions().length);
     });
 
     it('AI素养情境测评应只返回五个10.5子节点题且不泄露答案', async () => {

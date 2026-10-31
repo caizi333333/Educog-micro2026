@@ -1728,7 +1728,7 @@ export function QuizClient(): React.JSX.Element {
                   ? `本卷包含 ${shuffledQuestions.length} 道责任使用情境题，交卷结果将以 ${AI_LITERACY_QUIZ_ID} 保存并按 10.5 子节点记录。`
                 : chapterFilter
                 ? `本卷只含第 ${chapterFilter} 章的 ${shuffledQuestions.length} 道题。系统仍按知识原子记录掌握度。`
-                : `本卷按章节固定抽取 ${shuffledQuestions.length} 道题。全部作答后统一交卷，系统按服务端记录生成知识原子掌握度。`}
+                : `本卷按章节配额抽取 ${shuffledQuestions.length} 道题，作业单选和机判切片权重更高。全部作答后统一交卷，系统按服务端记录生成知识原子掌握度。`}
             </p>
             {(chapterFilter !== null || topicFilter !== null) && (
               <Link
