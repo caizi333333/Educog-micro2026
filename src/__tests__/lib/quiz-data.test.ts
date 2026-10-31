@@ -1,4 +1,4 @@
-import { quizQuestions, toPublicQuestion, isQuestionSource, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
+import { quizQuestions, toPublicQuestion, isQuestionSource, isQuestionFigure, type MultipleChoiceQuestion, type CodeCompletionQuestion, type Question } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { getTeachingContent } from '@/lib/teaching-content';
 import {
@@ -482,7 +482,7 @@ describe('往年作业册与作业5/6/7数值切片', () => {
     expect(additions.map((question) => question.id)).toEqual(
       Array.from({ length: additions.length }, (_, index) => 510 + index),
     );
-    expect(additions.length).toBe(117);
+    expect(additions.length).toBe(121);
   });
 
   it('解析首行标来源，正确答案等于选项原文，作业7注明0872', () => {
@@ -501,6 +501,21 @@ describe('往年作业册与作业5/6/7数值切片', () => {
         expect(question.explanation).toContain('0872');
       }
     }
+  });
+
+  it('CD4051 读图变体带本站 diagrams SVG，公开题保留附图并剔除答案', () => {
+    const figured = quizQuestions.filter((question) => question.id >= 627 && question.id <= 630);
+    expect(figured).toHaveLength(4);
+    for (const question of figured) {
+      expect(isQuestionFigure(question.figure)).toBe(true);
+      const publicQuestion = toPublicQuestion(question);
+      expect(publicQuestion).toHaveProperty('figure');
+      expect(publicQuestion).not.toHaveProperty('correctAnswer');
+      expect(publicQuestion).not.toHaveProperty('explanation');
+      expect(isQuestionFigure('figure' in publicQuestion ? publicQuestion.figure : undefined)).toBe(true);
+    }
+    expect(isQuestionFigure({ src: 'https://evil.example/x.svg', alt: 'x' })).toBe(false);
+    expect(isQuestionFigure({ src: '/resources/course/diagrams/../secret.svg', alt: 'x' })).toBe(false);
   });
 
   it('作业5/6/7的初值、波特率和地址范围与公式一致', () => {
