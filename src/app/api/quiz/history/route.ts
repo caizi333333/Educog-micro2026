@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDataProvenance } from '@/lib/env';
-import { isQuestionSource, quizQuestions, toPublicQuestion, type PublicQuestion, type QuestionSource } from '@/lib/quiz-data';
+import { isQuestionFigure, isQuestionSource, quizQuestions, toPublicQuestion, type PublicQuestion, type QuestionSource } from '@/lib/quiz-data';
 import { knowledgePoints } from '@/lib/knowledge-points';
 import { getTeachingContent } from '@/lib/teaching-content';
 
@@ -40,7 +40,13 @@ function publicSnapshotOf(value: unknown): PublicQuestion | null {
   if (!isRecord(value) || !Number.isSafeInteger(value.id) || Number(value.id) < 1
     || typeof value.questionText !== 'string' || typeof value.ka !== 'string'
     || !Number.isSafeInteger(value.chapter)) return null;
-  const base = { id: Number(value.id), questionText: value.questionText, ka: value.ka, chapter: Number(value.chapter) };
+  const base = {
+    id: Number(value.id),
+    questionText: value.questionText,
+    ka: value.ka,
+    chapter: Number(value.chapter),
+    ...(isQuestionFigure(value.figure) ? { figure: value.figure } : {}),
+  };
   if (value.type === 'multiple-choice' && Array.isArray(value.options) && value.options.every((option) => typeof option === 'string')) {
     return { ...base, type: 'multiple-choice', options: value.options };
   }

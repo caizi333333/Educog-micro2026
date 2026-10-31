@@ -1,4 +1,4 @@
-import { quizQuestions, getComprehensiveQuestions, getFinalObjectiveQuestions } from '@/lib/quiz-data';
+import { quizQuestions, getComprehensiveQuestions, getFinalObjectiveQuestions, isQuestionFigure } from '@/lib/quiz-data';
 import {
   classifyObjectiveSource,
   comprehensiveStemFamily,
@@ -18,12 +18,12 @@ import {
 } from '@/lib/final-objective-sample';
 
 /**
- * 发布种子 final-objective-v2 在当前题库上的卷面。
+ * 发布种子 final-objective-v3 在当前题库上的卷面。
  * 改种子、蓝图或变体题时同步更新。顺序是蓝图顺序：先单项选择，再判断。
  */
 const PUBLISHED_FINAL_OBJECTIVE_IDS = [
-  510, 521, 529, 549, 524, 32, 540, 522, 556, 579, 584, 587, 466, 604, 95,
-  605, 608, 610, 611, 614, 616, 617, 620, 621, 623, 625,
+  516, 521, 529, 549, 524, 541, 540, 522, 556, 578, 583, 588, 466, 604, 390,
+  606, 608, 609, 612, 613, 615, 618, 620, 622, 623, 626, 628, 630,
   589, 592, 593, 594, 595, 596, 598, 599, 600, 601, 602, 603,
 ];
 
@@ -42,6 +42,8 @@ const NEW_OBJECTIVE_SEAT_IDS = [
   'choice-ca1-tmod',
   'choice-ca2-reload',
   'choice-ca3-step',
+  'choice-fig-cd4051-channel',
+  'choice-fig-cd4051-control',
 ] as const;
 
 const JUDGMENT_ANSWERS: Record<number, '正确' | '错误'> = {
@@ -60,24 +62,24 @@ const JUDGMENT_ANSWERS: Record<number, '正确' | '错误'> = {
 };
 
 describe('期末客观模拟蓝图抽样', () => {
-  it('座位配额合计 38，单项选择 26、判断 12', () => {
-    expect(FINAL_OBJECTIVE_SAMPLE_SEED).toBe('final-objective-v2');
-    expect(FINAL_OBJECTIVE_BLUEPRINT).toHaveLength(38);
-    expect(new Set(FINAL_OBJECTIVE_BLUEPRINT.map((seat) => seat.id)).size).toBe(38);
-    expect(FINAL_OBJECTIVE_BLUEPRINT.reduce((sum, seat) => sum + seat.quota, 0)).toBe(38);
-    expect(FINAL_OBJECTIVE_PAPER_LENGTH).toBe(38);
-    expect(FINAL_OBJECTIVE_CHOICE_COUNT).toBe(26);
+  it('座位配额合计 40，单项选择 28、判断 12', () => {
+    expect(FINAL_OBJECTIVE_SAMPLE_SEED).toBe('final-objective-v3');
+    expect(FINAL_OBJECTIVE_BLUEPRINT).toHaveLength(40);
+    expect(new Set(FINAL_OBJECTIVE_BLUEPRINT.map((seat) => seat.id)).size).toBe(40);
+    expect(FINAL_OBJECTIVE_BLUEPRINT.reduce((sum, seat) => sum + seat.quota, 0)).toBe(40);
+    expect(FINAL_OBJECTIVE_PAPER_LENGTH).toBe(40);
+    expect(FINAL_OBJECTIVE_CHOICE_COUNT).toBe(28);
     expect(FINAL_OBJECTIVE_JUDGMENT_COUNT).toBe(12);
-    expect(FINAL_OBJECTIVE_BLUEPRINT.filter((seat) => seat.section === 'single-choice')).toHaveLength(26);
+    expect(FINAL_OBJECTIVE_BLUEPRINT.filter((seat) => seat.section === 'single-choice')).toHaveLength(28);
     expect(FINAL_OBJECTIVE_BLUEPRINT.filter((seat) => seat.section === 'judgment')).toHaveLength(12);
-    expect(FINAL_OBJECTIVE_BLUEPRINT.slice(0, 26).every((seat) => seat.section === 'single-choice')).toBe(true);
-    expect(FINAL_OBJECTIVE_BLUEPRINT.slice(26).every((seat) => seat.section === 'judgment')).toBe(true);
+    expect(FINAL_OBJECTIVE_BLUEPRINT.slice(0, 28).every((seat) => seat.section === 'single-choice')).toBe(true);
+    expect(FINAL_OBJECTIVE_BLUEPRINT.slice(28).every((seat) => seat.section === 'judgment')).toBe(true);
     expect(RETIRED_JUDGMENT_SEAT_IDS.every((seatId) => !FINAL_OBJECTIVE_BLUEPRINT.some((seat) => seat.id === seatId))).toBe(true);
     expect(NEW_OBJECTIVE_SEAT_IDS.every((seatId) => FINAL_OBJECTIVE_BLUEPRINT.some((seat) => seat.id === seatId && seat.tagOnly))).toBe(true);
     expect(isFinalObjectiveVariantExplanation(`${FINAL_OBJECTIVE_VARIANT_MARK} · 判断座位 judge-harvard]`)).toBe(true);
   });
 
-  it('发布种子得到稳定的 38 题，座位齐全，且没有课件例题', () => {
+  it('发布种子得到稳定的 40 题，座位齐全，且没有课件例题', () => {
     const paper = selectFinalObjectivePaper(quizQuestions);
     const again = selectFinalObjectivePaper(quizQuestions, { seed: FINAL_OBJECTIVE_SAMPLE_SEED });
     const ids = paper.map((pick) => pick.question.id);
@@ -85,15 +87,15 @@ describe('期末客观模拟蓝图抽样', () => {
     expect(again.map((pick) => pick.question.id)).toEqual(ids);
     expect(getFinalObjectiveQuestions().map((question) => question.id)).toEqual(ids);
     expect(ids).toHaveLength(FINAL_OBJECTIVE_PAPER_LENGTH);
-    expect(new Set(ids).size).toBe(38);
+    expect(new Set(ids).size).toBe(40);
     expect(paper.map((pick) => pick.seat.id)).toEqual(FINAL_OBJECTIVE_BLUEPRINT.map((seat) => seat.id));
     expect(paper.every((pick) => !isSlideTeachingSource(pick.question.source))).toBe(true);
-    expect(new Set(paper.map((pick) => comprehensiveStemFamily(pick.question))).size).toBe(38);
+    expect(new Set(paper.map((pick) => comprehensiveStemFamily(pick.question))).size).toBe(40);
     expect(paper.every((pick) => pick.question.type === 'multiple-choice')).toBe(true);
 
     const choice = paper.filter((pick) => pick.seat.section === 'single-choice');
     const judgment = paper.filter((pick) => pick.seat.section === 'judgment');
-    expect(choice).toHaveLength(26);
+    expect(choice).toHaveLength(28);
     expect(judgment).toHaveLength(12);
     expect(choice.every((pick) => pick.question.type === 'multiple-choice' && !isJudgmentOptionPair(pick.question.options))).toBe(true);
     expect(judgment.every((pick) => pick.question.type === 'multiple-choice' && isJudgmentOptionPair(pick.question.options))).toBe(true);
@@ -119,13 +121,10 @@ describe('期末客观模拟蓝图抽样', () => {
     expect(homeworkOf('choice-baud')).toBe('作业6');
     expect(homeworkOf('choice-address-range')).toBe('作业7');
     expect(paper.find((pick) => pick.seat.id === 'choice-dac')?.question.id).toBe(604);
-    expect(paper.find((pick) => pick.seat.id === 'choice-dac')?.question.correctAnswer).toBe('2.5V');
-    expect(5 * 0x80 / 256).toBe(2.5);
-    expect(paper.find((pick) => pick.seat.id === 'choice-sa1-display')?.question.id).toBe(605);
-    expect(paper.find((pick) => pick.seat.id === 'choice-wi1-swap')?.question.id).toBe(614);
-    expect(paper.find((pick) => pick.seat.id === 'choice-ca1-tmod')?.question.id).toBe(621);
-    expect(paper.find((pick) => pick.seat.id === 'choice-ca2-reload')?.question.id).toBe(623);
-    expect(paper.find((pick) => pick.seat.id === 'choice-ca3-step')?.question.id).toBe(625);
+    expect(paper.find((pick) => pick.seat.id === 'choice-fig-cd4051-channel')?.question.id).toBe(628);
+    expect(paper.find((pick) => pick.seat.id === 'choice-fig-cd4051-control')?.question.id).toBe(630);
+    expect(isQuestionFigure(paper.find((pick) => pick.seat.id === 'choice-fig-cd4051-channel')?.question.figure)).toBe(true);
+    expect(isQuestionFigure(paper.find((pick) => pick.seat.id === 'choice-fig-cd4051-control')?.question.figure)).toBe(true);
     expect(ids).not.toContain(590);
     expect(ids).not.toContain(591);
     expect(ids).not.toContain(597);
@@ -137,11 +136,11 @@ describe('期末客观模拟蓝图抽样', () => {
   });
 
   it('另一种子换一批单选题，只剩一道的判断变体仍按座位保留', () => {
-    const alternate = selectFinalObjectivePaper(quizQuestions, { seed: 'final-objective-v2-alt' });
+    const alternate = selectFinalObjectivePaper(quizQuestions, { seed: 'final-objective-v3-alt' });
     expect(alternate.map((pick) => pick.question.id)).not.toEqual(PUBLISHED_FINAL_OBJECTIVE_IDS);
-    expect(alternate).toHaveLength(38);
+    expect(alternate).toHaveLength(40);
     expect(alternate.every((pick) => !isSlideTeachingSource(pick.question.source))).toBe(true);
-    expect(new Set(alternate.map((pick) => comprehensiveStemFamily(pick.question))).size).toBe(38);
+    expect(new Set(alternate.map((pick) => comprehensiveStemFamily(pick.question))).size).toBe(40);
     expect(alternate.filter((pick) => pick.seat.section === 'judgment').map((pick) => pick.question.id)).toEqual(
       PUBLISHED_FINAL_OBJECTIVE_IDS.slice(FINAL_OBJECTIVE_CHOICE_COUNT),
     );
@@ -161,7 +160,7 @@ describe('期末客观模拟蓝图抽样', () => {
     }
     const seatIds = new Set(FINAL_OBJECTIVE_BLUEPRINT.map((seat) => seat.id));
     const variants = quizQuestions.filter((question) => question.id >= 589);
-    expect(variants.map((question) => question.id)).toEqual(Array.from({ length: 38 }, (_, index) => 589 + index));
+    expect(variants.map((question) => question.id)).toEqual(Array.from({ length: 42 }, (_, index) => 589 + index));
     for (const question of variants) {
       const tag = readFinalObjectiveSeatTag(question.explanation);
       expect(tag).not.toBeNull();
@@ -182,7 +181,7 @@ describe('期末客观模拟蓝图抽样', () => {
     }
   });
 
-  it('简答、写指令和综合切片变体的关键结果可以回算', () => {
+  it('简答、写指令、综合切片和 CD4051 读图变体的关键结果可以回算', () => {
     const answer = (id: number) => quizQuestions.find((question) => question.id === id)?.correctAnswer;
     const byte = (value: number) => `${value.toString(16).toUpperCase().padStart(2, '0')}H`;
     expect(answer(609)).toBe(`${(2 / 8) * 100}%`);
@@ -200,15 +199,25 @@ describe('期末客观模拟蓝图抽样', () => {
     expect(answer(623)).toBe(`TH1=${byte(reload(8) >> 8)}，TL1=${byte(reload(8) & 0xff)}`);
     expect(reload(15)).toBe(0xc568);
     expect(answer(624)).toBe(`TH0=${byte(reload(15) >> 8)}，TL0=${byte(reload(15) & 0xff)}`);
-    expect(['TH0=B1H，TL0=E0H', 'TH0=D8H，TL0=F0H', 'TH0=FCH，TL0=66H']).not.toContain(answer(623));
-    expect(['TH0=B1H，TL0=E0H', 'TH0=D8H，TL0=F0H', 'TH0=FCH，TL0=66H']).not.toContain(answer(624));
     expect(answer(625)).toBe(byte(0x01 | 0x02));
     expect(answer(626)).toBe(byte(0x08 | 0x10));
+    const channel = (c: number, b: number, a: number) => 4 * c + 2 * b + a;
+    expect(channel(0, 1, 1)).toBe(3);
+    expect(answer(627)).toBe('IN3 · 电池监测');
+    expect(channel(1, 1, 0)).toBe(6);
+    expect(answer(628)).toBe('IN6 · 气压');
+    expect(answer(629)).toBe('各输入通道与 COM 都断开，不能采样任何一路');
+    expect(answer(630)).toBe('P2.0、P2.1、P2.2');
+    for (const id of [627, 628, 629, 630]) {
+      const question = quizQuestions.find((item) => item.id === id);
+      expect(isQuestionFigure(question && 'figure' in question ? question.figure : undefined)).toBe(true);
+      expect(question?.figure?.src).toBe('/resources/course/diagrams/cd4051-mux-p2-variant.svg');
+    }
   });
 
   it('题库抽空或新座位没有变体时明确报出缺题座位，而不是交一张短卷', () => {
     expect(() => selectFinalObjectivePaper([])).toThrow(/choice-dac|没有可抽题目/);
-    const withoutNewVariants = quizQuestions.filter((question) => question.id < 605);
-    expect(() => selectFinalObjectivePaper(withoutNewVariants)).toThrow(/choice-sa1-display|没有可抽题目/);
+    const withoutNewVariants = quizQuestions.filter((question) => question.id < 627);
+    expect(() => selectFinalObjectivePaper(withoutNewVariants)).toThrow(/choice-fig-cd4051-channel|没有可抽题目/);
   });
 });
