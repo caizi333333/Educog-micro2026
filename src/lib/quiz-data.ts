@@ -1,3 +1,4 @@
+import { selectComprehensiveQuestions } from '@/lib/comprehensive-sample';
 
 export type QuestionSource = {
   kind?: 'slide';
@@ -8215,21 +8216,16 @@ RET`,
   },
 ];
 
-export const COMPREHENSIVE_QUESTIONS_PER_CHAPTER = 2;
+export {
+  COMPREHENSIVE_CHAPTER_QUOTAS,
+  COMPREHENSIVE_QUESTIONS_PER_CHAPTER,
+  COMPREHENSIVE_SAMPLE_SEED,
+} from '@/lib/comprehensive-sample';
 
 /**
- * 综合测评使用固定、可复现的章节抽样卷，避免把整套题库直接当作一次测评。
- * 每章按正式题库顺序选取前两题；题库变更后仍保持相同的选题规则。
+ * 综合测评的发布卷。规则、种子和权重见 `comprehensive-sample.ts`。
+ * 同一题库下重复调用得到同一题集；展示顺序由客户端打乱。
  */
 export function getComprehensiveQuestions(): Question[] {
-  const selectedByChapter = new Map<number, Question[]>();
-  for (const question of quizQuestions) {
-    const selected = selectedByChapter.get(question.chapter) ?? [];
-    if (selected.length >= COMPREHENSIVE_QUESTIONS_PER_CHAPTER) continue;
-    selected.push(question);
-    selectedByChapter.set(question.chapter, selected);
-  }
-  return [...selectedByChapter.entries()]
-    .sort(([chapterA], [chapterB]) => chapterA - chapterB)
-    .flatMap(([, questions]) => questions);
+  return selectComprehensiveQuestions(quizQuestions);
 }
