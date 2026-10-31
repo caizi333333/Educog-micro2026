@@ -16,6 +16,13 @@ import {
   AI_LITERACY_TOPIC_ID,
   getModuleIdForChapter,
 } from '@/lib/lesson-tasks';
+import {
+  FINAL_OBJECTIVE_CHOICE_COUNT,
+  FINAL_OBJECTIVE_JUDGMENT_COUNT,
+  FINAL_OBJECTIVE_QUIZ_ID,
+  FINAL_OBJECTIVE_TOPIC_ID,
+  isJudgmentOptionPair,
+} from '@/lib/final-objective-sample';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -492,7 +499,7 @@ export function QuizClient(): React.JSX.Element {
     if (requestedAttemptId !== null && (requestedAttemptId.trim().length === 0 || requestedAttemptId.length > 128)) {
       return '测评回看链接中的回执编号无效，请返回任务页重新进入。';
     }
-    if (rawTopicFilter !== null && rawTopicFilter !== ADDRESSING_TOPIC_ID && rawTopicFilter !== AI_LITERACY_TOPIC_ID) {
+    if (rawTopicFilter !== null && rawTopicFilter !== ADDRESSING_TOPIC_ID && rawTopicFilter !== AI_LITERACY_TOPIC_ID && rawTopicFilter !== FINAL_OBJECTIVE_TOPIC_ID) {
       return '测评链接中的主题参数无效，请返回任务页重新进入。';
     }
     if (rawModeFilter !== null && rawModeFilter !== 'initial' && rawModeFilter !== 'retest') {
@@ -523,16 +530,21 @@ export function QuizClient(): React.JSX.Element {
     ? ADDRESSING_TOPIC_ID
     : rawTopicFilter === AI_LITERACY_TOPIC_ID
       ? AI_LITERACY_TOPIC_ID
-      : null;
+      : rawTopicFilter === FINAL_OBJECTIVE_TOPIC_ID
+        ? FINAL_OBJECTIVE_TOPIC_ID
+        : null;
   const assessmentMode = rawModeFilter === 'retest' ? 'retest' : 'initial';
   const taskPathId = searchParams?.get('taskPathId') ?? undefined;
   const resolvedQuizId = topicFilter === ADDRESSING_TOPIC_ID
     ? ADDRESSING_QUIZ_ID
     : topicFilter === AI_LITERACY_TOPIC_ID
       ? AI_LITERACY_QUIZ_ID
+      : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
+        ? FINAL_OBJECTIVE_QUIZ_ID
     : chapterFilter !== null
       ? `quiz-ch${chapterFilter}`
       : 'comprehensive-assessment';
+  const preserveFinalSectionOrder = topicFilter === FINAL_OBJECTIVE_TOPIC_ID;
   const requiresCompleteSubmission = true;
 
   const sourceQuestions = useMemo(
@@ -780,7 +792,7 @@ export function QuizClient(): React.JSX.Element {
     }
     // Shuffling is done on the client-side to avoid hydration mismatch
     // 章节参数或题库变化时重建题集，保证按章练习只出该章题目
-    let next = shuffleArray(sourceQuestions);
+    let next = preserveFinalSectionOrder ? [...sourceQuestions] : shuffleArray(sourceQuestions);
     let savedProgress: z.infer<typeof savedProgressSchema> | null = null;
 
     if (typeof window !== 'undefined') {
@@ -825,7 +837,7 @@ export function QuizClient(): React.JSX.Element {
         console.warn('Failed to load quiz progress:', error);
       }
     }
-  }, [anonymousProgressKey, progressKey, requestedAttemptId, sourceQuestions, user]);
+  }, [anonymousProgressKey, preserveFinalSectionOrder, progressKey, requestedAttemptId, sourceQuestions, user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1149,7 +1161,7 @@ export function QuizClient(): React.JSX.Element {
 
   const handleRestart = (): void => {
     if (requestedAttemptId !== null) return;
-    setShuffledQuestions(shuffleArray(sourceQuestions));
+    setShuffledQuestions(preserveFinalSectionOrder ? [...sourceQuestions] : shuffleArray(sourceQuestions));
     setCurrentQuestionIndex(0);
     setAnswers({});
     setAnswerStatus({});
@@ -1386,6 +1398,8 @@ export function QuizClient(): React.JSX.Element {
                   ? assessmentMode === 'retest' ? '3.1 寻址方式 · 再次作答报告' : '3.1 寻址方式 · 首次作答报告'
                   : topicFilter === AI_LITERACY_TOPIC_ID
                     ? 'AI素养情境测评报告'
+                    : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
+                      ? '期末客观模拟报告'
                     : '测试诊断报告'}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -1719,6 +1733,8 @@ export function QuizClient(): React.JSX.Element {
                 ? assessmentMode === 'retest' ? '3.1 寻址方式 · 再次测评' : '3.1 寻址方式 · 专项测评'
                 : topicFilter === AI_LITERACY_TOPIC_ID
                   ? '10.5 AI素养与责任使用 · 情境测评'
+                : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
+                  ? '期末客观模拟'
                 : chapterFilter ? `第 ${chapterFilter} 章 测验` : '综合测评'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -1726,6 +1742,8 @@ export function QuizClient(): React.JSX.Element {
                 ? `本卷仅含 3.1 及其子节点的 ${shuffledQuestions.length} 道题，交卷结果将以 ${ADDRESSING_QUIZ_ID} 保存。`
                 : topicFilter === AI_LITERACY_TOPIC_ID
                   ? `本卷包含 ${shuffledQuestions.length} 道责任使用情境题，交卷结果将以 ${AI_LITERACY_QUIZ_ID} 保存并按 10.5 子节点记录。`
+                : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
+                  ? `本卷对齐期末客观部分，共 ${shuffledQuestions.length} 题：先 ${FINAL_OBJECTIVE_CHOICE_COUNT} 道单项选择，再 ${FINAL_OBJECTIVE_JUDGMENT_COUNT} 道判断。判断在这里是对错单选，A 为正确、B 为错误。芯片口径 80C51。不计时。不含简答、写指令、综合编程和作图。交卷结果以 ${FINAL_OBJECTIVE_QUIZ_ID} 保存。`
                 : chapterFilter
                 ? `本卷只含第 ${chapterFilter} 章的 ${shuffledQuestions.length} 道题。系统仍按知识原子记录掌握度。`
                 : `本卷按章节配额抽取 ${shuffledQuestions.length} 道题，作业单选和机判切片权重更高。全部作答后统一交卷，系统按服务端记录生成知识原子掌握度。`}
@@ -1737,6 +1755,14 @@ export function QuizClient(): React.JSX.Element {
               >
                 <ChevronsLeft className="h-3 w-3" />
                 返回综合测评
+              </Link>
+            )}
+            {!chapterFilter && !topicFilter && (
+              <Link
+                href={`/quiz?topic=${FINAL_OBJECTIVE_TOPIC_ID}`}
+                className="mt-3 inline-flex min-h-11 items-center rounded-md border border-cyan-300/30 bg-cyan-300/[0.08] px-3 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-300/[0.14]"
+              >
+                期末客观模拟 · {FINAL_OBJECTIVE_CHOICE_COUNT + FINAL_OBJECTIVE_JUDGMENT_COUNT} 题
               </Link>
             )}
             {!chapterFilter && !topicFilter && (
@@ -1784,7 +1810,11 @@ export function QuizClient(): React.JSX.Element {
         <section aria-label="测评步骤说明" className="mt-2 hidden gap-2 group-open:grid sm:mt-0 sm:grid sm:grid-cols-3">
           <div className="rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-xs leading-5 text-slate-400">
             <span className="font-semibold text-slate-200">本步目的：</span>
-            {topicFilter === ADDRESSING_TOPIC_ID ? '判断 3.1 及其子节点的当前掌握情况。' : '按当前题集识别已掌握内容和待补强知识原子。'}
+            {topicFilter === ADDRESSING_TOPIC_ID
+              ? '判断 3.1 及其子节点的当前掌握情况。'
+              : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
+                ? '按期末客观部分的考点座位练习单项选择和判断，不包含主观题。'
+                : '按当前题集识别已掌握内容和待补强知识原子。'}
           </div>
           <div className="rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-xs leading-5 text-slate-400">
             <span className="font-semibold text-slate-200">完成条件：</span>全部题目作答并成功取得服务端交卷回执。
@@ -1871,6 +1901,11 @@ export function QuizClient(): React.JSX.Element {
               <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-400">
                 {currentQuestion.type === 'code-completion' ? 'CODE' : 'CHOICE'}
               </span>
+              {topicFilter === FINAL_OBJECTIVE_TOPIC_ID && currentQuestion.type === 'multiple-choice' && (
+                <span className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[11px] text-slate-400">
+                  {isJudgmentOptionPair(currentQuestion.options) ? '判断 · A正确/B错误' : '单项选择'}
+                </span>
+              )}
             </div>
             <h2
               ref={questionHeadingRef}

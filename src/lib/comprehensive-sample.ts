@@ -17,6 +17,7 @@
  * v2 在权重之外还有三条硬规则：
  * 1. 教学 `source` 指向 `course-slides.pdf`（或 `kind === 'slide'`）的课件例题不进池。
  *    网页指导 `kind === 'guide'` 仍可入选。
+ *    解析首行以 `[source: 期末客观模拟变体` 开头的题目只供给期末客观模拟，不进综合卷。
  * 2. 全卷每个题干族至多一题。族优先用归一化题干：数字、十六进制字面量和空白去掉后，
  *    同一模板（如「十进制数92/93的BCD码」）并成一族。数制换算的几套模板
  *    （BCD、补码、十进制与二/十六进制互化）再并成 `number-base-conversion`，
@@ -155,6 +156,15 @@ export function isSlideTeachingSource(
 }
 
 /**
+ * 期末客观模拟变体。只看解析第一行的来源标记，不看题干。
+ * 标记写在 `final-objective-sample.ts`，两边必须用同一前缀。
+ */
+export function isFinalObjectiveVariantExplanation(explanation: string | undefined): boolean {
+  const firstLine = explanation?.split('\n', 1)[0] ?? '';
+  return firstLine.startsWith('[source: 期末客观模拟变体');
+}
+
+/**
  * 章内权重 = 来源 × 题型 × 新题系数。三者都是正整数。
  * 例：新入库数值切片单选 = 5 × 2 × 2 = 20；旧单选 = 1 × 2 × 1 = 2。
  */
@@ -240,7 +250,10 @@ function drawChapter<T extends ComprehensiveSampleQuestion>(
   nextUint32: () => number,
   usedFamilies: Set<string>,
 ): T[] {
-  const eligible = pool.filter((question) => !isSlideTeachingSource(question.source));
+  const eligible = pool.filter((question) =>
+    !isSlideTeachingSource(question.source)
+    && !isFinalObjectiveVariantExplanation(question.explanation),
+  );
   const numericPool = eligible.filter(
     (question) => classifyObjectiveSource(question.explanation) === 'numeric-slice',
   );

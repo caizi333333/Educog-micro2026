@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { calculateQuizPoints } from '@/lib/points-system';
 import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
 import { getActiveClassIdForUser, normalizeLearningEventInput } from '@/lib/classroom';
-import { getComprehensiveQuestions, quizQuestions, toPublicQuestion, type QuestionSource } from '@/lib/quiz-data';
+import { getComprehensiveQuestions, getFinalObjectiveQuestions, quizQuestions, toPublicQuestion, type QuestionSource } from '@/lib/quiz-data';
+import { FINAL_OBJECTIVE_QUIZ_ID, FINAL_OBJECTIVE_SAMPLE_SEED, FINAL_OBJECTIVE_TOPIC_ID } from '@/lib/final-objective-sample';
 import { createHash } from 'node:crypto';
 import { getDataProvenance } from '@/lib/env';
 import {
@@ -189,14 +190,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     } = parsedData.data;
     const assessmentMode = parsedData.data.assessmentMode === 'retest' ? 'retest' : 'initial';
     const requestedTopicId = parsedData.data.topicId ?? null;
-    if (requestedTopicId && requestedTopicId !== ADDRESSING_TOPIC_ID && requestedTopicId !== AI_LITERACY_TOPIC_ID) {
+    if (requestedTopicId && requestedTopicId !== ADDRESSING_TOPIC_ID && requestedTopicId !== AI_LITERACY_TOPIC_ID && requestedTopicId !== FINAL_OBJECTIVE_TOPIC_ID) {
       return NextResponse.json({ error: '不支持的测评主题' }, { status: 400 });
     }
     const topicId = requestedTopicId === ADDRESSING_TOPIC_ID
       ? ADDRESSING_TOPIC_ID
       : requestedTopicId === AI_LITERACY_TOPIC_ID
         ? AI_LITERACY_TOPIC_ID
-        : null;
+        : requestedTopicId === FINAL_OBJECTIVE_TOPIC_ID
+          ? FINAL_OBJECTIVE_TOPIC_ID
+          : null;
     const attemptKey = attemptId ?? '';
     const requestedPathId = pathId ?? '';
 
@@ -224,6 +227,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (resolvedQuizId !== 'comprehensive-assessment'
       && resolvedQuizId !== ADDRESSING_QUIZ_ID
       && resolvedQuizId !== AI_LITERACY_QUIZ_ID
+      && resolvedQuizId !== FINAL_OBJECTIVE_QUIZ_ID
       && !/^quiz-ch(?:[1-9]|10)$/.test(resolvedQuizId)) {
       return NextResponse.json({ error: '测评资源编号不存在' }, { status: 400 });
     }
@@ -232,6 +236,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
     if (topicId === AI_LITERACY_TOPIC_ID && resolvedQuizId !== AI_LITERACY_QUIZ_ID) {
       return NextResponse.json({ error: 'AI素养测评主题与资源编号不匹配' }, { status: 400 });
+    }
+    if (topicId === FINAL_OBJECTIVE_TOPIC_ID && resolvedQuizId !== FINAL_OBJECTIVE_QUIZ_ID) {
+      return NextResponse.json({ error: '期末客观模拟主题与资源编号不匹配' }, { status: 400 });
     }
     if (assessmentMode === 'retest' && resolvedQuizId !== ADDRESSING_QUIZ_ID) {
       return NextResponse.json({ error: '当前测评不支持再次测评模式' }, { status: 400 });
@@ -334,6 +341,36 @@ export async function POST(request: Request): Promise<NextResponse> {
         '10.5': { correct: numCorrect, total: numTotal, score: numScore },
       };
       resolvedWeakAreas = Object.entries(perKA).filter(([, value]) => value.score < 70).map(([key]) => key);
+    } else if (resolvedQuizId === FINAL_OBJECTIVE_QUIZ_ID) {
+      if (topicId !== FINAL_OBJECTIVE_TOPIC_ID || moduleId || chapterId) {
+        return NextResponse.json({ error: '期末客观模拟不按单章记录' }, { status: 400 });
+      }
+      const officialQuestions = getFinalObjectiveQuestions();
+      const missingCount = officialQuestions.filter((question) => !normalizeAnswer(normalizedAnswers[String(question.id)])).length;
+      if (missingCount > 0) {
+        return NextResponse.json({ error: `还有 ${missingCount} 道期末客观题未作答` }, { status: 400 });
+      }
+      const perKA: Record<string, { correct: number; total: number; score: number }> = {};
+      let correctCount = 0;
+      for (const question of officialQuestions) {
+        if (!perKA[question.ka]) perKA[question.ka] = { correct: 0, total: 0, score: 0 };
+        const bucket = perKA[question.ka]!;
+        bucket.total += 1;
+        const correct = normalizeAnswer(normalizedAnswers[String(question.id)]) === normalizeAnswer(question.correctAnswer);
+        questionResults[String(question.id)] = { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, source: question.source };
+        if (correct) {
+          bucket.correct += 1;
+          correctCount += 1;
+        }
+      }
+      for (const bucket of Object.values(perKA)) {
+        bucket.score = bucket.total > 0 ? (bucket.correct / bucket.total) * 100 : 0;
+      }
+      numTotal = officialQuestions.length;
+      numCorrect = correctCount;
+      numScore = numTotal > 0 ? (numCorrect / numTotal) * 100 : 0;
+      resolvedScoresByKA = perKA;
+      resolvedWeakAreas = Object.entries(perKA).filter(([, value]) => value.score < 70).map(([key]) => key).slice(0, 100);
     } else {
       // 普通章节卷和综合卷均由服务端按正式题库判分，客户端分数不参与落盘。
       const answeredIds = new Set(
@@ -475,7 +512,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         assessmentMode,
         questionSetVersion: resolvedQuizId === ADDRESSING_QUIZ_ID
           ? ADDRESSING_QUESTION_SET_VERSION
-          : undefined,
+          : resolvedQuizId === FINAL_OBJECTIVE_QUIZ_ID
+            ? FINAL_OBJECTIVE_SAMPLE_SEED
+            : undefined,
         attemptId: attemptKey.length > 0 ? attemptKey : undefined,
         pathId: canAdvanceTask ? activePath?.id : undefined,
         stepId: canAdvanceTask ? activeStep?.stepId : undefined,
@@ -514,7 +553,9 @@ export async function POST(request: Request): Promise<NextResponse> {
             assessmentMode,
             ...(resolvedQuizId === ADDRESSING_QUIZ_ID
               ? { questionSetVersion: ADDRESSING_QUESTION_SET_VERSION }
-              : {}),
+              : resolvedQuizId === FINAL_OBJECTIVE_QUIZ_ID
+                ? { questionSetVersion: FINAL_OBJECTIVE_SAMPLE_SEED }
+                : {}),
             chapterId,
             ...(attemptKey ? { attemptKey } : {}),
             ...(canAdvanceTask && activePath ? { pathId: activePath.id } : {}),

@@ -7,6 +7,7 @@ import {
   classifyObjectiveSource,
   comprehensiveQuestionWeight,
   comprehensiveStemFamily,
+  isFinalObjectiveVariantExplanation,
   isSlideTeachingSource,
   selectComprehensiveQuestions,
   type ComprehensiveSampleQuestion,
@@ -48,6 +49,7 @@ describe('综合测评加权抽样', () => {
     expect(ids).not.toEqual(LEGACY_PREFIX_IDS);
     expect(ids).not.toEqual(OBJECTIVE_V1_SAMPLE_IDS);
     expect(selected.every((item) => !isSlideTeachingSource(item.source))).toBe(true);
+    expect(selected.every((item) => !isFinalObjectiveVariantExplanation(item.explanation))).toBe(true);
     expect(new Set(selected.map((item) => comprehensiveStemFamily(item))).size).toBe(20);
     const numeric = selected.filter((item) => classifyObjectiveSource(item.explanation) === 'numeric-slice');
     expect(numeric.map((item) => item.chapter).sort((left, right) => left - right)).toEqual([6, 7, 8]);
@@ -215,6 +217,19 @@ describe('综合测评加权抽样', () => {
       [slidePractice],
       { chapterQuotas: { 7: 2 } },
     )).toEqual([]);
+
+    const variant = question({
+      id: 900,
+      chapter: 7,
+      type: 'multiple-choice',
+      questionText: '期末客观模拟变体题干',
+      explanation: '[source: 期末客观模拟变体 · 判断座位 judge-harvard]\n只用于确认综合卷跳过变体。',
+    });
+    expect(isFinalObjectiveVariantExplanation(variant.explanation)).toBe(true);
+    expect(selectComprehensiveQuestions(
+      [variant, plain],
+      { chapterQuotas: { 7: 1 }, seed: 'variant-out' },
+    ).map((item) => item.id)).toEqual([1]);
   });
 
   it('归一化题干把换算模板并成一族，不误伤指令对比和实验补码', () => {

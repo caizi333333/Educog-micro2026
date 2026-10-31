@@ -232,6 +232,26 @@ describe('QuizClient', () => {
     expect(mobileQuestionNavigation).not.toHaveAttribute('open');
   });
 
+  it('offers the final objective mock from the comprehensive quiz', async () => {
+    mockUseAuth.mockReturnValue(authValue(null) as any);
+    render(<QuizClient />);
+    const entry = await screen.findByRole('link', { name: /期末客观模拟/ });
+    expect(entry).toHaveAttribute('href', '/quiz?topic=final-objective');
+    expect(screen.getByRole('region', { name: '综合测评' })).toBeInTheDocument();
+  });
+
+  it('loads the final objective paper without treating it as a chapter quiz', async () => {
+    mockUseAuth.mockReturnValue(authValue(mockUser) as any);
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('topic=final-objective') as any);
+    render(<QuizClient />);
+    expect(await screen.findByRole('heading', { name: '期末客观模拟' })).toBeInTheDocument();
+    expect(screen.getByText(/A 为正确、B 为错误/)).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/quiz/questions?topic=final-objective',
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+  });
+
   it('rejects an invalid topic link instead of silently opening the comprehensive quiz', async () => {
     mockUseAuth.mockReturnValue(authValue(mockUser) as any);
     mockUseSearchParams.mockReturnValue(new URLSearchParams('topic=unknown') as any);

@@ -1,4 +1,5 @@
 import { selectComprehensiveQuestions } from '@/lib/comprehensive-sample';
+import { selectFinalObjectivePaper } from '@/lib/final-objective-sample';
 
 export type QuestionSource = {
   kind?: 'slide';
@@ -8214,6 +8215,166 @@ RET`,
     "chapter": 8,
     "explanation": "[source: 作业7 数值切片 · 同源]\nY0要求A15-A13=000；2KB只用A10-A0。未参加译码的A12、A11按第1题的主镜像约定取0，范围为0000H-07FFH（含两端）。适用课号：0872专属；3084大纲无并行扩展章。"
   },
+  {
+    "id": 589,
+    "type": "multiple-choice",
+    "questionText": "80C51 的程序存储器和数据存储器分开编址。这种存储组织属于哈佛结构。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "2.2",
+    "chapter": 2,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-harvard]\n程序空间和数据空间各自编址，是哈佛结构的特征。冯·诺依曼结构则共用同一套地址空间。"
+  },
+  {
+    "id": 590,
+    "type": "multiple-choice",
+    "questionText": "80C51 复位完成后，程序状态字 PSW 为 00H，堆栈指针 SP 为 07H。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "2.5.4",
+    "chapter": 2,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-reset-psw]\n复位后 PSW 被清成 00H，SP 指向 07H。第一次 PUSH 才会先把 SP 加到 08H 再写入。"
+  },
+  {
+    "id": 591,
+    "type": "multiple-choice",
+    "questionText": "80C51 片内低 128 字节 RAM 中，30H-7FH 是位寻址区，20H-2FH 只作通用数据区。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "2.2.4",
+    "chapter": 2,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-ram-zones]\n位寻址区是 20H-2FH 共 16 字节。30H-7FH 是通用 RAM。工作寄存器在 00H-1FH。"
+  },
+  {
+    "id": 592,
+    "type": "multiple-choice",
+    "questionText": "80C51 外部中断 0 的入口地址是 000BH，定时器 T0 的入口地址是 0003H。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "5.2",
+    "chapter": 5,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-interrupt-entry]\n外部中断 0 的入口是 0003H，定时器 T0 的入口是 000BH。两个地址不能对调。"
+  },
+  {
+    "id": 593,
+    "type": "multiple-choice",
+    "questionText": "80C51 的 RST 保持高电平达到两个机器周期以上时进入复位，平时应维持低电平。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "2.5",
+    "chapter": 2,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-rst]\nRST 高电平有效。宽度不够两个机器周期时，复位可能不可靠；空闲时应为低电平。"
+  },
+  {
+    "id": 594,
+    "type": "multiple-choice",
+    "questionText": "80C51 执行 PUSH 时，先把数据写入当前 SP 指向的单元，然后再把 SP 加 1。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "3.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-stack-sp]\nPUSH 先把 SP 加 1，再把数据写入新的栈顶。POP 才是先读出栈顶，再把 SP 减 1。"
+  },
+  {
+    "id": 595,
+    "type": "multiple-choice",
+    "questionText": "在 80C51 汇编源程序里，伪指令 BIT 用来把一个符号名定义到某个位地址。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "3.6",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-bit-directive]\nBIT 是位地址赋值伪指令。ORG 负责定位，EQU 负责等值，END 标记源程序结束。"
+  },
+  {
+    "id": 596,
+    "type": "multiple-choice",
+    "questionText": "80C51 定时器方式 2 溢出后，必须在中断服务程序里用软件把 TH 再送到 TL，否则不会重装。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "6.2",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-timer-mode]\n方式 2 是 8 位自动重装。溢出时硬件把 TH 中的重装值写入 TL，服务程序不必再做这条传送。"
+  },
+  {
+    "id": 597,
+    "type": "multiple-choice",
+    "questionText": "共阴极数码管的公共端接低电平，某一段引脚为高电平时，该段点亮。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "8.1",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-led-polarity]\n共阴极的公共端接低电平，段选高电平点亮。共阳极则相反：公共端接高电平，段选低电平点亮。"
+  },
+  {
+    "id": 598,
+    "type": "multiple-choice",
+    "questionText": "DAC 的作用是把模拟电压编成数字量，而且位数越多，每一级量化台阶越大。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "8.3.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-dac-role]\nDAC 把数字量转换成模拟量。同一参考电压下，位数越多，相邻两级的电压差越小。"
+  },
+  {
+    "id": 599,
+    "type": "multiple-choice",
+    "questionText": "光电隔离用光传递开关信号，输入侧和输出侧可以不共地，从而隔开两侧的电气回路。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "8",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-opto]\n光耦把电信号转成光再转回电信号。两侧不需要共地，因此能隔开地电位和干扰。"
+  },
+  {
+    "id": 600,
+    "type": "multiple-choice",
+    "questionText": "对 80C51 而言，MOV A, #20H 和 MOV A, 20H 读取的是同一处数据，井号只改变指令字节数。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "3.1",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-addressing]\n带井号的是立即数 20H。不带井号的是直接寻址，读取内部 RAM 20H 单元里的内容。"
+  },
+  {
+    "id": 601,
+    "type": "multiple-choice",
+    "questionText": "RET 和 RETI 都会从堆栈恢复断点，但只有 RETI 会结束本次中断并放开这一级优先级的占用。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "5.4",
+    "chapter": 5,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-ret-reti]\nRET 只弹出返回地址。RETI 在恢复断点之外，还会清除本级中断正在服务的状态，使同级请求可以再次被响应。"
+  },
+  {
+    "id": 602,
+    "type": "multiple-choice",
+    "questionText": "80C51 只有两级中断优先级。高优先级请求可以打断正在执行的低优先级服务，同一优先级不能互相嵌套。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "正确",
+    "ka": "5.5.1",
+    "chapter": 5,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-nesting]\nIP 只设置高、低两级。正在服务时，更高优先级可以插入；同一优先级的新请求要等本次服务结束。"
+  },
+  {
+    "id": 603,
+    "type": "multiple-choice",
+    "questionText": "MOV R1, R2 是 80C51 的合法传送指令，可以把 R2 直接拷贝到 R1。",
+    "options": ["正确", "错误"],
+    "correctAnswer": "错误",
+    "ka": "3.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 判断座位 judge-instruction-validity]\n工作寄存器之间不能直接 MOV。应先经过累加器，例如先 MOV A, R2，再 MOV R1, A。"
+  },
+  {
+    "id": 604,
+    "type": "multiple-choice",
+    "questionText": "一个 8 位 DAC 的参考电压是 5V，输入数字量 80H。按 Vout = Vref × N / 256 计算，输出电压是多少？",
+    "options": ["2.5V", "1.25V", "5V", "0.5V"],
+    "correctAnswer": "2.5V",
+    "ka": "8.3.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-dac]\n80H 等于 128。Vout = 5 × 128 / 256 = 2.5V。1.25V 对应 64，5V 是满量程参考电压，0.5V 对应 25 或 26 附近。"
+  },
 ];
 
 export {
@@ -8228,4 +8389,12 @@ export {
  */
 export function getComprehensiveQuestions(): Question[] {
   return selectComprehensiveQuestions(quizQuestions);
+}
+
+/**
+ * 期末客观模拟的发布卷。蓝图、种子和座位见 `final-objective-sample.ts`。
+ * 同一题库下重复调用得到同一题集；展示时单项选择在前、判断在后，客户端不再打乱。
+ */
+export function getFinalObjectiveQuestions(): Question[] {
+  return selectFinalObjectivePaper(quizQuestions).map((pick) => pick.question);
 }
