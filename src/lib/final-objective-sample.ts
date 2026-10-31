@@ -4,11 +4,13 @@
  * 和综合测评（`comprehensive-objective-v2`，第 1–10 章各 2 题、共 20 题）分开。
  * 学生从 `/quiz?topic=final-objective` 进入。章练习仍按 `?chapter=` 返回该章全部题目。
  *
- * 卷面对齐 2024 秋 A 卷的客观部分：单项选择 15 + 判断 15。判断在平台上是两选项单选，
- * 选项顺序固定为「正确」「错误」，界面字母因此是 A 正确、B 错误。不包含简答、写指令、
- * 综合编程和作图。芯片口径按 80C51 写新题干。
+ * 卷面在 2024 秋 A 卷客观部分之上，增加简答、写指令和综合应用里可机判的同考点变体。
+ * 判断仍是两选项单选，顺序固定为「正确」「错误」，界面字母因此是 A 正确、B 错误。
+ * 不含手写简答、整段编程和作图。芯片口径按 80C51 写新题干。变体只改数字、寄存器、
+ * 地址和场景，不复用原卷题干。
  *
- * 发布种子 `final-objective-v1`。同一 Node 主版本、同一题库、同一种子得到同一 id 集合。
+ * 发布种子 `final-objective-v2`。v1 是 30 题；v2 把卷长调到 38，并换了种子，
+ * 所以不带座位标签的单选也可能换题。同一 Node 主版本、同一题库、同一种子得到同一 id 集合。
  * 每个座位用 `FNV-1a(seed + "\\0" + seatId)` 起一个 mulberry32，座位之间不共用随机流；
  * 已抽中的题号和题干族仍全卷共享，所以某一座位的候选变了，可能让后面的座位改抽另一题。
  *
@@ -38,7 +40,7 @@ import {
 
 export const FINAL_OBJECTIVE_TOPIC_ID = 'final-objective';
 export const FINAL_OBJECTIVE_QUIZ_ID = 'quiz-final-objective';
-export const FINAL_OBJECTIVE_SAMPLE_SEED = 'final-objective-v1';
+export const FINAL_OBJECTIVE_SAMPLE_SEED = 'final-objective-v2';
 
 /** 与 `isFinalObjectiveVariantExplanation` 识别的前缀一致。 */
 export const FINAL_OBJECTIVE_VARIANT_MARK = '[source: 期末客观模拟变体';
@@ -75,8 +77,10 @@ export type FinalObjectiveSeat = {
 };
 
 /**
- * 客观座位。单项选择在前，判断在后，与卷面两大部分一致。
- * 配额每座 1，合计 30。
+ * 客观座位。单项选择在前，判断在后。配额每座 1，合计 38。
+ * v2 撤下与单选重复的三条判断：judge-reset-psw、judge-ram-zones、judge-led-polarity。
+ * 这三题仍留在题库里，但不再组卷。复位、内部 RAM 分区和数码管极性仍由对应单选座位考查。
+ * 腾出的名额加上新增名额，用来放简答、写指令和综合切片的标签座位。
  */
 export const FINAL_OBJECTIVE_BLUEPRINT: readonly FinalObjectiveSeat[] = [
   {
@@ -191,23 +195,86 @@ export const FINAL_OBJECTIVE_BLUEPRINT: readonly FinalObjectiveSeat[] = [
     kaPrefixes: ['3.1'],
   },
   {
+    id: 'choice-sa1-display',
+    section: 'single-choice',
+    title: '数码管动态与静态显示',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-sa2-dc',
+    section: 'single-choice',
+    title: '直流电机调速',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-sa3-pwm',
+    section: 'single-choice',
+    title: 'PWM 占空比与调速',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-sa4-stepper',
+    section: 'single-choice',
+    title: '步进电机与直流电机',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-wi1-swap',
+    section: 'single-choice',
+    title: '片内传送与互换',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-wi2-movc',
+    section: 'single-choice',
+    title: '查表 MOVC',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-wi3-movx',
+    section: 'single-choice',
+    title: '片外 MOVX 传送',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-wi4-arith',
+    section: 'single-choice',
+    title: '加减法结果',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-ca1-tmod',
+    section: 'single-choice',
+    title: 'TMOD 方式控制字',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-ca2-reload',
+    section: 'single-choice',
+    title: '定时装载值',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-ca3-step',
+    section: 'single-choice',
+    title: '步进通电控制码',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
     id: 'judge-harvard',
     section: 'judgment',
     title: '哈佛结构',
-    quota: 1,
-    tagOnly: true,
-  },
-  {
-    id: 'judge-reset-psw',
-    section: 'judgment',
-    title: '复位后 PSW 与 SP',
-    quota: 1,
-    tagOnly: true,
-  },
-  {
-    id: 'judge-ram-zones',
-    section: 'judgment',
-    title: '内部 RAM 分区',
     quota: 1,
     tagOnly: true,
   },
@@ -243,13 +310,6 @@ export const FINAL_OBJECTIVE_BLUEPRINT: readonly FinalObjectiveSeat[] = [
     id: 'judge-timer-mode',
     section: 'judgment',
     title: '定时方式 2 重装',
-    quota: 1,
-    tagOnly: true,
-  },
-  {
-    id: 'judge-led-polarity',
-    section: 'judgment',
-    title: '共阴极数码管极性',
     quota: 1,
     tagOnly: true,
   },
@@ -358,7 +418,7 @@ export function readFinalObjectiveSeatTag(explanation: string | undefined): Fina
 
 /**
  * 按发布种子抽出期末客观模拟卷。
- * 不修改入参数组。返回顺序是蓝图顺序：先 15 道单项选择，再 15 道判断。
+ * 不修改入参数组。返回顺序是蓝图顺序：先全部单项选择，再全部判断。
  * 某个座位抽不满时抛出错误，避免静默交一张缺考卷。
  */
 export function selectFinalObjectivePaper<T extends FinalObjectiveSampleQuestion>(

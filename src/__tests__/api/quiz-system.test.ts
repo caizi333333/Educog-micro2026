@@ -12,7 +12,7 @@ import {
 import { calculateQuizPoints } from '@/lib/points-system';
 import { checkAchievementsForQuiz } from '@/lib/achievement-checker';
 import { getComprehensiveQuestions, getFinalObjectiveQuestions, quizQuestions } from '@/lib/quiz-data';
-import { FINAL_OBJECTIVE_SAMPLE_SEED } from '@/lib/final-objective-sample';
+import { FINAL_OBJECTIVE_JUDGMENT_COUNT, FINAL_OBJECTIVE_PAPER_LENGTH, FINAL_OBJECTIVE_SAMPLE_SEED } from '@/lib/final-objective-sample';
 import {
   ADDRESSING_TASK_PRESET,
   AI_LITERACY_QUESTION_IDS,
@@ -150,11 +150,11 @@ describe('Quiz System API Tests', () => {
       const expected = getFinalObjectiveQuestions();
       expect(response.status).toBe(200);
       expect(body.questionSetVersion).toBe(FINAL_OBJECTIVE_SAMPLE_SEED);
-      expect(body.sampleSize).toEqual({ questions: 30 });
+      expect(body.sampleSize).toEqual({ questions: FINAL_OBJECTIVE_PAPER_LENGTH });
       expect(body.data.map((question: { id: number }) => question.id)).toEqual(expected.map((question) => question.id));
-      expect(body.data).toHaveLength(30);
+      expect(body.data).toHaveLength(FINAL_OBJECTIVE_PAPER_LENGTH);
       expect(body.data.every((question: Record<string, unknown>) => !('correctAnswer' in question) && !('explanation' in question))).toBe(true);
-      expect(body.data.filter((question: { options?: string[] }) => question.options?.join('|') === '正确|错误')).toHaveLength(15);
+      expect(body.data.filter((question: { options?: string[] }) => question.options?.join('|') === '正确|错误')).toHaveLength(FINAL_OBJECTIVE_JUDGMENT_COUNT);
     });
 
     it('AI素养情境测评应只返回五个10.5子节点题且不泄露答案', async () => {
@@ -382,8 +382,8 @@ describe('Quiz System API Tests', () => {
         data: expect.objectContaining({
           quizId: 'quiz-final-objective',
           score: 100,
-          totalQuestions: 30,
-          correctAnswers: 30,
+          totalQuestions: FINAL_OBJECTIVE_PAPER_LENGTH,
+          correctAnswers: FINAL_OBJECTIVE_PAPER_LENGTH,
         }),
       });
       const activityDetails = JSON.parse((mockPrisma.userActivity.create as jest.Mock).mock.calls[0][0].data.details);

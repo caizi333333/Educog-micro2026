@@ -8375,6 +8375,261 @@ RET`,
     "chapter": 8,
     "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-dac]\n80H 等于 128。Vout = 5 × 128 / 256 = 2.5V。1.25V 对应 64，5V 是满量程参考电压，0.5V 对应 25 或 26 附近。"
   },
+  {
+    "id": 605,
+    "type": "multiple-choice",
+    "questionText": "六位共阳数码管的段线并在同一组口线上，位选口逐位打开，每位只亮约 1.5 ms 再换下一位。这种接法是？",
+    "options": ["动态扫描显示", "静态锁存显示", "每位独占一个端口并同时常亮", "串口方式 0 移位显示"],
+    "correctAnswer": "动态扫描显示",
+    "ka": "8.1",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa1-display]\n段线共用、位选轮流打开，是动态扫描。静态显示要给每位单独锁存，写入后不必按这个节拍刷新。"
+  },
+  {
+    "id": 606,
+    "type": "multiple-choice",
+    "questionText": "四位共阴数码管各接一片 74HC573。段码写进锁存器后位选保持常通，CPU 不再按周期重写。这种接法是？",
+    "options": ["静态显示", "动态扫描显示", "必须每毫秒重写否则熄灭", "只能稳定显示一位"],
+    "correctAnswer": "静态显示",
+    "ka": "8.1",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa1-display]\n每位有自己的段码锁存，数据保持到下一次改写，属于静态显示。动态扫描才需要周期轮流刷新。"
+  },
+  {
+    "id": 607,
+    "type": "multiple-choice",
+    "questionText": "小功率直流电机在额定电压内调速，哪一种说法正确？",
+    "options": [
+      "提高 PWM 占空比会提高电枢平均电压，转速通常上升；对调电源极性是反转",
+      "调速只能改绕组通电相序，平均电压与转速无关",
+      "占空比越高，电机一定反转",
+      "直流电机必须按拍走步，不能靠平均电压调速"
+    ],
+    "correctAnswer": "提高 PWM 占空比会提高电枢平均电压，转速通常上升；对调电源极性是反转",
+    "ka": "8.5.1",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa2-dc]\n直流电机调速看的是电枢平均电压。占空比升高，平均电压升高，转速通常上升。正负极对调改变的是转向。"
+  },
+  {
+    "id": 608,
+    "type": "multiple-choice",
+    "questionText": "比较小功率直流电机的两种操作，哪一项属于调速而不是反转？",
+    "options": [
+      "转向控制位保持不变，把 PWM 占空比从 25% 提到 80%",
+      "只把电枢电源正负极对调",
+      "占空比不动，只把 H 桥方向位取反",
+      "断开电枢，让电机自由停车"
+    ],
+    "correctAnswer": "转向控制位保持不变，把 PWM 占空比从 25% 提到 80%",
+    "ka": "8.5.1",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa2-dc]\n转向不变时加大占空比，提高的是平均电压，这是调速。对调极性或翻转方向位改变的是转向。断开支路是停车。"
+  },
+  {
+    "id": 609,
+    "type": "multiple-choice",
+    "questionText": "80C51 送出的电机 PWM，高电平持续 2 ms，整个周期为 8 ms。占空比是多少？",
+    "options": ["25%", "50%", "75%", "12.5%"],
+    "correctAnswer": "25%",
+    "ka": "6.3",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa3-pwm]\n占空比 = 高电平时间 / 周期 = 2 / 8 = 25%。50% 要高 4 ms，75% 要高 6 ms，12.5% 要高 1 ms。"
+  },
+  {
+    "id": 610,
+    "type": "multiple-choice",
+    "questionText": "PWM 周期保持 10 ms，高电平宽度由 2 ms 增加到 7 ms，转向位不变。直流电机电枢上的平均电压怎样变化？",
+    "options": ["平均电压升高", "平均电压降低", "平均电压不变，因为周期没变", "电机会立刻反转"],
+    "correctAnswer": "平均电压升高",
+    "ka": "6.3",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa3-pwm]\n占空比从 20% 升到 70%，周期不变时平均电压跟着升高。转向位没变，不会因此反转。"
+  },
+  {
+    "id": 611,
+    "type": "multiple-choice",
+    "questionText": "关于步进电机和直流电机的控制方式，哪一说法正确？",
+    "options": [
+      "步进电机的角位移与换相脉冲个数对应，基本运行可按相序开环走步；直流电机通常靠平均电压调连续转速",
+      "两者都只靠提高供电电压平滑调速，都不需要换相",
+      "步进电机不能开环，只能像直流电机一样调节平均电压",
+      "直流电机靠通电拍序定位，步进电机的步距角由占空比决定"
+    ],
+    "correctAnswer": "步进电机的角位移与换相脉冲个数对应，基本运行可按相序开环走步；直流电机通常靠平均电压调连续转速",
+    "ka": "8.5.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa4-stepper]\n步进电机按拍换相，步数对应脉冲个数，基本控制可以开环。直流电机的连续转速主要随电枢平均电压变化。"
+  },
+  {
+    "id": 612,
+    "type": "multiple-choice",
+    "questionText": "四相步进电机要转过确定的步数，控制重点是什么？",
+    "options": [
+      "按拍给出绕组通电顺序，步数由脉冲个数决定",
+      "只提高供电电压，不必切换各相",
+      "只改变 PWM 占空比，各相可以一直同时导通",
+      "用对调电源极性代替换相表"
+    ],
+    "correctAnswer": "按拍给出绕组通电顺序，步数由脉冲个数决定",
+    "ka": "8.5.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-sa4-stepper]\n步进电机靠相序换相走步，走多少步就发多少个换相脉冲。只升电压、只改占空比或只对调极性，都不能代替拍序。"
+  },
+  {
+    "id": 613,
+    "type": "multiple-choice",
+    "questionText": "要把片内 R3 与直接地址 4AH 的内容互换，并且不能把两边写成同一个值。哪段指令是对的？",
+    "options": [
+      "MOV A, R3；XCH A, 4AH；MOV R3, A",
+      "MOV 4AH, R3；MOV R3, 4AH",
+      "MOV A, R3；MOV 4AH, A；MOV R3, A",
+      "XCH R3, 4AH"
+    ],
+    "correctAnswer": "MOV A, R3；XCH A, 4AH；MOV R3, A",
+    "ka": "3.2.5",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi1-swap]\n先把 R3 存进 A，再和 4AH 交换，最后把交换出来的旧 4AH 写回 R3。先写 4AH 会丢掉原值。80C51 没有 XCH Rn, direct。"
+  },
+  {
+    "id": 614,
+    "type": "multiple-choice",
+    "questionText": "工作寄存器组 0 中 R1=5AH，片内直接地址 36H 的内容为 C4H。依次执行 MOV A, R1；XCH A, 36H；MOV R1, A 之后，R1 与 36H 分别是？",
+    "options": ["R1=C4H，36H=5AH", "R1=5AH，36H=C4H", "R1=C4H，36H=C4H", "R1=00H，36H=5AH"],
+    "correctAnswer": "R1=C4H，36H=5AH",
+    "ka": "3.2.5",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi1-swap]\nMOV A, R1 使 A=5AH。XCH A, 36H 后 A=C4H、36H=5AH。MOV R1, A 把 C4H 写入 R1。两边已经对调。"
+  },
+  {
+    "id": 615,
+    "type": "multiple-choice",
+    "questionText": "标号 PXLUT 定义为 DB 01H, 12H, 23H, 34H, 45H, 9DH, 67H。要把下标 5 的那个字节送到片内 4EH。哪段指令正确？",
+    "options": [
+      "MOV DPTR, #PXLUT；MOV A, #05H；MOVC A, @A+DPTR；MOV 4EH, A",
+      "MOV DPTR, #PXLUT；MOV A, #06H；MOVC A, @A+DPTR；MOV 4EH, A",
+      "MOV DPTR, #PXLUT；MOV A, #05H；MOVX A, @DPTR；MOV 4EH, A",
+      "MOV A, #05H；MOVC A, @A+PC；MOV 4EH, A"
+    ],
+    "correctAnswer": "MOV DPTR, #PXLUT；MOV A, #05H；MOVC A, @A+DPTR；MOV 4EH, A",
+    "ka": "3.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi2-movc]\n下标从 0 数，5 对应 9DH。基址用 DPTR，变址用 A，MOVC 读程序存储器。下标 6 会读到 67H。MOVX 读的是片外 RAM，@A+PC 也不以 PXLUT 为基址。"
+  },
+  {
+    "id": 616,
+    "type": "multiple-choice",
+    "questionText": "标号 CODE7 处依次存放 2AH、3BH、4CH、8EH。执行 MOV DPTR, #CODE7；MOV A, #02H；MOVC A, @A+DPTR；MOV 51H, A 之后，片内 51H 是？",
+    "options": ["4CH", "3BH", "8EH", "02H"],
+    "correctAnswer": "4CH",
+    "ka": "3.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi2-movc]\nA=02H 表示下标 2。表中 0→2AH、1→3BH、2→4CH、3→8EH。MOVC 取出 4CH 后再写入 51H。"
+  },
+  {
+    "id": 617,
+    "type": "multiple-choice",
+    "questionText": "要把外部数据存储器 30B8H 的一个字节复制到 62D4H。哪段指令序列是对的？",
+    "options": [
+      "MOV DPTR, #30B8H；MOVX A, @DPTR；MOV DPTR, #62D4H；MOVX @DPTR, A",
+      "MOV DPTR, #30B8H；MOVX A, @DPTR；MOVX @DPTR, A",
+      "MOV DPTR, #30B8H；MOV A, @DPTR；MOV DPTR, #62D4H；MOV @DPTR, A",
+      "MOV DPTR, #30B8H；MOVC A, @A+DPTR；MOV DPTR, #62D4H；MOVX @DPTR, A"
+    ],
+    "correctAnswer": "MOV DPTR, #30B8H；MOVX A, @DPTR；MOV DPTR, #62D4H；MOVX @DPTR, A",
+    "ka": "3.2.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi3-movx]\n16 位片外地址用 DPTR。先 MOVX 读出，再改 DPTR，然后 MOVX 写入。不改 DPTR 会写回源单元。MOV @DPTR 不是合法的片外传送，MOVC 读的是程序存储器。"
+  },
+  {
+    "id": 618,
+    "type": "multiple-choice",
+    "questionText": "外部 RAM 的 4F10H 目前是 6EH。执行 MOV DPTR, #4F10H；MOVX A, @DPTR；MOV DPTR, #81C3H；MOVX @DPTR, A 之后，81C3H 的内容是？",
+    "options": ["6EH", "00H", "4FH", "81H"],
+    "correctAnswer": "6EH",
+    "ka": "3.2.2",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi3-movx]\nMOVX 把 4F10H 的 6EH 读入 A，再按新的 DPTR 写入 81C3H。目的单元因此也是 6EH。"
+  },
+  {
+    "id": 619,
+    "type": "multiple-choice",
+    "questionText": "执行前 CY 已经为 0，R7=2EH，片内 45H=91H。程序 MOV A, R7；SUBB A, 45H；MOV 6DH, A 做完后，6DH 和 CY 是？",
+    "options": ["6DH=9DH，CY=1", "6DH=9DH，CY=0", "6DH=63H，CY=1", "6DH=BFH，CY=0"],
+    "correctAnswer": "6DH=9DH，CY=1",
+    "ka": "3.3",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi4-arith]\n2EH 小于 91H，不够减。8 位结果是 2EH+100H−91H=9DH，借位 CY=1。63H 是把两数反过来减的差值，BFH 是两数相加。"
+  },
+  {
+    "id": 620,
+    "type": "multiple-choice",
+    "questionText": "R2 里是 3DH，片内 49H 里是 16H。执行 MOV A, R2；ADD A, 49H；MOV 64H, A 之后，64H 等于？",
+    "options": ["53H", "27H", "3DH", "16H"],
+    "correctAnswer": "53H",
+    "ka": "3.3",
+    "chapter": 3,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-wi4-arith]\nADD 把 A 与直接地址 49H 的内容相加：3DH+16H=53H，再存入 64H。27H 是把这两字节相减的结果。"
+  },
+  {
+    "id": 621,
+    "type": "multiple-choice",
+    "questionText": "只用定时器 T0，并且要等 INT0 为高才允许计数：GATE=1、内部时钟（C/T=0）、方式 1，T1 的四位保持 0。TMOD 应是？",
+    "options": ["09H", "01H", "90H", "19H"],
+    "correctAnswer": "09H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca1-tmod]\nT0 低四位是 GATE、C/T、M1、M0 = 1001B，即 09H。01H 把 GATE 写成了 0。90H 把这四位安到了 T1。19H 让 T1 也进入了方式 1。"
+  },
+  {
+    "id": 622,
+    "type": "multiple-choice",
+    "questionText": "只用 T1 对外部脉冲计数：GATE=0、C/T=1、方式 1，T0 的四位保持 0。TMOD 应是？",
+    "options": ["50H", "05H", "10H", "40H"],
+    "correctAnswer": "50H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca1-tmod]\nT1 高四位是 GATE、C/T、M1、M0 = 0101B，左移四位后为 50H。05H 配的是 T0。10H 把 C/T 写成了定时。40H 是计数方式 0。"
+  },
+  {
+    "id": 623,
+    "type": "multiple-choice",
+    "questionText": "晶振为 12 MHz，机器周期按 1 μs 计。T1 以方式 1 产生 8 ms 定时，TH1 和 TL1 应装入？",
+    "options": ["TH1=E0H，TL1=C0H", "TH1=1FH，TL1=40H", "TH1=C0H，TL1=E0H", "TH1=F0H，TL1=60H"],
+    "correctAnswer": "TH1=E0H，TL1=C0H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca2-reload]\n8 ms 需要 8000 个机器周期。装载值 = 65536−8000 = 57536 = E0C0H，所以 TH1=E0H、TL1=C0H。1F40H 是计数值本身，F060H 对应 4 ms。"
+  },
+  {
+    "id": 624,
+    "type": "multiple-choice",
+    "questionText": "晶振仍是 12 MHz，机器周期 1 μs。改由 T0 方式 1 产生 15 ms 定时，TH0 和 TL0 应装入？",
+    "options": ["TH0=C5H，TL0=68H", "TH0=3AH，TL0=98H", "TH0=68H，TL0=C5H", "TH0=C1H，TL0=80H"],
+    "correctAnswer": "TH0=C5H，TL0=68H",
+    "ka": "6.1",
+    "chapter": 6,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca2-reload]\n15 ms 需要 15000 个机器周期。装载值 = 65536−15000 = 50536 = C568H，所以 TH0=C5H、TL0=68H。3A98H 是计数值本身，C180H 对应 16 ms。"
+  },
+  {
+    "id": 625,
+    "type": "multiple-choice",
+    "questionText": "四相绕组 A、B、C、D 分别接到 P1.0、P1.1、P1.2、P1.3，高电平导通。半步过程中 AB 拍是 A 与 B 同时导通。这一拍的口线控制码是？",
+    "options": ["03H", "01H", "06H", "09H"],
+    "correctAnswer": "03H",
+    "ka": "8.5.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca3-step]\nA 在 P1.0 为 01H，B 在 P1.1 为 02H。AB 拍是 01H 与 02H 按位或，得到 03H。06H 是 B 与 C，09H 是 D 与 A。"
+  },
+  {
+    "id": 626,
+    "type": "multiple-choice",
+    "questionText": "把 A、B、C、D 改接到 P0.1、P0.2、P0.3、P0.4，仍是高电平导通。双四拍走到 CD（C 与 D 同时导通）时，口线控制码是？",
+    "options": ["18H", "0CH", "06H", "30H"],
+    "correctAnswer": "18H",
+    "ka": "8.5.2",
+    "chapter": 8,
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca3-step]\nC 在 P0.3 为 08H，D 在 P0.4 为 10H。CD 拍是 08H 与 10H 按位或，得到 18H。0CH 是 B 与 C，06H 是 A 与 B。"
+  },
 ];
 
 export {

@@ -1743,7 +1743,7 @@ export function QuizClient(): React.JSX.Element {
                 : topicFilter === AI_LITERACY_TOPIC_ID
                   ? `本卷包含 ${shuffledQuestions.length} 道责任使用情境题，交卷结果将以 ${AI_LITERACY_QUIZ_ID} 保存并按 10.5 子节点记录。`
                 : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
-                  ? `本卷对齐期末客观部分，共 ${shuffledQuestions.length} 题：先 ${FINAL_OBJECTIVE_CHOICE_COUNT} 道单项选择，再 ${FINAL_OBJECTIVE_JUDGMENT_COUNT} 道判断。判断在这里是对错单选，A 为正确、B 为错误。芯片口径 80C51。不计时。不含简答、写指令、综合编程和作图。交卷结果以 ${FINAL_OBJECTIVE_QUIZ_ID} 保存。`
+                  ? `本卷对齐期末客观部分，共 ${shuffledQuestions.length} 题：先 ${FINAL_OBJECTIVE_CHOICE_COUNT} 道单项选择，再 ${FINAL_OBJECTIVE_JUDGMENT_COUNT} 道判断。其中含简答、写指令和综合应用里可机判的同考点变体。判断在这里是对错单选，A 为正确、B 为错误。芯片口径 80C51。不计时。不含手写简答、整段编程和作图。交卷结果以 ${FINAL_OBJECTIVE_QUIZ_ID} 保存。`
                 : chapterFilter
                 ? `本卷只含第 ${chapterFilter} 章的 ${shuffledQuestions.length} 道题。系统仍按知识原子记录掌握度。`
                 : `本卷按章节配额抽取 ${shuffledQuestions.length} 道题，作业单选和机判切片权重更高。全部作答后统一交卷，系统按服务端记录生成知识原子掌握度。`}
@@ -1813,7 +1813,7 @@ export function QuizClient(): React.JSX.Element {
             {topicFilter === ADDRESSING_TOPIC_ID
               ? '判断 3.1 及其子节点的当前掌握情况。'
               : topicFilter === FINAL_OBJECTIVE_TOPIC_ID
-                ? '按期末客观部分的考点座位练习单项选择和判断，不包含主观题。'
+                ? '按期末客观座位练习单项选择和判断，覆盖简答与写指令的同考点变体，不交主观题。'
                 : '按当前题集识别已掌握内容和待补强知识原子。'}
           </div>
           <div className="rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-xs leading-5 text-slate-400">
