@@ -482,7 +482,7 @@ describe('往年作业册与作业5/6/7数值切片', () => {
     expect(additions.map((question) => question.id)).toEqual(
       Array.from({ length: additions.length }, (_, index) => 510 + index),
     );
-    expect(additions.length).toBe(95);
+    expect(additions.length).toBe(117);
   });
 
   it('解析首行标来源，正确答案等于选项原文，作业7注明0872', () => {
