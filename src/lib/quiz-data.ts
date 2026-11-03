@@ -33,9 +33,28 @@ export function isQuestionSource(value: unknown): value is QuestionSource {
     && source.url === `/resources/course/course-slides.pdf#page=${source.page}`;
 }
 
+/** 题干附图。只允许本站 `public/resources/course/diagrams/` 下的 svg。 */
+export type QuestionFigure = {
+  src: string;
+  alt: string;
+  caption?: string;
+};
+
+const DIAGRAM_SRC_PATTERN = /^\/resources\/course\/diagrams\/[a-z0-9][a-z0-9._-]*\.svg$/;
+
+export function isQuestionFigure(value: unknown): value is QuestionFigure {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const figure = value as Record<string, unknown>;
+  if (typeof figure.src !== 'string' || !DIAGRAM_SRC_PATTERN.test(figure.src)) return false;
+  if (typeof figure.alt !== 'string' || !figure.alt.trim()) return false;
+  if (figure.caption !== undefined && (typeof figure.caption !== 'string' || !figure.caption.trim())) return false;
+  return true;
+}
+
 type QuestionSupplement = {
   explanation?: string;
   source?: QuestionSource;
+  figure?: QuestionFigure;
 };
 
 export type MultipleChoiceQuestion = QuestionSupplement & {
@@ -8629,6 +8648,71 @@ RET`,
     "ka": "8.5.2",
     "chapter": 8,
     "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-ca3-step]\nC 在 P0.3 为 08H，D 在 P0.4 为 10H。CD 拍是 08H 与 10H 按位或，得到 18H。0CH 是 B 与 C，06H 是 A 与 B。"
+  },
+  {
+    "id": 627,
+    "type": "multiple-choice",
+    "questionText": "按下图接线：INH=0，P2.2/P2.1/P2.0 依次为 0、1、1（即 C=0、B=1、A=1）。此时 COM 接通哪一路？",
+    "options": ["IN3 · 电池监测", "IN1 · 热敏分压", "IN6 · 气压", "IN0 · 光敏分压"],
+    "correctAnswer": "IN3 · 电池监测",
+    "ka": "8.3",
+    "chapter": 8,
+    "figure": {
+      "src": "/resources/course/diagrams/cd4051-mux-p2-variant.svg",
+      "alt": "80C51 经 P2 低三位选通 CD4051 的接法变体图",
+      "caption": "通道号按图注 4C+2B+A；口线与通道场景已改，勿按原卷附图作答。"
+    },
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-fig-cd4051-channel]\nC=0、B=1、A=1 时通道号 = 0×4+1×2+1 = 3，接通 IN3。IN1 对应 001，IN6 对应 110。"
+  },
+  {
+    "id": 628,
+    "type": "multiple-choice",
+    "questionText": "仍按该图：INH=0，P2.2/P2.1/P2.0 = 1、1、0（C=1、B=1、A=0）。COM 接通哪一路？",
+    "options": ["IN6 · 气压", "IN3 · 电池监测", "IN4 · 电流取样", "IN2 · 电位器"],
+    "correctAnswer": "IN6 · 气压",
+    "ka": "8.3",
+    "chapter": 8,
+    "figure": {
+      "src": "/resources/course/diagrams/cd4051-mux-p2-variant.svg",
+      "alt": "80C51 经 P2 低三位选通 CD4051 的接法变体图",
+      "caption": "通道号按图注 4C+2B+A；口线与通道场景已改，勿按原卷附图作答。"
+    },
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-fig-cd4051-channel]\nC=1、B=1、A=0 时通道号 = 4+2+0 = 6，接通 IN6。IN4 是 100，IN3 是 011。"
+  },
+  {
+    "id": 629,
+    "type": "multiple-choice",
+    "questionText": "按该图，把 P2.3 写成 1（INH=1），地址线仍为任意组合。关于 COM 的说法哪一项正确？",
+    "options": [
+      "各输入通道与 COM 都断开，不能采样任何一路",
+      "强制接通 IN0",
+      "强制接通 IN7",
+      "只禁止数字口，模拟通道仍按地址导通"
+    ],
+    "correctAnswer": "各输入通道与 COM 都断开，不能采样任何一路",
+    "ka": "8.3",
+    "chapter": 8,
+    "figure": {
+      "src": "/resources/course/diagrams/cd4051-mux-p2-variant.svg",
+      "alt": "80C51 经 P2 低三位选通 CD4051 的接法变体图",
+      "caption": "读控制端 INH；本图口线接法是变体，不是原卷作图题。"
+    },
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-fig-cd4051-control]\nINH 为高时芯片禁止选通，八路输入都不接到 COM。地址线此时不起作用，不会锁到 IN0 或 IN7。"
+  },
+  {
+    "id": 630,
+    "type": "multiple-choice",
+    "questionText": "按该图标注，CD4051 的地址端 A、B、C 分别由 80C51 的哪几根口线驱动？",
+    "options": ["P2.0、P2.1、P2.2", "P1.0、P1.1、P1.2", "P0.0、P0.1、P0.2", "P3.0、P3.1、P3.2"],
+    "correctAnswer": "P2.0、P2.1、P2.2",
+    "ka": "8.3",
+    "chapter": 8,
+    "figure": {
+      "src": "/resources/course/diagrams/cd4051-mux-p2-variant.svg",
+      "alt": "80C51 经 P2 低三位选通 CD4051 的接法变体图",
+      "caption": "地址口线已改成 P2 低三位；不要套用其他卷的 P1 接法。"
+    },
+    "explanation": "[source: 期末客观模拟变体 · 单选座位 choice-fig-cd4051-control]\n图上写明 A←P2.0、B←P2.1、C←P2.2。P2.3 只接 INH。P1/P0/P3 低三位不是本图的地址口线。"
   },
 ];
 

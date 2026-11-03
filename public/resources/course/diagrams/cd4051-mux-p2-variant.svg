@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="760" height="420" role="img" aria-label="80C51 与 CD4051 模拟多路开关接法变体">
+  <rect width="760" height="420" fill="#0b1218"/>
+  <text x="24" y="28" fill="#94a3b8" font-size="14" font-family="ui-sans-serif,system-ui,sans-serif">图：80C51 经 P2 低三位选通 CD4051（期末客观变体，非原卷附图）</text>
+
+  <!-- MCU -->
+  <rect x="36" y="70" width="150" height="220" rx="8" fill="#111827" stroke="#67e8f9" stroke-width="1.5"/>
+  <text x="111" y="98" text-anchor="middle" fill="#a5f3fc" font-size="16" font-family="ui-sans-serif,system-ui,sans-serif">80C51</text>
+  <text x="56" y="140" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">P2.0 ── A（LSB）</text>
+  <text x="56" y="172" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">P2.1 ── B</text>
+  <text x="56" y="204" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">P2.2 ── C（MSB）</text>
+  <text x="56" y="236" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">P2.3 ── INH</text>
+  <text x="56" y="268" fill="#94a3b8" font-size="12" font-family="ui-sans-serif,system-ui,sans-serif">通道号 = 4C+2B+A</text>
+
+  <!-- wires MCU to CD4051 -->
+  <path d="M186 136 H250" stroke="#67e8f9" stroke-width="1.5" fill="none"/>
+  <path d="M186 168 H250" stroke="#67e8f9" stroke-width="1.5" fill="none"/>
+  <path d="M186 200 H250" stroke="#67e8f9" stroke-width="1.5" fill="none"/>
+  <path d="M186 232 H250" stroke="#fbbf24" stroke-width="1.5" fill="none"/>
+
+  <!-- CD4051 -->
+  <rect x="250" y="60" width="220" height="280" rx="8" fill="#111827" stroke="#86efac" stroke-width="1.5"/>
+  <text x="360" y="88" text-anchor="middle" fill="#bbf7d0" font-size="16" font-family="ui-sans-serif,system-ui,sans-serif">CD4051</text>
+  <text x="268" y="120" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">A ← P2.0</text>
+  <text x="268" y="148" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">B ← P2.1</text>
+  <text x="268" y="176" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">C ← P2.2</text>
+  <text x="268" y="204" fill="#fde68a" font-size="13" font-family="ui-monospace,monospace">INH ← P2.3</text>
+  <text x="268" y="240" fill="#e2e8f0" font-size="13" font-family="ui-monospace,monospace">COM 公共端</text>
+  <text x="268" y="268" fill="#94a3b8" font-size="12" font-family="ui-sans-serif,system-ui,sans-serif">INH=0 允许选通</text>
+  <text x="268" y="290" fill="#94a3b8" font-size="12" font-family="ui-sans-serif,system-ui,sans-serif">INH=1 各路与 COM 断开</text>
+  <text x="268" y="318" fill="#94a3b8" font-size="12" font-family="ui-sans-serif,system-ui,sans-serif">模拟开关，双向导通</text>
+
+  <!-- COM out -->
+  <path d="M470 232 H520" stroke="#f9a8d4" stroke-width="1.5" fill="none"/>
+  <rect x="520" y="204" width="120" height="56" rx="6" fill="#1f2937" stroke="#f9a8d4" stroke-width="1.5"/>
+  <text x="580" y="228" text-anchor="middle" fill="#fbcfe8" font-size="13" font-family="ui-sans-serif,system-ui,sans-serif">至 ADC 输入</text>
+  <text x="580" y="248" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="ui-sans-serif,system-ui,sans-serif">（如 ADC0809 IN）</text>
+
+  <!-- channels -->
+  <text x="560" y="70" text-anchor="middle" fill="#a5b4fc" font-size="13" font-family="ui-sans-serif,system-ui,sans-serif">模拟输入通道</text>
+  <g font-family="ui-monospace,monospace" font-size="12" fill="#e2e8f0">
+    <text x="500" y="100">IN0 · 光敏分压</text>
+    <text x="500" y="122">IN1 · 热敏分压</text>
+    <text x="500" y="144">IN2 · 电位器</text>
+    <text x="500" y="166">IN3 · 电池监测</text>
+    <text x="500" y="188">IN4 · 电流取样</text>
+    <text x="620" y="100">IN5 · 湿度</text>
+    <text x="620" y="122">IN6 · 气压</text>
+    <text x="620" y="144">IN7 · 备用</text>
+  </g>
+  <path d="M470 100 H488" stroke="#a5b4fc" stroke-width="1" fill="none"/>
+  <path d="M470 122 H488" stroke="#a5b4fc" stroke-width="1" fill="none"/>
+  <path d="M470 144 H488" stroke="#a5b4fc" stroke-width="1" fill="none"/>
+  <path d="M470 166 H488" stroke="#a5b4fc" stroke-width="1" fill="none"/>
+  <path d="M470 188 H488" stroke="#a5b4fc" stroke-width="1" fill="none"/>
+
+  <text x="24" y="400" fill="#64748b" font-size="12" font-family="ui-sans-serif,system-ui,sans-serif">口线、通道场景与原卷附图不同；读图时以本图标注为准。</text>
+</svg>
