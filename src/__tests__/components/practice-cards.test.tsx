@@ -75,6 +75,7 @@ describe('practice card submissions', () => {
     await screen.findByText('响应丢失，请重试');
     fireEvent.click(screen.getByRole('button', { name: /错误选项/ }));
     await screen.findByText('点亮了，真棒！');
+    expect(screen.getByText('正确解析')).toBeInTheDocument();
     const submissions = request.mock.calls.filter(
       ([path]) => path === 'answer',
     );

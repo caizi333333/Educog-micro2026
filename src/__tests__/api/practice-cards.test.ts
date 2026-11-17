@@ -256,6 +256,23 @@ describe('authenticated card-practice API', () => {
       }),
     );
   });
+  it.each([6, 8, practiceQuestions.find((q) => q.explanation?.trim())!.id])(
+    'returns the source-bank explanation unchanged for question %i',
+    async (questionId) => {
+      const question = practiceQuestions.find((q) => q.id === questionId)!;
+      const response = await call('answer', {
+        questionId,
+        answer: question.correctAnswer,
+        mode: 'all',
+        requestId: `explanation-${questionId}`,
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        questionId,
+        explanation: question.explanation || '',
+      });
+    },
+  );
   it('promotes review boxes and returns only due questions from the review endpoint', async () => {
     p.practiceReviewCard.findUnique.mockResolvedValue({ box: 1 });
     await call('answer', { ...answer(), mode: 'review' });
