@@ -29,6 +29,7 @@ import {
   Settings,
   LogOut,
   ClipboardCheck,
+  Layers,
   ClipboardList,
   Clock,
   Target,
@@ -79,6 +80,7 @@ const sharedLearningItems = [
   { href: '/lesson-notes', label: '讲解笔记', icon: NotebookPen },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
+  { href: '/practice', label: '刷题', icon: Layers },
 ];
 
 const studentPersonalLearningItems = [
@@ -101,6 +103,7 @@ const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
   { href: '/teacher/daily', label: '今日动态', icon: Clock },
   { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
+  { href: '/teacher/practice', label: '刷题学情', icon: ClipboardCheck },
   { href: '/teacher/feedback', label: '学生反馈', icon: MessageSquare },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
   { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },

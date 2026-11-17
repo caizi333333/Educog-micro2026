@@ -50,6 +50,10 @@ model User {
   siteFeedback       SiteFeedback[]
   teachingClasses    ClassGroup[]            @relation("ClassTeacher")
   userProgress       UserProgress?
+  practiceCardAttempts PracticeCardAttempt[]
+  practiceReviewCards PracticeReviewCard[]
+  practiceChallenges PracticeChallenge[]
+  practiceCardProfile PracticeCardProfile?
 
   @@index([email])
   @@index([username])
@@ -71,10 +75,67 @@ model ClassGroup {
   teacher        User?             @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments    ClassEnrollment[]
   learningEvents LearningEvent[]
+  practiceCardAttempts PracticeCardAttempt[]
+  practiceChallenges PracticeChallenge[]
 
   @@index([teacherId])
   @@index([status])
   @@index([name])
+}
+
+model PracticeCardProfile {
+  userId String @id
+  dailyGoal Int @default(20)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PracticeCardAttempt {
+  id String @id @default(cuid())
+  userId String
+  classId String?
+  questionId Int
+  requestId String
+  answer String
+  correct Boolean
+  mode String
+  xp Int @default(0)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, requestId])
+  @@index([userId, createdAt])
+  @@index([classId, createdAt])
+  @@index([userId, questionId])
+}
+
+model PracticeReviewCard {
+  id String @id @default(cuid())
+  userId String
+  questionId Int
+  box Int @default(0)
+  dueAt DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, dueAt])
+}
+
+model PracticeChallenge {
+  id String @id @default(cuid())
+  userId String
+  classId String?
+  questionIds Int[]
+  startedAt DateTime @default(now())
+  deadline DateTime
+  answeredCount Int @default(0)
+  correctCount Int @default(0)
+  finishedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([classId, finishedAt, correctCount])
+  @@index([userId, startedAt])
 }
 
 model ClassEnrollment {
