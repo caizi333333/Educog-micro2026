@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // 兼容本地开发（macOS）与 CI/部署环境（Linux）
   binaryTargets = ["native", "darwin-arm64", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
@@ -11,49 +11,49 @@ datasource db {
 }
 
 model User {
-  id                 String                  @id @default(cuid())
-  email              String                  @unique
-  username           String                  @unique
-  password           String
-  name               String?
-  avatar             String?
-  role               String                  @default("STUDENT")
-  status             String                  @default("ACTIVE")
-  studentId          String?                 @unique
-  class              String?
-  grade              String?
-  major              String?
-  teacherId          String?                 @unique
-  creationRequestKey String?                 @unique
-  authVersion        Int                     @default(0)
-  department         String?
-  title              String?
-  totalPoints        Int                     @default(0)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  lastLoginAt        DateTime?
-  certificates       Certificate[]
-  learningPaths      LearningPath[]
-  learningProgress   LearningProgress[]
-  quizAttempts       QuizAttempt[]
-  sessions           Session[]
-  achievements       UserAchievement[]
-  activities         UserActivity[]
-  classEnrollments   ClassEnrollment[]
-  experiments        UserExperiment[]
-  ilabSessions       IlabSession[]
-  ilabStepEvents     IlabStepEvent[]
-  ilabUploadLogs     IlabUploadLog[]
-  simulationSessions SimulationSession[]
-  learningEvents     LearningEvent[]
-  pointsTransactions UserPointsTransaction[]
-  siteFeedback       SiteFeedback[]
-  teachingClasses    ClassGroup[]            @relation("ClassTeacher")
-  userProgress       UserProgress?
+  id                   String                  @id @default(cuid())
+  email                String                  @unique
+  username             String                  @unique
+  password             String
+  name                 String?
+  avatar               String?
+  role                 String                  @default("STUDENT")
+  status               String                  @default("ACTIVE")
+  studentId            String?                 @unique
+  class                String?
+  grade                String?
+  major                String?
+  teacherId            String?                 @unique
+  creationRequestKey   String?                 @unique
+  authVersion          Int                     @default(0)
+  department           String?
+  title                String?
+  totalPoints          Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  lastLoginAt          DateTime?
+  certificates         Certificate[]
+  learningPaths        LearningPath[]
+  learningProgress     LearningProgress[]
+  quizAttempts         QuizAttempt[]
+  sessions             Session[]
+  achievements         UserAchievement[]
+  activities           UserActivity[]
+  classEnrollments     ClassEnrollment[]
+  experiments          UserExperiment[]
+  ilabSessions         IlabSession[]
+  ilabStepEvents       IlabStepEvent[]
+  ilabUploadLogs       IlabUploadLog[]
+  simulationSessions   SimulationSession[]
+  learningEvents       LearningEvent[]
+  pointsTransactions   UserPointsTransaction[]
+  siteFeedback         SiteFeedback[]
+  teachingClasses      ClassGroup[]            @relation("ClassTeacher")
+  userProgress         UserProgress?
   practiceCardAttempts PracticeCardAttempt[]
-  practiceReviewCards PracticeReviewCard[]
-  practiceChallenges PracticeChallenge[]
-  practiceCardProfile PracticeCardProfile?
+  practiceReviewCards  PracticeReviewCard[]
+  practiceChallenges   PracticeChallenge[]
+  practiceCardProfile  PracticeCardProfile?
 
   @@index([email])
   @@index([username])
@@ -62,21 +62,21 @@ model User {
 }
 
 model ClassGroup {
-  id             String            @id @default(cuid())
-  name           String
-  inviteCode     String            @unique
-  courseName     String?
-  semester       String?
-  teacherId      String?
-  creationRequestKey String?           @unique
-  status         String            @default("ACTIVE")
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  teacher        User?             @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
-  enrollments    ClassEnrollment[]
-  learningEvents LearningEvent[]
+  id                   String                @id @default(cuid())
+  name                 String
+  inviteCode           String                @unique
+  courseName           String?
+  semester             String?
+  teacherId            String?
+  creationRequestKey   String?               @unique
+  status               String                @default("ACTIVE")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  teacher              User?                 @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  enrollments          ClassEnrollment[]
+  learningEvents       LearningEvent[]
   practiceCardAttempts PracticeCardAttempt[]
-  practiceChallenges PracticeChallenge[]
+  practiceChallenges   PracticeChallenge[]
 
   @@index([teacherId])
   @@index([status])
@@ -84,23 +84,23 @@ model ClassGroup {
 }
 
 model PracticeCardProfile {
-  userId String @id
-  dailyGoal Int @default(20)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String @id
+  dailyGoal Int    @default(20)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PracticeCardAttempt {
-  id String @id @default(cuid())
-  userId String
-  classId String?
+  id         String      @id @default(cuid())
+  userId     String
+  classId    String?
   questionId Int
-  requestId String
-  answer String
-  correct Boolean
-  mode String
-  xp Int @default(0)
-  createdAt DateTime @default(now())
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestId  String
+  answer     String
+  correct    Boolean
+  mode       String
+  xp         Int         @default(0)
+  createdAt  DateTime    @default(now())
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@unique([userId, requestId])
@@ -110,29 +110,29 @@ model PracticeCardAttempt {
 }
 
 model PracticeReviewCard {
-  id String @id @default(cuid())
-  userId String
+  id         String   @id @default(cuid())
+  userId     String
   questionId Int
-  box Int @default(0)
-  dueAt DateTime
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  box        Int      @default(0)
+  dueAt      DateTime
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
   @@index([userId, dueAt])
 }
 
 model PracticeChallenge {
-  id String @id @default(cuid())
-  userId String
-  classId String?
-  questionIds Int[]
-  startedAt DateTime @default(now())
-  deadline DateTime
-  answeredCount Int @default(0)
-  correctCount Int @default(0)
-  finishedAt DateTime?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
+  id            String      @id @default(cuid())
+  userId        String
+  classId       String?
+  questionIds   Int[]
+  startedAt     DateTime    @default(now())
+  deadline      DateTime
+  answeredCount Int         @default(0)
+  correctCount  Int         @default(0)
+  finishedAt    DateTime?
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup    ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@index([classId, finishedAt, correctCount])
   @@index([userId, startedAt])
@@ -157,23 +157,23 @@ model ClassEnrollment {
 }
 
 model LearningEvent {
-  id         String      @id @default(cuid())
-  userId     String
-  classId    String?
-  eventType  String
-  targetType String
-  targetId   String
-  moduleId   String?
-  chapterId  String?
+  id           String      @id @default(cuid())
+  userId       String
+  classId      String?
+  eventType    String
+  targetType   String
+  targetId     String
+  moduleId     String?
+  chapterId    String?
   experimentId String?
-  quizId     String?
-  duration   Int?
-  progress   Int?
-  clientTime DateTime?
-  metadata   String?
-  createdAt  DateTime    @default(now())
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classGroup ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
+  quizId       String?
+  duration     Int?
+  progress     Int?
+  clientTime   DateTime?
+  metadata     String?
+  createdAt    DateTime    @default(now())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classGroup   ClassGroup? @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([classId])
@@ -384,14 +384,14 @@ model UserProgress {
 model KnowledgeNode {
   id            String   @id // matches the static knowledge-points id (e.g. "8.1.5")
   name          String
-  level         Int      // 1 | 2 | 3
+  level         Int // 1 | 2 | 3
   chapter       Int
   description   String?
-  graphNodeId   String?  // legacy curated graph alias used by deep links
-  parentId      String?  // matches another KnowledgeNode.id, NOT a FK constraint to allow staged seeding
-  resources     Json?    // KnowledgePointResource[] from the static source, verbatim
-  prerequisites String[] @default([])  // ids of other KnowledgeNodes this depends on
-  appliedIn     String[] @default([])  // experiment refIds where this point is exercised
+  graphNodeId   String? // legacy curated graph alias used by deep links
+  parentId      String? // matches another KnowledgeNode.id, NOT a FK constraint to allow staged seeding
+  resources     Json? // KnowledgePointResource[] from the static source, verbatim
+  prerequisites String[] @default([]) // ids of other KnowledgeNodes this depends on
+  appliedIn     String[] @default([]) // experiment refIds where this point is exercised
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -424,10 +424,10 @@ model AchievementAuditLog {
   id            String   @id @default(cuid())
   userId        String
   achievementId String
-  action        String   // GRANT | REVOKE | RECALC
+  action        String // GRANT | REVOKE | RECALC
   performedBy   String?
-  previousState String?  // JSON
-  newState      String?  // JSON
+  previousState String? // JSON
+  newState      String? // JSON
   reason        String?
   createdAt     DateTime @default(now())
 
@@ -442,29 +442,29 @@ model AchievementAuditLog {
 // ============================================================================
 
 model GraduationRequirement {
-  id               String            @id @default(cuid())
-  code             String            @unique // e.g. "GR01"
-  index            Int               @unique // 1..11
-  name             String                    // e.g. "工程知识"
-  description      String?
-  standardVersion  String            @default("2024")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  indicators       IndicatorPoint[]
+  id              String           @id @default(cuid())
+  code            String           @unique // e.g. "GR01"
+  index           Int              @unique // 1..11
+  name            String // e.g. "工程知识"
+  description     String?
+  standardVersion String           @default("2024")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  indicators      IndicatorPoint[]
 
   @@index([index])
 }
 
 model IndicatorPoint {
-  id                      String                @id @default(cuid())
-  code                    String                @unique // e.g. "1-3"
+  id                      String                             @id @default(cuid())
+  code                    String                             @unique // e.g. "1-3"
   graduationRequirementId String
-  subIndex                Int                           // e.g. 3 for GR01 sub-point 3
-  description             String                        // e.g. "运用计算知识和工具"
-  achievementThreshold    Float                 @default(0.65)
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  graduationRequirement   GraduationRequirement @relation(fields: [graduationRequirementId], references: [id], onDelete: Cascade)
+  subIndex                Int // e.g. 3 for GR01 sub-point 3
+  description             String // e.g. "运用计算知识和工具"
+  achievementThreshold    Float                              @default(0.65)
+  createdAt               DateTime                           @default(now())
+  updatedAt               DateTime                           @updatedAt
+  graduationRequirement   GraduationRequirement              @relation(fields: [graduationRequirementId], references: [id], onDelete: Cascade)
   courseObjectives        CourseObjective[]
   grAchievements          GraduationRequirementAchievement[]
 
@@ -473,18 +473,18 @@ model IndicatorPoint {
 }
 
 model CourseObjective {
-  id                 String            @id @default(cuid())
-  code               String            @unique // e.g. "CO1"
-  name               String                    // e.g. "掌握8051微控制器基本结构与工作原理"
+  id                 String                       @id @default(cuid())
+  code               String                       @unique // e.g. "CO1"
+  name               String // e.g. "掌握8051微控制器基本结构与工作原理"
   description        String?
   indicatorPointId   String
-  supportWeight      Float                     // 0.0-1.0, how much this CO contributes to the indicator point
-  semester           String?                   // e.g. "2025-2026-1"
-  version            Int               @default(1) // CQI versioning
-  isActive           Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  indicatorPoint     IndicatorPoint    @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
+  supportWeight      Float // 0.0-1.0, how much this CO contributes to the indicator point
+  semester           String? // e.g. "2025-2026-1"
+  version            Int                          @default(1) // CQI versioning
+  isActive           Boolean                      @default(true)
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  indicatorPoint     IndicatorPoint               @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
   assessmentLinks    AssessmentLink[]
   achievementRecords CourseObjectiveAchievement[]
 
@@ -493,17 +493,17 @@ model CourseObjective {
 }
 
 model AssessmentLink {
-  id                  String          @id @default(cuid())
-  courseObjectiveId   String
-  assessmentType      String          // "QUIZ" | "EXPERIMENT" | "LEARNING_PROGRESS" | "COMPREHENSIVE"
-  assessmentTargetId  String          // quizId (e.g. "quiz-ch4"), experimentId (e.g. "exp03"), or chapterId
-  weight              Float           // 0.0-1.0, contribution weight within this CO
-  maxScore            Float           // 100 for quizzes/experiments, 100 for progress
-  chapter             Int?
-  description         String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  courseObjective     CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
+  id                 String          @id @default(cuid())
+  courseObjectiveId  String
+  assessmentType     String // "QUIZ" | "EXPERIMENT" | "LEARNING_PROGRESS" | "COMPREHENSIVE"
+  assessmentTargetId String // quizId (e.g. "quiz-ch4"), experimentId (e.g. "exp03"), or chapterId
+  weight             Float // 0.0-1.0, contribution weight within this CO
+  maxScore           Float // 100 for quizzes/experiments, 100 for progress
+  chapter            Int?
+  description        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  courseObjective    CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
 
   @@unique([courseObjectiveId, assessmentType, assessmentTargetId])
   @@index([courseObjectiveId])
@@ -511,19 +511,19 @@ model AssessmentLink {
 }
 
 model CourseObjectiveAchievement {
-  id                  String          @id @default(cuid())
-  userId              String
-  courseObjectiveId   String
-  semester            String?
-  classId             String?
-  weightedScoreSum    Float           // Σ(actual_score × weight)
-  weightedMaxSum      Float           // Σ(max_score × weight)
-  achievementDegree   Float           // weightedScoreSum / weightedMaxSum
-  passed              Boolean         // achievementDegree >= threshold
-  breakdown           String?         // JSON: { quiz: {score, max, weight}, experiment: {...} }
-  calculatedAt        DateTime        @default(now())
-  createdAt           DateTime        @default(now())
-  courseObjective     CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  userId            String
+  courseObjectiveId String
+  semester          String?
+  classId           String?
+  weightedScoreSum  Float // Σ(actual_score × weight)
+  weightedMaxSum    Float // Σ(max_score × weight)
+  achievementDegree Float // weightedScoreSum / weightedMaxSum
+  passed            Boolean // achievementDegree >= threshold
+  breakdown         String? // JSON: { quiz: {score, max, weight}, experiment: {...} }
+  calculatedAt      DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  courseObjective   CourseObjective @relation(fields: [courseObjectiveId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseObjectiveId, semester, classId])
   @@index([userId])
@@ -533,17 +533,17 @@ model CourseObjectiveAchievement {
 }
 
 model GraduationRequirementAchievement {
-  id                     String          @id @default(cuid())
+  id                     String         @id @default(cuid())
   userId                 String
   indicatorPointId       String
   semester               String?
   classId                String?
-  achievementDegree      Float           // weighted average of supporting CO achievements
+  achievementDegree      Float // weighted average of supporting CO achievements
   passed                 Boolean
-  contributingObjectives String?         // JSON: [{coId, coAchievement, weight}]
-  calculatedAt           DateTime        @default(now())
-  createdAt              DateTime        @default(now())
-  indicatorPoint         IndicatorPoint  @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
+  contributingObjectives String? // JSON: [{coId, coAchievement, weight}]
+  calculatedAt           DateTime       @default(now())
+  createdAt              DateTime       @default(now())
+  indicatorPoint         IndicatorPoint @relation(fields: [indicatorPointId], references: [id], onDelete: Cascade)
 
   @@unique([userId, indicatorPointId, semester, classId])
   @@index([userId])
@@ -553,26 +553,26 @@ model GraduationRequirementAchievement {
 
 model CQIReport {
   id                  String          @id @default(cuid())
-  semester            String                           // e.g. "2025-2026-1"
+  semester            String // e.g. "2025-2026-1"
   classId             String?
   title               String
-  reportType          String                           // "COURSE" | "INDICATOR" | "GRADUATION_REQ"
+  reportType          String // "COURSE" | "INDICATOR" | "GRADUATION_REQ"
   targetId            String?
-  targetCode          String?                          // e.g. "CO1", "1-3", "GR01"
+  targetCode          String? // e.g. "CO1", "1-3", "GR01"
   averageAchievement  Float?
   passRate            Float?
-  totalStudents       Int              @default(0)
-  passedStudents      Int              @default(0)
-  weakPoints          String?                           // JSON: [{targetId, description, avgScore}]
-  strengths           String?                           // JSON: [{targetId, description, avgScore}]
-  improvementMeasures String?                           // JSON: [{measure, responsible, deadline}]
-  previousMeasures    String?                           // JSON from prior semester
+  totalStudents       Int             @default(0)
+  passedStudents      Int             @default(0)
+  weakPoints          String? // JSON: [{targetId, description, avgScore}]
+  strengths           String? // JSON: [{targetId, description, avgScore}]
+  improvementMeasures String? // JSON: [{measure, responsible, deadline}]
+  previousMeasures    String? // JSON from prior semester
   previousAchievement Float?
   achievementChange   Float?
-  status              String           @default("DRAFT") // DRAFT | REVIEWED | APPROVED | CLOSED
+  status              String          @default("DRAFT") // DRAFT | REVIEWED | APPROVED | CLOSED
   reviewedBy          String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
   actionItems         CQIActionItem[]
 
   @@index([semester])
@@ -582,17 +582,17 @@ model CQIReport {
 }
 
 model CQIActionItem {
-  id            String    @id @default(cuid())
-  cqiReportId   String
-  description   String
-  category      String    // "CONTENT" | "METHOD" | "RESOURCE" | "ASSESSMENT"
-  assignedTo    String?   // teacher userId
-  dueDate       DateTime?
-  status        String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
-  result        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  cqiReport     CQIReport @relation(fields: [cqiReportId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  cqiReportId String
+  description String
+  category    String // "CONTENT" | "METHOD" | "RESOURCE" | "ASSESSMENT"
+  assignedTo  String? // teacher userId
+  dueDate     DateTime?
+  status      String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
+  result      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cqiReport   CQIReport @relation(fields: [cqiReportId], references: [id], onDelete: Cascade)
 
   @@index([cqiReportId])
   @@index([status])
@@ -601,14 +601,14 @@ model CQIActionItem {
 // ===== 实验空间（ilab-x.com）2022/2026 版接口对接 =====
 model IlabSession {
   id              String   @id @default(cuid())
-  sessionId       String   // 本平台 Session.id
+  sessionId       String // 本平台 Session.id
   userId          String
-  ilabUsername    String   // 实验空间用户账号（un）
-  ilabDisplayName String?  // 用户姓名（dis）
-  accessToken     String   // 实验空间接口令牌（24h）
+  ilabUsername    String // 实验空间用户账号（un）
+  ilabDisplayName String? // 用户姓名（dis）
+  accessToken     String // 实验空间接口令牌（24h）
   tokenExpiresAt  DateTime
   refreshCount    Int      @default(0) // 最多刷新 2 次
-  experimentId    String   // 本平台实验编号（默认 proj04）
+  experimentId    String // 本平台实验编号（默认 proj04）
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -623,7 +623,7 @@ model IlabStepEvent {
   sessionId    String
   userId       String
   experimentId String
-  stepId       String    // ILAB_STEP_CATALOG 内 id 或 ai_* 信标
+  stepId       String // ILAB_STEP_CATALOG 内 id 或 ai_* 信标
   clientAt     DateTime? // 客户端自报时间，仅供参考
   createdAt    DateTime  @default(now()) // 服务端权威时间
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -638,7 +638,7 @@ model IlabUploadLog {
   sessionId    String?
   experimentId String
   originId     String
-  endpoint     String   // data_upload | attachment_upload | ...
+  endpoint     String // data_upload | attachment_upload | ...
   requestJson  String
   responseCode Int?
   responseMsg  String?
