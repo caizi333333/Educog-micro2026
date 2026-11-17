@@ -184,6 +184,9 @@ export function PracticeClient() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const pendingAnswers = useRef(
+    new Map<string, { requestId: string; answer: string }>(),
+  );
   const finishing = useRef(false);
   const finishFailed = useRef(false);
   const [queue, setQueue] = useState<PracticeQuestion[]>([]);
@@ -385,16 +388,23 @@ export function PracticeClient() {
           run.until = performance.now();
         }
       } else {
+        const key = JSON.stringify([dashboard?.classId, mode, current.id]);
+        const pending = pendingAnswers.current.get(key) ?? {
+          requestId: crypto.randomUUID(),
+          answer: value,
+        };
+        pendingAnswers.current.set(key, pending);
         const result = await practiceRequest<CardFeedback>(
           'answer',
           {
             questionId: current.id,
-            answer: value,
+            answer: pending.answer,
             mode,
-            requestId: crypto.randomUUID(),
+            requestId: pending.requestId,
           },
           dashboard?.classId,
         );
+        pendingAnswers.current.delete(key);
         setResults((prev) => ({ ...prev, [current.id]: result }));
         setBack(true);
         const nextCombo = result.correct ? combo + 1 : 0;
