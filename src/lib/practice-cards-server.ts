@@ -209,18 +209,19 @@ async function recordAnswer(
     });
     const moduleId =
       getModuleIdForChapter(question.chapter) || 'practice-cards';
+    const chapterId = `ch${question.chapter}`;
     await tx.learningProgress.upsert({
       where: {
         userId_moduleId_chapterId: {
           userId: payload.userId,
           moduleId,
-          chapterId: String(question.chapter),
+          chapterId,
         },
       },
       create: {
         userId: payload.userId,
         moduleId,
-        chapterId: String(question.chapter),
+        chapterId,
         status: 'IN_PROGRESS',
         lastAccessAt: now,
       },

@@ -221,7 +221,17 @@ describe('authenticated card-practice API', () => {
         classId: 'class-a',
       }),
     });
-    expect(p.learningProgress.upsert).toHaveBeenCalled();
+    expect(p.learningProgress.upsert).toHaveBeenCalledWith({
+      where: {
+        userId_moduleId_chapterId: {
+          userId: payload.userId,
+          moduleId: expect.any(String),
+          chapterId: `ch${mc.chapter}`,
+        },
+      },
+      create: expect.objectContaining({ chapterId: `ch${mc.chapter}` }),
+      update: { lastAccessAt: now },
+    });
     expect(p.practiceReviewCard.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: { box: 1, dueAt: new Date(now.getTime() + 86400000) },
