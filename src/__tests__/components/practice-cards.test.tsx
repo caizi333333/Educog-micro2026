@@ -116,4 +116,22 @@ describe('practice card submissions', () => {
     expect(submissions).toHaveLength(2);
     expect(submissions[1][1].requestId).not.toBe(submissions[0][1].requestId);
   });
+  it('continues daily practice with the server-ranked cards after all cards have been attempted', async () => {
+    const older = { ...question, id: 2, questionText: '更早练过的题目' };
+    request.mockImplementation((path: string) => {
+      if (path === 'me')
+        return Promise.resolve({ ...dashboard, today: 20, answered: [1, 2] });
+      return Promise.resolve(
+        path.includes('daily=1') ? [older, question] : [question, older],
+      );
+    });
+    render(<PracticeClient />);
+    fireEvent.click(await screen.findByRole('button', { name: /继续学习/ }));
+    await screen.findByRole('heading', { name: '更早练过的题目' });
+    expect(request).toHaveBeenCalledWith(
+      'questions?mode=all&daily=1',
+      undefined,
+      'class-a',
+    );
+  });
 });

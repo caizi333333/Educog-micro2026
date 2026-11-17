@@ -450,6 +450,44 @@ describe('authenticated card-practice API', () => {
       /correctAnswer|explanation/,
     );
   });
+  it('orders daily queues by unseen then least recently answered cards, including after the daily goal', async () => {
+    const earlierLocalDay = new Date('2026-11-17T15:30:00Z');
+    p.practiceCardAttempt.findMany.mockResolvedValue(
+      practiceQuestions
+        .slice(0, 2)
+        .map((q) => ({ questionId: q.id, createdAt: earlierLocalDay })),
+    );
+    const unseen = await (await call('questions?mode=all&daily=1')).json();
+    expect(unseen[0].id).toBe(practiceQuestions[2].id);
+    p.practiceCardAttempt.findMany.mockResolvedValue([
+      ...practiceQuestions.map((q) => ({
+        questionId: q.id,
+        createdAt: earlierLocalDay,
+      })),
+      ...practiceQuestions
+        .slice(0, 20)
+        .map((q) => ({ questionId: q.id, createdAt: now })),
+    ]);
+    const daily = await (await call('questions?mode=all&daily=1')).json();
+    expect(daily[0].id).toBe(practiceQuestions[20].id);
+    expect(
+      daily
+        .slice(0, 20)
+        .every(
+          (q: { id: number }) =>
+            !practiceQuestions.slice(0, 20).some((done) => done.id === q.id),
+        ),
+    ).toBe(true);
+    expect(JSON.stringify(daily)).not.toMatch(/correctAnswer|explanation/);
+    const ordered = await (await call('questions?mode=all')).json();
+    expect(ordered[0].id).toBe(practiceQuestions[0].id);
+  });
+  it('keeps daily queues in bank order when there is no history', async () => {
+    const daily = await (await call('questions?mode=all&daily=1')).json();
+    expect(daily.map((q: { id: number }) => q.id)).toEqual(
+      practiceQuestions.map((q) => q.id),
+    );
+  });
   it('checks run ownership, sequence, deadline and finished state; challenge answers omit explanations', async () => {
     const run = {
       id: 'run-a',

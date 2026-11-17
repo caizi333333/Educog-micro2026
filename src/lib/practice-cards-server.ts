@@ -523,6 +523,23 @@ export async function handlePracticeCards(request: Request): Promise<Response> {
           );
           questions = questions.filter((q) => ids.includes(q.id));
         }
+        if (mode === 'all' && url.searchParams.get('daily') === '1') {
+          const attempts = await prisma.practiceCardAttempt.findMany({
+            where: { userId: payload.userId },
+            orderBy: { createdAt: 'asc' },
+            select: { questionId: true, createdAt: true },
+          });
+          const latest = new Map(
+            attempts.map((a) => [a.questionId, a.createdAt]),
+          );
+          questions.sort((a, b) => {
+            const aLast = latest.get(a.id);
+            const bLast = latest.get(b.id);
+            if (!aLast) return bLast ? -1 : 0;
+            if (!bLast) return 1;
+            return aLast.getTime() - bLast.getTime();
+          });
+        }
         return json(questions.map(toPublicQuestion));
       }
     }

@@ -294,6 +294,7 @@ export function PracticeClient() {
         setSeconds(60);
       } else {
         const params = new URLSearchParams({ mode: nextMode });
+        if (daily) params.set('daily', '1');
         if (chapter) params.set('chapter', String(chapter));
         if (ids) params.set('ids', ids.join(','));
         questions = await practiceRequest<PracticeQuestion[]>(
@@ -302,10 +303,7 @@ export function PracticeClient() {
           dashboard?.classId,
         );
         if (daily) {
-          const unseen = questions.filter(
-            (q) => !dashboard?.answered.includes(q.id),
-          );
-          questions = (unseen.length ? unseen : questions).slice(
+          questions = questions.slice(
             0,
             Math.min(
               20,
