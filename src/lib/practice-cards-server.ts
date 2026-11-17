@@ -22,6 +22,28 @@ import {
   scheduleReview,
 } from '@/lib/practice-cards';
 
+const WRITE_LIMITS: Record<string, number> = {
+  answer: 120,
+  'challenge/start': 10,
+  'challenge/answer': 120,
+};
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateLimiter = new Map<string, number[]>();
+
+function checkWriteRateLimit(userId: string, action: string): boolean {
+  const limit = WRITE_LIMITS[action];
+  if (!limit) return true;
+  const now = Date.now();
+  const key = `${userId}:${action}`;
+  const recent = (rateLimiter.get(key) ?? []).filter(
+    (time) => now - time < RATE_LIMIT_WINDOW_MS,
+  );
+  if (recent.length >= limit) return false;
+  recent.push(now);
+  rateLimiter.set(key, recent);
+  return true;
+}
+
 class PracticeError extends Error {
   constructor(
     public status: number,
@@ -362,6 +384,12 @@ export async function handlePracticeCards(request: Request): Promise<Response> {
     requireValue(payload, '未授权', 401);
     const url = new URL(request.url);
     const action = url.pathname.split('/api/practice/cards/')[1];
+    if (
+      request.method === 'POST' &&
+      !checkWriteRateLimit(payload.userId, action)
+    ) {
+      return json({ error: '请求过于频繁，请稍后再试' }, 429);
+    }
     if (action === 'teacher' && request.method === 'GET')
       return await teacherData(request, payload);
     const body = request.method === 'POST' ? await readBody(request) : {};

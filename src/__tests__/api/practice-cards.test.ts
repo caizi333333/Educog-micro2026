@@ -116,6 +116,35 @@ describe('authenticated card-practice API', () => {
     ]);
   });
   afterEach(() => jest.useRealTimers());
+  it.each([
+    ['answer', 120],
+    ['challenge/start', 10],
+    ['challenge/answer', 120],
+  ])(
+    'rate-limits %s writes per account and releases the window',
+    async (action, limit) => {
+      (verifyToken as jest.Mock).mockResolvedValue({
+        ...payload,
+        userId: `rate-limit-${action}`,
+      });
+      for (let i = 0; i < limit; i++) {
+        expect((await call(String(action), {})).status).not.toBe(429);
+      }
+      expect((await call(String(action), {})).status).toBe(429);
+      expect(p.practiceCardAttempt.create).not.toHaveBeenCalled();
+      (verifyToken as jest.Mock).mockResolvedValue({
+        ...payload,
+        userId: `other-${action}`,
+      });
+      expect((await call(String(action), {})).status).not.toBe(429);
+      (verifyToken as jest.Mock).mockResolvedValue({
+        ...payload,
+        userId: `rate-limit-${action}`,
+      });
+      jest.advanceTimersByTime(60_000);
+      expect((await call(String(action), {})).status).not.toBe(429);
+    },
+  );
   it('returns 401 for unauthenticated/invalid sessions and 403 for unenrolled students', async () => {
     expect((await call('questions', undefined, '')).status).toBe(401);
     (verifyToken as jest.Mock).mockResolvedValueOnce(null);
