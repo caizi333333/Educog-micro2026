@@ -1,4 +1,3 @@
-
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -29,6 +28,7 @@ import {
   Settings,
   LogOut,
   ClipboardCheck,
+  Layers,
   ClipboardList,
   Clock,
   Target,
@@ -67,7 +67,11 @@ import { useAchievementNotifications } from '@/hooks/use-achievement-notificatio
 import { useAchievementCheck } from '@/hooks/use-achievement-check';
 import { getMostSpecificRouteMatch } from '@/lib/role-access';
 import { useLearningPresence } from '@/hooks/useLearningPresence';
-import { AppSiteVersionFooter, SiteVersionFooter, StudentFeedbackLauncher } from '@/components/site/site-chrome';
+import {
+  AppSiteVersionFooter,
+  SiteVersionFooter,
+  StudentFeedbackLauncher,
+} from '@/components/site/site-chrome';
 
 // Navigation groups. Personal learning records are student-only; teachers get
 // task review at the same visual position so the next action matches the role.
@@ -79,6 +83,7 @@ const sharedLearningItems = [
   { href: '/lesson-notes', label: '讲解笔记', icon: NotebookPen },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
+  { href: '/practice', label: '刷题', icon: Layers },
 ];
 
 const studentPersonalLearningItems = [
@@ -101,6 +106,7 @@ const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
   { href: '/teacher/daily', label: '今日动态', icon: Clock },
   { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
+  { href: '/teacher/practice', label: '刷题学情', icon: ClipboardCheck },
   { href: '/teacher/feedback', label: '学生反馈', icon: MessageSquare },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
   { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },
@@ -155,7 +161,11 @@ export const getVisibleLearningItems = (role?: string): NavigationItem[] => {
 
 export const getVisibleAnalysisItems = (role?: string): NavigationItem[] => {
   if (role === 'STUDENT') {
-    return [sharedAnalysisItems[0]!, ...studentPersonalAnalysisItems, sharedAnalysisItems[1]!];
+    return [
+      sharedAnalysisItems[0]!,
+      ...studentPersonalAnalysisItems,
+      sharedAnalysisItems[1]!,
+    ];
   }
   return sharedAnalysisItems;
 };
@@ -164,9 +174,10 @@ const getVisibleAdminItems = (role?: string): NavigationItem[] => {
   if (role !== 'TEACHER' && role !== 'ADMIN') return [];
 
   return adminItems.filter((item) => {
-    const adminOnly = item.href === '/admin'
-      || item.href === '/obe/admin'
-      || item.href === '/admin/users';
+    const adminOnly =
+      item.href === '/admin' ||
+      item.href === '/obe/admin' ||
+      item.href === '/admin/users';
     return !adminOnly || role === 'ADMIN';
   });
 };
@@ -198,19 +209,29 @@ const staticPageTitles: Record<string, string> = {
 
 const getRoleName = (role?: string): string => {
   switch (role) {
-    case 'ADMIN': return '管理员';
-    case 'TEACHER': return '教师';
-    case 'STUDENT': return '学生';
-    case 'GUEST': return '访客';
-    default: return '用户';
+    case 'ADMIN':
+      return '管理员';
+    case 'TEACHER':
+      return '教师';
+    case 'STUDENT':
+      return '学生';
+    case 'GUEST':
+      return '访客';
+    default:
+      return '用户';
   }
 };
 
-const getRoleBadgeVariant = (role?: string): 'default' | 'secondary' | 'outline' => {
+const getRoleBadgeVariant = (
+  role?: string,
+): 'default' | 'secondary' | 'outline' => {
   switch (role) {
-    case 'ADMIN': return 'default';
-    case 'TEACHER': return 'secondary';
-    default: return 'outline';
+    case 'ADMIN':
+      return 'default';
+    case 'TEACHER':
+      return 'secondary';
+    default:
+      return 'outline';
   }
 };
 
@@ -219,7 +240,13 @@ const getInitial = (name?: string): string => {
   return name.charAt(0).toUpperCase();
 };
 
-function NavItem({ item, activeHref }: { item: NavigationItem; activeHref: string | null }): React.JSX.Element {
+function NavItem({
+  item,
+  activeHref,
+}: {
+  item: NavigationItem;
+  activeHref: string | null;
+}): React.JSX.Element {
   const isActive = activeHref === item.href;
   const Icon = item.icon;
   const linkRef = React.useRef<HTMLAnchorElement>(null);
@@ -261,7 +288,11 @@ function NavItem({ item, activeHref }: { item: NavigationItem; activeHref: strin
   );
 }
 
-function MobileNavigationRouteSync({ pathname }: { pathname: string | null }): null {
+function MobileNavigationRouteSync({
+  pathname,
+}: {
+  pathname: string | null;
+}): null {
   const { isMobile, setOpenMobile } = useSidebar();
   const previousPathnameRef = React.useRef(pathname);
 
@@ -313,7 +344,11 @@ function MobileSidebarCloseButton(): React.JSX.Element | null {
   );
 }
 
-function AccountMenuActions({ logout }: { logout: LogoutHandler }): React.JSX.Element {
+function AccountMenuActions({
+  logout,
+}: {
+  logout: LogoutHandler;
+}): React.JSX.Element {
   const { isMobile, setOpenMobile } = useSidebar();
   const closeMobileNavigation = (): void => {
     if (isMobile) setOpenMobile(false);
@@ -353,7 +388,11 @@ function AccountMenuActions({ logout }: { logout: LogoutHandler }): React.JSX.El
   );
 }
 
-function AccountMenuIdentity({ user }: { user: LayoutUser }): React.JSX.Element {
+function AccountMenuIdentity({
+  user,
+}: {
+  user: LayoutUser;
+}): React.JSX.Element {
   return (
     <DropdownMenuLabel>
       <div className="min-w-0">
@@ -364,7 +403,13 @@ function AccountMenuIdentity({ user }: { user: LayoutUser }): React.JSX.Element 
   );
 }
 
-function SidebarAccountMenu({ user, logout }: { user: LayoutUser; logout: LogoutHandler }): React.JSX.Element {
+function SidebarAccountMenu({
+  user,
+  logout,
+}: {
+  user: LayoutUser;
+  logout: LogoutHandler;
+}): React.JSX.Element {
   const { isMobile } = useSidebar();
 
   return (
@@ -382,14 +427,23 @@ function SidebarAccountMenu({ user, logout }: { user: LayoutUser; logout: Logout
             </AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-col items-start gap-0.5 group-data-[collapsible=icon]:hidden">
-            <span className="max-w-full truncate text-sm font-semibold">{user.name}</span>
-            <Badge variant={getRoleBadgeVariant(user.role)} className="h-4 px-1.5 py-0 text-[10px]">
+            <span className="max-w-full truncate text-sm font-semibold">
+              {user.name}
+            </span>
+            <Badge
+              variant={getRoleBadgeVariant(user.role)}
+              className="h-4 px-1.5 py-0 text-[10px]"
+            >
               {getRoleName(user.role)}
             </Badge>
           </div>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side={isMobile ? 'top' : 'right'} align={isMobile ? 'start' : 'end'} className="w-52">
+      <DropdownMenuContent
+        side={isMobile ? 'top' : 'right'}
+        align={isMobile ? 'start' : 'end'}
+        className="w-52"
+      >
         <AccountMenuIdentity user={user} />
         <DropdownMenuSeparator />
         <AccountMenuActions logout={logout} />
@@ -409,13 +463,19 @@ function Header({
 
   const menuItems = getAllMenuItems(user?.role);
   let currentPageTitle = '';
-  const currentMenuPath = getMostSpecificRouteMatch(pathname, menuItems.map((item) => item.href));
+  const currentMenuPath = getMostSpecificRouteMatch(
+    pathname,
+    menuItems.map((item) => item.href),
+  );
   const currentPage = menuItems.find((item) => item.href === currentMenuPath);
 
   if (currentPage) {
     currentPageTitle = currentPage.label;
   } else {
-    const titlePath = getMostSpecificRouteMatch(pathname, Object.keys(staticPageTitles));
+    const titlePath = getMostSpecificRouteMatch(
+      pathname,
+      Object.keys(staticPageTitles),
+    );
     if (titlePath) currentPageTitle = staticPageTitles[titlePath];
   }
 
@@ -426,9 +486,15 @@ function Header({
         aria-controls={PRIMARY_NAVIGATION_ID}
         aria-expanded={isMobile ? openMobile : sidebarState === 'expanded'}
         aria-haspopup={isMobile ? 'dialog' : undefined}
-        aria-label={isMobile
-          ? openMobile ? '关闭主导航菜单' : '打开主导航菜单'
-          : sidebarState === 'expanded' ? '收起侧边栏' : '展开侧边栏'}
+        aria-label={
+          isMobile
+            ? openMobile
+              ? '关闭主导航菜单'
+              : '打开主导航菜单'
+            : sidebarState === 'expanded'
+              ? '收起侧边栏'
+              : '展开侧边栏'
+        }
       />
       <Separator orientation="vertical" className="h-5" />
       <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-muted-foreground">
@@ -436,7 +502,9 @@ function Header({
         {currentPageTitle && (
           <>
             <ChevronRight className="h-3.5 w-3.5" />
-            <span className="truncate font-medium text-foreground">{currentPageTitle}</span>
+            <span className="truncate font-medium text-foreground">
+              {currentPageTitle}
+            </span>
           </>
         )}
       </div>
@@ -450,7 +518,10 @@ function Header({
             className="h-11 w-11 rounded-full"
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.avatar ?? undefined} alt={user?.name ?? ''} />
+              <AvatarImage
+                src={user?.avatar ?? undefined}
+                alt={user?.name ?? ''}
+              />
               <AvatarFallback className="text-xs bg-primary/10 text-primary">
                 {getInitial(user?.name)}
               </AvatarFallback>
@@ -467,23 +538,37 @@ function Header({
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
   const pathname = usePathname();
 
   const { user, loading, logout } = useAuth();
   const trackStudent = user?.role === 'STUDENT';
-  useLearningPresence('page', trackStudent && pathname ? {
-    eventType: 'PAGE_VIEW',
-    targetType: 'ROUTE',
-    targetId: pathname,
-    metadata: { source: 'app-layout', route: pathname },
-  } : null);
-  useLearningPresence('session', trackStudent ? {
-    eventType: 'SESSION_HEARTBEAT',
-    targetType: 'SESSION',
-    targetId: 'session',
-    metadata: { source: 'app-layout', route: pathname || '/' },
-  } : null);
+  useLearningPresence(
+    'page',
+    trackStudent && pathname
+      ? {
+          eventType: 'PAGE_VIEW',
+          targetType: 'ROUTE',
+          targetId: pathname,
+          metadata: { source: 'app-layout', route: pathname },
+        }
+      : null,
+  );
+  useLearningPresence(
+    'session',
+    trackStudent
+      ? {
+          eventType: 'SESSION_HEARTBEAT',
+          targetType: 'SESSION',
+          targetId: 'session',
+          metadata: { source: 'app-layout', route: pathname || '/' },
+        }
+      : null,
+  );
   const router = useRouter();
   const { currentAchievement, clearCurrent } = useAchievementNotifications();
   const navigationTriggerRef = React.useRef<HTMLButtonElement>(null);
@@ -492,7 +577,14 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
 
   // Public pages don't show sidebar. The course home is public for visitors,
   // but keeps the full app chrome once a user is signed in.
-  const publicPaths = ['/login', '/register', '/welcome', '/privacy', '/terms', '/clear-auth'];
+  const publicPaths = [
+    '/login',
+    '/register',
+    '/welcome',
+    '/privacy',
+    '/terms',
+    '/clear-auth',
+  ];
   // 课程目录对访客开放。讲解笔记和课件文件由中间件按登录与班级校验。
   const publicCoursePaths = ['/'];
   const isPublicPath = publicPaths.includes(pathname ?? '');
@@ -504,7 +596,9 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
       const requestedLocation = pathname
         ? `${pathname}${window.location.search}${window.location.hash}`
         : '';
-      const from = requestedLocation ? `?from=${encodeURIComponent(requestedLocation)}` : '';
+      const from = requestedLocation
+        ? `?from=${encodeURIComponent(requestedLocation)}`
+        : '';
       router.replace(`/login${from}`);
     }
   }, [isPublicCoursePath, isPublicPath, loading, pathname, router, user]);
@@ -530,7 +624,9 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
           <div className="chip-mark mx-auto flex h-14 w-14 items-center justify-center rounded-xl">
             <Cpu className="h-6 w-6 text-primary animate-pulse" />
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">正在加载工作台...</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            正在加载工作台...
+          </p>
         </div>
       </div>
     );
@@ -587,11 +683,18 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
           </div>
         </SidebarHeader>
 
-        <SidebarContent id={PRIMARY_NAVIGATION_ID} role="navigation" aria-label="主导航">
+        <SidebarContent
+          id={PRIMARY_NAVIGATION_ID}
+          role="navigation"
+          aria-label="主导航"
+        >
           {/* Home */}
           <SidebarGroup>
             <SidebarMenu>
-              <NavItem item={{ href: '/', label: '课程内容', icon: BookOpen }} activeHref={activeHref} />
+              <NavItem
+                item={{ href: '/', label: '课程内容', icon: BookOpen }}
+                activeHref={activeHref}
+              />
             </SidebarMenu>
           </SidebarGroup>
 
@@ -599,11 +702,17 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
 
           {/* Learning group */}
           <SidebarGroup>
-            <SidebarGroupLabel>{showAdmin ? '教学资源' : '学习'}</SidebarGroupLabel>
+            <SidebarGroupLabel>
+              {showAdmin ? '教学资源' : '学习'}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleLearningItems.map((item) => (
-                  <NavItem key={item.href} item={item} activeHref={activeHref} />
+                  <NavItem
+                    key={item.href}
+                    item={item}
+                    activeHref={activeHref}
+                  />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -613,11 +722,17 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
 
           {/* Analysis group */}
           <SidebarGroup>
-            <SidebarGroupLabel>{showAdmin ? '教学分析' : '分析'}</SidebarGroupLabel>
+            <SidebarGroupLabel>
+              {showAdmin ? '教学分析' : '分析'}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleAnalysisItems.map((item) => (
-                  <NavItem key={item.href} item={item} activeHref={activeHref} />
+                  <NavItem
+                    key={item.href}
+                    item={item}
+                    activeHref={activeHref}
+                  />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -632,7 +747,11 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {visibleAdminItems.map((item) => (
-                      <NavItem key={item.href} item={item} activeHref={activeHref} />
+                      <NavItem
+                        key={item.href}
+                        item={item}
+                        activeHref={activeHref}
+                      />
                     ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
@@ -657,7 +776,13 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
       </Sidebar>
       <SidebarInset className="edu-shell">
         <Header navigationTriggerRef={navigationTriggerRef} />
-        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 pb-16 outline-none sm:p-6 sm:pb-16">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 p-4 pb-16 outline-none sm:p-6 sm:pb-16"
+        >
+          {children}
+        </main>
         <AppSiteVersionFooter />
       </SidebarInset>
       {user?.role === 'STUDENT' ? <StudentFeedbackLauncher /> : null}
