@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Activity,
   ArrowLeft,
@@ -33,7 +34,10 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { practiceRequest } from '@/lib/practice-cards-client';
+import {
+  PracticeRequestError,
+  practiceRequest,
+} from '@/lib/practice-cards-client';
 import type {
   CardFeedback,
   PracticeMode,
@@ -177,6 +181,7 @@ function QuestionFigure({ question }: { question: PracticeQuestion }) {
 }
 
 export function PracticeClient() {
+  const router = useRouter();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [view, setView] = useState<
     'home' | 'quiz' | 'summary' | 'challenge-result' | 'wrong'
@@ -210,14 +215,23 @@ export function PracticeClient() {
   const wrong = queue.filter((q) => results[q.id] && !results[q.id].correct);
   const gained = completed.reduce((sum, r) => sum + r.xp, 0);
 
-  const load = useCallback(async (classId?: string | null) => {
-    try {
-      setDashboard(await practiceRequest<Dashboard>('me', undefined, classId));
+  const load = useCallback(
+    async (classId?: string | null) => {
       setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '读取失败');
-    }
-  }, []);
+      try {
+        setDashboard(
+          await practiceRequest<Dashboard>('me', undefined, classId),
+        );
+        setError('');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '读取失败');
+        if (e instanceof PracticeRequestError && e.status === 401) {
+          router.replace('/login?from=%2Fpractice');
+        }
+      }
+    },
+    [router],
+  );
   useEffect(() => {
     void load();
   }, [load]);
@@ -494,7 +508,7 @@ export function PracticeClient() {
       )}
       {!dashboard ? (
         <p role="status" className="py-16 text-center text-muted-foreground">
-          {error ? '请确认已加入班级。' : '正在打开你的学习地图…'}
+          {error ? '加载失败，请重试或重新登录。' : '正在打开你的学习地图…'}
         </p>
       ) : (
         <>

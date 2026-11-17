@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import * as jwt from 'jsonwebtoken';
 import { webcrypto } from 'node:crypto';
 import { TextDecoder, TextEncoder } from 'node:util';
@@ -480,6 +480,17 @@ describe('middleware', () => {
       }));
 
       expect(response.status).toBe(200);
+    });
+
+    it('should open practice and forward cookie-only API authentication', async () => {
+      const token = makeJwt('STUDENT', { cls: 1 });
+      const options = { cookies: { accessToken: token } };
+      const page = await middleware(createRequest('/practice', options));
+      expect(page.status).toBe(200);
+      const api = await middleware(createRequest('/api/practice/cards/me', options));
+      expect(api.status).toBe(200);
+      const calls = (NextResponse.next as jest.Mock).mock.calls;
+      expect(calls[calls.length - 1][0].request.headers.get('authorization')).toBe(`Bearer ${token}`);
     });
 
     it('should reject a forged administrator token on pages and APIs', async () => {

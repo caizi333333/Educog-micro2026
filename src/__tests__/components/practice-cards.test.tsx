@@ -1,13 +1,24 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { PracticeClient } from '@/app/practice/practice-client';
 import { practiceRequest } from '@/lib/practice-cards-client';
+import { CLIENT_READ_TIMEOUT_MS } from '@/lib/client-fetch';
 
 jest.mock('@/lib/practice-cards-client', () => ({
+  ...jest.requireActual('@/lib/practice-cards-client'),
   practiceRequest: jest.fn(),
 }));
 jest.mock('@/app/practice/practice.module.css', () => ({}));
 jest.mock('lucide-react', () => new Proxy({}, { get: () => () => null }));
+const mockReplace = jest.fn();
+const mockRouter = { replace: mockReplace };
+jest.mock('next/navigation', () => ({ useRouter: () => mockRouter }));
 
 const request = practiceRequest as jest.Mock;
 const question = {
@@ -45,6 +56,7 @@ const feedback = {
 describe('practice card submissions', () => {
   beforeEach(() => {
     request.mockReset();
+    mockReplace.mockReset();
     window.scrollTo = jest.fn();
     let nextId = 0;
     Object.defineProperty(crypto, 'randomUUID', {
@@ -57,6 +69,87 @@ describe('practice card submissions', () => {
       return Promise.resolve(feedback);
     });
   });
+
+  it('loads a cookie-only session without a local token', async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    request.mockImplementation(
+      jest.requireActual('@/lib/practice-cards-client').practiceRequest,
+    );
+    (fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => dashboard,
+    });
+    render(<PracticeClient />);
+    await screen.findByRole('heading', { name: '嗨，测试同学。' });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/practice/cards/me',
+      expect.objectContaining({ credentials: 'same-origin', headers: {} }),
+    );
+  });
+
+  it('stops loading a stalled cookie-only request and allows a retry', async () => {
+    jest.useFakeTimers();
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      request.mockImplementation(
+        jest.requireActual('@/lib/practice-cards-client').practiceRequest,
+      );
+      (fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
+      render(<PracticeClient />);
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '正在打开你的学习地图',
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(CLIENT_READ_TIMEOUT_MS);
+      });
+      expect(screen.getByRole('alert')).toHaveTextContent('请求超时');
+      expect(screen.getByRole('status')).not.toHaveTextContent('正在打开');
+      (fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => dashboard,
+      });
+      fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+      await screen.findByRole('heading', { name: '嗨，测试同学。' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('redirects a rejected session to login instead of remaining on the loading screen', async () => {
+    request.mockImplementation(
+      jest.requireActual('@/lib/practice-cards-client').practiceRequest,
+    );
+    (fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: '未授权' }),
+    });
+    render(<PracticeClient />);
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('/login?from=%2Fpractice'),
+    );
+    expect(screen.getByRole('status')).not.toHaveTextContent('正在打开');
+  });
+  it.each([403, 500])(
+    'shows recoverable HTTP %i errors without redirecting or spinning',
+    async (status) => {
+      request.mockImplementation(
+        jest.requireActual('@/lib/practice-cards-client').practiceRequest,
+      );
+      (fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => ({ error: '暂时无法加载' }),
+      });
+      render(<PracticeClient />);
+      await screen.findByRole('alert');
+      expect(screen.getByRole('alert')).toHaveTextContent('暂时无法加载');
+      expect(screen.getByRole('status')).not.toHaveTextContent('正在打开');
+      expect(mockReplace).not.toHaveBeenCalled();
+    },
+  );
 
   it('retries the same card answer and request ID after a lost response', async () => {
     let submitted = false;
