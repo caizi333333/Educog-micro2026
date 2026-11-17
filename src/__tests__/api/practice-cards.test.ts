@@ -508,4 +508,49 @@ describe('authenticated card-practice API', () => {
       404,
     );
   });
+  it('replays a committed challenge answer after response loss without advancing or awarding twice', async () => {
+    const run = {
+      id: 'replay-run',
+      userId: payload.userId,
+      classId: 'class-a',
+      questionIds: [mc.id, mc.id],
+      answeredCount: 0,
+      correctCount: 0,
+      deadline: new Date(now.getTime() + 60000),
+      finishedAt: null as Date | null,
+    };
+    p.practiceChallenge.findUnique.mockResolvedValue(run);
+    p.practiceCardAttempt.create.mockImplementation(({ data }) => {
+      const attempt = { id: 'committed-answer', ...data };
+      p.practiceCardAttempt.findUnique.mockResolvedValue(attempt);
+      return Promise.resolve(attempt);
+    });
+    p.practiceChallenge.update.mockImplementation(() => {
+      run.answeredCount++;
+      run.correctCount++;
+      return Promise.resolve(run);
+    });
+    const body = { id: run.id, position: 0, answer: mc.correctAnswer };
+    expect((await call('challenge/answer', body)).status).toBe(200);
+    const replay = await call('challenge/answer', body);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual({ correct: true, xp: 10 });
+    run.deadline = now;
+    run.finishedAt = now;
+    expect((await call('challenge/answer', body)).status).toBe(200);
+    expect(
+      (await call('challenge/answer', { ...body, position: 1 })).status,
+    ).toBe(409);
+    const different =
+      mc.type === 'multiple-choice'
+        ? mc.options.find((option) => option !== mc.correctAnswer)
+        : 'different';
+    expect(
+      (await call('challenge/answer', { ...body, answer: different })).status,
+    ).toBe(409);
+    expect(p.practiceCardAttempt.create).toHaveBeenCalledTimes(1);
+    expect(p.practiceChallenge.update).toHaveBeenCalledTimes(1);
+    expect(p.practiceReviewCard.upsert).toHaveBeenCalledTimes(1);
+    expect(p.learningEvent.create).toHaveBeenCalledTimes(1);
+  });
 });

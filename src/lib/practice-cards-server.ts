@@ -628,18 +628,16 @@ export async function handlePracticeCards(request: Request): Promise<Response> {
               classId: run.classId,
             };
           }
+          const position = body.position;
           requireValue(
-            !run.finishedAt && now < run.deadline,
-            '时间到，请查看成绩',
-            409,
-          );
-          requireValue(
-            Number.isInteger(body.position) &&
-              body.position === run.answeredCount,
+            typeof position === 'number' &&
+              Number.isInteger(position) &&
+              position >= 0 &&
+              position <= run.answeredCount,
             '题目已提交或顺序无效',
             409,
           );
-          const question = practiceBank.get(run.questionIds[run.answeredCount]);
+          const question = practiceBank.get(run.questionIds[position]);
           requireValue(
             question && question.type === 'multiple-choice',
             '挑战已完成',
@@ -650,13 +648,36 @@ export async function handlePracticeCards(request: Request): Promise<Response> {
               question.options.includes(body.answer),
             '请选择有效选项',
           );
+          const requestId = `${run.id}:${position}`;
+          if (position < run.answeredCount) {
+            const prior = await tx.practiceCardAttempt.findUnique({
+              where: {
+                userId_requestId: { userId: payload.userId, requestId },
+              },
+            });
+            requireValue(
+              prior &&
+                prior.questionId === question.id &&
+                prior.answer === body.answer &&
+                prior.mode === 'challenge' &&
+                prior.classId === run.classId,
+              '题目已提交或答案冲突',
+              409,
+            );
+            return { correct: prior.correct, xp: prior.xp };
+          }
+          requireValue(
+            !run.finishedAt && now < run.deadline,
+            '时间到，请查看成绩',
+            409,
+          );
           const attempt = await recordAnswer(tx, {
             payload,
             classId: run.classId,
             question,
             answer: body.answer,
             mode: 'challenge',
-            requestId: `${run.id}:${run.answeredCount}`,
+            requestId,
             now,
           });
           await tx.practiceChallenge.update({
