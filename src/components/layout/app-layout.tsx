@@ -79,6 +79,7 @@ const sharedLearningItems = [
   { href: '/lesson-notes', label: '讲解笔记', icon: NotebookPen },
   { href: '/simulation', label: '实验仿真', icon: Cpu },
   { href: '/quiz', label: '在线测评', icon: ClipboardCheck },
+  { href: '/subjective', label: '大题特训', icon: FileText },
 ];
 
 const studentPersonalLearningItems = [

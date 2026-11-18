@@ -45,6 +45,7 @@ model User {
   ilabStepEvents     IlabStepEvent[]
   ilabUploadLogs     IlabUploadLog[]
   simulationSessions SimulationSession[]
+  subjectiveAttempts SubjectiveAttempt[]
   learningEvents     LearningEvent[]
   pointsTransactions UserPointsTransaction[]
   siteFeedback       SiteFeedback[]
@@ -601,4 +602,17 @@ model SimulationSession {
 
   @@unique([userId, experimentId])
   @@index([lastSeenAt])
+}
+
+model SubjectiveAttempt {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId Int
+  verdict    String   // 'got'（自评会做）| 'review'（自评不熟，待巩固）
+  draft      String?  // 学生作答草稿，供日后教师批阅
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, questionId])
 }
