@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import { SubjectiveClient } from './subjective-client';
 
 export default function SubjectivePage() {
-  return <SubjectiveClient />;
+  return (
+    <Suspense>
+      <SubjectiveClient />
+    </Suspense>
+  );
 }

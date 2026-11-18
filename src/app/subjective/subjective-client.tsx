@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { PublicSubjectiveQuestion } from '@/lib/subjective-data';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,7 +59,8 @@ export function SubjectiveClient() {
   const [questions, setQuestions] = useState<PublicSubjectiveQuestion[]>([]);
   const [progress, setProgress] = useState<ProgressMap>({});
   const [selectedId, setSelectedId] = useState(1);
-  const [chapterFilter, setChapterFilter] = useState<number | 'all' | 'review'>('all');
+  const initialFilter = useSearchParams()?.get('filter');
+  const [chapterFilter, setChapterFilter] = useState<number | 'all' | 'review'>(initialFilter === 'review' ? 'review' : 'all');
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [revealed, setRevealed] = useState<Record<number, Revealed>>({});
   const [loading, setLoading] = useState(true);

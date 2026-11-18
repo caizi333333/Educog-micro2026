@@ -221,6 +221,7 @@ export default function WeakNodesPage(): React.JSX.Element {
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [reviewedWeakAreas, setReviewedWeakAreas] = useState<Set<string>>(() => new Set());
   const [confirmedNoWeakNodes, setConfirmedNoWeakNodes] = useState(false);
+  const [subjectiveReviewCount, setSubjectiveReviewCount] = useState(0);
   const [reviewStateHydrated, setReviewStateHydrated] = useState(false);
   const completionRequestRef = useRef(false);
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>(staticKnowledgePoints);
@@ -524,6 +525,30 @@ export default function WeakNodesPage(): React.JSX.Element {
       confirmedNoWeakNodes,
     }));
   }, [confirmedNoWeakNodes, remediationReviewStorageKey, reviewStateHydrated, reviewedWeakAreas]);
+
+  // 大题特训"还不熟"计数：弱项页给一条回到主观题待巩固队列的帮扶入口。
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+    const token = getStoredAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/subjective/progress', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (!response.ok || cancelled) return;
+        const body = (await response.json().catch(() => null)) as { data?: Record<string, { verdict?: string }> } | null;
+        if (cancelled || !body?.data) return;
+        const count = Object.values(body.data).filter((entry) => entry?.verdict === 'review').length;
+        setSubjectiveReviewCount(count);
+      } catch {
+        // 静默失败：主观题计数是辅助入口，不阻断弱项诊断
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const toggleReviewedWeakArea = (weakArea: string): void => {
     setReviewedWeakAreas((previous) => {
@@ -944,6 +969,20 @@ export default function WeakNodesPage(): React.JSX.Element {
             )}
           </>
         ) : null}
+
+        {subjectiveReviewCount > 0 && (
+          <Link
+            href="/subjective?filter=review"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3 transition-colors hover:bg-amber-300/[0.13]"
+          >
+            <span className="text-sm text-amber-100">
+              大题特训还有 <b>{subjectiveReviewCount}</b> 题标了「还不熟」
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs text-amber-200">
+              进待巩固队列 <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+          </Link>
+        )}
 
         {!loading && snapshot && isTaskRemediation && (
           <section

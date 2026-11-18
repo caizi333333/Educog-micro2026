@@ -102,6 +102,7 @@ const adminItems = [
   { href: '/teacher', label: '教学仪表板', icon: LayoutDashboard },
   { href: '/teacher/daily', label: '今日动态', icon: Clock },
   { href: '/teacher/class-activity', label: '班级学情', icon: Activity },
+  { href: '/teacher/subjective', label: '大题薄弱', icon: ClipboardCheck },
   { href: '/teacher/feedback', label: '学生反馈', icon: MessageSquare },
   { href: '/obe/teacher', label: '达成度看板', icon: GraduationCap },
   { href: '/obe/teacher/objectives', label: '课程目标配置', icon: ListChecks },
