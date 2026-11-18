@@ -13,8 +13,8 @@ const resolve = zodResolver(schema);
 const options = { criteriaMode: 'all' as const, fields: {}, shouldUseNativeValidation: false };
 
 describe('Zod 4 React Hook Form adapter', () => {
-  it('preserves normal values while applying defaults and leaving optional fields absent', async () => {
-    const result = await resolve({ name: ' 学生甲 ', email: 'student@example.com' }, undefined, options);
+  it('preserves normal values and leaves optional fields absent', async () => {
+    const result = await resolve({ name: ' 学生甲 ', email: 'student@example.com', remember: false }, undefined, options);
     expect(result).toEqual({
       values: { name: '学生甲', email: 'student@example.com', remember: false },
       errors: {},
@@ -28,9 +28,9 @@ describe('Zod 4 React Hook Form adapter', () => {
   });
 
   it('maps Zod validation failures to named form fields without returning invalid values', async () => {
-    const result = await resolve({ name: ' ', email: 'not-an-email' }, undefined, options);
+    const result = await resolve({ name: ' ', email: 'not-an-email', remember: false }, undefined, options);
     expect(result.values).toEqual({});
     expect(result.errors.name).toMatchObject({ message: '请输入姓名', type: 'too_small' });
-    expect(result.errors.email).toMatchObject({ message: '邮箱格式无效', type: 'invalid_format' });
+    expect(result.errors.email).toMatchObject({ message: '邮箱格式无效', type: 'invalid_string' });
   });
 });

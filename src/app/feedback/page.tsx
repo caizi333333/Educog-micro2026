@@ -64,7 +64,7 @@ export default function FeedbackPage(): JSX.Element {
           category,
           body: trimmed,
           anonymous,
-          pagePath: resolveFeedbackPagePath(searchParams.get('from'), window.location.pathname),
+          pagePath: resolveFeedbackPagePath(searchParams?.get('from'), window.location.pathname),
         }),
       }, CLIENT_WRITE_TIMEOUT_MS);
       const payload = await response.json() as FeedbackResponse;
