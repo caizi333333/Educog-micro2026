@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { PublicSubjectiveQuestion } from '@/lib/subjective-data';
 import { Button } from '@/components/ui/button';
 import {
+  BookOpen,
   BookOpenCheck,
   CheckCircle2,
   ChevronLeft,
@@ -169,6 +170,9 @@ export function SubjectiveClient() {
       }
       const entry: ProgressEntry = { verdict, attempts: (progress[String(question.id)]?.attempts ?? 0) + 1, updatedAt: new Date().toISOString() };
       setProgress((prev) => ({ ...prev, [String(question.id)]: entry }));
+      if (verdict === 'review') {
+        toast({ title: '已记入"待巩固"', description: `回到本题时点"回第${question.chapter}章讲义"可复习对应内容。` });
+      }
       const next = filteredQuestions.find((q) => q.id !== question.id && statusOf({ ...progress, [String(question.id)]: entry }, q.id) !== 'got');
       if (next) pick(next.id);
     } catch (err) {
@@ -266,6 +270,12 @@ export function SubjectiveClient() {
                   <span className={cn('rounded-full border px-2.5 py-0.5 text-xs', typeTint(question.type))}>{question.type}</span>
                   <span className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-0.5 text-xs text-slate-300">{question.points} 分</span>
                   <span className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-0.5 text-xs text-slate-400">第{question.chapter}章 · {question.section} · {question.level}</span>
+                  <Link
+                    href={`/lesson-notes?unit=${question.chapter}`}
+                    className="inline-flex min-h-6 items-center rounded-full border border-cyan-300/25 bg-cyan-300/[0.06] px-2.5 py-0.5 text-xs text-cyan-200 transition-colors hover:bg-cyan-300/[0.14]"
+                  >
+                    <BookOpen className="mr-1 h-3 w-3" aria-hidden /> 回第{question.chapter}章讲义
+                  </Link>
                 </div>
                 <span className="text-xs text-slate-500">{question.origId}{position >= 0 ? ` · ${position + 1} / ${filteredQuestions.length}` : ''}</span>
               </div>

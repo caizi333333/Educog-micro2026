@@ -16,7 +16,6 @@ const envSchema = z.object({
   PEPPER: z.string().min(16, 'PEPPER must be at least 16 characters long').optional(),
   
   // AI 服务配置
-  GOOGLE_GENAI_API_KEY: z.string().optional(),
   ZHIPU_API_KEY: z.string().optional(),
   ZHIPU_MODEL: z.string().optional(),
   
@@ -107,11 +106,6 @@ export function getJwtRefreshSecret(): string {
 export function getDatabaseUrl(): string {
   const env = validateEnv();
   return env.DATABASE_URL;
-}
-
-export function getGoogleAiKey(): string | undefined {
-  const env = validateEnv();
-  return env.GOOGLE_GENAI_API_KEY;
 }
 
 export function getPepper(): string {

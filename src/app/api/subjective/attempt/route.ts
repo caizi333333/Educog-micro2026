@@ -29,7 +29,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '自评参数格式无效' }, { status: 400 });
   }
   const { questionId, verdict, draft } = parsed.data;
-  if (!getSubjectiveQuestion(questionId)) {
+  const question = getSubjectiveQuestion(questionId);
+  if (!question) {
     return NextResponse.json({ error: '题目不存在' }, { status: 404 });
   }
 
@@ -42,6 +43,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     },
     select: { id: true, questionId: true, verdict: true, createdAt: true },
   });
+
+  // 记入统一学习事件流：教师端每日脉搏/课堂活跃度据此统计大题练习，
+  // 也是后续弱项帮扶的数据源。统计写失败不影响自评本身的落盘。
+  await prisma.learningEvent.create({
+    data: {
+      userId: payload.userId,
+      eventType: 'SUBJECTIVE_SELF_ASSESS',
+      targetType: 'subjective_question',
+      targetId: `qs${questionId}`,
+      chapterId: String(question.chapter),
+      metadata: JSON.stringify({ verdict, type: question.type, points: question.points }),
+    },
+  }).catch(() => undefined);
 
   return NextResponse.json({
     success: true,
