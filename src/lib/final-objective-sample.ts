@@ -4,12 +4,12 @@
  * 和综合测评（`comprehensive-objective-v2`，第 1–10 章各 2 题、共 20 题）分开。
  * 学生从 `/quiz?topic=final-objective` 进入。章练习仍按 `?chapter=` 返回该章全部题目。
  *
- * 卷面在 2024 秋 A 卷客观部分之上，增加简答、写指令和综合应用里可机判的同考点变体。
+ * 卷面在 2024 秋 A 卷客观部分之上，增加简答、写指令、综合切片，以及 CD4051 读图变体。
  * 判断仍是两选项单选，顺序固定为「正确」「错误」，界面字母因此是 A 正确、B 错误。
- * 不含手写简答、整段编程和作图。芯片口径按 80C51 写新题干。变体只改数字、寄存器、
- * 地址和场景，不复用原卷题干。
+ * 不含手写简答、整段编程和学生交图。芯片口径按 80C51 写新题干。变体只改数字、寄存器、
+ * 地址、口线和场景，不复用原卷题干或原卷附图。
  *
- * 发布种子 `final-objective-v2`。v1 是 30 题；v2 把卷长调到 38，并换了种子，
+ * 发布种子 `final-objective-v3`。v1=30，v2=38；v3 再加 CD4051 读图座位到 40，并换种子，
  * 所以不带座位标签的单选也可能换题。同一 Node 主版本、同一题库、同一种子得到同一 id 集合。
  * 每个座位用 `FNV-1a(seed + "\\0" + seatId)` 起一个 mulberry32，座位之间不共用随机流；
  * 已抽中的题号和题干族仍全卷共享，所以某一座位的候选变了，可能让后面的座位改抽另一题。
@@ -40,7 +40,7 @@ import {
 
 export const FINAL_OBJECTIVE_TOPIC_ID = 'final-objective';
 export const FINAL_OBJECTIVE_QUIZ_ID = 'quiz-final-objective';
-export const FINAL_OBJECTIVE_SAMPLE_SEED = 'final-objective-v2';
+export const FINAL_OBJECTIVE_SAMPLE_SEED = 'final-objective-v3';
 
 /** 与 `isFinalObjectiveVariantExplanation` 识别的前缀一致。 */
 export const FINAL_OBJECTIVE_VARIANT_MARK = '[source: 期末客观模拟变体';
@@ -77,10 +77,10 @@ export type FinalObjectiveSeat = {
 };
 
 /**
- * 客观座位。单项选择在前，判断在后。配额每座 1，合计 38。
+ * 客观座位。单项选择在前，判断在后。配额每座 1，合计 40。
  * v2 撤下与单选重复的三条判断：judge-reset-psw、judge-ram-zones、judge-led-polarity。
  * 这三题仍留在题库里，但不再组卷。复位、内部 RAM 分区和数码管极性仍由对应单选座位考查。
- * 腾出的名额加上新增名额，用来放简答、写指令和综合切片的标签座位。
+ * v3 在 v2 基础上追加 CD4051 读图座位（原卷作图意图的客观化），不删已有硬考点。
  */
 export const FINAL_OBJECTIVE_BLUEPRINT: readonly FinalObjectiveSeat[] = [
   {
@@ -268,6 +268,20 @@ export const FINAL_OBJECTIVE_BLUEPRINT: readonly FinalObjectiveSeat[] = [
     id: 'choice-ca3-step',
     section: 'single-choice',
     title: '步进通电控制码',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-fig-cd4051-channel',
+    section: 'single-choice',
+    title: 'CD4051 读图选通道',
+    quota: 1,
+    tagOnly: true,
+  },
+  {
+    id: 'choice-fig-cd4051-control',
+    section: 'single-choice',
+    title: 'CD4051 读图控制端',
     quota: 1,
     tagOnly: true,
   },
